@@ -24,7 +24,7 @@
     "morgan": "^1.10.1"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && tsc-alias",
     "start": "node dist/index.js",
     "start:dev": "NODE_ENV=development ts-node-dev -r tsconfig-paths/register --respawn --transpile-only src/index.ts",
     "start:prod": "NODE_ENV=production node dist/index.js",
@@ -49,6 +49,7 @@
     "prettier": "^3.6.2",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
+    "tsc-alias": "^1.8.16",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.5.3"
   }

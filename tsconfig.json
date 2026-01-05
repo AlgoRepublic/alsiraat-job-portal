@@ -32,7 +32,8 @@
       "@/controllers/*": ["src/controllers/*"],
       "@/routes/*": ["src/routes/*"],
       "@/middlewares/*": ["src/middlewares/*"],
-      "@/utils/*": ["src/utils/*"]
+      "@/utils/*": ["src/utils/*"],
+      "@/seed/*": ["src/seed/*"]
     }
   },
   "include": ["src/**/*"],
