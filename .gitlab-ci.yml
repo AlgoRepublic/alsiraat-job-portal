@@ -1,0 +1,26 @@
+stages:
+  - build
+
+variables:
+  NODE_VERSION: "22.18.0"
+
+cache:
+  key:
+    files:
+      - package-lock.json
+  paths:
+    - node_modules/
+    - .npm/
+
+build:
+  stage: build
+  image: node:${NODE_VERSION}
+  script:
+    - echo "Installing dependencies..."
+    - npm install
+    - echo "Building project..."
+    - npm run build
+    - echo "Build completed successfully"
+  only:
+    - master
+
