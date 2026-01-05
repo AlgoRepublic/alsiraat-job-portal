@@ -27,8 +27,6 @@ build:
 deploy:production:
   stage: deploy
   image: node:${NODE_VERSION}
-  environment:
-    name: production
   before_script:
     - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
     - eval $(ssh-agent -s)
