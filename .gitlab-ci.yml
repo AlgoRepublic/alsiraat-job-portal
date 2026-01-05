@@ -1,5 +1,6 @@
 stages:
   - build
+  - deploy
 
 variables:
   NODE_VERSION: "22.18.0"
@@ -23,3 +24,29 @@ build:
   only:
     - master
 
+deploy:production:
+  stage: deploy
+  image: node:${NODE_VERSION}
+  environment:
+    name: production
+  before_script:
+    - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | base64 -d | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan -p $PRODUCTION_SERVER_PORT -H $PRODUCTION_SERVER_HOST >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  script:
+    - echo "Deploying to production server..."
+    - |
+      ssh -p $PRODUCTION_SERVER_PORT $PRODUCTION_SERVER_USER@$PRODUCTION_SERVER_HOST << 'EOF'
+        cd $PRODUCTION_DEPLOY_PATH
+        git pull
+        npm install
+        npm run build
+        pm2 restart 
+      EOF
+    - echo "Production deployment completed"
+  only:
+    - master
