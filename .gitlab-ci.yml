@@ -28,17 +28,25 @@ deploy:production:
   stage: deploy
   image: node:${NODE_VERSION}
   before_script:
+    - |
+      if [ -z "$SSH_PRIVATE_KEY" ] || [ -z "$PRODUCTION_SERVER_HOST" ] || [ -z "$PRODUCTION_SERVER_USER" ] || [ -z "$PRODUCTION_DEPLOY_PATH" ]; then
+        echo "Error: Required CI/CD variables are not set"
+        echo "Please set: SSH_PRIVATE_KEY, PRODUCTION_SERVER_HOST, PRODUCTION_SERVER_USER, PRODUCTION_DEPLOY_PATH"
+        exit 1
+      fi
     - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
     - eval $(ssh-agent -s)
     - echo "$SSH_PRIVATE_KEY" | base64 -d | tr -d '\r' | ssh-add -
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
-    - ssh-keyscan -p $PRODUCTION_SERVER_PORT -H $PRODUCTION_SERVER_HOST >> ~/.ssh/known_hosts
+    - echo "Scanning host key for $PRODUCTION_SERVER_HOST:${PRODUCTION_SERVER_PORT}"
+    - ssh-keyscan -p ${PRODUCTION_SERVER_PORT} -H $PRODUCTION_SERVER_HOST >> ~/.ssh/known_hosts || true
     - chmod 644 ~/.ssh/known_hosts
   script:
     - echo "Deploying to production server..."
+    - echo "Connecting to $PRODUCTION_SERVER_USER@$PRODUCTION_SERVER_HOST:$PRODUCTION_SERVER_PORT"
     - |
-      ssh -p $PRODUCTION_SERVER_PORT $PRODUCTION_SERVER_USER@$PRODUCTION_SERVER_HOST << 'EOF'
+      ssh -p ${PRODUCTION_SERVER_PORT} -o StrictHostKeyChecking=no $PRODUCTION_SERVER_USER@$PRODUCTION_SERVER_HOST << 'EOF'
         cd $PRODUCTION_DEPLOY_PATH
         git pull
         npm install
