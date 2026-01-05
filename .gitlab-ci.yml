@@ -46,12 +46,10 @@ deploy:production:
     - echo "Deploying to production server..."
     - echo "Connecting to $PRODUCTION_SERVER_USER@$PRODUCTION_SERVER_HOST:$PRODUCTION_SERVER_PORT"
     - |
-      ssh -p ${PRODUCTION_SERVER_PORT} -o StrictHostKeyChecking=no $PRODUCTION_SERVER_USER@$PRODUCTION_SERVER_HOST << 'EOF'
+      ssh -p ${PRODUCTION_SERVER_PORT} -o StrictHostKeyChecking=no $PRODUCTION_SERVER_USER@$PRODUCTION_SERVER_HOST << EOF
         cd $PRODUCTION_DEPLOY_PATH
-        git pull
-        npm install
-        npm run build
-        pm2 restart 
+        chmod +x deploy.sh
+        ./deploy.sh
       EOF
     - echo "Production deployment completed"
   only:
