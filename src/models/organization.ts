@@ -14,7 +14,6 @@ const organizationSchema = new Schema<IOrganization>(
     code: {
       type: String,
       required: true,
-      unique: true,
       trim: true,
     },
     logo: {
