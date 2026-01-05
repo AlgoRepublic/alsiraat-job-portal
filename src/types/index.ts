@@ -1,2 +1,2 @@
-export * from './common'
-export * from './models'
+export * from '@/types/common'
+export * from '@/types/models'

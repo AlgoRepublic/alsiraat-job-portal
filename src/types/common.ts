@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express'
-import { IUser, IProfile } from './models'
+import { IUser, IProfile } from '@/types/models'
 
 export interface ApiResponse<T = any> {
   success: boolean

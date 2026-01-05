@@ -1,4 +1,4 @@
-import { logError } from './log'
+import { logError } from '@/utils/log'
 import { accessSync } from 'fs'
 import { config } from 'dotenv'
 

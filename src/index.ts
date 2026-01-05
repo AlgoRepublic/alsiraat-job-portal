@@ -1,5 +1,5 @@
-import './utils/keys'
-import './utils/dotenv'
+import '@/utils/keys'
+import '@/utils/dotenv'
 import path from 'path'
 import mongoose from 'mongoose'
 import express, { Express } from 'express'
@@ -7,9 +7,9 @@ import morgan from 'morgan'
 import cors from 'cors'
 import compression from 'compression'
 import fileUpload from 'express-fileupload'
-import apiV1Routes from './routes/api/v1'
-import { logInfo } from './utils/log'
-import { mongooseConnection } from './config/db'
+import apiV1Routes from '@/routes/api/v1'
+import { logInfo } from '@/utils/log'
+import { mongooseConnection } from '@/config/db'
 
 global.__basedir = __dirname
 

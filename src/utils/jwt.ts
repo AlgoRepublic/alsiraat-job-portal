@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken'
-import { logError } from './log'
+import { logError } from '@/utils/log'
 
 export interface JwtPayload {
   _id: string

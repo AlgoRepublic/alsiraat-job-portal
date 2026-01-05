@@ -1,7 +1,7 @@
 import mongoose, { Schema, Model } from 'mongoose'
-import { softDeletePlugin } from './plugins/softdelete'
-import { jwtPlugin } from './plugins/jwt'
-import { publicFieldsPlugin } from './plugins/serializer'
+import { softDeletePlugin } from '@/models/plugins/softdelete'
+import { jwtPlugin } from '@/models/plugins/jwt'
+import { publicFieldsPlugin } from '@/models/plugins/serializer'
 import { IUser } from '@/types/models'
 
 const userSchema = new Schema<IUser>(

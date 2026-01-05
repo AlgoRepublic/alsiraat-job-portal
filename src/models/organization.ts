@@ -1,7 +1,7 @@
 import mongoose, { Schema, Model } from 'mongoose'
-import { softDeletePlugin } from './plugins/softdelete'
-import { publicFieldsPlugin } from './plugins/serializer'
-import { createdByPlugin } from './plugins/createdby'
+import { softDeletePlugin } from '@/models/plugins/softdelete'
+import { publicFieldsPlugin } from '@/models/plugins/serializer'
+import { createdByPlugin } from '@/models/plugins/createdby'
 import { IOrganization } from '@/types/models'
 
 const organizationSchema = new Schema<IOrganization>(

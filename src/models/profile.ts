@@ -1,6 +1,6 @@
 import mongoose, { Schema, Model } from 'mongoose'
-import { softDeletePlugin } from './plugins/softdelete'
-import { publicFieldsPlugin } from './plugins/serializer'
+import { softDeletePlugin } from '@/models/plugins/softdelete'
+import { publicFieldsPlugin } from '@/models/plugins/serializer'
 import { IProfile } from '@/types/models'
 
 const profileSchema = new Schema<IProfile>(

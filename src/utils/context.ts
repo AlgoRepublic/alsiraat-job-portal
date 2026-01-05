@@ -1,6 +1,6 @@
 import { merge } from 'lodash'
-import { logInfo } from './log'
-import { tryLoginByToken } from './auth'
+import { logInfo } from '@/utils/log'
+import { tryLoginByToken } from '@/utils/auth'
 import { RequestContext, ExpressRequest } from '@/types/common'
 
 async function sanitizeCtx(obj: any): Promise<any> {

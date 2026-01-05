@@ -2,12 +2,12 @@ import '@/utils/keys'
 import '@/utils/dotenv'
 import { mongooseConnection } from '@/config/db'
 import { logInfo, logError } from '@/utils/log'
-import { seedPermissions } from './permissions'
-import { seedOrganizations } from './organizations'
-import { seedUsers } from './users'
-import { seedRoles } from './roles'
-import { seedProfiles } from './profiles'
-import { seedTaskCategories } from './taskcategories'
+import { seedPermissions } from '@/seed/permissions'
+import { seedOrganizations } from '@/seed/organizations'
+import { seedUsers } from '@/seed/users'
+import { seedRoles } from '@/seed/roles'
+import { seedProfiles } from '@/seed/profiles'
+import { seedTaskCategories } from '@/seed/taskcategories'
 
 const runSeed = async (): Promise<void> => {
   try {

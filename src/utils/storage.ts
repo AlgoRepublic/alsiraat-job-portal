@@ -3,8 +3,8 @@ import { promises as fs } from 'fs'
 import path from 'path'
 import mime from 'mime-types'
 import { Types } from 'mongoose'
-import { CustomError } from './error'
-import { joiValidate, joiError } from './joi'
+import { CustomError } from '@/utils/error'
+import { joiValidate, joiError } from '@/utils/joi'
 import { FileUpload } from '@/types/common'
 
 export const saveFile = async (
