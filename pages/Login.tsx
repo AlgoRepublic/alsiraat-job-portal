@@ -1,61 +1,69 @@
-
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Mail, Lock } from 'lucide-react';
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { Mail, Lock, Briefcase } from "lucide-react";
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    navigate('/');
+    navigate("/");
   };
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black flex flex-col items-center justify-center p-4 transition-colors">
       <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl shadow-zinc-200 dark:shadow-zinc-900/50 p-8 md:p-10 border border-zinc-100 dark:border-zinc-800 animate-slide-up">
         <div className="text-center mb-10">
-          <div className="w-16 h-16 bg-zinc-900 dark:bg-zinc-100 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl">
-            <span className="text-white dark:text-zinc-900 font-bold text-3xl">H</span>
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
+            <Briefcase className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-white mb-2">Welcome Back</h1>
-          <p className="text-zinc-500 dark:text-zinc-400 text-sm">Sign in to your Hayati JobConnect account</p>
+          <h1 className="text-2xl font-bold text-zinc-900 dark:text-white mb-2">
+            Job Portal
+          </h1>
+          <p className="text-zinc-500 dark:text-zinc-400 text-sm">
+            Connect talent with opportunities
+          </p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-6">
           <div className="space-y-4">
             <div className="relative">
               <Mail className="absolute left-4 top-3.5 w-5 h-5 text-zinc-400" />
-              <input 
-                type="email" 
+              <input
+                type="email"
                 placeholder="Email address"
-                className="w-full pl-12 pr-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-500 outline-none text-sm dark:text-white transition-all"
+                className="w-full pl-12 pr-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:ring-2 focus:ring-blue-500 dark:focus:ring-zinc-500 outline-none text-sm dark:text-white transition-all"
               />
             </div>
             <div className="relative">
               <Lock className="absolute left-4 top-3.5 w-5 h-5 text-zinc-400" />
-              <input 
-                type="password" 
+              <input
+                type="password"
                 placeholder="Password"
-                className="w-full pl-12 pr-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-500 outline-none text-sm dark:text-white transition-all"
+                className="w-full pl-12 pr-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:ring-2 focus:ring-blue-500 dark:focus:ring-zinc-500 outline-none text-sm dark:text-white transition-all"
               />
             </div>
           </div>
-          
+
           <div className="flex items-center justify-between text-xs">
             <label className="flex items-center space-x-2 cursor-pointer">
-              <input type="checkbox" className="rounded border-zinc-300 text-zinc-900 dark:text-zinc-100 focus:ring-zinc-900" />
-              <span className="text-zinc-600 dark:text-zinc-400">Remember me</span>
+              {/* <input type="checkbox" className="rounded border-zinc-300 text-zinc-900 dark:text-zinc-100 focus:ring-zinc-900" />
+              <span className="text-zinc-600 dark:text-zinc-400">Remember me</span> */}
             </label>
-            <a href="#" className="font-semibold text-zinc-900 dark:text-zinc-100 hover:underline">Forgot password?</a>
+            <a
+              href="/login"
+              className="font-semibold text-zinc-900 dark:text-zinc-100 hover:underline"
+            >
+              Forgot password?
+            </a>
           </div>
 
-          <button className="w-full py-3.5 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl font-bold hover:bg-zinc-800 dark:hover:bg-zinc-200 shadow-lg shadow-zinc-200 dark:shadow-none transition-all hover:-translate-y-0.5">
+          <button className="w-full py-3.5 bg-blue-600 text-white dark:bg-zinc-100  dark:text-zinc-900  rounded-xl font-bold hover:bg-blue-700 transition-colors disabled:opacity-50 dark:hover:bg-zinc-200 shadow-lg shadow-zinc-200 dark:shadow-none transition-all hover:-translate-y-0.5">
             Sign In
           </button>
         </form>
 
-        <div className="my-8 flex items-center">
+        {/* <div className="my-8 flex items-center">
           <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-800"></div>
           <span className="px-4 text-xs text-zinc-400 font-medium uppercase tracking-wide">Or continue with</span>
           <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-800"></div>
@@ -70,12 +78,18 @@ export const Login: React.FC = () => {
             <svg className="w-5 h-5 mr-2 text-zinc-900 dark:text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path d="M10.5 2H2.5C1.7 2 1 2.7 1 3.5v17c0 .8.7 1.5 1.5 1.5h19c.8 0 1.5-.7 1.5-1.5V11h-1.5v9.5H2.5v-17H12V2H10.5zM14 2v2h4.5l-9.1 9.1 1.4 1.4 9.1-9.1V10h2V2h-8z"/></svg>
             <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">SSO</span>
           </button>
-        </div>
+        </div> */}
 
         <div className="mt-8 text-center">
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Don't have an account? <a href="#" className="font-bold text-zinc-900 dark:text-zinc-100 hover:underline">Register</a>
-            </p>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            Don't have an account?{" "}
+            <a
+              href="/sign-up"
+              className="font-bold text-zinc-900 dark:text-zinc-100 hover:underline"
+            >
+              Sign Up
+            </a>
+          </p>
         </div>
       </div>
     </div>
