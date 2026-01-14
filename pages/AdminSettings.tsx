@@ -6,42 +6,41 @@ import { JobCategory, UserRole } from '../types';
 export const AdminSettings: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'roles' | 'permissions' | 'categories'>('roles');
 
-    // Mock Data for UI
     const roles = Object.values(UserRole).map(r => ({ name: r, status: 'Active' }));
     const categories = Object.values(JobCategory).map(c => ({ name: c, status: 'Active' }));
     const permissions = [
-        { name: 'User Management', desc: 'Create, edit, delete users' },
-        { name: 'Job Posting', desc: 'Create and edit job posts' },
-        { name: 'Approve Jobs', desc: 'Review and approve pending jobs' },
-        { name: 'View Reports', desc: 'Access system analytics' },
+        { name: 'User Management', desc: 'Create, edit, delete system users' },
+        { name: 'Task Deployment', desc: 'Initialize and deploy new task designations' },
+        { name: 'Review Orchestration', desc: 'Review and approve pending task deployments' },
+        { name: 'System Insights', desc: 'Access platform resolution analytics' },
     ];
 
     const renderRoles = () => (
-        <div className="space-y-4 animate-fade-in">
+        <div className="space-y-6 animate-fade-in">
              <div className="flex justify-between items-center mb-6">
-                 <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Role Management</h2>
-                 <button className="flex items-center px-4 py-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-lg text-sm font-semibold">
+                 <h2 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter">Role Architecture</h2>
+                 <button className="flex items-center px-6 py-2.5 bg-red-900 dark:bg-red-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-800 transition-all shadow-lg shadow-red-900/10">
                      <Plus className="w-4 h-4 mr-2" /> New Role
                  </button>
              </div>
-             <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+             <div className="glass-card rounded-[2rem] overflow-hidden border-white/10">
                  <table className="w-full">
-                     <thead className="bg-zinc-50 dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700">
+                     <thead className="bg-white/50 dark:bg-zinc-800/50 border-b border-white/20 dark:border-white/5">
                          <tr>
-                             <th className="px-6 py-3 text-left text-xs font-bold text-zinc-500 uppercase">Role Name</th>
-                             <th className="px-6 py-3 text-left text-xs font-bold text-zinc-500 uppercase">Status</th>
-                             <th className="px-6 py-3 text-right text-xs font-bold text-zinc-500 uppercase">Action</th>
+                             <th className="px-8 py-4 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Designation</th>
+                             <th className="px-8 py-4 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Status</th>
+                             <th className="px-8 py-4 text-right text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Config</th>
                          </tr>
                      </thead>
-                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                     <tbody className="divide-y divide-white/20 dark:divide-white/5">
                          {roles.map((role, i) => (
-                             <tr key={i} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                                 <td className="px-6 py-4 font-medium text-zinc-900 dark:text-white">{role.name}</td>
-                                 <td className="px-6 py-4">
-                                     <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-bold rounded-full">{role.status}</span>
+                             <tr key={i} className="hover:bg-white/30 dark:hover:bg-white/5 transition-all">
+                                 <td className="px-8 py-6 font-black text-zinc-900 dark:text-white">{role.name}</td>
+                                 <td className="px-8 py-6">
+                                     <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-[9px] font-black rounded-full uppercase tracking-widest">{role.status}</span>
                                  </td>
-                                 <td className="px-6 py-4 text-right">
-                                     <button className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white"><Edit2 className="w-4 h-4" /></button>
+                                 <td className="px-8 py-6 text-right">
+                                     <button className="text-zinc-400 hover:text-red-900 dark:hover:text-red-400 transition-colors"><Edit2 className="w-4 h-4" /></button>
                                  </td>
                              </tr>
                          ))}
@@ -52,21 +51,21 @@ export const AdminSettings: React.FC = () => {
     );
 
     const renderPermissions = () => (
-        <div className="space-y-4 animate-fade-in">
+        <div className="space-y-6 animate-fade-in">
              <div className="flex justify-between items-center mb-6">
-                 <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Permission Management</h2>
-                 <button className="flex items-center px-4 py-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-lg text-sm font-semibold">
+                 <h2 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter">System Permissions</h2>
+                 <button className="flex items-center px-6 py-2.5 bg-red-900 dark:bg-red-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-800 transition-all shadow-lg shadow-red-900/10">
                      <Plus className="w-4 h-4 mr-2" /> New Permission
                  </button>
              </div>
-             <div className="grid gap-4">
+             <div className="grid gap-6">
                  {permissions.map((perm, i) => (
-                     <div key={i} className="bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 flex justify-between items-center">
+                     <div key={i} className="glass-card p-6 rounded-2xl border-white/10 flex justify-between items-center group hover:-translate-y-1 transition-all">
                          <div>
-                             <h4 className="font-bold text-zinc-900 dark:text-white">{perm.name}</h4>
-                             <p className="text-sm text-zinc-500 dark:text-zinc-400">{perm.desc}</p>
+                             <h4 className="font-black text-zinc-900 dark:text-white tracking-tight">{perm.name}</h4>
+                             <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{perm.desc}</p>
                          </div>
-                         <button className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white"><Edit2 className="w-4 h-4" /></button>
+                         <button className="p-3 bg-white/50 dark:bg-zinc-800/50 rounded-xl text-zinc-400 hover:text-red-900 dark:hover:text-red-400 transition-colors group-hover:scale-110"><Edit2 className="w-4 h-4" /></button>
                      </div>
                  ))}
              </div>
@@ -74,29 +73,29 @@ export const AdminSettings: React.FC = () => {
     );
 
     const renderCategories = () => (
-        <div className="space-y-4 animate-fade-in">
+        <div className="space-y-6 animate-fade-in">
              <div className="flex justify-between items-center mb-6">
-                 <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Category Management</h2>
-                 <button className="flex items-center px-4 py-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-lg text-sm font-semibold">
-                     <Plus className="w-4 h-4 mr-2" /> New Category
+                 <h2 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter">Domain Orchestration</h2>
+                 <button className="flex items-center px-6 py-2.5 bg-red-900 dark:bg-red-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-800 transition-all shadow-lg shadow-red-900/10">
+                     <Plus className="w-4 h-4 mr-2" /> New Domain
                  </button>
              </div>
-             <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+             <div className="glass-card rounded-[2rem] overflow-hidden border-white/10">
                  <table className="w-full">
-                     <thead className="bg-zinc-50 dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700">
+                     <thead className="bg-white/50 dark:bg-zinc-800/50 border-b border-white/20 dark:border-white/5">
                          <tr>
-                             <th className="px-6 py-3 text-left text-xs font-bold text-zinc-500 uppercase">Category Name</th>
-                             <th className="px-6 py-3 text-left text-xs font-bold text-zinc-500 uppercase">Visibility</th>
-                             <th className="px-6 py-3 text-right text-xs font-bold text-zinc-500 uppercase">Action</th>
+                             <th className="px-8 py-4 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Domain Name</th>
+                             <th className="px-8 py-4 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Scope</th>
+                             <th className="px-8 py-4 text-right text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Config</th>
                          </tr>
                      </thead>
-                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                     <tbody className="divide-y divide-white/20 dark:divide-white/5">
                          {categories.map((cat, i) => (
-                             <tr key={i} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                                 <td className="px-6 py-4 font-medium text-zinc-900 dark:text-white">{cat.name}</td>
-                                 <td className="px-6 py-4 text-xs text-zinc-500">Internal</td>
-                                 <td className="px-6 py-4 text-right">
-                                     <button className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white"><Edit2 className="w-4 h-4" /></button>
+                             <tr key={i} className="hover:bg-white/30 dark:hover:bg-white/5 transition-all">
+                                 <td className="px-8 py-6 font-black text-zinc-900 dark:text-white">{cat.name}</td>
+                                 <td className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-zinc-500">Internal</td>
+                                 <td className="px-8 py-6 text-right">
+                                     <button className="text-zinc-400 hover:text-red-900 dark:hover:text-red-400 transition-colors"><Edit2 className="w-4 h-4" /></button>
                                  </td>
                              </tr>
                          ))}
@@ -107,33 +106,31 @@ export const AdminSettings: React.FC = () => {
     );
 
     return (
-        <div className="max-w-5xl mx-auto">
-            <h1 className="text-3xl font-bold text-zinc-900 dark:text-white mb-8">Administration</h1>
+        <div className="max-w-6xl mx-auto space-y-10 animate-fade-in pb-20">
+            <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tighter">System Administration</h1>
             
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-                {/* Sidebar Nav */}
-                <div className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
+                <div className="space-y-3">
                     <button 
                         onClick={() => setActiveTab('roles')}
-                        className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-medium transition-all ${activeTab === 'roles' ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-md' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                        className={`w-full flex items-center px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'roles' ? 'bg-red-900 dark:bg-red-700 text-white shadow-xl shadow-red-900/20' : 'text-zinc-500 hover:bg-white/50 dark:hover:bg-zinc-800'}`}
                     >
-                        <Users className="w-4 h-4 mr-3" /> Roles
+                        <Users className="w-4 h-4 mr-3" /> Role Architecture
                     </button>
                     <button 
                         onClick={() => setActiveTab('permissions')}
-                        className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-medium transition-all ${activeTab === 'permissions' ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-md' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                        className={`w-full flex items-center px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'permissions' ? 'bg-red-900 dark:bg-red-700 text-white shadow-xl shadow-red-900/20' : 'text-zinc-500 hover:bg-white/50 dark:hover:bg-zinc-800'}`}
                     >
-                        <Shield className="w-4 h-4 mr-3" /> Permissions
+                        <Shield className="w-4 h-4 mr-3" /> System Sec
                     </button>
                     <button 
                         onClick={() => setActiveTab('categories')}
-                        className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-medium transition-all ${activeTab === 'categories' ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-md' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                        className={`w-full flex items-center px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'categories' ? 'bg-red-900 dark:bg-red-700 text-white shadow-xl shadow-red-900/20' : 'text-zinc-500 hover:bg-white/50 dark:hover:bg-zinc-800'}`}
                     >
-                        <Layers className="w-4 h-4 mr-3" /> Categories
+                        <Layers className="w-4 h-4 mr-3" /> Domain Map
                     </button>
                 </div>
 
-                {/* Content Area */}
                 <div className="md:col-span-3">
                     {activeTab === 'roles' && renderRoles()}
                     {activeTab === 'permissions' && renderPermissions()}

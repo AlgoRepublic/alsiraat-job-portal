@@ -1,16 +1,45 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, Clock, Filter, ArrowRight } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Search, MapPin, Clock, Filter, ArrowRight, Calendar, SlidersHorizontal, X, RotateCcw, ClipboardList } from 'lucide-react';
 import { JobCategory, JobStatus, RewardType, Job } from '../types';
 import { db } from '../services/database';
 import { getStatusColor } from './Dashboard';
 
 export const JobList: React.FC = () => {
     const navigate = useNavigate();
-    const [searchTerm, setSearchTerm] = useState('');
-    const [filterCategory, setFilterCategory] = useState<string>('All');
+    const [searchParams, setSearchParams] = useSearchParams();
+    
+    // UI State
+    const [showFilters, setShowFilters] = useState(false);
+    
+    // Data State
     const [jobs, setJobs] = useState<Job[]>([]);
     const [loading, setLoading] = useState(true);
+
+    // Derived Filter State from URL
+    const searchTerm = searchParams.get('q') || '';
+    const filterCategory = searchParams.get('category') || 'All';
+    const filterStatus = searchParams.get('status') || 'All';
+    const filterReward = searchParams.get('reward') || 'All';
+    const dateFrom = searchParams.get('dateFrom') || '';
+    const dateTo = searchParams.get('dateTo') || '';
+
+    // Filter Updates
+    const updateParam = (key: string, value: string) => {
+        const newParams = new URLSearchParams(searchParams);
+        if (value && value !== 'All') {
+            newParams.set(key, value);
+        } else {
+            newParams.delete(key);
+        }
+        setSearchParams(newParams, { replace: true });
+    };
+
+    const clearFilters = () => {
+        setSearchParams({}, { replace: true });
+    };
+
+    const hasActiveFilters = filterCategory !== 'All' || filterStatus !== 'All' || filterReward !== 'All' || dateFrom !== '' || dateTo !== '';
 
     useEffect(() => {
         const fetchJobs = async () => {
@@ -22,110 +51,182 @@ export const JobList: React.FC = () => {
     }, []);
 
     const filteredJobs = jobs.filter(job => {
-        const matchesSearch = job.title.toLowerCase().includes(searchTerm.toLowerCase()) || job.description.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesSearch = job.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                              job.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                              job.location.toLowerCase().includes(searchTerm.toLowerCase());
+        
         const matchesCategory = filterCategory === 'All' || job.category === filterCategory;
-        // Ideally filter by published status for applicants, but we show all for demo
-        return matchesSearch && matchesCategory;
+        const matchesStatus = filterStatus === 'All' || job.status === filterStatus;
+        const matchesReward = filterReward === 'All' || job.rewardType === filterReward;
+
+        let matchesDate = true;
+        if (dateFrom || dateTo) {
+            if (!job.startDate) {
+                matchesDate = false; 
+            } else {
+                const start = new Date(job.startDate);
+                if (dateFrom && start < new Date(dateFrom)) matchesDate = false;
+                if (dateTo && start > new Date(dateTo)) matchesDate = false;
+            }
+        }
+
+        return matchesSearch && matchesCategory && matchesStatus && matchesReward && matchesDate;
     });
 
-    if (loading) {
-        return <div className="text-center py-20 text-zinc-500 dark:text-zinc-400">Loading jobs...</div>;
-    }
+    if (loading) return <div className="text-center py-20 font-black text-zinc-400">Syncing Task Grid...</div>;
 
     return (
-        <div className="space-y-8 animate-fade-in">
-            <div className="bg-zinc-900 dark:bg-white rounded-2xl p-8 md:p-12 text-white dark:text-zinc-900 relative overflow-hidden shadow-2xl shadow-zinc-200 dark:shadow-zinc-900/30">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-white dark:bg-black opacity-5 rounded-full -mr-16 -mt-16 blur-3xl"></div>
-                <div className="relative z-10 max-w-2xl">
-                    <h2 className="text-3xl md:text-4xl font-bold mb-4">Find Your Next Role</h2>
-                    <p className="text-zinc-400 dark:text-zinc-600 text-lg mb-8">Browse opportunities to volunteer, work, and earn rewards within the community.</p>
+        <div className="space-y-10 animate-fade-in pb-20">
+            {/* Header / Hero Section */}
+            <div className="relative overflow-hidden rounded-[3rem] p-12 md:p-16 shadow-2xl transition-all duration-300 bg-red-900 dark:bg-zinc-900 border border-white/10">
+                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/20 rounded-full -mr-40 -mt-40 blur-[120px] pointer-events-none"></div>
+                <div className="absolute bottom-0 left-0 w-80 h-80 bg-red-600/10 rounded-full -ml-20 -mb-20 blur-[100px] pointer-events-none"></div>
+                
+                <div className="relative z-10 max-w-4xl mx-auto">
+                    <h2 className="text-5xl md:text-6xl font-black mb-6 text-center md:text-left text-white tracking-tighter">The Task Engine</h2>
+                    <p className="text-red-100 dark:text-zinc-400 text-lg md:text-xl mb-12 text-center md:text-left font-medium leading-relaxed">Filter through our high-impact task ecosystem and find your next resolution.</p>
                     
-                    {/* Search Bar */}
-                    <div className="flex flex-col md:flex-row gap-3">
-                        <div className="flex-1 relative text-zinc-900">
-                            <Search className="absolute left-4 top-4 text-zinc-400 w-5 h-5" />
+                    <div className="flex flex-col md:flex-row gap-4">
+                        <div className="flex-1 relative">
+                            <Search className="absolute left-5 top-5 text-zinc-400 w-6 h-6" />
                             <input 
                                 type="text"
-                                placeholder="Search by keyword..."
-                                className="w-full pl-12 pr-4 py-4 rounded-xl focus:ring-2 focus:ring-white dark:focus:ring-zinc-900 focus:outline-none shadow-lg dark:shadow-sm"
+                                placeholder="Search tasks, skills, locations..."
+                                className="w-full pl-14 pr-6 py-5 rounded-2xl bg-white/95 dark:bg-zinc-800 border-0 focus:ring-4 focus:ring-red-500/30 outline-none shadow-2xl placeholder-zinc-400 dark:text-white font-bold transition-all text-lg"
                                 value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onChange={(e) => updateParam('q', e.target.value)}
                             />
                         </div>
-                        <div className="w-full md:w-56 relative text-zinc-900">
-                            <Filter className="absolute left-4 top-4 text-zinc-400 w-4 h-4" />
-                            <select 
-                                className="w-full pl-10 pr-8 py-4 rounded-xl focus:ring-2 focus:ring-white dark:focus:ring-zinc-900 focus:outline-none appearance-none shadow-lg dark:shadow-sm cursor-pointer bg-white"
-                                value={filterCategory}
-                                onChange={(e) => setFilterCategory(e.target.value)}
-                            >
-                                <option value="All">All Categories</option>
-                                {Object.values(JobCategory).map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
-                        </div>
+                        <button 
+                            onClick={() => setShowFilters(!showFilters)}
+                            className={`px-8 py-5 rounded-2xl font-black flex items-center justify-center transition-all shadow-2xl border-2 ${
+                                showFilters || hasActiveFilters
+                                ? 'bg-white text-red-900 border-white' 
+                                : 'bg-transparent text-white border-white/20 hover:bg-white/10'
+                            }`}
+                        >
+                            <SlidersHorizontal className="w-5 h-5 md:mr-3" />
+                            <span className="hidden md:inline uppercase tracking-widest text-xs">Filter Engine</span>
+                            {hasActiveFilters && (
+                                <span className="ml-3 w-3 h-3 rounded-full bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.8)]"></span>
+                            )}
+                        </button>
                     </div>
+
+                    {showFilters && (
+                        <div className="mt-8 p-8 glass-card border-white/10 rounded-3xl animate-slide-up grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-white/60 dark:text-zinc-500 uppercase tracking-widest ml-1">Task Domain</label>
+                                <select 
+                                    className="w-full px-5 py-3 rounded-xl bg-white/90 dark:bg-zinc-900 border-0 focus:ring-2 focus:ring-red-500 outline-none font-bold text-sm"
+                                    value={filterCategory}
+                                    onChange={(e) => updateParam('category', e.target.value)}
+                                >
+                                    <option value="All">All Domains</option>
+                                    {Object.values(JobCategory).map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-white/60 dark:text-zinc-500 uppercase tracking-widest ml-1">Resolution Status</label>
+                                <select 
+                                    className="w-full px-5 py-3 rounded-xl bg-white/90 dark:bg-zinc-900 border-0 focus:ring-2 focus:ring-red-500 outline-none font-bold text-sm"
+                                    value={filterStatus}
+                                    onChange={(e) => updateParam('status', e.target.value)}
+                                >
+                                    <option value="All">All Statuses</option>
+                                    {Object.values(JobStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-white/60 dark:text-zinc-500 uppercase tracking-widest ml-1">Reward Class</label>
+                                <select 
+                                    className="w-full px-5 py-3 rounded-xl bg-white/90 dark:bg-zinc-900 border-0 focus:ring-2 focus:ring-red-500 outline-none font-bold text-sm"
+                                    value={filterReward}
+                                    onChange={(e) => updateParam('reward', e.target.value)}
+                                >
+                                    <option value="All">Any Reward</option>
+                                    {Object.values(RewardType).map(r => <option key={r} value={r}>{r}</option>)}
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-white/60 dark:text-zinc-500 uppercase tracking-widest ml-1">Timeline</label>
+                                <div className="flex gap-2">
+                                    <input type="date" className="w-full px-3 py-3 rounded-xl bg-white/90 dark:bg-zinc-900 border-0 font-bold text-[10px]" value={dateFrom} onChange={(e) => updateParam('dateFrom', e.target.value)} />
+                                    <input type="date" className="w-full px-3 py-3 rounded-xl bg-white/90 dark:bg-zinc-900 border-0 font-bold text-[10px]" value={dateTo} onChange={(e) => updateParam('dateTo', e.target.value)} />
+                                </div>
+                            </div>
+                            <div className="md:col-span-2 lg:col-span-4 flex justify-end mt-4 pt-6 border-t border-white/10">
+                                <button onClick={clearFilters} className="flex items-center text-xs font-black text-white/60 hover:text-white uppercase tracking-widest transition-colors">
+                                    <RotateCcw className="w-4 h-4 mr-2" /> Reset Engine
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* Job Cards */}
-            <div className="grid gap-5">
+            <div className="flex items-center justify-between px-2">
+                <p className="text-sm font-bold text-zinc-400">
+                    Resolution Pool: <span className="text-zinc-900 dark:text-white">{filteredJobs.length} active tasks</span>
+                </p>
+                {hasActiveFilters && (
+                     <div className="flex gap-2">
+                        {filterCategory !== 'All' && <span className="px-3 py-1.5 glass-card rounded-xl text-[10px] font-black uppercase text-zinc-600 dark:text-zinc-400 flex items-center">{filterCategory} <X className="w-3 h-3 ml-2 cursor-pointer" onClick={() => updateParam('category', 'All')} /></span>}
+                        {filterStatus !== 'All' && <span className="px-3 py-1.5 glass-card rounded-xl text-[10px] font-black uppercase text-zinc-600 dark:text-zinc-400 flex items-center">{filterStatus} <X className="w-3 h-3 ml-2 cursor-pointer" onClick={() => updateParam('status', 'All')} /></span>}
+                     </div>
+                )}
+            </div>
+
+            <div className="grid gap-6">
                 {filteredJobs.map(job => (
-                    <div 
-                        key={job.id} 
-                        onClick={() => navigate(`/jobs/${job.id}`)}
-                        className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-6 md:p-8 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] dark:hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)] transition-all duration-300 group cursor-pointer relative top-0 hover:-top-1"
-                    >
-                        <div className="flex flex-col md:flex-row justify-between items-start gap-6">
+                    <div key={job.id} onClick={() => navigate(`/jobs/${job.id}`)} className="glass-card rounded-[2rem] p-8 md:p-10 group cursor-pointer relative top-0 hover:-top-2 hover:shadow-2xl transition-all duration-500">
+                        <div className="flex flex-col md:flex-row justify-between items-start gap-8">
                             <div className="flex-1">
-                                <div className="flex flex-wrap items-center gap-2 mb-3">
-                                    <span className={`px-2.5 py-1 text-xs font-bold rounded-md uppercase tracking-wide border ${getStatusColor(job.status)}`}>
+                                <div className="flex flex-wrap items-center gap-3 mb-4">
+                                    <span className={`px-3 py-1.5 text-[10px] font-black rounded-xl uppercase tracking-widest border ${getStatusColor(job.status)}`}>
                                         {job.status}
                                     </span>
-                                    <span className="px-2.5 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-xs font-bold rounded-md uppercase tracking-wide border border-zinc-200 dark:border-zinc-700">
+                                    <span className="px-3 py-1.5 glass bg-white/20 text-zinc-600 dark:text-zinc-400 text-[10px] font-black rounded-xl uppercase tracking-widest">
                                         {job.category}
                                     </span>
                                     {job.rewardType !== RewardType.VOLUNTEER && (
-                                        <span className="px-2.5 py-1 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-bold rounded-md uppercase tracking-wide flex items-center shadow-sm">
+                                        <span className="px-3 py-1.5 bg-red-600 text-white text-[10px] font-black rounded-xl uppercase tracking-widest shadow-lg shadow-red-600/20">
                                            {job.rewardType}
                                         </span>
                                     )}
                                 </div>
-                                <h3 className="text-xl font-bold text-zinc-900 dark:text-white group-hover:text-zinc-700 dark:group-hover:text-zinc-300 transition-colors mb-2">{job.title}</h3>
-                                <p className="text-zinc-500 dark:text-zinc-400 text-sm line-clamp-2 leading-relaxed max-w-3xl">{job.description}</p>
+                                <h3 className="text-3xl font-black text-zinc-900 dark:text-white group-hover:text-red-700 transition-colors mb-3 tracking-tighter">{job.title}</h3>
+                                <p className="text-zinc-500 dark:text-zinc-400 text-base line-clamp-2 leading-relaxed font-medium max-w-4xl">{job.description}</p>
                                 
-                                <div className="flex flex-wrap items-center gap-6 mt-6 text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                                    <div className="flex items-center bg-zinc-50 dark:bg-zinc-800 px-3 py-1.5 rounded-lg">
-                                        <MapPin className="w-4 h-4 mr-2 text-zinc-400" />
-                                        {job.location}
+                                <div className="flex flex-wrap items-center gap-4 mt-8">
+                                    <div className="flex items-center px-4 py-2 glass rounded-2xl text-xs font-bold text-zinc-500">
+                                        <MapPin className="w-4 h-4 mr-2 text-red-500" /> {job.location}
                                     </div>
-                                    <div className="flex items-center bg-zinc-50 dark:bg-zinc-800 px-3 py-1.5 rounded-lg">
-                                        <Clock className="w-4 h-4 mr-2 text-zinc-400" />
-                                        {job.hoursRequired} hrs
+                                    <div className="flex items-center px-4 py-2 glass rounded-2xl text-xs font-bold text-zinc-500">
+                                        <Clock className="w-4 h-4 mr-2 text-blue-500" /> {job.hoursRequired} Resolution Hrs
                                     </div>
-                                    {job.rewardValue && (
-                                        <div className="text-zinc-900 dark:text-zinc-200 font-semibold">
-                                            Reward: {job.rewardValue} {job.rewardType === RewardType.VIA_POINTS ? 'Pts' : ''}
+                                    {job.startDate && (
+                                        <div className="flex items-center px-4 py-2 glass rounded-2xl text-xs font-bold text-zinc-500">
+                                            <Calendar className="w-4 h-4 mr-2 text-zinc-400" /> {job.startDate}
                                         </div>
                                     )}
                                 </div>
                             </div>
-                            
-                            <div className="hidden md:flex flex-col items-center justify-center h-full pl-6 border-l border-zinc-50 dark:border-zinc-800">
-                                <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-400 group-hover:bg-zinc-900 dark:group-hover:bg-zinc-100 group-hover:text-white dark:group-hover:text-zinc-900 transition-all duration-300">
-                                    <ArrowRight className="w-5 h-5" />
+                            <div className="hidden md:flex flex-col items-center justify-center pl-10 border-l border-white/20 dark:border-white/5 h-full min-h-[140px]">
+                                <div className="w-14 h-14 rounded-[1.25rem] bg-zinc-100 dark:bg-white/5 flex items-center justify-center text-zinc-400 group-hover:bg-red-600 group-hover:text-white transition-all duration-500 shadow-xl shadow-black/5">
+                                    <ArrowRight className="w-6 h-6" />
                                 </div>
                             </div>
                         </div>
                     </div>
                 ))}
                 
-                {!loading && filteredJobs.length === 0 && (
-                    <div className="text-center py-20 bg-white dark:bg-zinc-900 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800">
-                        <div className="mx-auto w-16 h-16 bg-zinc-50 dark:bg-zinc-800 rounded-full flex items-center justify-center mb-4">
-                            <Search className="w-8 h-8 text-zinc-300 dark:text-zinc-600" />
-                        </div>
-                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white">No jobs found</h3>
-                        <p className="text-zinc-500 dark:text-zinc-400">Try adjusting your filters or search terms.</p>
+                {filteredJobs.length === 0 && (
+                    <div className="text-center py-24 glass-card rounded-[3rem] border-dashed border-2 border-zinc-200 dark:border-zinc-800">
+                        <ClipboardList className="w-16 h-16 text-zinc-300 dark:text-zinc-700 mx-auto mb-6" />
+                        <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter">No active tasks found</h3>
+                        <p className="text-zinc-500 dark:text-zinc-400 mt-2 font-medium">Your current filter configuration returned 0 results.</p>
+                        <button onClick={clearFilters} className="mt-10 px-8 py-3.5 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-red-700 transition-all">Clear Engine Filters</button>
                     </div>
                 )}
             </div>

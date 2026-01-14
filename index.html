@@ -1,34 +1,45 @@
-
 <!DOCTYPE html>
-<html lang="en" class="light h-full">
+<html lang="en" class="h-full">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Hayati JobConnect</title>
+    <title>Tasker - Modern Task Management</title>
     <script src="https://cdn.tailwindcss.com"></script>
-   
     <script>
       tailwind.config = {
         darkMode: 'class',
         theme: {
           extend: {
             colors: {
-              primary: '#18181b', // Zinc 900
-              primaryHover: '#27272a', // Zinc 800
-              secondary: '#71717a', // Zinc 500
+              red: {
+                50: 'var(--accent-50)',
+                100: 'var(--accent-100)',
+                200: 'var(--accent-200)',
+                300: 'var(--accent-300)',
+                400: 'var(--accent-400)',
+                500: 'var(--accent-500)',
+                600: 'var(--accent-600)',
+                700: 'var(--accent-700)',
+                800: 'var(--accent-800)',
+                900: 'var(--accent-900)',
+                950: 'var(--accent-950)',
+              },
+              primary: 'var(--accent-900)', 
+              primaryHover: 'var(--accent-800)',
+              secondary: '#71717a',
               surface: '#ffffff',
-              background: '#f4f4f4', // Zinc 100
-              success: '#10b981',
-              warning: '#f59e0b',
-              danger: '#ef4444',
+              background: '#f4f4f4',
             },
             fontFamily: {
-              sans: ['Raleway','Inter', 'sans-serif'],
+              sans: ['Inter', 'sans-serif'],
             },
             animation: {
               'fade-in': 'fadeIn 0.4s ease-out',
               'slide-up': 'slideUp 0.5s ease-out',
               'slide-in-right': 'slideInRight 0.3s ease-out',
+              'blob': 'blob 10s infinite',
+              'float': 'float 6s ease-in-out infinite',
+              'fade-in-up': 'fadeInUp 0.8s ease-out forwards',
             },
             keyframes: {
               fadeIn: {
@@ -42,6 +53,20 @@
               slideInRight: {
                 '0%': { transform: 'translateX(100%)' },
                 '100%': { transform: 'translateX(0)' },
+              },
+              blob: {
+                "0%": { transform: "translate(0px, 0px) scale(1)" },
+                "33%": { transform: "translate(40px, -60px) scale(1.15)" },
+                "66%": { transform: "translate(-30px, 30px) scale(0.9)" },
+                "100%": { transform: "translate(0px, 0px) scale(1)" }
+              },
+              float: {
+                "0%, 100%": { transform: "translateY(0)" },
+                "50%": { transform: "translateY(-15px)" }
+              },
+              fadeInUp: {
+                "0%": { opacity: "0", transform: "translateY(20px)" },
+                "100%": { opacity: "1", transform: "translateY(0)" }
               }
             }
           }
@@ -49,41 +74,84 @@
       }
     </script>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,100..900;1,100..900&display=swap');
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
       
+      :root {
+        --accent-50: #eff6ff;
+        --accent-100: #dbeafe;
+        --accent-200: #bfdbfe;
+        --accent-300: #93c5fd;
+        --accent-400: #60a5fa;
+        --accent-500: #3b82f6;
+        --accent-600: #2563eb;
+        --accent-700: #1d4ed8;
+        --accent-800: #1e40af;
+        --accent-900: #1e3a8a;
+        --accent-950: #172554;
+        --accent-200-rgb: 191, 219, 254;
+        --accent-100-rgb: 219, 234, 254;
+        --accent-300-rgb: 147, 197, 253;
+        --accent-400-rgb: 96, 165, 250;
+        --accent-900-rgb: 30, 58, 138;
+        --accent-950-rgb: 23, 37, 84;
+        --accent-800-rgb: 30, 64, 175;
+      }
+
       body {
-        font-family: 'Raleway','Inter', sans-serif;
+        font-family: 'Inter', sans-serif;
+        background: 
+          radial-gradient(at 0% 0%, rgba(var(--accent-200-rgb), 0.4) 0px, transparent 50%), 
+          radial-gradient(at 100% 0%, rgba(var(--accent-100-rgb), 0.4) 0px, transparent 50%), 
+          radial-gradient(at 100% 100%, rgba(var(--accent-300-rgb), 0.3) 0px, transparent 50%), 
+          radial-gradient(at 0% 100%, rgba(var(--accent-400-rgb), 0.3) 0px, transparent 50%),
+          #ffffff;
+        background-attachment: fixed;
       }
 
-      /* Smooth Scrolling */
-      html {
-        scroll-behavior: smooth;
+      .dark body {
+        background: 
+          radial-gradient(at 0% 0%, rgba(var(--accent-900-rgb), 0.3) 0px, transparent 50%), 
+          radial-gradient(at 100% 0%, rgba(var(--accent-950-rgb), 0.5) 0px, transparent 50%), 
+          radial-gradient(at 100% 100%, rgba(var(--accent-800-rgb), 0.2) 0px, transparent 50%), 
+          #030303;
       }
 
-      /* Custom scrollbar */
-      ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
+      .glass {
+        background: rgba(255, 255, 255, 0.4);
+        backdrop-filter: blur(30px) saturate(180%);
+        -webkit-backdrop-filter: blur(30px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.5);
       }
-      ::-webkit-scrollbar-track {
-        background: transparent; 
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #d4d4d8; 
-        border-radius: 4px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #a1a1aa; 
+      .dark .glass {
+        background: rgba(10, 10, 15, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.1);
       }
       
-      /* Dark mode scrollbar */
-      .dark ::-webkit-scrollbar-thumb {
-        background: #3f3f46;
+      .glass-card {
+        background: rgba(255, 255, 255, 0.45);
+        backdrop-filter: blur(25px) saturate(160%);
+        -webkit-backdrop-filter: blur(25px) saturate(160%);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
       }
-      .dark ::-webkit-scrollbar-thumb:hover {
-        background: #52525b;
+      .dark .glass-card {
+        background: rgba(20, 20, 25, 0.55);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
       }
+
+      .animation-delay-200 { animation-delay: 0.2s; }
+      .animation-delay-400 { animation-delay: 0.4s; }
+      .animation-delay-600 { animation-delay: 0.6s; }
+      .animation-delay-2000 { animation-delay: 2s; }
+      .animation-delay-4000 { animation-delay: 4s; }
+
+      html { scroll-behavior: smooth; }
+
+      ::-webkit-scrollbar { width: 8px; height: 8px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 4px; }
+      .dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
     </style>
   <script type="importmap">
 {
@@ -98,11 +166,10 @@
   }
 }
 </script>
+<link rel="stylesheet" href="/index.css">
 </head>
-  <body class="bg-background dark:bg-black text-zinc-900 dark:text-zinc-100 antialiased selection:bg-zinc-200 dark:selection:bg-zinc-800 transition-colors duration-300 h-full">
-    <div id="root" class="h-full">
- <script type="module" src="/index.tsx"></script>
-
-    </div>
-  </body>
+  <body class="bg-background dark:bg-black text-zinc-900 dark:text-zinc-100 antialiased selection:bg-red-200 dark:selection:bg-red-900 transition-colors duration-300 h-full">
+    <div id="root" class="h-full"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
 </html>

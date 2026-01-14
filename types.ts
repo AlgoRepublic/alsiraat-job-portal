@@ -1,8 +1,8 @@
 
 export enum UserRole {
-  ADVERTISER = 'Job Advertiser',
-  MANAGER = 'Job Manager',
-  APPLICANT = 'Applicant',
+  ADVERTISER = 'Task Requester',
+  MANAGER = 'Task Manager',
+  APPLICANT = 'Tasker',
   ADMIN = 'Admin'
 }
 
@@ -96,7 +96,7 @@ export interface Skill {
 export interface ApplicantProfile extends User {
   about: string;
   skills: Skill[];
-  experience: Job[]; // Completed jobs
+  experience: Job[]; // Completed tasks
 }
 
 export interface Application {
@@ -112,7 +112,6 @@ export interface Application {
   availability: string;
 }
 
-// Admin Types
 export interface RoleDefinition {
     id: string;
     name: string;

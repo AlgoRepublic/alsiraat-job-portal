@@ -1,10 +1,9 @@
-
 import React, { useEffect, useState } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import { 
-  TrendingUp, Users, CheckSquare, Clock, FileText, ArrowRight, Briefcase, Eye
+  TrendingUp, Users, CheckSquare, Clock, FileText, ArrowRight, Briefcase, Eye, ClipboardCheck
 } from 'lucide-react';
 import { UserRole, JobStatus, Job, Application } from '../types';
 import { db } from '../services/database';
@@ -13,15 +12,6 @@ import { useNavigate } from 'react-router-dom';
 interface DashboardProps {
   role: UserRole;
 }
-
-const mockChartData = [
-  { name: 'Jan', jobs: 4, apps: 12 },
-  { name: 'Feb', jobs: 7, apps: 25 },
-  { name: 'Mar', jobs: 5, apps: 18 },
-  { name: 'Apr', jobs: 12, apps: 40 },
-  { name: 'May', jobs: 9, apps: 32 },
-  { name: 'Jun', jobs: 15, apps: 55 },
-];
 
 export const getStatusColor = (status: JobStatus) => {
   switch (status) {
@@ -37,19 +27,19 @@ export const getStatusColor = (status: JobStatus) => {
 };
 
 const KPICard: React.FC<{ title: string; value: string; icon: any; trend?: string; color?: string }> = ({ title, value, icon: Icon, trend, color }) => (
-  <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-[0_2px_8px_rgb(0,0,0,0.04)] dark:shadow-none border border-zinc-100 dark:border-zinc-800 hover:shadow-[0_8px_16px_rgb(0,0,0,0.06)] dark:hover:border-zinc-700 transition-all duration-300 group">
+  <div className="glass-card p-8 rounded-3xl transition-all duration-300 group hover:-translate-y-1">
     <div className="flex items-start justify-between">
       <div>
-        <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{title}</p>
-        <h3 className="text-3xl font-bold text-zinc-900 dark:text-white mt-2">{value}</h3>
+        <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em] mb-3">{title}</p>
+        <h3 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tighter">{value}</h3>
       </div>
-      <div className={`p-3 rounded-xl ${color || 'bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'} group-hover:bg-zinc-900 dark:group-hover:bg-zinc-100 group-hover:text-white dark:group-hover:text-zinc-900 transition-colors`}>
+      <div className={`p-4 rounded-2xl ${color || 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400'} group-hover:scale-110 transition-transform`}>
         <Icon className="w-6 h-6" />
       </div>
     </div>
     {trend && (
-        <div className="mt-4 flex items-center text-xs text-green-600 dark:text-green-400 font-medium bg-green-50 dark:bg-green-900/20 w-fit px-2 py-1 rounded-full">
-            <TrendingUp className="w-3 h-3 mr-1" />
+        <div className="mt-6 flex items-center text-[10px] text-green-600 dark:text-green-400 font-black bg-green-50 dark:bg-green-900/20 w-fit px-3 py-1.5 rounded-xl uppercase tracking-widest">
+            <TrendingUp className="w-3 h-3 mr-2" />
             <span>{trend}</span>
         </div>
     )}
@@ -82,9 +72,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
             setMyApplications(myApps);
             setRecentJobs(jobs.slice(0, 5));
         } else if (role === UserRole.MANAGER || role === UserRole.ADMIN) {
-             setRecentJobs(jobs); // Managers see all jobs to approve
+             setRecentJobs(jobs);
         } else {
-             setRecentJobs(jobs.filter(j => j.createdBy === user.name)); // Advertisers see their own
+             setRecentJobs(jobs.filter(j => j.createdBy === user.name));
         }
 
         setIsLoading(false);
@@ -93,69 +83,72 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
     loadData();
   }, [role]);
 
-  if (isLoading) return <div className="flex justify-center p-20"><div className="animate-pulse">Loading...</div></div>;
+  if (isLoading) return <div className="flex justify-center p-20"><div className="animate-pulse font-bold text-zinc-400">Loading Tasker Stats...</div></div>;
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-10 animate-fade-in">
        {/* KPIs */}
        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <KPICard 
-            title={role === UserRole.APPLICANT ? "Applications Sent" : "Total Jobs Posted"} 
+            title={role === UserRole.APPLICANT ? "Assigned Tasks" : "Total Tasks Created"} 
             value={role === UserRole.APPLICANT ? myApplications.length.toString() : recentJobs.length.toString()} 
-            icon={Briefcase} 
+            icon={ClipboardCheck} 
           />
           <KPICard 
-            title={role === UserRole.APPLICANT ? "Verified Hours" : "Jobs Approved"} 
-            value={role === UserRole.APPLICANT ? "40" : activeJobsCount.toString()} 
+            title={role === UserRole.APPLICANT ? "Hours Resolved" : "Active Tasks"} 
+            value={role === UserRole.APPLICANT ? "42.5" : activeJobsCount.toString()} 
             icon={CheckSquare} 
-            color="bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400"
+            color="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400"
           />
           <KPICard 
-            title={role === UserRole.APPLICANT ? "Total Rewards" : "Pending Jobs"} 
-            value={role === UserRole.APPLICANT ? "$3000" : recentJobs.filter(j => j.status === JobStatus.PENDING).length.toString()} 
+            title={role === UserRole.APPLICANT ? "Current Credits" : "Pending Review"} 
+            value={role === UserRole.APPLICANT ? "1.2k" : recentJobs.filter(j => j.status === JobStatus.PENDING).length.toString()} 
             icon={Clock} 
-            color="bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400"
+            color="bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400"
           />
           <KPICard 
-            title={role === UserRole.APPLICANT ? "Complete Job Ratio" : "Active"} 
-            value={role === UserRole.APPLICANT ? "40" : activeJobsCount.toString()} 
+            title={role === UserRole.APPLICANT ? "Trust Score" : "Collaborators"} 
+            value={role === UserRole.APPLICANT ? "98%" : (activeJobsCount * 3).toString()} 
             icon={Users} 
+            color="bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
           />
        </div>
 
        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Activity Table */}
-          <div className="lg:col-span-2 bg-white dark:bg-zinc-900 p-8 rounded-2xl shadow-[0_2px_8px_rgb(0,0,0,0.04)] dark:shadow-none border border-zinc-100 dark:border-zinc-800">
-             <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-6">
-                 {role === UserRole.MANAGER ? 'Job Approval Activity' : 'Recent Activity'}
-             </h3>
+          <div className="lg:col-span-2 glass-card p-10 rounded-[2.5rem]">
+             <div className="flex items-center justify-between mb-10">
+                <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter">
+                    {role === UserRole.MANAGER ? 'Task Resolution Activity' : 'Recent Task Activity'}
+                </h3>
+                <button onClick={() => navigate('/jobs')} className="text-xs font-black uppercase tracking-widest text-red-600 hover:underline">View All Tasks</button>
+             </div>
              
              <div className="overflow-x-auto">
                  <table className="w-full">
                      <thead>
-                         <tr className="text-left text-xs font-bold text-zinc-400 uppercase tracking-wider border-b border-zinc-100 dark:border-zinc-800">
-                             <th className="pb-4 pl-2">Job Title</th>
-                             <th className="pb-4">Category</th>
-                             <th className="pb-4">Status</th>
-                             <th className="pb-4 text-right">Action</th>
+                         <tr className="text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] border-b border-white/20 dark:border-white/5">
+                             <th className="pb-6 pl-2">Task Designation</th>
+                             <th className="pb-6">Domain</th>
+                             <th className="pb-6">Status</th>
+                             <th className="pb-6 text-right">Action</th>
                          </tr>
                      </thead>
-                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                     <tbody className="divide-y divide-white/20 dark:divide-white/5">
                          {recentJobs.slice(0, 6).map((job) => (
-                             <tr key={job.id} className="group hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
-                                 <td className="py-4 pl-2 font-medium text-zinc-900 dark:text-white">{job.title}</td>
-                                 <td className="py-4 text-sm text-zinc-500 dark:text-zinc-400">{job.category}</td>
-                                 <td className="py-4">
-                                     <span className={`px-2.5 py-1 text-xs font-bold rounded-md uppercase tracking-wide border ${getStatusColor(job.status)}`}>
+                             <tr key={job.id} className="group hover:bg-white/40 dark:hover:bg-white/5 transition-all">
+                                 <td className="py-6 pl-2 font-black text-zinc-900 dark:text-white text-base tracking-tight">{job.title}</td>
+                                 <td className="py-6 text-sm font-semibold text-zinc-500 dark:text-zinc-400">{job.category}</td>
+                                 <td className="py-6">
+                                     <span className={`px-3 py-1.5 text-[10px] font-black rounded-xl uppercase tracking-widest border ${getStatusColor(job.status)}`}>
                                         {job.status}
                                      </span>
                                  </td>
-                                 <td className="py-4 text-right">
+                                 <td className="py-6 text-right">
                                      <button 
                                         onClick={() => navigate(`/jobs/${job.id}`)}
-                                        className="text-xs font-semibold px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg text-zinc-600 dark:text-zinc-300 transition-colors"
+                                        className="p-3 bg-white/60 dark:bg-zinc-800/60 hover:bg-red-600 hover:text-white rounded-2xl transition-all shadow-sm"
                                      >
-                                         View
+                                         <ArrowRight className="w-4 h-4" />
                                      </button>
                                  </td>
                              </tr>
@@ -165,45 +158,37 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
              </div>
           </div>
 
-          {/* Sidebar Stats / Secondary List */}
-          <div className="bg-white dark:bg-zinc-900 p-8 rounded-2xl shadow-[0_2px_8px_rgb(0,0,0,0.04)] dark:shadow-none border border-zinc-100 dark:border-zinc-800">
-              <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-6">Recent Applications</h3>
-              <div className="space-y-6">
+          <div className="glass-card p-10 rounded-[2.5rem]">
+              <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter mb-10">Recent Submissions</h3>
+              <div className="space-y-8">
                    {(role === UserRole.MANAGER ? [
-                       { name: 'Nasir', status: 'Pending', job: 'Math Teacher' },
-                       { name: 'Ali Raza', status: 'Approved', job: 'Lab Assistant' },
-                       { name: 'Shumaila', status: 'Declined', job: 'Helper' }
+                       { name: 'Nasir', status: 'Pending', job: 'Backend Dev' },
+                       { name: 'Ali Raza', status: 'Resolved', job: 'Sys Admin' },
+                       { name: 'Shumaila', status: 'Declined', job: 'Data Entry' }
                    ] : []).map((app, i) => (
-                       <div key={i} className="flex items-center justify-between">
+                       <div key={i} className="flex items-center justify-between group cursor-pointer">
                            <div className="flex items-center">
-                               <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-600 dark:text-zinc-400">
-                                   {app.name.charAt(0)}
-                               </div>
-                               <div className="ml-3">
-                                   <p className="text-sm font-bold text-zinc-900 dark:text-white">{app.name}</p>
-                                   <p className="text-xs text-zinc-500 dark:text-zinc-400">{app.job}</p>
+                               <img src={`https://i.pravatar.cc/100?u=${app.name}`} alt="" className="w-12 h-12 rounded-2xl object-cover border-2 border-white dark:border-zinc-800" />
+                               <div className="ml-4">
+                                   <p className="text-sm font-black text-zinc-900 dark:text-white group-hover:text-red-600 transition-colors">{app.name}</p>
+                                   <p className="text-xs font-bold text-zinc-500 dark:text-zinc-400">{app.job}</p>
                                </div>
                            </div>
-                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                               app.status === 'Approved' ? 'bg-green-100 text-green-700' : 
-                               app.status === 'Declined' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'
+                           <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${
+                               app.status === 'Resolved' ? 'bg-emerald-100 text-emerald-800' : 
+                               app.status === 'Declined' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
                            }`}>
                                {app.status}
                            </span>
                        </div>
                    ))}
                    
-                   {role === UserRole.ADVERTISER && (
-                       <div className="text-center py-10 text-zinc-400 text-sm">No recent applications</div>
-                   )}
-
-                   {role === UserRole.APPLICANT && myApplications.map(app => (
-                        <div key={app.id} className="p-3 bg-zinc-50 dark:bg-zinc-800 rounded-xl border border-zinc-100 dark:border-zinc-700">
-                            <p className="text-sm font-bold text-zinc-900 dark:text-white mb-1">Applied to Job #{app.jobId}</p>
-                            <p className="text-xs text-zinc-500">{new Date(app.appliedAt).toLocaleDateString()}</p>
-                            <div className="mt-2 text-xs font-semibold text-emerald-600">{app.status}</div>
+                   {role !== UserRole.MANAGER && (
+                        <div className="text-center py-20">
+                             <FileText className="w-12 h-12 text-zinc-300 dark:text-zinc-700 mx-auto mb-4" />
+                             <p className="text-sm font-bold text-zinc-400">No new submissions found</p>
                         </div>
-                   ))}
+                   )}
               </div>
           </div>
        </div>

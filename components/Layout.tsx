@@ -1,223 +1,9 @@
-
-// import React, { useState, useEffect } from 'react';
-// import { Link, useLocation } from 'react-router-dom';
-// import { 
-//   LayoutDashboard, 
-//   Briefcase, 
-//   UserCircle, 
-//   FileBarChart, 
-//   Bell, 
-//   Menu, 
-//   X, 
-//   LogOut,
-//   PlusCircle,
-//   Search,
-//   Moon,
-//   Sun,
-//   Settings,
-//   Shield,
-//   Users
-// } from 'lucide-react';
-// import { UserRole, User } from '../types';
-
-// interface LayoutProps {
-//   children: React.ReactNode;
-//   currentUser: User;
-//   onSwitchUser: (role: UserRole) => void;
-//   isDarkMode: boolean;
-//   onToggleTheme: () => void;
-// }
-
-// export const Layout: React.FC<LayoutProps> = ({ children, currentUser, onSwitchUser, isDarkMode, onToggleTheme }) => {
-//   const [isSidebarOpen, setSidebarOpen] = useState(false);
-//   const location = useLocation();
-
-//   // Hide sidebar/header on login page
-//   // if (location.pathname === '/login') {
-//   //     return <>{children}</>;
-//   // }
-
-//   if (location.pathname === '/login' || location.pathname === '/') {
-//     return <>{children}</>;
-// }
-
-//   const navItems = [
-//     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-//     { icon: Briefcase, label: 'Jobs', path: '/jobs' },
-//     { icon: UserCircle, label: 'Profile', path: '/profile' },
-//     { icon: Settings, label: 'Admin Settings', path: '/admin/settings', roles: [UserRole.ADMIN] },
-//   ];
-
-//   const filteredNav = navItems.filter(item => 
-//     !item.roles || item.roles.includes(currentUser.role)
-//   );
-
-//   return (
-//     <div className="flex h-screen bg-background dark:bg-black overflow-hidden font-sans text-zinc-900 dark:text-zinc-100 transition-colors duration-300">
-//       {/* Mobile Sidebar Overlay */}
-//       {isSidebarOpen && (
-//         <div 
-//           className="fixed inset-0 bg-zinc-900/50 backdrop-blur-sm z-40 lg:hidden animate-fade-in"
-//           onClick={() => setSidebarOpen(false)}
-//         />
-//       )}
-
-//       {/* Sidebar */}
-//       <aside className={`
-//         fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 shadow-2xl lg:shadow-none transform transition-transform duration-300 ease-in-out
-//         lg:translate-x-0 lg:static lg:inset-0
-//         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-//       `}>
-//         <div className="flex flex-col h-full">
-//             {/* Logo */}
-//             <div className="flex items-center px-6 h-20 border-b border-zinc-100 dark:border-zinc-800">
-//                 <div className="w-10 h-10 bg-zinc-900 dark:bg-white rounded-xl flex items-center justify-center shadow-lg shadow-zinc-200 dark:shadow-zinc-900/20">
-//                     <span className="text-white dark:text-zinc-900 font-bold text-xl">H</span>
-//                 </div>
-//                 <div className="ml-3">
-//                     <span className="block text-lg font-bold text-zinc-900 dark:text-white leading-none">JobConnect</span>
-//                     <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium tracking-wide">HAYATI PORTAL</span>
-//                 </div>
-//                 <button 
-//                   className="ml-auto lg:hidden text-zinc-400 hover:text-zinc-600"
-//                   onClick={() => setSidebarOpen(false)}
-//                 >
-//                   <X className="w-6 h-6" />
-//                 </button>
-//             </div>
-
-//             {/* Nav */}
-//             <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-//                 {(currentUser.role === UserRole.ADVERTISER || currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.MANAGER) && (
-//                     <Link
-//                     to="/post-job"
-//                     className="flex items-center justify-center w-full px-4 py-3 mb-8 text-white bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 rounded-xl shadow-lg shadow-zinc-200 dark:shadow-zinc-900/20 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
-//                     onClick={() => setSidebarOpen(false)}
-//                 >
-//                     <PlusCircle className="w-5 h-5 mr-2" />
-//                     <span className="font-medium">Post New Job</span>
-//                 </Link>
-//                 )}
-
-//                 <div className="space-y-1">
-//                     {filteredNav.map((item) => {
-//                         const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
-//                         return (
-//                         <Link
-//                             key={item.path}
-//                             to={item.path}
-//                             onClick={() => setSidebarOpen(false)}
-//                             className={`flex items-center px-4 py-3.5 rounded-xl transition-all duration-200 group ${
-//                             isActive 
-//                                 ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold shadow-sm' 
-//                                 : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white'
-//                             }`}
-//                         >
-//                             <item.icon className={`w-5 h-5 mr-3 transition-colors ${isActive ? 'text-zinc-900 dark:text-white' : 'text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-600 dark:group-hover:text-zinc-300'}`} />
-//                             <span className="text-sm">{item.label}</span>
-//                             {isActive && <div className="ml-auto w-1.5 h-1.5 bg-zinc-900 dark:bg-white rounded-full" />}
-//                         </Link>
-//                         );
-//                     })}
-//                 </div>
-//             </nav>
-
-//             {/* User Profile Footer */}
-//             <div className="p-4 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
-//                 <div className="mb-4">
-//                     <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2 px-1">Switch Role (Demo)</p>
-//                     <select 
-//                         className="w-full text-xs p-2 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-200 focus:ring-1 focus:ring-zinc-300 dark:focus:ring-zinc-600 outline-none shadow-sm"
-//                         value={currentUser.role}
-//                         onChange={(e) => onSwitchUser(e.target.value as UserRole)}
-//                     >
-//                         {Object.values(UserRole).map(role => (
-//                             <option key={role} value={role}>{role}</option>
-//                         ))}
-//                     </select>
-//                 </div>
-                
-//                 <div className="flex items-center p-2 rounded-xl hover:bg-white dark:hover:bg-zinc-800 transition-colors border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 hover:shadow-sm cursor-pointer">
-//                     <img src={currentUser.avatar} alt="User" className="w-9 h-9 rounded-full object-cover border border-zinc-200 dark:border-zinc-700" />
-//                     <div className="flex-1 min-w-0 ml-3">
-//                         <p className="text-sm font-semibold text-zinc-900 dark:text-white truncate">{currentUser.name}</p>
-//                         <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{currentUser.role}</p>
-//                     </div>
-//                     <Link to="/login" className="ml-auto">
-//                         <LogOut className="w-4 h-4 text-zinc-400 hover:text-red-500 transition-colors" />
-//                     </Link>
-//                 </div>
-//             </div>
-//         </div>
-//       </aside>
-
-//       {/* Main Content */}
-//       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden bg-background dark:bg-black">
-//         {/* Header */}
-//         <header className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 h-20 flex items-center justify-between px-4 lg:px-8 sticky top-0 z-30 transition-colors duration-300">
-//           <button 
-//             className="lg:hidden p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-//             onClick={() => setSidebarOpen(true)}
-//           >
-//             <Menu className="w-6 h-6" />
-//           </button>
-          
-//           <div className="flex-1 flex justify-between items-center ml-4 lg:ml-0">
-//              {/* Breadcrumb or Title */}
-//              <div>
-//                 <h1 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">
-//                     {location.pathname === '/' ? 'Dashboard' : 
-//                      location.pathname.startsWith('/jobs') ? 'Jobs & Opportunities' :
-//                      location.pathname.startsWith('/admin') ? 'Administration' :
-//                      location.pathname.substring(1).charAt(0).toUpperCase() + location.pathname.substring(2)}
-//                 </h1>
-//              </div>
-
-//              {/* Actions */}
-//              <div className="flex items-center space-x-3 lg:space-x-6">
-//                 <button 
-//                   onClick={onToggleTheme}
-//                   className="p-2.5 rounded-xl text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-//                   aria-label="Toggle Theme"
-//                 >
-//                   {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-//                 </button>
-
-//                 <div className="hidden md:flex items-center px-4 py-2 bg-zinc-100 dark:bg-zinc-800 rounded-full border border-transparent focus-within:border-zinc-300 dark:focus-within:border-zinc-600 focus-within:bg-white dark:focus-within:bg-zinc-900 transition-all w-64">
-//                     <Search className="w-4 h-4 text-zinc-400" />
-//                     <input 
-//                         type="text" 
-//                         placeholder="Quick search..." 
-//                         className="ml-2 bg-transparent border-none outline-none text-sm w-full placeholder-zinc-400 text-zinc-900 dark:text-white" 
-//                     />
-//                 </div>
-//                 <button className="p-2.5 rounded-xl text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 relative transition-all">
-//                     <Bell className="w-5 h-5" />
-//                     <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-red-500 border-2 border-white dark:border-zinc-900"></span>
-//                 </button>
-//              </div>
-//           </div>
-//         </header>
-
-//         {/* Scrollable Content Area */}
-//         <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-8">
-//           <div className="max-w-7xl mx-auto animate-slide-up">
-//             {children}
-//           </div>
-//         </main>
-//       </div>
-//     </div>
-//   );
-// };
-
-
-import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Briefcase, 
   UserCircle, 
-  Bell, 
   Menu, 
   X, 
   LogOut,
@@ -225,9 +11,15 @@ import {
   Search,
   Moon,
   Sun,
-  Settings
+  Settings,
+  Bell,
+  Palette,
+  Check,
+  CheckCircle2
 } from 'lucide-react';
 import { UserRole, User } from '../types';
+import { SnowBackground } from './SnowBackground';
+import { api } from '../services/api';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -237,175 +29,192 @@ interface LayoutProps {
   onToggleTheme: () => void;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ 
-  children, 
-  currentUser, 
-  onSwitchUser, 
-  isDarkMode, 
-  onToggleTheme 
-}) => {
-  const [isSidebarOpen, setSidebarOpen] = useState(false);
-  const location = useLocation();
+const COLORS = [
+  { name: 'Red', class: 'bg-red-600', 
+    palette: { 50: '#fef2f2', 100: '#fee2e2', 200: '#fecaca', 300: '#fca5a5', 400: '#f87171', 500: '#ef4444', 600: '#dc2626', 700: '#b91c1c', 800: '#991b1b', 900: '#7f1d1d', 950: '#450a0a' } 
+  },
+  { name: 'Blue', class: 'bg-blue-600', 
+    palette: { 50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a', 950: '#172554' } 
+  },
+  { name: 'Emerald', class: 'bg-emerald-600',
+    palette: { 50: '#ecfdf5', 100: '#d1fae5', 200: '#a7f3d0', 300: '#6ee7b7', 400: '#34d399', 500: '#10b981', 600: '#059669', 700: '#047857', 800: '#065f46', 900: '#064e3b', 950: '#022c22' } 
+  },
+  { name: 'Violet', class: 'bg-violet-600', 
+    palette: { 50: '#f5f3ff', 100: '#ede9fe', 200: '#ddd6fe', 300: '#c4b5fd', 400: '#a78bfa', 500: '#8b5cf6', 600: '#7c3aed', 700: '#6d28d9', 800: '#5b21b6', 900: '#4c1d95', 950: '#2e1065' } 
+  },
+  { name: 'Amber', class: 'bg-amber-600', 
+    palette: { 50: '#fffbeb', 100: '#fef3c7', 200: '#fde68a', 300: '#fcd34d', 400: '#fbbf24', 500: '#f59e0b', 600: '#d97706', 700: '#b45309', 800: '#92400e', 900: '#78350f', 950: '#451a03' } 
+  }
+];
 
-  // Navigation items
+const HeaderIconButton: React.FC<{ 
+  onClick?: () => void; 
+  icon: React.ElementType; 
+  label: string; 
+  badge?: boolean;
+}> = ({ onClick, icon: Icon, label, badge }) => (
+  <div className="relative group">
+    <button 
+        onClick={onClick}
+        className="p-2.5 rounded-xl text-zinc-500 dark:text-zinc-400 hover:bg-white/80 dark:hover:bg-zinc-800/80 hover:text-red-900 dark:hover:text-red-400 transition-all active:scale-95 duration-200"
+        aria-label={label}
+    >
+        <Icon className="w-5 h-5" />
+        {badge && <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-red-500 border-2 border-white dark:border-zinc-900"></span>}
+    </button>
+  </div>
+);
+
+export const Layout: React.FC<LayoutProps> = ({ children, currentUser, onSwitchUser, isDarkMode, onToggleTheme }) => {
+  const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [selectedColor, setSelectedColor] = useState('Blue');
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const hexToRgb = (hex: string) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : null;
+  };
+
+  const changeAccentColor = (colorName: string, palette: any) => {
+    setSelectedColor(colorName);
+    const root = document.documentElement;
+    Object.keys(palette).forEach(key => {
+       root.style.setProperty(`--accent-${key}`, palette[key]);
+       const rgb = hexToRgb(palette[key]);
+       if (rgb) root.style.setProperty(`--accent-${key}-rgb`, rgb);
+    });
+    setShowColorPicker(false);
+  };
+
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-    { icon: Briefcase, label: 'Jobs', path: '/jobs' },
+    { icon: Briefcase, label: 'Tasks', path: '/jobs' },
     { icon: UserCircle, label: 'Profile', path: '/profile' },
-    ...(currentUser.role === UserRole.ADMIN 
-      ? [{ icon: Settings, label: 'Admin Settings', path: '/admin/settings' }] 
-      : [])
+    { icon: Settings, label: 'Admin Settings', path: '/admin/settings', roles: [UserRole.ADMIN] },
   ];
 
+  const filteredNav = navItems.filter(item => !item.roles || item.roles.includes(currentUser.role));
+
+  const handleLogout = () => {
+    api.logout();
+    navigate('/login');
+    window.location.reload();
+  };
+
   return (
-    <div className="flex h-screen bg-background dark:bg-black overflow-hidden font-sans text-zinc-900 dark:text-zinc-100 transition-colors duration-300">
-      {/* Mobile Sidebar Overlay */}
+    <div className="flex h-screen overflow-hidden font-sans text-zinc-900 dark:text-zinc-100 transition-colors duration-300 relative">
+      <SnowBackground isDarkMode={isDarkMode} />
+      
       {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-zinc-900/50 backdrop-blur-sm z-40 lg:hidden animate-fade-in"
-          onClick={() => setSidebarOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-md z-40 lg:hidden animate-fade-in" onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/* Sidebar */}
-      <aside className={`
-        fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 shadow-2xl lg:shadow-none transform transition-transform duration-300 ease-in-out
-        lg:translate-x-0 lg:static lg:inset-0
-        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
+      <aside className={`fixed inset-y-0 left-0 z-50 w-72 glass shadow-2xl lg:shadow-none transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex flex-col h-full">
-            {/* Logo */}
-            <div className="flex items-center px-6 h-20 border-b border-zinc-100 dark:border-zinc-800">
-                <div className="w-10 h-10 bg-zinc-900 dark:bg-white rounded-xl flex items-center justify-center shadow-lg shadow-zinc-200 dark:shadow-zinc-900/20">
-                    <span className="text-white dark:text-zinc-900 font-bold text-xl">H</span>
+            <Link to="/" className="flex items-center px-6 h-24 border-b border-white/20 dark:border-white/5">
+                <div className="w-12 h-12 bg-gradient-to-tr from-red-900 to-red-600 dark:from-red-800 dark:to-red-500 rounded-2xl flex items-center justify-center shadow-lg shadow-red-900/30 relative">
+                    <CheckCircle2 className="text-white w-7 h-7" strokeWidth={2.5} />
+                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-blue-600 rounded-full border-2 border-white dark:border-zinc-900 flex items-center justify-center text-[10px] text-white font-bold">T</div>
                 </div>
-                <div className="ml-3">
-                    <span className="block text-lg font-bold text-zinc-900 dark:text-white leading-none">JobConnect</span>
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium tracking-wide">HAYATI PORTAL</span>
+                <div className="ml-4">
+                    <span className="block text-2xl font-black text-zinc-900 dark:text-white tracking-tighter leading-none">Tasker</span>
+                    <span className="text-[10px] text-red-700 dark:text-red-400 font-black tracking-[0.2em] uppercase">Enterprise</span>
                 </div>
-                <button 
-                  className="ml-auto lg:hidden text-zinc-400 hover:text-zinc-600"
-                  onClick={() => setSidebarOpen(false)}
-                >
-                  <X className="w-6 h-6" />
-                </button>
-            </div>
+            </Link>
 
-            {/* Nav */}
-            <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-                {(currentUser.role === UserRole.ADVERTISER || currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.MANAGER) && (
+            <nav className="flex-1 px-4 py-8 space-y-2 overflow-y-auto">
+                {(currentUser.role !== UserRole.APPLICANT) && (
                     <Link
                     to="/post-job"
-                    className="flex items-center justify-center w-full px-4 py-3 mb-8 text-white bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 rounded-xl shadow-lg shadow-zinc-200 dark:shadow-zinc-900/20 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
+                    className="flex items-center justify-center w-full px-4 py-4 mb-8 text-white bg-red-900 dark:bg-red-700 hover:bg-red-800 dark:hover:bg-red-600 rounded-2xl shadow-xl shadow-red-900/20 transition-all transform hover:-translate-y-1 active:scale-95"
                     onClick={() => setSidebarOpen(false)}
                 >
-                    <PlusCircle className="w-5 h-5 mr-2" />
-                    <span className="font-medium">Post New Job</span>
+                    <PlusCircle className="w-5 h-5 mr-3" />
+                    <span className="font-bold text-sm">Create New Task</span>
                 </Link>
                 )}
 
                 <div className="space-y-1">
-                    {navItems.map((item) => {
-                        const isActive = location.pathname === item.path;
+                    {filteredNav.map((item) => {
+                        const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
                         return (
                         <Link
                             key={item.path}
                             to={item.path}
                             onClick={() => setSidebarOpen(false)}
-                            className={`flex items-center px-4 py-3.5 rounded-xl transition-all duration-200 group ${
-                            isActive 
-                                ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold shadow-sm' 
-                                : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white'
-                            }`}
+                            className={`flex items-center px-5 py-4 rounded-2xl transition-all duration-300 relative group ${isActive ? 'bg-white/60 dark:bg-white/10 text-red-900 dark:text-red-400 font-bold shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:bg-white/30 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white'}`}
                         >
-                            <item.icon className={`w-5 h-5 mr-3 transition-colors ${isActive ? 'text-zinc-900 dark:text-white' : 'text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-600 dark:group-hover:text-zinc-300'}`} />
-                            <span className="text-sm">{item.label}</span>
-                            {isActive && <div className="ml-auto w-1.5 h-1.5 bg-zinc-900 dark:bg-white rounded-full" />}
+                            <item.icon className={`w-5 h-5 mr-4 transition-transform group-hover:scale-110 ${isActive ? 'text-red-700 dark:text-red-400' : 'text-zinc-400'}`} />
+                            <span className="text-sm tracking-tight">{item.label}</span>
+                            {isActive && <div className="absolute right-4 w-1.5 h-1.5 rounded-full bg-red-600 dark:bg-red-500" />}
                         </Link>
                         );
                     })}
                 </div>
             </nav>
 
-            {/* User Profile Footer */}
-            <div className="p-4 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
-                <div className="mb-4">
-                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2 px-1">Switch Role (Demo)</p>
-                    <select 
-                        className="w-full text-xs p-2 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-200 focus:ring-1 focus:ring-zinc-300 dark:focus:ring-zinc-600 outline-none shadow-sm"
-                        value={currentUser.role}
-                        onChange={(e) => onSwitchUser(e.target.value as UserRole)}
-                    >
-                        {Object.values(UserRole).map(role => (
-                            <option key={role} value={role}>{role}</option>
-                        ))}
-                    </select>
-                </div>
-                
-                <div className="flex items-center p-2 rounded-xl hover:bg-white dark:hover:bg-zinc-800 transition-colors border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 hover:shadow-sm cursor-pointer">
-                    <img src={currentUser.avatar} alt="User" className="w-9 h-9 rounded-full object-cover border border-zinc-200 dark:border-zinc-700" />
+            <div className="p-6 border-t border-white/20 dark:border-white/5">
+                <div className="flex items-center p-3 rounded-2xl hover:bg-white/40 dark:hover:bg-white/5 transition-all group cursor-pointer border border-transparent hover:border-white/30 dark:hover:border-white/10" onClick={() => navigate('/profile')}>
+                    <img src={currentUser.avatar} alt="User" className="w-10 h-10 rounded-xl object-cover shadow-sm border border-white/50" />
                     <div className="flex-1 min-w-0 ml-3">
-                        <p className="text-sm font-semibold text-zinc-900 dark:text-white truncate">{currentUser.name}</p>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{currentUser.role}</p>
+                        <p className="text-sm font-bold text-zinc-900 dark:text-white truncate group-hover:text-red-700 transition-colors">{currentUser.name}</p>
+                        <p className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{currentUser.role}</p>
                     </div>
-                    <Link to="/login" className="ml-auto">
-                        <LogOut className="w-4 h-4 text-zinc-400 hover:text-red-500 transition-colors" />
-                    </Link>
+                    <button onClick={(e) => { e.stopPropagation(); handleLogout(); }} className="ml-auto p-2 text-zinc-400 hover:text-red-600 transition-colors">
+                        <LogOut className="w-4 h-4" />
+                    </button>
                 </div>
             </div>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden bg-background dark:bg-black">
-        {/* Header */}
-        <header className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 h-20 flex items-center justify-between px-4 lg:px-8 sticky top-0 z-30 transition-colors duration-300">
-          <button 
-            className="lg:hidden p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-            onClick={() => setSidebarOpen(true)}
-          >
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden relative z-10">
+        <header className="glass h-24 flex items-center justify-between px-8 sticky top-0 z-30">
+          <button className="lg:hidden p-3 rounded-xl text-zinc-500 hover:bg-white/50" onClick={() => setSidebarOpen(true)}>
             <Menu className="w-6 h-6" />
           </button>
           
           <div className="flex-1 flex justify-between items-center ml-4 lg:ml-0">
-             {/* Breadcrumb or Title */}
              <div>
-                <h1 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">
-                    {location.pathname === '/dashboard' ? 'Dashboard' : 
-                     location.pathname.startsWith('/jobs') ? 'Jobs & Opportunities' :
+                <h1 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter">
+                    {location.pathname === '/' ? 'Home' : 
+                     location.pathname === '/dashboard' ? 'Overview' :
+                     location.pathname.startsWith('/jobs') ? 'Active Tasks' :
                      location.pathname.startsWith('/admin') ? 'Administration' :
-                     location.pathname.substring(1).charAt(0).toUpperCase() + location.pathname.substring(2)}
+                     location.pathname.substring(1).split('/')[0].charAt(0).toUpperCase() + location.pathname.substring(1).split('/')[0].slice(1)}
                 </h1>
              </div>
 
-             {/* Actions */}
-             <div className="flex items-center space-x-3 lg:space-x-6">
-                <button 
-                  onClick={onToggleTheme}
-                  className="p-2.5 rounded-xl text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                  aria-label="Toggle Theme"
-                >
-                  {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-                </button>
-
-                <div className="hidden md:flex items-center px-4 py-2 bg-zinc-100 dark:bg-zinc-800 rounded-full border border-transparent focus-within:border-zinc-300 dark:focus-within:border-zinc-600 focus-within:bg-white dark:focus-within:bg-zinc-900 transition-all w-64">
-                    <Search className="w-4 h-4 text-zinc-400" />
-                    <input 
-                        type="text" 
-                        placeholder="Quick search..." 
-                        className="ml-2 bg-transparent border-none outline-none text-sm w-full placeholder-zinc-400 text-zinc-900 dark:text-white" 
-                    />
+             <div className="flex items-center space-x-2">
+                <div className="relative">
+                    <HeaderIconButton icon={Palette} label="Accent" onClick={() => setShowColorPicker(!showColorPicker)} />
+                    {showColorPicker && (
+                        <div className="absolute top-16 right-0 w-56 glass-card rounded-2xl p-4 z-50 animate-slide-up">
+                            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-4">Choose Theme</p>
+                            <div className="grid grid-cols-5 gap-3">
+                                {COLORS.map((color) => (
+                                    <button key={color.name} onClick={() => changeAccentColor(color.name, color.palette)} className={`w-8 h-8 rounded-full ${color.class} flex items-center justify-center transition-all hover:scale-125`}>
+                                        {selectedColor === color.name && <Check className="w-4 h-4 text-white" />}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
-                <button className="p-2.5 rounded-xl text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 relative transition-all">
-                    <Bell className="w-5 h-5" />
-                    <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-red-500 border-2 border-white dark:border-zinc-900"></span>
-                </button>
+
+                <HeaderIconButton icon={isDarkMode ? Sun : Moon} label="Theme" onClick={onToggleTheme} />
+                <div className="hidden md:flex items-center px-5 py-3 glass-card rounded-2xl border-white/30 w-72 focus-within:ring-2 focus-within:ring-red-500/30 transition-all">
+                    <Search className="w-4 h-4 text-zinc-400" />
+                    <input type="text" placeholder="Quick find tasks..." className="ml-3 bg-transparent border-none outline-none text-sm w-full placeholder-zinc-400 font-medium" />
+                </div>
+                <HeaderIconButton icon={Bell} label="Alerts" badge={true} />
              </div>
           </div>
         </header>
 
-        {/* Scrollable Content Area */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-8">
+        <main className="flex-1 overflow-y-auto p-8">
           <div className="max-w-7xl mx-auto animate-slide-up">
             {children}
           </div>

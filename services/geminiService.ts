@@ -1,53 +1,49 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { JobCategory } from "../types";
 
-// Initialize client
-const apiKey = process.env.API_KEY || ''; 
-// Note: In a real app, we'd handle missing keys gracefully. 
-// For this demo, we assume the environment provides it or the user will provide it.
-
-const ai = new GoogleGenAI({ apiKey });
+// Fix: Initialize GoogleGenAI strictly following guidelines using direct process.env.API_KEY as a named parameter
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const generateJobDescription = async (title: string, category: JobCategory, keyPoints: string): Promise<string> => {
-  if (!apiKey) {
-    console.warn("API Key missing for Gemini");
-    return "Gemini API Key is missing. Please configure it to use AI generation.";
-  }
-
   try {
     const prompt = `
-      You are an expert HR assistant. Write a professional and engaging job description for a role with the following details:
-      Title: ${title}
-      Category: ${category}
-      Key Requirements/Points: ${keyPoints}
+      You are an expert HR assistant for "Tasker", an enterprise task orchestration platform. 
+      Write a professional and engaging description for a high-impact task with the following details:
+      Designation: ${title}
+      Domain: ${category}
+      Key Resolution Points: ${keyPoints}
 
-      Keep the tone professional but encouraging. Structure it with a brief introduction, responsibilities, and requirements.
+      Keep the tone professional and technical. Structure it with a brief mission statement, resolution steps, and prerequisites.
       Limit the response to around 200 words.
       Format with simple paragraphs and bullet points (use standard markdown).
     `;
 
+    // Fix: Use ai.models.generateContent directly with model name and content. 'gemini-3-flash-preview' is used for basic text tasks.
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
     });
 
-    return response.text || "Could not generate description.";
+    // Fix: Access response.text directly as a property
+    return response.text || "Could not generate task description.";
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return "Error generating content. Please try again.";
+    return "Error generating task content. Please try again.";
   }
 };
 
 export const analyzeResume = async (resumeText: string): Promise<string> => {
-    if (!apiKey) return "API Key missing";
-    
     try {
+        // Fix: Use ai.models.generateContent directly with the correct model and prompt
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: `Analyze this resume text and extract 3 key strengths and a brief summary: ${resumeText.substring(0, 1000)}...`
+            model: 'gemini-3-flash-preview',
+            contents: `Analyze this resume text for the Tasker platform and extract 3 key technical strengths and a brief summary of the tasker's background: ${resumeText.substring(0, 1000)}...`
         });
+        // Fix: Access response.text directly as a property
         return response.text || "";
     } catch (e) {
+        console.error("Gemini Resume Analysis Error:", e);
         return "Analysis failed.";
     }
 }

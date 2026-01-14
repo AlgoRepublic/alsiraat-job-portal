@@ -98,7 +98,7 @@ export const JobDetails: React.FC = () => {
                 <div className="flex flex-col md:flex-row justify-between items-start gap-4">
                     <div>
                         <div className="flex items-center gap-3 mb-3">
-                            <span className="px-2.5 py-1 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-bold rounded-md uppercase tracking-wide">
+                            <span className="px-2.5 py-1 bg-red-900 dark:bg-red-700 text-white text-xs font-bold rounded-md uppercase tracking-wide">
                                 {job.category}
                             </span>
                             <span className={`px-2.5 py-1 text-xs font-bold rounded-md uppercase tracking-wide border ${
@@ -149,9 +149,9 @@ export const JobDetails: React.FC = () => {
                 {/* Main Content */}
                 <div className="lg:col-span-2 space-y-8">
                     {/* Metadata Card */}
-                    <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 shadow-sm border border-zinc-100 dark:border-zinc-800 flex flex-wrap gap-6">
+                    <div className="glass-card rounded-2xl p-6 shadow-sm border border-zinc-100 dark:border-zinc-800 flex flex-wrap gap-6">
                         <div className="flex items-center">
-                            <div className="w-10 h-10 rounded-full bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center mr-3 text-zinc-500 dark:text-zinc-400">
+                            <div className="w-10 h-10 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center mr-3 text-red-900 dark:text-red-400">
                                 <MapPin className="w-5 h-5" />
                             </div>
                             <div>
@@ -160,7 +160,7 @@ export const JobDetails: React.FC = () => {
                             </div>
                         </div>
                         <div className="flex items-center">
-                            <div className="w-10 h-10 rounded-full bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center mr-3 text-zinc-500 dark:text-zinc-400">
+                            <div className="w-10 h-10 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center mr-3 text-red-900 dark:text-red-400">
                                 <Clock className="w-5 h-5" />
                             </div>
                             <div>
@@ -169,7 +169,7 @@ export const JobDetails: React.FC = () => {
                             </div>
                         </div>
                         <div className="flex items-center">
-                            <div className="w-10 h-10 rounded-full bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center mr-3 text-zinc-500 dark:text-zinc-400">
+                            <div className="w-10 h-10 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center mr-3 text-red-900 dark:text-red-400">
                                 <Calendar className="w-5 h-5" />
                             </div>
                             <div>
@@ -180,7 +180,7 @@ export const JobDetails: React.FC = () => {
                     </div>
 
                     {/* Description */}
-                    <div className="bg-white dark:bg-zinc-900 rounded-2xl p-8 shadow-sm border border-zinc-100 dark:border-zinc-800">
+                    <div className="glass-card rounded-2xl p-8 shadow-sm border border-zinc-100 dark:border-zinc-800">
                         <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-4">About the Role</h3>
                         <div className="prose prose-zinc dark:prose-invert max-w-none text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap leading-relaxed">
                             {job.description}
@@ -198,19 +198,19 @@ export const JobDetails: React.FC = () => {
 
                     {/* Attachments */}
                     {job.attachments && job.attachments.length > 0 && (
-                         <div className="bg-white dark:bg-zinc-900 rounded-2xl p-8 shadow-sm border border-zinc-100 dark:border-zinc-800">
+                         <div className="glass-card rounded-2xl p-8 shadow-sm border border-zinc-100 dark:border-zinc-800">
                             <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-4">Documents</h3>
                             <div className="space-y-3">
                                 {job.attachments.map(file => (
-                                    <div key={file.id} className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-800 rounded-xl border border-zinc-100 dark:border-zinc-700 hover:border-zinc-300 transition-colors">
+                                    <div key={file.id} className="flex items-center justify-between p-4 bg-white/50 dark:bg-zinc-800 rounded-xl border border-zinc-100 dark:border-zinc-700 hover:border-red-300 transition-colors">
                                         <div className="flex items-center gap-3">
-                                            <FileText className="w-5 h-5 text-zinc-400" />
+                                            <FileText className="w-5 h-5 text-red-800 dark:text-red-400" />
                                             <div>
                                                 <p className="text-sm font-semibold text-zinc-900 dark:text-white">{file.name}</p>
                                                 <p className="text-xs text-zinc-500 dark:text-zinc-400">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
                                             </div>
                                         </div>
-                                        <button className="text-zinc-500 hover:text-zinc-900 dark:hover:text-white">
+                                        <button className="text-zinc-500 hover:text-red-900 dark:hover:text-white">
                                             <Download className="w-5 h-5" />
                                         </button>
                                     </div>
@@ -227,7 +227,7 @@ export const JobDetails: React.FC = () => {
                         {(isManagerOrAdmin || job.createdBy === currentUserRole) && (
                             <button 
                                 onClick={() => navigate(`/jobs/${id}/applicants`)}
-                                className="w-full py-4 bg-white dark:bg-zinc-800 border-2 border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-white rounded-2xl font-bold hover:bg-zinc-50 dark:hover:bg-zinc-700 shadow-sm flex items-center justify-center transition-all"
+                                className="w-full py-4 bg-white dark:bg-zinc-800 border-2 border-red-900 dark:border-red-500 text-red-900 dark:text-red-100 rounded-2xl font-bold hover:bg-red-50 dark:hover:bg-red-900/20 shadow-sm flex items-center justify-center transition-all"
                             >
                                 <Users className="w-5 h-5 mr-2" />
                                 View Applicants ({job.applicantsCount})
@@ -235,10 +235,10 @@ export const JobDetails: React.FC = () => {
                         )}
 
                         {currentUserRole === UserRole.APPLICANT && (
-                            <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:shadow-none border border-zinc-100 dark:border-zinc-800 overflow-hidden">
-                                <div className="p-6 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900">
+                            <div className="glass-card rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:shadow-none border border-zinc-100 dark:border-zinc-800 overflow-hidden">
+                                <div className="p-6 bg-red-900 dark:bg-red-800 text-white">
                                     <h3 className="text-lg font-bold">Apply Now</h3>
-                                    <p className="text-zinc-400 dark:text-zinc-500 text-sm mt-1">Submit your application for review.</p>
+                                    <p className="text-red-100 text-sm mt-1">Submit your application for review.</p>
                                 </div>
 
                                 {applicationStep === 'success' || applicationStep === 'applied' ? (
@@ -257,7 +257,7 @@ export const JobDetails: React.FC = () => {
                                         </p>
                                         <button 
                                             onClick={() => navigate('/jobs')}
-                                            className="w-full py-3 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl font-semibold hover:bg-zinc-800 dark:hover:bg-zinc-200"
+                                            className="w-full py-3 bg-red-900 dark:bg-red-700 text-white rounded-xl font-semibold hover:bg-red-800 dark:hover:bg-red-600"
                                         >
                                             Back to Jobs
                                         </button>
@@ -266,7 +266,7 @@ export const JobDetails: React.FC = () => {
                                     <form onSubmit={handleApply} className="p-6 space-y-5">
                                         {applicationStep === 'submitting' && (
                                             <div className="absolute inset-0 bg-white/80 dark:bg-black/80 z-10 flex flex-col items-center justify-center">
-                                                <Loader2 className="w-10 h-10 text-zinc-900 dark:text-white animate-spin mb-3" />
+                                                <Loader2 className="w-10 h-10 text-red-900 dark:text-white animate-spin mb-3" />
                                                 <p className="font-semibold text-zinc-900 dark:text-white">Submitting...</p>
                                             </div>
                                         )}
@@ -275,7 +275,7 @@ export const JobDetails: React.FC = () => {
                                             <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase mb-2">Cover Letter</label>
                                             <textarea 
                                                 required
-                                                className="w-full p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-500 focus:outline-none min-h-[120px] dark:text-white"
+                                                className="w-full p-3 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-red-900 dark:focus:ring-red-500 focus:outline-none min-h-[120px] dark:text-white"
                                                 placeholder="Why are you a good fit for this role?"
                                                 value={coverLetter}
                                                 onChange={(e) => setCoverLetter(e.target.value)}
@@ -286,7 +286,7 @@ export const JobDetails: React.FC = () => {
                                             <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase mb-2">Expected Availability</label>
                                             <input 
                                                 type="text"
-                                                className="w-full p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-500 focus:outline-none dark:text-white"
+                                                className="w-full p-3 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-red-900 dark:focus:ring-red-500 focus:outline-none dark:text-white"
                                                 placeholder="e.g. Weekdays after 3pm"
                                                 value={availability}
                                                 onChange={(e) => setAvailability(e.target.value)}
@@ -298,7 +298,7 @@ export const JobDetails: React.FC = () => {
                                                 <input 
                                                     type="checkbox" 
                                                     required
-                                                    className="w-5 h-5 mt-0.5 rounded border-zinc-300 text-zinc-900 dark:text-zinc-100 focus:ring-zinc-900"
+                                                    className="w-5 h-5 mt-0.5 rounded border-zinc-300 text-red-900 dark:text-red-500 focus:ring-red-900"
                                                     checked={agreed}
                                                     onChange={(e) => setAgreed(e.target.checked)}
                                                 />
@@ -311,7 +311,7 @@ export const JobDetails: React.FC = () => {
                                         <button 
                                             type="submit"
                                             disabled={!agreed}
-                                            className="w-full py-3.5 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl font-bold hover:bg-zinc-800 dark:hover:bg-zinc-200 shadow-lg shadow-zinc-200 dark:shadow-none transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                                            className="w-full py-3.5 bg-red-900 dark:bg-red-700 text-white rounded-xl font-bold hover:bg-red-800 dark:hover:bg-red-600 shadow-lg shadow-red-900/20 dark:shadow-none transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                                         >
                                             Submit Application
                                         </button>
