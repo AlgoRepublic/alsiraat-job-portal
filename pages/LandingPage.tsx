@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Briefcase, CheckCircle, Users, Zap, Shield, TrendingUp, Code, Palette, PenTool, DollarSign, HeadphonesIcon, BarChart, Menu, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 
 
 export function LandingPage() {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const navigate = useNavigate();
 
   return (
     <>
@@ -29,8 +31,8 @@ export function LandingPage() {
               <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-600 rounded-lg flex items-center justify-center">
                 <Briefcase className="w-5 h-5 md:w-6 md:h-6 text-white" />
               </div>
-              <span className="text-gray-900 font-bold text-xl md:text-base hidden sm:block md:block">Task Unity</span>
-              <span className="text-gray-900 font-bold text-xl sm:hidden md:hidden">Task Unity</span>
+              <span className="text-gray-900 font-bold text-xl md:text-base hidden sm:block md:block">Tasker</span>
+              <span className="text-gray-900 font-bold text-xl sm:hidden md:hidden">Tasker</span>
             </div>
             
             {/* Desktop Navigation Links */}
@@ -56,6 +58,7 @@ export function LandingPage() {
           {/* Mobile Action Button - Right (Get Started) */}
           <div className="md:hidden">
             <button
+            onClick ={() => navigate('/signin')}
                
                className="text-sm font-medium text-blue-600 hover:text-blue-700 bg-blue-50 px-3 py-2 rounded-lg"
             >
@@ -66,12 +69,14 @@ export function LandingPage() {
           {/* Desktop Right Actions */}
           <div className="hidden md:flex items-center gap-4">
             <button
+             onClick ={() => navigate('/signup')}
               
               className="text-gray-600 hover:text-gray-900 transition-colors text-sm"
             >
               Sign up
             </button>
             <button
+             onClick ={() => navigate('/signin')}
               
               className="text-gray-600 hover:text-gray-900 transition-colors text-sm"
             >

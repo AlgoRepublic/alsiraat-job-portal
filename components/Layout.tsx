@@ -280,8 +280,8 @@ export const Layout: React.FC<LayoutProps> = ({
                     <span className="text-white dark:text-zinc-900 font-bold text-xl">H</span>
                 </div>
                 <div className="ml-3">
-                    <span className="block text-lg font-bold text-zinc-900 dark:text-white leading-none">JobConnect</span>
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium tracking-wide">HAYATI PORTAL</span>
+                    <span className="block text-lg font-bold text-zinc-900 dark:text-white leading-none">Tasker</span>
+                    {/* <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium tracking-wide">Tasker</span> */}
                 </div>
                 <button 
                   className="ml-auto lg:hidden text-zinc-400 hover:text-zinc-600"
