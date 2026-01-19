@@ -49,26 +49,32 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
+          const email = profile.emails?.[0]?.value;
+          if (!email) {
+            return done(new Error("No email found in Google profile"));
+          }
+
           let user = await User.findOne({ googleId: profile.id });
           if (!user) {
             // Check if user exists with same email
-            user = await User.findOne({ email: profile.emails?.[0].value });
-            if (user) {
-              user.googleId = profile.id;
-              await user.save();
+            const existingUser = await User.findOne({ email });
+            if (existingUser) {
+              existingUser.googleId = profile.id;
+              await existingUser.save();
+              user = existingUser;
             } else {
               user = await User.create({
                 name: profile.displayName,
-                email: profile.emails?.[0].value,
+                email,
                 googleId: profile.id,
-                avatar: profile.photos?.[0].value,
+                avatar: profile.photos?.[0]?.value ?? "",
                 role: UserRole.INDEPENDENT,
               });
             }
           }
-          return done(null, user as any);
+          return done(null, user as Express.User);
         } catch (err) {
-          return done(err);
+          return done(err as Error);
         }
       },
     ),
@@ -83,24 +89,30 @@ if (process.env.SAML_ENTRY_POINT) {
         getSamlOptions: (req, done) => {
           done(null, {
             path: "/api/auth/saml/callback",
-            entryPoint: process.env.SAML_ENTRY_POINT,
+            entryPoint: process.env.SAML_ENTRY_POINT!,
             issuer: process.env.SAML_ISSUER || "tasker-app",
-            cert: process.env.SAML_CERT,
+            cert: process.env.SAML_CERT || "",
           });
         },
       },
       async (profile: any, done: any) => {
         try {
+          const email = profile.email;
+          if (!email) {
+            return done(new Error("No email found in SAML profile"));
+          }
+
           let user = await User.findOne({ samlId: profile.nameID });
           if (!user) {
-            user = await User.findOne({ email: profile.email });
-            if (user) {
-              user.samlId = profile.nameID;
-              await user.save();
+            const existingUser = await User.findOne({ email });
+            if (existingUser) {
+              existingUser.samlId = profile.nameID;
+              await existingUser.save();
+              user = existingUser;
             } else {
               user = await User.create({
                 name: profile.displayName || profile.cn || "SAML User",
-                email: profile.email,
+                email,
                 samlId: profile.nameID,
                 role: UserRole.MEMBER, // Default to Member for SAML users
               });
@@ -118,7 +130,7 @@ if (process.env.SAML_ENTRY_POINT) {
 passport.deserializeUser(async (id, done) => {
   try {
     const user = await User.findById(id);
-    done(null, user as any);
+    done(null, user as Express.User);
   } catch (err) {
     done(err);
   }
