@@ -4,9 +4,9 @@ import {
   getTasks,
   getTaskById,
   approveTask,
-} from "../controllers/taskController";
-import { authenticate, authorize } from "../middleware/rbac";
-import { UserRole } from "../models/User";
+} from "../controllers/taskController.js";
+import { authenticate, authorize } from "../middleware/rbac.js";
+import { UserRole } from "../models/User.js";
 
 const router = express.Router();
 

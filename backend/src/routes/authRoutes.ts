@@ -8,10 +8,10 @@ import {
   forgotPassword,
   resetPassword,
   updateProfile,
-} from "../controllers/authController";
-import { authenticate, authorize } from "../middleware/rbac";
-import { UserRole } from "../models/User";
-import "../config/passport";
+} from "../controllers/authController.js";
+import { authenticate, authorize } from "../middleware/rbac.js";
+import { UserRole } from "../models/User.js";
+import "../config/passport.js";
 
 const router = express.Router();
 

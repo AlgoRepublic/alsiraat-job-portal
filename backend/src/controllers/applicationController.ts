@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import Application, { ApplicationStatus } from "../models/Application";
-import Task from "../models/Task";
-import { sendNotification } from "../services/notificationService";
+import Application, { ApplicationStatus } from "../models/Application.js";
+import Task from "../models/Task.js";
+import { sendNotification } from "../services/notificationService.js";
 
 export const applyForTask = async (req: any, res: Response) => {
   try {

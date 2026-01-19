@@ -4,8 +4,8 @@ import {
   updateApplicationStatus,
   getApplications,
   getApplicationById,
-} from "../controllers/applicationController";
-import { authenticate } from "../middleware/rbac";
+} from "../controllers/applicationController.js";
+import { authenticate } from "../middleware/rbac.js";
 
 const router = express.Router();
 

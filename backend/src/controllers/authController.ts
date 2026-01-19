@@ -1,10 +1,10 @@
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import User, { UserRole } from "../models/User";
+import User, { UserRole } from "../models/User.js";
 import dotenv from "dotenv";
 import crypto from "crypto";
-import { sendNotification } from "../services/notificationService";
+import { sendNotification } from "../services/notificationService.js";
 
 dotenv.config();
 

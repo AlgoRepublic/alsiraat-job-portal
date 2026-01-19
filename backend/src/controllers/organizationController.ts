@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import Organization from "../models/Organization";
-import User, { UserRole } from "../models/User";
+import Organization from "../models/Organization.js";
+import User, { UserRole } from "../models/User.js";
 
 export const createOrganization = async (req: Request, res: Response) => {
   try {

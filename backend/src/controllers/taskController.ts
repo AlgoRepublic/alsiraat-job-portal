@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import Task, { TaskStatus, TaskVisibility } from "../models/Task";
-import User, { UserRole } from "../models/User";
-import Application from "../models/Application";
+import Task, { TaskStatus, TaskVisibility } from "../models/Task.js";
+import User, { UserRole } from "../models/User.js";
+import Application from "../models/Application.js";
 
 export const createTask = async (req: any, res: Response) => {
   try {

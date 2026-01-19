@@ -5,11 +5,11 @@ import dotenv from "dotenv";
 import passport from "passport";
 import path from "path";
 import { fileURLToPath } from "url";
-import authRoutes from "./routes/authRoutes";
-import organizationRoutes from "./routes/organizationRoutes";
-import taskRoutes from "./routes/taskRoutes";
-import applicationRoutes from "./routes/applicationRoutes";
-import notificationRoutes from "./routes/notificationRoutes";
+import authRoutes from "./routes/authRoutes.js";
+import organizationRoutes from "./routes/organizationRoutes.js";
+import taskRoutes from "./routes/taskRoutes.js";
+import applicationRoutes from "./routes/applicationRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
 
 dotenv.config();
 

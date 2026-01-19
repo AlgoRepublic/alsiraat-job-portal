@@ -3,7 +3,7 @@ import { Strategy as LocalStrategy } from "passport-local";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { MultiSamlStrategy as SamlStrategy } from "passport-saml";
 import bcrypt from "bcryptjs";
-import User, { UserRole } from "../models/User";
+import User, { UserRole } from "../models/User.js";
 import dotenv from "dotenv";
 
 dotenv.config();

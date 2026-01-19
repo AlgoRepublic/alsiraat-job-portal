@@ -2,8 +2,8 @@ import express from "express";
 import {
   getNotifications,
   markAsRead,
-} from "../controllers/notificationController";
-import { authenticate } from "../middleware/rbac";
+} from "../controllers/notificationController.js";
+import { authenticate } from "../middleware/rbac.js";
 
 const router = express.Router();
 

@@ -3,9 +3,9 @@ import {
   createOrganization,
   getOrganizations,
   addMember,
-} from "../controllers/organizationController";
-import { authenticate, authorize } from "../middleware/rbac";
-import { UserRole } from "../models/User";
+} from "../controllers/organizationController.js";
+import { authenticate, authorize } from "../middleware/rbac.js";
+import { UserRole } from "../models/User.js";
 
 const router = express.Router();
 
