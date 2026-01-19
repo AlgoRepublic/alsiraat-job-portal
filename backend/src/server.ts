@@ -44,7 +44,7 @@ app.get("/health", (req, res) => {
     .json({ status: "healthy", timestamp: new Date().toISOString() });
 });
 
-// API Routes
+// API Routes - Define these BEFORE static file serving
 app.use("/api/auth", authRoutes);
 app.use("/api/organizations", organizationRoutes);
 app.use("/api/tasks", taskRoutes);
@@ -55,15 +55,17 @@ app.use("/api/notifications", notificationRoutes);
 if (isProduction) {
   const frontendPath = path.join(__dirname, "../../frontend/dist");
 
-  // Serve static assets
-  app.use(express.static(frontendPath));
+  // Serve static assets with proper configuration
+  app.use(
+    express.static(frontendPath, {
+      maxAge: "1d",
+      etag: true,
+    }),
+  );
 
-  // Handle SPA routing - serve index.html for all non-API routes
-  app.get("*", (req, res, next) => {
-    // Skip API routes
-    if (req.path.startsWith("/api/") || req.path === "/health") {
-      return next();
-    }
+  // Handle SPA routing - catch all non-API routes and serve index.html
+  // Use a regex pattern instead of "*" for Express 5 compatibility
+  app.get(/^\/(?!api).*/, (req, res) => {
     res.sendFile(path.join(frontendPath, "index.html"));
   });
 } else {
