@@ -1,172 +1,161 @@
-import { Job, Application, ApplicantProfile, UserRole, JobStatus } from '../types';
+import {
+  Job,
+  Application,
+  ApplicantProfile,
+  UserRole,
+  JobStatus,
+} from "../types";
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://tasks.alsiraat.vic.edu.au/api/v1';
+// In production (single container), use relative path. In dev, use full URL.
+const API_BASE_URL =
+  (import.meta.env.VITE_API_URL as string) ||
+  (import.meta.env.PROD ? "/api" : "http://localhost:5001/api");
 
 export class ApiError extends Error {
-    status: number;
-    data?: any;
+  status: number;
+  data?: any;
 
-    constructor(message: string, status: number, data?: any) {
-        super(message);
-        this.name = 'ApiError';
-        this.status = status;
-        this.data = data;
-    }
+  constructor(message: string, status: number, data?: any) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.data = data;
+  }
 }
 
 interface AuthResponse {
-    status: string;
-    data: {
-        token: string;
-        user: any;
-        profiles: any[];
-    };
-}
-
-interface ApiResponse<T> {
-    status: string;
-    data: T;
-    meta?: {
-        page: number;
-        perPage: number;
-        total: number;
-        totalPages: number;
-    }
+  token: string;
+  user: any;
 }
 
 class ApiService {
-  private token: string | null = localStorage.getItem('auth_token');
-  private profileId: string | null = localStorage.getItem('auth_profile_id');
+  private token: string | null = localStorage.getItem("auth_token");
 
   private getHeaders(isFormData = false): HeadersInit {
     const headers: HeadersInit = {};
     if (this.token) {
-        headers['Authorization'] = `Bearer ${this.token}`;
-    }
-    if (this.profileId) {
-        headers['x-profile-id'] = this.profileId;
+      headers["Authorization"] = `Bearer ${this.token}`;
     }
     // Content-Type is automatically set by browser when body is FormData
     if (!isFormData) {
-        headers['Content-Type'] = 'application/json';
-        headers['Accept'] = 'application/json';
+      headers["Content-Type"] = "application/json";
+      headers["Accept"] = "application/json";
     }
     return headers;
   }
 
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    // Check if body is FormData to toggle headers
+  public async request<T>(
+    endpoint: string,
+    options: RequestInit = {},
+  ): Promise<T> {
     const isFormData = options.body instanceof FormData;
-    
+
     try {
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         ...options,
         headers: {
           ...this.getHeaders(isFormData),
-          ...options.headers
-        }
+          ...options.headers,
+        },
       });
 
-      // Special handling for Login endpoint - do not redirect on 401/400
-      const isLogin = endpoint.includes('/auth/login');
-
-      if (response.status === 401 && !isLogin) {
+      if (response.status === 401 && !endpoint.includes("/auth/login")) {
         this.logout();
-        window.location.href = '/login';
-        throw new ApiError('Unauthorized', 401);
+        window.location.href = "/login";
+        throw new ApiError("Unauthorized", 401);
       }
 
       const json = await response.json();
-      
+
       if (!response.ok) {
-        throw new ApiError(json.message || `API Error: ${response.status}`, response.status, json);
+        throw new ApiError(
+          json.message || `API Error: ${response.status}`,
+          response.status,
+          json,
+        );
       }
 
       return json;
     } catch (error) {
       if (error instanceof ApiError) {
-          throw error;
+        throw error;
       }
-      // Network errors or JSON parsing errors
       console.warn(`API Request Failed: ${endpoint}`, error);
-      throw error; 
+      throw error;
     }
   }
 
   // --- Auth ---
 
   async login(email: string, password: string): Promise<AuthResponse> {
-      const formData = new FormData();
-      formData.append('email', email);
-      formData.append('password', password);
+    const response = await this.request<AuthResponse>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    });
 
-      const response = await this.request<AuthResponse>('/auth/login', {
-          method: 'POST',
-          body: formData
-      });
+    if (response.token) {
+      this.token = response.token;
+      localStorage.setItem("auth_token", this.token);
+      localStorage.setItem("user_data", JSON.stringify(response.user));
+    }
 
-      if (response.data?.token) {
-          this.token = response.data.token;
-          localStorage.setItem('auth_token', this.token);
-          
-          // Store first profile ID as per logic
-          if (response.data.profiles && response.data.profiles.length > 0) {
-              this.profileId = response.data.profiles[0]._id;
-              localStorage.setItem('auth_profile_id', this.profileId || '');
-              localStorage.setItem('user_data', JSON.stringify(response.data.profiles[0]));
-          }
-      }
+    return response;
+  }
 
-      return response;
+  async signup(userData: any): Promise<AuthResponse> {
+    const response = await this.request<AuthResponse>("/auth/signup", {
+      method: "POST",
+      body: JSON.stringify(userData),
+    });
+
+    if (response.token) {
+      this.token = response.token;
+      localStorage.setItem("auth_token", this.token);
+      localStorage.setItem("user_data", JSON.stringify(response.user));
+    }
+
+    return response;
   }
 
   async logout(): Promise<void> {
     this.token = null;
-    this.profileId = null;
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('auth_profile_id');
-    localStorage.removeItem('user_data');
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("user_data");
   }
 
-  // --- Task Categories ---
-  
-  async getCategories(): Promise<any[]> {
-      const res = await this.request<ApiResponse<any[]>>('/task-categories');
-      return res.data || [];
+  // --- Organizations ---
+  async getOrganizations(): Promise<any[]> {
+    return this.request<any[]>("/organizations");
+  }
+
+  async createOrganization(data: any): Promise<any> {
+    return this.request<any>("/organizations", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
   }
 
   // --- Tasks (Jobs) ---
 
   async getTasks(filters: any = {}): Promise<any[]> {
     const query = new URLSearchParams(filters).toString();
-    const res = await this.request<ApiResponse<any[]>>(`/tasks?${query}`);
-    return res.data || [];
+    return this.request<any[]>(`/tasks?${query}`);
   }
 
   async getTask(id: string): Promise<any> {
-    const res = await this.request<ApiResponse<any>>(`/tasks/${id}`);
-    return res.data;
+    return this.request<any>(`/tasks/${id}`);
   }
 
-  async createTask(formData: FormData): Promise<any> {
-    const res = await this.request<ApiResponse<any>>('/tasks', {
-      method: 'POST',
-      body: formData
+  async createTask(data: any): Promise<any> {
+    return this.request<any>("/tasks", {
+      method: "POST",
+      body: JSON.stringify(data),
     });
-    return res.data;
   }
 
-  async updateTask(id: string, formData: FormData): Promise<any> {
-    const res = await this.request<ApiResponse<any>>(`/tasks/${id}`, {
-      method: 'PUT',
-      body: formData
-    });
-    return res.data;
-  }
-
-  async deleteTask(id: string): Promise<void> {
-    await this.request(`/tasks/${id}`, {
-      method: 'DELETE'
+  async approveTask(id: string): Promise<any> {
+    return this.request<any>(`/tasks/${id}/approve`, {
+      method: "PUT",
     });
   }
 
@@ -174,35 +163,36 @@ class ApiService {
 
   async getApplications(filters: any = {}): Promise<any[]> {
     const query = new URLSearchParams(filters).toString();
-    const res = await this.request<ApiResponse<any[]>>(`/applications?${query}`);
-    return res.data || [];
+    return this.request<any[]>(`/applications?${query}`);
   }
 
   async getApplication(id: string): Promise<any> {
-    const res = await this.request<ApiResponse<any>>(`/applications/${id}`);
-    return res.data;
+    return this.request<any>(`/applications/${id}`);
   }
 
-  async createApplication(formData: FormData): Promise<any> {
-    const res = await this.request<ApiResponse<any>>('/applications', {
-      method: 'POST',
-      body: formData
+  async applyForTask(data: any): Promise<any> {
+    return this.request<any>("/applications", {
+      method: "POST",
+      body: JSON.stringify(data),
     });
-    return res.data;
   }
 
-  async updateApplication(id: string, formData: FormData): Promise<any> {
-    const res = await this.request<ApiResponse<any>>(`/applications/${id}`, {
-      method: 'PUT',
-      body: formData
+  async updateApplicationStatus(id: string, status: string): Promise<any> {
+    return this.request<any>(`/applications/${id}/status`, {
+      method: "PUT",
+      body: JSON.stringify({ status }),
     });
-    return res.data;
   }
 
-  // --- Mock Entra for compatibility ---
-  async loginWithEntra(): Promise<void> {
-      // For now, this is simulated or needs a specific endpoint if one exists
-      return new Promise(resolve => setTimeout(resolve, 1000));
+  // --- Notifications ---
+  async getNotifications(): Promise<any[]> {
+    return this.request<any[]>("/notifications");
+  }
+
+  async markNotificationRead(id: string): Promise<any> {
+    return this.request<any>(`/notifications/${id}/read`, {
+      method: "PUT",
+    });
   }
 }
 

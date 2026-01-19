@@ -1,50 +1,49 @@
-
 export enum UserRole {
-  ADVERTISER = 'Task Requester',
-  MANAGER = 'Task Manager',
-  APPLICANT = 'Tasker',
-  ADMIN = 'Admin'
+  ADMIN = "Admin",
+  OWNER = "Owner",
+  APPROVER = "Approver",
+  MEMBER = "Member",
+  INDEPENDENT = "Independent",
 }
 
 export enum JobStatus {
-  DRAFT = 'Draft',
-  PENDING = 'Pending',
-  APPROVED = 'Approved',
-  PUBLISHED = 'Published',
-  CLOSED = 'Closed',
-  ARCHIVED = 'Archived',
-  DECLINED = 'Declined'
+  DRAFT = "Draft",
+  PENDING = "Pending",
+  APPROVED = "Approved",
+  PUBLISHED = "Published",
+  CLOSED = "Closed",
+  ARCHIVED = "Archived",
 }
 
 export enum JobCategory {
-  EVENT = 'Event',
-  PROGRAMS = 'Programs',
-  SEMINAR = 'Seminar',
-  MAINTENANCE = 'Maintenance',
-  TUTORING = 'Tutoring',
-  CLEANING = 'Cleaning',
-  ADMIN_HELP = 'Admin Help',
-  TEACHING = 'Teaching',
-  IT = 'IT',
-  LAB_TECHNICIAN = 'Lab Technician'
+  TUTORING = "Tutoring",
+  TEACHING_ASSISTANT = "Teaching Assistant",
+  RESEARCH_LAB = "Research Lab",
+  LIBRARY_SERVICES = "Library Services",
+  CAMPUS_AMBASSADOR = "Campus Ambassador",
+  SPORTS_COACHING = "Sports Coaching",
+  ADMIN_SUPPORT = "Admin Support",
+  EVENT_COORDINATION = "Event Coordination",
+  IT_HELPDESK = "IT Helpdesk",
+  CLEANING_MAINTENANCE = "Maintenance",
 }
 
 export enum RewardType {
-  PAID = 'Paid',
-  VOLUNTEER = 'Volunteer',
-  VOUCHER = 'Voucher',
-  VIA_POINTS = 'VIA Points'
+  PAID = "Paid",
+  VOLUNTEER = "Volunteer",
+  VOUCHER = "Voucher",
+  VIA_POINTS = "VIA Points",
 }
 
 export enum Visibility {
-  INTERNAL = 'Internal',
-  EXTERNAL = 'External',
-  GLOBAL = 'Global'
+  INTERNAL = "Internal",
+  EXTERNAL = "External",
+  GLOBAL = "Global",
 }
 
 export enum FileVisibility {
-  INTERNAL = 'Internal',
-  PUBLIC = 'Public'
+  INTERNAL = "Internal",
+  PUBLIC = "Public",
 }
 
 export interface Attachment {
@@ -90,7 +89,7 @@ export interface User {
 export interface Skill {
   id: string;
   name: string;
-  level: 'Beginner' | 'Intermediate' | 'Expert';
+  level: "Beginner" | "Intermediate" | "Expert";
 }
 
 export interface ApplicantProfile extends User {
@@ -106,20 +105,20 @@ export interface Application {
   applicantName: string;
   applicantEmail: string;
   applicantAvatar: string;
-  status: 'Pending' | 'Reviewing' | 'Approved' | 'Rejected';
+  status: "Pending" | "Reviewing" | "Approved" | "Rejected";
   appliedAt: string;
   coverLetter: string;
   availability: string;
 }
 
 export interface RoleDefinition {
-    id: string;
-    name: string;
-    permissions: string[];
+  id: string;
+  name: string;
+  permissions: string[];
 }
 
 export interface Permission {
-    id: string;
-    name: string;
-    description: string;
+  id: string;
+  name: string;
+  description: string;
 }

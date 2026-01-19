@@ -1,11 +1,16 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { JobCategory } from "../types";
 
-// Fix: Initialize GoogleGenAI strictly following guidelines using direct process.env.API_KEY as a named parameter
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Fix: Initialize GoogleGenAI strictly following guidelines using VITE_GEMINI_API_KEY
+const ai = new GoogleGenAI({
+  apiKey: import.meta.env.VITE_GEMINI_API_KEY as string,
+});
 
-export const generateJobDescription = async (title: string, category: JobCategory, keyPoints: string): Promise<string> => {
+export const generateJobDescription = async (
+  title: string,
+  category: JobCategory,
+  keyPoints: string,
+): Promise<string> => {
   try {
     const prompt = `
       You are an expert HR assistant for "Tasker", an enterprise task orchestration platform. 
@@ -21,7 +26,7 @@ export const generateJobDescription = async (title: string, category: JobCategor
 
     // Fix: Use ai.models.generateContent directly with model name and content. 'gemini-3-flash-preview' is used for basic text tasks.
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: "gemini-3-flash-preview",
       contents: prompt,
     });
 
@@ -34,16 +39,16 @@ export const generateJobDescription = async (title: string, category: JobCategor
 };
 
 export const analyzeResume = async (resumeText: string): Promise<string> => {
-    try {
-        // Fix: Use ai.models.generateContent directly with the correct model and prompt
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: `Analyze this resume text for the Tasker platform and extract 3 key technical strengths and a brief summary of the tasker's background: ${resumeText.substring(0, 1000)}...`
-        });
-        // Fix: Access response.text directly as a property
-        return response.text || "";
-    } catch (e) {
-        console.error("Gemini Resume Analysis Error:", e);
-        return "Analysis failed.";
-    }
-}
+  try {
+    // Fix: Use ai.models.generateContent directly with the correct model and prompt
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Analyze this resume text for the Tasker platform and extract 3 key technical strengths and a brief summary of the tasker's background: ${resumeText.substring(0, 1000)}...`,
+    });
+    // Fix: Access response.text directly as a property
+    return response.text || "";
+  } catch (e) {
+    console.error("Gemini Resume Analysis Error:", e);
+    return "Analysis failed.";
+  }
+};

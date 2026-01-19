@@ -1,0 +1,93 @@
+import express from "express";
+import mongoose from "mongoose";
+import cors from "cors";
+import dotenv from "dotenv";
+import passport from "passport";
+import path from "path";
+import { fileURLToPath } from "url";
+import authRoutes from "./routes/authRoutes";
+import organizationRoutes from "./routes/organizationRoutes";
+import taskRoutes from "./routes/taskRoutes";
+import applicationRoutes from "./routes/applicationRoutes";
+import notificationRoutes from "./routes/notificationRoutes";
+
+dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+const PORT = process.env.PORT || 5001;
+const isProduction = process.env.NODE_ENV === "production";
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(passport.initialize());
+
+// DB Connection
+const MONGODB_URI =
+  process.env.MONGODB_URI || "mongodb://localhost:27017/tasker";
+mongoose
+  .connect(MONGODB_URI)
+  .then(() => console.log("Connected to MongoDB"))
+  .catch((err) => console.error("MongoDB connection error:", err));
+
+// Health check endpoint (required for Cloud Run)
+app.get("/health", (req, res) => {
+  res
+    .status(200)
+    .json({ status: "healthy", timestamp: new Date().toISOString() });
+});
+
+// API Routes
+app.use("/api/auth", authRoutes);
+app.use("/api/organizations", organizationRoutes);
+app.use("/api/tasks", taskRoutes);
+app.use("/api/applications", applicationRoutes);
+app.use("/api/notifications", notificationRoutes);
+
+// Serve frontend static files in production
+if (isProduction) {
+  const frontendPath = path.join(__dirname, "../../frontend/dist");
+
+  // Serve static assets
+  app.use(express.static(frontendPath));
+
+  // Handle SPA routing - serve index.html for all non-API routes
+  app.get("*", (req, res, next) => {
+    // Skip API routes
+    if (req.path.startsWith("/api/") || req.path === "/health") {
+      return next();
+    }
+    res.sendFile(path.join(frontendPath, "index.html"));
+  });
+} else {
+  // Development mode
+  app.get("/", (req, res) => {
+    res.send("Tasker API is running (development mode)");
+  });
+}
+
+// Error handling middleware
+app.use(
+  (
+    err: any,
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction,
+  ) => {
+    console.error(err.stack);
+    res.status(500).json({ message: "Internal Server Error" });
+  },
+);
+
+// Start Server
+app.listen(PORT, () => {
+  console.log(
+    `Server is running on port ${PORT} (${isProduction ? "production" : "development"})`,
+  );
+});
+
+export default app;

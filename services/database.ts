@@ -1,321 +1,253 @@
-import { Job, User, UserRole, Application, ApplicantProfile, JobStatus, JobCategory, RewardType, Visibility } from '../types';
-import { api, ApiError } from './api';
-import { MOCK_JOBS, MOCK_APPLICATIONS, INITIAL_USER } from './mockData';
+import {
+  Job,
+  User,
+  UserRole,
+  Application,
+  ApplicantProfile,
+  JobStatus,
+  JobCategory,
+  RewardType,
+  Visibility,
+} from "../types";
+import { api, ApiError } from "./api";
 
 // Helper to map Backend Task to Frontend Job
 const mapTaskToJob = (task: any): Job => {
-    return {
-        id: task._id,
-        title: task.title,
-        category: task.category?.name || 'General', 
-        description: task.description,
-        location: task.location,
-        hoursRequired: task.estimatedHours,
-        startDate: task.startDate ? task.startDate.split('T')[0] : undefined,
-        endDate: task.closeDate ? task.closeDate.split('T')[0] : undefined,
-        selectionCriteria: task.keySelectionCriteria,
-        rewardType: mapRewardType(task.rewardType),
-        rewardValue: task.rewardValue,
-        eligibility: task.publishTo || [],
-        visibility: task.scope === 'global' ? Visibility.GLOBAL : (task.scope === 'external' ? Visibility.EXTERNAL : Visibility.INTERNAL),
-        attachments: task.attachments?.map((a: any) => ({
-            id: a._id,
-            name: a.originalName || 'Attachment',
-            size: a.size || 0,
-            type: a.mimeType,
-            url: a.path 
-        })) || [],
-        status: mapStatus(task.status),
-        createdBy: task.createdBy?.name || 'Unknown',
-        createdAt: task.createdAt,
-        applicantsCount: 0 
-    };
+  return {
+    id: task._id,
+    title: task.title,
+    category:
+      typeof task.category === "object"
+        ? task.category.name
+        : task.category || "General",
+    description: task.description,
+    location: task.location,
+    hoursRequired: task.hoursRequired,
+    startDate: task.createdAt ? task.createdAt.split("T")[0] : undefined,
+    endDate: task.updatedAt ? task.updatedAt.split("T")[0] : undefined,
+    selectionCriteria: task.eligibility?.join(", ") || "",
+    rewardType: mapRewardType(task.rewardType),
+    rewardValue: task.rewardValue,
+    eligibility: task.eligibility || [],
+    visibility:
+      task.visibility === "Public" ? Visibility.GLOBAL : Visibility.INTERNAL,
+    attachments: [], // Handled separately or extended later
+    status: mapStatus(task.status),
+    createdBy:
+      typeof task.createdBy === "object" ? task.createdBy.name : "Unknown",
+    createdAt: task.createdAt,
+    applicantsCount: task.applicantsCount || 0,
+  };
 };
 
 const mapRewardType = (type: string): RewardType => {
-    switch (type) {
-        case 'paid_lumpsum': return RewardType.PAID;
-        case 'paid_per_hour': return RewardType.PAID;
-        case 'via_hours': return RewardType.VIA_POINTS;
-        case 'volunteer': return RewardType.VOLUNTEER;
-        case 'voucher': return RewardType.VOUCHER;
-        default: return RewardType.VOLUNTEER;
-    }
-};
-
-const mapRewardTypeToBackend = (type: RewardType): string => {
-    switch (type) {
-        case RewardType.PAID: return 'paid_lumpsum';
-        case RewardType.VIA_POINTS: return 'via_hours';
-        case RewardType.VOLUNTEER: return 'volunteer';
-        case RewardType.VOUCHER: return 'voucher';
-        default: return 'volunteer';
-    }
+  switch (type) {
+    case "Paid":
+      return RewardType.PAID;
+    case "Points":
+      return RewardType.VIA_POINTS;
+    case "Volunteer":
+      return RewardType.VOLUNTEER;
+    case "Voucher":
+      return RewardType.VOUCHER;
+    default:
+      return RewardType.VOLUNTEER;
+  }
 };
 
 const mapStatus = (status: string): JobStatus => {
-    switch (status) {
-        case 'draft': return JobStatus.DRAFT;
-        case 'pending_review': return JobStatus.PENDING;
-        case 'published': return JobStatus.PUBLISHED;
-        case 'completed': return JobStatus.CLOSED; 
-        case 'archived': return JobStatus.ARCHIVED;
-        default: return JobStatus.DRAFT;
-    }
-};
-
-const mapStatusToBackend = (status: JobStatus): string => {
-    switch (status) {
-        case JobStatus.DRAFT: return 'draft';
-        case JobStatus.PENDING: return 'pending_review';
-        case JobStatus.PUBLISHED: return 'published';
-        case JobStatus.CLOSED: return 'completed';
-        case JobStatus.ARCHIVED: return 'archived';
-        default: return 'draft';
-    }
+  switch (status) {
+    case "Draft":
+      return JobStatus.DRAFT;
+    case "Pending":
+      return JobStatus.PENDING;
+    case "Published":
+      return JobStatus.PUBLISHED;
+    case "Closed":
+      return JobStatus.CLOSED;
+    case "Archived":
+      return JobStatus.ARCHIVED;
+    default:
+      return JobStatus.DRAFT;
+  }
 };
 
 const mapAppToFrontend = (app: any): Application => {
-    return {
-        id: app._id,
-        jobId: app.task?._id || app.task,
-        userId: app.applicant?._id || app.applicant,
-        applicantName: app.applicant?.name || 'Unknown',
-        applicantEmail: app.applicant?.email || '',
-        applicantAvatar: app.applicant?.avatar || "https://i.pravatar.cc/150",
-        status: mapAppStatus(app.status),
-        appliedAt: app.createdAt,
-        coverLetter: app.coverLetter,
-        availability: app.availability
-    };
-};
-
-const mapAppStatus = (status: string): any => {
-    if (status === 'shortlisted' || status === 'offer_sent' || status === 'offer_accepted') return 'Approved';
-    if (status === 'rejected' || status === 'offer_declined' || status === 'withdrawn') return 'Rejected';
-    return 'Pending';
+  return {
+    id: app._id,
+    jobId: app.task?._id || app.task,
+    userId: app.applicant?._id || app.applicant,
+    applicantName: app.applicant?.name || "Unknown",
+    applicantEmail: app.applicant?.email || "",
+    applicantAvatar: app.applicant?.avatar || "https://i.pravatar.cc/150",
+    status: app.status as any,
+    appliedAt: app.createdAt,
+    coverLetter: app.coverLetter,
+    availability: app.availability,
+  };
 };
 
 class DatabaseService {
-  // In-memory fallback storage
-  private _localJobs: Job[] = [...MOCK_JOBS];
-  private _localApps: Application[] = [...MOCK_APPLICATIONS];
-
   // --- Auth & User ---
 
   async login(email: string, pass: string) {
-      try {
-          return await api.login(email, pass);
-      } catch (e: any) {
-          // If the error is a Client Error (400 Bad Request, 401 Unauthorized, etc.)
-          // we should re-throw it so the UI displays the error message.
-          // We only fallback to mock if the API is unreachable or returns 500s.
-          if (e instanceof ApiError && e.status >= 400 && e.status < 500) {
-              throw e;
-          }
-
-          console.warn("API Login failed/unreachable. Logging in as Mock User.", e);
-          // Fallback login
-          const mockUser = { ...INITIAL_USER, email };
-          localStorage.setItem('auth_token', 'mock_token_123');
-          localStorage.setItem('user_data', JSON.stringify(mockUser));
-          return { status: 'success', data: { token: 'mock_token_123', user: mockUser, profiles: [mockUser] } };
-      }
+    return await api.login(email, pass);
   }
 
-  async loginWithEntra(): Promise<void> {
+  async signup(userData: any) {
+    return await api.signup(userData);
+  }
+
+  async forgotPassword(email: string) {
+    return await api.request<any>("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  async resetPassword(token: string, password: string) {
+    return await api.request<any>(`/auth/reset-password/${token}`, {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    });
+  }
+
+  async logout(): Promise<void> {
+    await api.logout();
+  }
+
+  async getCurrentUser(): Promise<User | null> {
+    const stored = localStorage.getItem("user_data");
+    if (stored) {
       try {
-          return await api.loginWithEntra();
+        const user = JSON.parse(stored);
+        return {
+          ...user,
+          skills: user.skills || [],
+          about: user.about || "",
+          avatar: user.avatar || `https://i.pravatar.cc/150?u=${user.id}`,
+        };
       } catch (e) {
-          // Fallback
-          localStorage.setItem('auth_token', 'mock_sso_token');
-          localStorage.setItem('user_data', JSON.stringify(INITIAL_USER));
-          return;
+        return null;
       }
+    }
+    return null;
   }
 
-  async getCurrentUser(): Promise<ApplicantProfile | null> {
-      const stored = localStorage.getItem('user_data');
-      if (stored) {
-          try {
-            const profile = JSON.parse(stored);
-            return {
-                ...INITIAL_USER,
-                id: profile.id || profile._id || 'u1',
-                name: profile.name,
-                email: profile.email,
-                avatar: profile.avatar || INITIAL_USER.avatar,
-                role: profile.role || UserRole.MANAGER 
-            };
-          } catch(e) {
-            return null;
-          }
-      }
-      return null;
+  async updateUserProfile(profile: any): Promise<User> {
+    const response = await api.request<any>("/auth/profile", {
+      method: "PUT",
+      body: JSON.stringify(profile),
+    });
+    localStorage.setItem("user_data", JSON.stringify(response.user));
+    return response.user;
   }
 
   async updateCurrentUserRole(role: UserRole): Promise<User> {
-      const user = await this.getCurrentUser();
-      if (!user) return INITIAL_USER;
-      user.role = role;
-      localStorage.setItem('user_data', JSON.stringify(user));
-      return user; 
+    const user = await this.getCurrentUser();
+    if (!user) throw new Error("No user found");
+    // For now, local switch for demo/admin purposes
+    user.role = role;
+    localStorage.setItem("user_data", JSON.stringify(user));
+    return user;
   }
 
-  async updateUserProfile(updatedProfile: ApplicantProfile): Promise<void> {
-      localStorage.setItem('user_data', JSON.stringify(updatedProfile));
+  // Admin Impersonation
+  async impersonateUser(userId: string): Promise<User> {
+    const response = await api.request<any>(`/auth/impersonate/${userId}`, {
+      method: "POST",
+    });
+    localStorage.setItem("user_data", JSON.stringify(response.user));
+    localStorage.setItem("auth_token", response.token);
+    return response.user;
   }
 
   // --- Jobs (Tasks) ---
 
   async getJobs(): Promise<Job[]> {
-      try {
-          const tasks = await api.getTasks({ perPage: 100 });
-          return tasks.map(mapTaskToJob);
-      } catch (e) {
-          console.warn("API unreachable, returning mock jobs");
-          return this._localJobs;
-      }
+    const tasks = await api.getTasks();
+    return tasks.map(mapTaskToJob);
   }
 
   async getJob(id: string): Promise<Job | undefined> {
-      try {
-          const task = await api.getTask(id);
-          return mapTaskToJob(task);
-      } catch (e) {
-          return this._localJobs.find(j => j.id === id);
-      }
+    const task = await api.getTask(id);
+    return mapTaskToJob(task);
   }
 
-  async addJob(job: Job): Promise<void> {
-      try {
-          const formData = new FormData();
-          formData.append('title', job.title);
-          formData.append('description', job.description);
-          formData.append('location', job.location);
-          formData.append('estimatedHours', String(job.hoursRequired));
-          if (job.startDate) formData.append('startDate', new Date(job.startDate).toISOString());
-          if (job.endDate) formData.append('closeDate', new Date(job.endDate).toISOString());
-          formData.append('keySelectionCriteria', job.selectionCriteria || '');
-          formData.append('rewardType', mapRewardTypeToBackend(job.rewardType));
-          if (job.rewardValue) formData.append('rewardValue', String(job.rewardValue));
-          
-          job.eligibility.forEach((item, index) => {
-              formData.append(`publishTo[${index}]`, item.toLowerCase());
-          });
-
-          // Attempt to fetch categories to map name to ID
-          try {
-              const categories = await api.getCategories();
-              const match = categories.find(c => c.name === job.category);
-              if (match) {
-                  formData.append('category', match._id);
-              } else if (categories.length > 0) {
-                   formData.append('category', categories[0]._id);
-              }
-          } catch (e) {
-               // ignore category fetch error
-          }
-
-          formData.append('status', mapStatusToBackend(job.status));
-          await api.createTask(formData);
-      } catch (e) {
-          console.warn("API unreachable, adding to local mock jobs");
-          this._localJobs.unshift(job);
-      }
+  async addJob(job: any): Promise<any> {
+    // Map to backend field names
+    const backendData = {
+      ...job,
+      estimatedHours: job.hoursRequired,
+      publishTo: job.eligibility,
+      scope: job.visibility === Visibility.GLOBAL ? "global" : "internal",
+    };
+    return await api.createTask(backendData);
   }
 
-  async updateJob(updatedJob: Job): Promise<void> {
-      try {
-          const formData = new FormData();
-          formData.append('title', updatedJob.title);
-          await api.updateTask(updatedJob.id, formData);
-      } catch (e) {
-          const index = this._localJobs.findIndex(j => j.id === updatedJob.id);
-          if (index !== -1) this._localJobs[index] = updatedJob;
-      }
+  async updateJob(id: string, data: any): Promise<any> {
+    return await api.request<any>(`/tasks/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
   }
 
-  async updateJobStatus(id: string, status: JobStatus): Promise<void> {
-      try {
-          const formData = new FormData();
-          formData.append('status', mapStatusToBackend(status));
-          await api.updateTask(id, formData);
-      } catch (e) {
-          const job = this._localJobs.find(j => j.id === id);
-          if (job) job.status = status;
-      }
+  async approveJob(id: string): Promise<any> {
+    return await api.approveTask(id);
   }
 
   // --- Applications ---
 
-  async getApplications(): Promise<Application[]> {
-      try {
-          const apps = await api.getApplications({ perPage: 100 });
-          return apps.map(mapAppToFrontend);
-      } catch (e) {
-          console.warn("API unreachable, returning mock applications");
-          return this._localApps;
-      }
+  async getApplications(filters: any = {}): Promise<Application[]> {
+    const apps = await api.getApplications(filters);
+    return apps.map(mapAppToFrontend);
   }
 
   async getApplicationsForJob(jobId: string): Promise<Application[]> {
-      try {
-          const apps = await api.getApplications({ task: jobId });
-          return apps.map(mapAppToFrontend);
-      } catch (e) {
-          return this._localApps.filter(a => a.jobId === jobId);
-      }
+    return this.getApplications({ task: jobId });
   }
 
-  async getApplication(appId: string): Promise<Application | undefined> {
-      try {
-          const app = await api.getApplication(appId);
-          return mapAppToFrontend(app);
-      } catch (e) {
-          return this._localApps.find(a => a.id === appId);
-      }
+  async getApplication(id: string): Promise<Application | undefined> {
+    try {
+      const app = await api.getApplication(id);
+      return mapAppToFrontend(app);
+    } catch (err) {
+      console.warn("Failed to get application", err);
+      return undefined;
+    }
   }
 
-  async getApplicationsByUser(userId: string): Promise<Application[]> {
-       try {
-          const apps = await api.getApplications({ applicant: userId });
-          return apps.map(mapAppToFrontend);
-      } catch (e) {
-          return this._localApps.filter(a => a.userId === userId);
-      }
+  async applyForJob(applicationData: any): Promise<any> {
+    return await api.applyForTask(applicationData);
   }
 
-  async applyForJob(application: Application): Promise<void> {
-      try {
-          const formData = new FormData();
-          formData.append('task', application.jobId);
-          formData.append('coverLetter', application.coverLetter);
-          formData.append('availability', application.availability);
-          await api.createApplication(formData);
-      } catch (e) {
-          this._localApps.push(application);
-          // Update job applicant count locally
-          const job = this._localJobs.find(j => j.id === application.jobId);
-          if (job) job.applicantsCount = (job.applicantsCount || 0) + 1;
-      }
+  async updateApplicationStatus(appId: string, status: string): Promise<any> {
+    return await api.updateApplicationStatus(appId, status);
   }
 
-  async updateApplicationStatus(appId: string, status: 'Approved' | 'Rejected'): Promise<void> {
-      try {
-          const formData = new FormData();
-          const backendStatus = status === 'Approved' ? 'shortlisted' : 'rejected';
-          formData.append('status', backendStatus);
-          await api.updateApplication(appId, formData);
-      } catch (e) {
-          const app = this._localApps.find(a => a.id === appId);
-          if (app) app.status = status;
-      }
+  // --- Notifications ---
+  async getNotifications(): Promise<any[]> {
+    return await api.getNotifications();
   }
 
-  async hasUserApplied(userId: string, jobId: string): Promise<boolean> {
-      const apps = await this.getApplicationsForJob(jobId);
-      return apps.some(a => a.userId === userId);
+  async markNotificationRead(id: string): Promise<any> {
+    return await api.markNotificationRead(id);
+  }
+
+  // --- Organizations ---
+  async getOrganizations(): Promise<any[]> {
+    try {
+      const orgs = await api.getOrganizations();
+      return orgs.map((org: any) => ({
+        id: org._id,
+        name: org.name,
+        slug: org.slug,
+        type: org.type,
+      }));
+    } catch (err) {
+      console.warn("Failed to fetch organizations", err);
+      return [];
+    }
   }
 }
 
