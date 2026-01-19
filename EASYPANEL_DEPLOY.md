@@ -55,6 +55,14 @@ git push origin main
    JWT_SECRET=your-super-secret-jwt-key-change-this-to-random-string
    ```
 
+   **Optional AI Features:**
+
+   ```env
+   VITE_GEMINI_API_KEY=your-gemini-api-key-from-google-ai-studio
+   ```
+
+   > Note: Gemini API key is optional. Without it, AI-powered job description generation will be disabled, but all other features work normally.
+
 6. **Resources**:
    - Memory: 512 MB (minimum)
    - CPU: 0.5 core
