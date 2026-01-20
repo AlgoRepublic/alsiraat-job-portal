@@ -162,13 +162,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
         <div className="lg:col-span-3 glass-card p-10 rounded-[2.5rem]">
           <div className="flex items-center justify-between mb-10">
             <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter">
-              Recent Activity
+              What's Happening
             </h3>
             <button
               onClick={() => navigate("/jobs")}
               className="text-xs font-black uppercase tracking-widest text-[#812349] hover:underline"
             >
-              View All Tasks
+              See All Tasks
             </button>
           </div>
 

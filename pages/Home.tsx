@@ -52,41 +52,40 @@ export const Home: React.FC = () => {
               </span>
             </div>
             <h1 className="text-5xl md:text-7xl font-black tracking-tighter leading-[0.9]">
-              Empower <br />
+              Task Management <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#812349] via-pink-600 to-purple-600">
-                Your Journey.
+                Simplified.
               </span>
             </h1>
             <p className="text-zinc-400 text-lg md:text-xl leading-relaxed max-w-xl font-medium">
-              The ultimate task orchestration portal for schools and colleges.
-              Connect students with roles, manage academic tasks, and track
-              professional growth in real-time.
+              The simple way to connect students with school tasks and projects.
+              Manage your work and track your progress easily.
             </p>
             <div className="flex flex-wrap gap-5 justify-center lg:justify-start">
               <Link
                 to="/jobs"
                 className="px-10 py-5 bg-[#812349] text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-2xl shadow-[#812349]/30 hover:bg-[#601a36] transition-all transform hover:-translate-y-1 flex items-center"
               >
-                Explore Tasks <ArrowRight className="w-5 h-5 ml-3" />
+                See Tasks <ArrowRight className="w-5 h-5 ml-3" />
               </Link>
               <Link
                 to="/dashboard"
                 className="px-10 py-5 bg-white/5 border border-white/10 text-white rounded-2xl font-black text-sm uppercase tracking-widest backdrop-blur-xl hover:bg-white/10 transition-all"
               >
-                View Dashboard
+                Go to Dashboard
               </Link>
             </div>
           </div>
           <div className="hidden lg:block">
             <div className="grid grid-cols-2 gap-6">
               {[
-                { icon: Target, label: "Excellence", desc: "Higher standards" },
-                { icon: Users, label: "Community", desc: "Verified students" },
-                { icon: Zap, label: "Growth", desc: "Skill development" },
+                { icon: Target, label: "Excellence", desc: "Top quality work" },
+                { icon: Users, label: "Community", desc: "For everyone" },
+                { icon: Zap, label: "Growth", desc: "Build skills" },
                 {
                   icon: Shield,
                   label: "Trust",
-                  desc: "Secure academic portal",
+                  desc: "Secure portal",
                 },
               ].map((item, i) => (
                 <div
@@ -112,17 +111,17 @@ export const Home: React.FC = () => {
         <div className="flex items-center justify-between px-4">
           <div>
             <h2 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
-              Latest Opportunities
+              New Tasks
             </h2>
             <p className="text-zinc-500 font-medium mt-2">
-              Explore public tasks available for application
+              Apply for tasks open to everyone
             </p>
           </div>
           <Link
             to="/jobs"
             className="text-[#812349] font-black uppercase tracking-widest text-xs hover:underline flex items-center"
           >
-            View All <ArrowRight className="w-4 h-4 ml-1" />
+            See All <ArrowRight className="w-4 h-4 ml-1" />
           </Link>
         </div>
 
@@ -176,8 +175,7 @@ export const Home: React.FC = () => {
             For Students
           </h3>
           <p className="text-zinc-500 dark:text-zinc-400 font-medium leading-relaxed">
-            Access academic opportunities, earn credits or rewards, and build a
-            verified portfolio to showcase your growth within the institution.
+            Find tasks, earn credits, and build your profile.
           </p>
         </div>
         <div className="glass-card p-10 rounded-[2.5rem] text-center group hover:shadow-2xl transition-all">
@@ -185,11 +183,10 @@ export const Home: React.FC = () => {
             <Rocket className="w-8 h-8" />
           </div>
           <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter mb-4">
-            For Faculty
+            For Staff
           </h3>
           <p className="text-zinc-500 dark:text-zinc-400 font-medium leading-relaxed">
-            Post new opportunities for students. Automate role assignments and
-            track academic support contributions with ease.
+            Post tasks and find students to help you.
           </p>
         </div>
         <div className="glass-card p-10 rounded-[2.5rem] text-center group hover:shadow-2xl transition-all">
@@ -197,11 +194,10 @@ export const Home: React.FC = () => {
             <Layers className="w-8 h-8" />
           </div>
           <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter mb-4">
-            For Administrators
+            For Admin
           </h3>
           <p className="text-zinc-500 dark:text-zinc-400 font-medium leading-relaxed">
-            Maintain quality standards, approve postings, and oversee
-            institutional roles through a centralized management layer.
+            Manage everything in one place.
           </p>
         </div>
       </div>

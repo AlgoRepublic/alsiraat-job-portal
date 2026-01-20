@@ -166,11 +166,10 @@ export const JobDetails: React.FC = () => {
         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50 p-6 rounded-2xl flex items-center justify-between">
           <div>
             <h3 className="text-lg font-bold text-amber-900 dark:text-amber-100">
-              Review Required
+              Needs Review
             </h3>
             <p className="text-sm text-amber-800 dark:text-amber-200/80">
-              This task posting is pending approval. Review details and take
-              action.
+              This task is waiting for approval.
             </p>
           </div>
           <div className="flex gap-3">
@@ -184,7 +183,7 @@ export const JobDetails: React.FC = () => {
               onClick={() => handleManagerAction("approve")}
               className="px-4 py-2 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 shadow-md transition-colors flex items-center"
             >
-              <ShieldCheck className="w-4 h-4 mr-2" /> Approve & Publish
+              <ShieldCheck className="w-4 h-4 mr-2" /> Approve
             </button>
           </div>
         </div>
@@ -239,7 +238,7 @@ export const JobDetails: React.FC = () => {
           {/* Description */}
           <div className="glass-card rounded-2xl p-8 shadow-sm border border-zinc-100 dark:border-zinc-800">
             <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-4">
-              About this Task
+              Task Description
             </h3>
             <div className="prose prose-zinc dark:prose-invert max-w-none text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap leading-relaxed">
               {job.description}
@@ -248,7 +247,7 @@ export const JobDetails: React.FC = () => {
             {job.selectionCriteria && (
               <div className="mt-8">
                 <h4 className="text-base font-bold text-zinc-900 dark:text-white mb-3">
-                  Evaluation Criteria
+                  What we look for
                 </h4>
                 <div className="text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800">
                   {job.selectionCriteria}
@@ -275,9 +274,9 @@ export const JobDetails: React.FC = () => {
             {!isInternalUser && (
               <div className="glass-card rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:shadow-none border border-zinc-100 dark:border-zinc-800 overflow-hidden">
                 <div className="p-6 bg-[#812349] dark:bg-[#601a36] text-white">
-                  <h3 className="text-lg font-bold">Apply Now</h3>
+                  <h3 className="text-lg font-bold">Apply</h3>
                   <p className="text-red-100 text-sm mt-1">
-                    Submit your application for review.
+                    Send us your application.
                   </p>
                 </div>
 
@@ -289,13 +288,13 @@ export const JobDetails: React.FC = () => {
                     </div>
                     <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">
                       {applicationStep === "success"
-                        ? "Application Sent!"
+                        ? "Sent!"
                         : "Already Applied"}
                     </h3>
                     <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-6">
                       {applicationStep === "success"
-                        ? "The Task Manager will review your details and contact you shortly."
-                        : "You have already submitted an application for this position."}
+                        ? "We will review your application soon."
+                        : "You have already applied for this."}
                     </p>
                     <button
                       onClick={() => navigate("/jobs")}
@@ -310,19 +309,19 @@ export const JobDetails: React.FC = () => {
                       <div className="absolute inset-0 bg-white/80 dark:bg-black/80 z-10 flex flex-col items-center justify-center">
                         <Loader2 className="w-10 h-10 text-[#812349] dark:text-white animate-spin mb-3" />
                         <p className="font-semibold text-zinc-900 dark:text-white">
-                          Submitting...
+                          Sending...
                         </p>
                       </div>
                     )}
 
                     <div>
                       <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase mb-2">
-                        Cover Letter
+                        Why do you want this task?
                       </label>
                       <textarea
                         required
                         className="w-full p-3 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-[#812349] dark:focus:ring-[#812349] focus:outline-none min-h-[120px] dark:text-white"
-                        placeholder="Why are you a good fit for this task?"
+                        placeholder="Tell us why..."
                         value={coverLetter}
                         onChange={(e) => setCoverLetter(e.target.value)}
                       />
@@ -330,12 +329,12 @@ export const JobDetails: React.FC = () => {
 
                     <div>
                       <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase mb-2">
-                        Expected Availability
+                        When can you start?
                       </label>
                       <input
                         type="text"
                         className="w-full p-3 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-[#812349] dark:focus:ring-[#812349] focus:outline-none dark:text-white"
-                        placeholder="e.g. Weekdays after 3pm"
+                        placeholder="e.g. Monday morning"
                         value={availability}
                         onChange={(e) => setAvailability(e.target.value)}
                       />
@@ -351,11 +350,7 @@ export const JobDetails: React.FC = () => {
                           onChange={(e) => setAgreed(e.target.checked)}
                         />
                         <span className="text-xs text-zinc-500 dark:text-zinc-400 leading-snug group-hover:text-zinc-700 dark:group-hover:text-zinc-200">
-                          I agree to the{" "}
-                          <a href="#" className="underline">
-                            Terms & Conditions
-                          </a>{" "}
-                          and confirm that my profile information is accurate.
+                          I agree to the rules and confirm my details are true.
                         </span>
                       </label>
                     </div>
@@ -365,7 +360,7 @@ export const JobDetails: React.FC = () => {
                       disabled={!agreed}
                       className="w-full py-3.5 bg-[#812349] dark:bg-[#601a36] text-white rounded-xl font-bold hover:bg-[#601a36] dark:hover:bg-[#4d152b] shadow-lg shadow-[#812349]/20 dark:shadow-none transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                     >
-                      Submit Application
+                      Apply
                     </button>
                   </form>
                 )}

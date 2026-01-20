@@ -20,22 +20,22 @@ const SIGNUP_ROLES = [
   {
     value: UserRole.INDEPENDENT,
     label: "Student / Applicant",
-    description: "Browse and apply for opportunities",
+    description: "Find and apply for tasks",
   },
   {
     value: UserRole.MEMBER,
     label: "Staff Member",
-    description: "Create and manage department opportunities",
+    description: "Create and manage tasks",
   },
   {
     value: UserRole.APPROVER,
     label: "Department Head",
-    description: "Approve and oversee postings",
+    description: "Approve tasks",
   },
   {
     value: UserRole.OWNER,
     label: "Principal / Director",
-    description: "Full institutional access",
+    description: "Full access",
   },
 ];
 

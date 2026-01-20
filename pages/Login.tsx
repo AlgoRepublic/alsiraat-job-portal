@@ -53,7 +53,7 @@ export const Login: React.FC = () => {
             Tasker
           </h1>
           <p className="text-zinc-500 dark:text-zinc-400 text-sm font-bold uppercase tracking-widest text-[10px]">
-            Enterprise Task Orchestration
+            School Task Portal
           </p>
         </div>
 
@@ -110,7 +110,7 @@ export const Login: React.FC = () => {
           </button>
           <div className="mt-3 flex justify-center">
             <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest flex items-center gap-2">
-              <Shield className="w-3 h-3 text-emerald-500" /> Enterprise Auth
+              <Shield className="w-3 h-3 text-emerald-500" /> Secure Login
             </span>
           </div>
         </div>
@@ -118,7 +118,7 @@ export const Login: React.FC = () => {
         <div className="flex items-center mb-8">
           <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-800"></div>
           <span className="px-4 text-[10px] text-zinc-400 font-black uppercase tracking-[0.2em]">
-            Deployment Access
+            Access your Account
           </span>
           <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-800"></div>
         </div>
@@ -150,7 +150,7 @@ export const Login: React.FC = () => {
               <input
                 type="password"
                 required
-                placeholder="System Key"
+                placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-[#812349]/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
@@ -186,7 +186,7 @@ export const Login: React.FC = () => {
 
         <div className="mt-8 text-center">
           <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">
-            Don't have access?{" "}
+            No account?{" "}
             <Link
               to="/signup"
               className="text-[#812349] dark:text-[#a02b5a] font-black hover:underline ml-1"
@@ -198,7 +198,7 @@ export const Login: React.FC = () => {
 
         <div className="mt-8 text-center">
           <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-[0.3em]">
-            Secure Enterprise Environment
+            School Task Portal
           </p>
         </div>
       </div>
