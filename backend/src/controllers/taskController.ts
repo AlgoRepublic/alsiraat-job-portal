@@ -44,36 +44,36 @@ export const createTask = async (req: any, res: Response) => {
 export const getTasks = async (req: any, res: Response) => {
   try {
     const { role, organization, _id: userId } = req.user;
-    const normalizedRole = (role || "").toLowerCase();
+    const normalizedRole = (role || "").trim().toLowerCase();
     let query: any = {};
 
     if (
       normalizedRole === UserRole.INDEPENDENT.toLowerCase() ||
       normalizedRole === UserRole.MEMBER.toLowerCase()
     ) {
-      // Independent users and Members: Only see Published tasks
-      // Members can see their org's published tasks + global/external published tasks
+      // Independent users and Members: Only see Published (or Approved) tasks
+      // Members can see their org's tasks + global/external tasks
       if (normalizedRole === UserRole.MEMBER.toLowerCase() && organization) {
         query = {
           $or: [
             // Their organization's published tasks
             {
               organization: organization,
-              status: TaskStatus.PUBLISHED,
+              status: { $in: [TaskStatus.PUBLISHED, TaskStatus.APPROVED] },
             },
             // External/Global published tasks from other orgs
             {
               visibility: {
                 $in: [TaskVisibility.EXTERNAL, TaskVisibility.GLOBAL],
               },
-              status: TaskStatus.PUBLISHED,
+              status: { $in: [TaskStatus.PUBLISHED, TaskStatus.APPROVED] },
             },
           ],
         };
       } else {
         // Independents: only external/global published tasks
         query = {
-          status: TaskStatus.PUBLISHED,
+          status: { $in: [TaskStatus.PUBLISHED, TaskStatus.APPROVED] },
           visibility: { $in: [TaskVisibility.EXTERNAL, TaskVisibility.GLOBAL] },
         };
       }
@@ -81,21 +81,26 @@ export const getTasks = async (req: any, res: Response) => {
       normalizedRole === UserRole.APPROVER.toLowerCase() ||
       normalizedRole === UserRole.OWNER.toLowerCase()
     ) {
-      // Approvers and Owners: See their org's tasks (Published, Pending, Draft)
+      // Approvers and Owners: See their org's tasks (Published, Pending, Draft, Approved)
       // but NOT Archived. Also see external Published tasks
       query = {
         $or: [
           {
             organization: organization,
             status: {
-              $in: [TaskStatus.PUBLISHED, TaskStatus.PENDING, TaskStatus.DRAFT],
+              $in: [
+                TaskStatus.PUBLISHED,
+                TaskStatus.PENDING,
+                TaskStatus.DRAFT,
+                TaskStatus.APPROVED,
+              ],
             },
           },
           {
             visibility: {
               $in: [TaskVisibility.EXTERNAL, TaskVisibility.GLOBAL],
             },
-            status: TaskStatus.PUBLISHED,
+            status: { $in: [TaskStatus.PUBLISHED, TaskStatus.APPROVED] },
           },
         ],
       };
