@@ -123,7 +123,7 @@ After deployment, seed the database with test data:
 # SSH into your EasyPanel container
 # Or use EasyPanel's console
 
-npm run seed
+npm run seed:prod
 ```
 
 This creates:

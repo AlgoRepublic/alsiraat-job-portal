@@ -85,7 +85,7 @@
 - [ ] Health check passes: `curl https://your-domain.com/health`
 - [ ] Frontend loads: `https://your-domain.com`
 - [ ] API responds: `https://your-domain.com/api/organizations`
-- [ ] Database seeded: Run `npm run seed` in container
+- [ ] Database seeded: Run `npm run seed:prod` in container
 - [ ] Test login with: `admin@alsiraat.edu.au` / `Test@123!`
 
 ---
@@ -140,7 +140,7 @@ NODE_ENV=production PORT=8080 node dist/server.js
 
 ```bash
 cd backend
-npm run seed
+npm run seed:prod
 ```
 
 ---
