@@ -47,7 +47,7 @@ export const JobDetails: React.FC = () => {
             }
           }
         } catch (err) {
-          console.error("Failed to load job details", err);
+          console.error("Failed to load task details", err);
         } finally {
           setLoading(false);
         }
@@ -63,7 +63,7 @@ export const JobDetails: React.FC = () => {
     setApplicationStep("submitting");
     try {
       await db.applyForJob({
-        task: job.id,
+        taskId: job.id,
         coverLetter,
         availability,
       });
@@ -93,7 +93,7 @@ export const JobDetails: React.FC = () => {
   if (loading) {
     return (
       <div className="p-8 text-center text-zinc-500 dark:text-zinc-400 animate-pulse">
-        Loading opportunity details...
+        Loading task details...
       </div>
     );
   }
@@ -101,7 +101,7 @@ export const JobDetails: React.FC = () => {
   if (!job) {
     return (
       <div className="p-8 text-center text-zinc-500 dark:text-zinc-400">
-        Opportunity not found.
+        Task not found.
       </div>
     );
   }
@@ -130,7 +130,7 @@ export const JobDetails: React.FC = () => {
         <div className="flex flex-col md:flex-row justify-between items-start gap-4">
           <div>
             <div className="flex items-center gap-3 mb-3">
-              <span className="px-2.5 py-1 bg-red-900 dark:bg-red-700 text-white text-xs font-bold rounded-md uppercase tracking-wide">
+              <span className="px-2.5 py-1 bg-[#812349] dark:bg-[#601a36] text-white text-xs font-bold rounded-md uppercase tracking-wide">
                 {job.category}
               </span>
               <span
@@ -169,8 +169,8 @@ export const JobDetails: React.FC = () => {
               Review Required
             </h3>
             <p className="text-sm text-amber-800 dark:text-amber-200/80">
-              This opportunity posting is pending approval. Review details and
-              take action.
+              This task posting is pending approval. Review details and take
+              action.
             </p>
           </div>
           <div className="flex gap-3">
@@ -196,7 +196,7 @@ export const JobDetails: React.FC = () => {
           {/* Metadata Card */}
           <div className="glass-card rounded-2xl p-6 shadow-sm border border-zinc-100 dark:border-zinc-800 flex flex-wrap gap-6">
             <div className="flex items-center">
-              <div className="w-10 h-10 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center mr-3 text-red-900 dark:text-red-400">
+              <div className="w-10 h-10 rounded-full bg-[#812349]/10 dark:bg-[#812349]/20 flex items-center justify-center mr-3 text-[#812349] dark:text-[#a02b5a]">
                 <MapPin className="w-5 h-5" />
               </div>
               <div>
@@ -209,7 +209,7 @@ export const JobDetails: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center">
-              <div className="w-10 h-10 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center mr-3 text-red-900 dark:text-red-400">
+              <div className="w-10 h-10 rounded-full bg-[#812349]/10 dark:bg-[#812349]/20 flex items-center justify-center mr-3 text-[#812349] dark:text-[#a02b5a]">
                 <Clock className="w-5 h-5" />
               </div>
               <div>
@@ -222,7 +222,7 @@ export const JobDetails: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center">
-              <div className="w-10 h-10 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center mr-3 text-red-900 dark:text-red-400">
+              <div className="w-10 h-10 rounded-full bg-[#812349]/10 dark:bg-[#812349]/20 flex items-center justify-center mr-3 text-[#812349] dark:text-[#a02b5a]">
                 <Calendar className="w-5 h-5" />
               </div>
               <div>
@@ -239,7 +239,7 @@ export const JobDetails: React.FC = () => {
           {/* Description */}
           <div className="glass-card rounded-2xl p-8 shadow-sm border border-zinc-100 dark:border-zinc-800">
             <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-4">
-              About this Opportunity
+              About this Task
             </h3>
             <div className="prose prose-zinc dark:prose-invert max-w-none text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap leading-relaxed">
               {job.description}
@@ -265,7 +265,7 @@ export const JobDetails: React.FC = () => {
             {isInternalUser && (
               <button
                 onClick={() => navigate(`/jobs/${id}/applicants`)}
-                className="w-full py-4 bg-white dark:bg-zinc-800 border-2 border-red-900 dark:border-red-500 text-red-900 dark:text-red-100 rounded-2xl font-bold hover:bg-red-50 dark:hover:bg-red-900/20 shadow-sm flex items-center justify-center transition-all"
+                className="w-full py-4 bg-white dark:bg-zinc-800 border-2 border-[#812349] dark:border-[#812349] text-[#812349] dark:text-red-100 rounded-2xl font-bold hover:bg-[#812349]/5 dark:hover:bg-[#812349]/20 shadow-sm flex items-center justify-center transition-all"
               >
                 <Users className="w-5 h-5 mr-2" />
                 View Applicants ({job.applicantsCount})
@@ -274,7 +274,7 @@ export const JobDetails: React.FC = () => {
 
             {!isInternalUser && (
               <div className="glass-card rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:shadow-none border border-zinc-100 dark:border-zinc-800 overflow-hidden">
-                <div className="p-6 bg-red-900 dark:bg-red-800 text-white">
+                <div className="p-6 bg-[#812349] dark:bg-[#601a36] text-white">
                   <h3 className="text-lg font-bold">Apply Now</h3>
                   <p className="text-red-100 text-sm mt-1">
                     Submit your application for review.
@@ -294,21 +294,21 @@ export const JobDetails: React.FC = () => {
                     </h3>
                     <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-6">
                       {applicationStep === "success"
-                        ? "The Opportunity Manager will review your details and contact you shortly."
+                        ? "The Task Manager will review your details and contact you shortly."
                         : "You have already submitted an application for this position."}
                     </p>
                     <button
                       onClick={() => navigate("/jobs")}
-                      className="w-full py-3 bg-red-900 dark:bg-red-700 text-white rounded-xl font-semibold hover:bg-red-800 dark:hover:bg-red-600"
+                      className="w-full py-3 bg-[#812349] dark:bg-[#601a36] text-white rounded-xl font-semibold hover:bg-[#601a36] dark:hover:bg-[#4d152b]"
                     >
-                      Back to Opportunities
+                      Back to Tasks
                     </button>
                   </div>
                 ) : (
                   <form onSubmit={handleApply} className="p-6 space-y-5">
                     {applicationStep === "submitting" && (
                       <div className="absolute inset-0 bg-white/80 dark:bg-black/80 z-10 flex flex-col items-center justify-center">
-                        <Loader2 className="w-10 h-10 text-red-900 dark:text-white animate-spin mb-3" />
+                        <Loader2 className="w-10 h-10 text-[#812349] dark:text-white animate-spin mb-3" />
                         <p className="font-semibold text-zinc-900 dark:text-white">
                           Submitting...
                         </p>
@@ -321,8 +321,8 @@ export const JobDetails: React.FC = () => {
                       </label>
                       <textarea
                         required
-                        className="w-full p-3 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-red-900 dark:focus:ring-red-500 focus:outline-none min-h-[120px] dark:text-white"
-                        placeholder="Why are you a good fit for this opportunity?"
+                        className="w-full p-3 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-[#812349] dark:focus:ring-[#812349] focus:outline-none min-h-[120px] dark:text-white"
+                        placeholder="Why are you a good fit for this task?"
                         value={coverLetter}
                         onChange={(e) => setCoverLetter(e.target.value)}
                       />
@@ -334,7 +334,7 @@ export const JobDetails: React.FC = () => {
                       </label>
                       <input
                         type="text"
-                        className="w-full p-3 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-red-900 dark:focus:ring-red-500 focus:outline-none dark:text-white"
+                        className="w-full p-3 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-[#812349] dark:focus:ring-[#812349] focus:outline-none dark:text-white"
                         placeholder="e.g. Weekdays after 3pm"
                         value={availability}
                         onChange={(e) => setAvailability(e.target.value)}
@@ -346,7 +346,7 @@ export const JobDetails: React.FC = () => {
                         <input
                           type="checkbox"
                           required
-                          className="w-5 h-5 mt-0.5 rounded border-zinc-300 text-red-900 dark:text-red-500 focus:ring-red-900"
+                          className="w-5 h-5 mt-0.5 rounded border-zinc-300 text-[#812349] dark:text-[#a02b5a] focus:ring-[#812349]"
                           checked={agreed}
                           onChange={(e) => setAgreed(e.target.checked)}
                         />
@@ -363,7 +363,7 @@ export const JobDetails: React.FC = () => {
                     <button
                       type="submit"
                       disabled={!agreed}
-                      className="w-full py-3.5 bg-red-900 dark:bg-red-700 text-white rounded-xl font-bold hover:bg-red-800 dark:hover:bg-red-600 shadow-lg shadow-red-900/20 dark:shadow-none transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                      className="w-full py-3.5 bg-[#812349] dark:bg-[#601a36] text-white rounded-xl font-bold hover:bg-[#601a36] dark:hover:bg-[#4d152b] shadow-lg shadow-[#812349]/20 dark:shadow-none transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                     >
                       Submit Application
                     </button>

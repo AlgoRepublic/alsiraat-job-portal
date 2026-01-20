@@ -56,7 +56,7 @@ const KPICard: React.FC<{
         </h3>
       </div>
       <div
-        className={`p-4 rounded-2xl ${color || "bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400"} group-hover:scale-110 transition-transform`}
+        className={`p-4 rounded-2xl ${color || "bg-[#812349]/10 text-[#812349] dark:bg-[#812349]/30 dark:text-[#a02b5a]"} group-hover:scale-110 transition-transform`}
       >
         <Icon className="w-6 h-6" />
       </div>
@@ -123,7 +123,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <KPICard
           title={
-            role === UserRole.INDEPENDENT ? "My Applications" : "Total Postings"
+            role === UserRole.INDEPENDENT ? "My Applications" : "Total Tasks"
           }
           value={
             role === UserRole.INDEPENDENT
@@ -134,7 +134,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
           onClick={() => navigate("/jobs")}
         />
         <KPICard
-          title="Active Postings"
+          title="Active Tasks"
           value={activeJobsCount.toString()}
           icon={CheckSquare}
           color="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400"
@@ -162,13 +162,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
         <div className="lg:col-span-3 glass-card p-10 rounded-[2.5rem]">
           <div className="flex items-center justify-between mb-10">
             <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter">
-              Recent Opportunity Activity
+              Recent Activity
             </h3>
             <button
               onClick={() => navigate("/jobs")}
-              className="text-xs font-black uppercase tracking-widest text-red-600 hover:underline"
+              className="text-xs font-black uppercase tracking-widest text-[#812349] hover:underline"
             >
-              View All Postings
+              View All Tasks
             </button>
           </div>
 
@@ -176,10 +176,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
             <table className="w-full">
               <thead>
                 <tr className="text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] border-b border-white/20 dark:border-white/5">
-                  <th className="pb-6 pl-2">Opportunity Title</th>
+                  <th className="pb-6 pl-2">Task Title</th>
                   <th className="pb-6">Domain</th>
                   <th className="pb-6">Status</th>
-                  <th className="pb-6 text-right">Action</th>
+                  <th className="pb-6 text-right">View</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/20 dark:divide-white/5">
@@ -204,7 +204,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
                     <td className="py-6 text-right">
                       <button
                         onClick={() => navigate(`/jobs/${job.id}`)}
-                        className="p-3 bg-white/60 dark:bg-zinc-800/60 hover:bg-red-600 hover:text-white rounded-2xl transition-all shadow-sm"
+                        className="p-3 bg-white/60 dark:bg-zinc-800/60 hover:bg-[#812349] hover:text-white rounded-2xl transition-all shadow-sm"
                       >
                         <ArrowRight className="w-4 h-4" />
                       </button>
