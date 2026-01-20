@@ -31,7 +31,10 @@ export const authenticate = async (
 
 export const authorize = (roles: UserRole[]) => {
   return (req: any, res: Response, next: NextFunction) => {
-    if (!roles.includes(req.user.role)) {
+    const userRole = (req.user.role || "").toLowerCase();
+    const authorized = roles.some((r) => r.toLowerCase() === userRole);
+
+    if (!authorized) {
       return res
         .status(403)
         .json({ message: "User not authorized to perform this action" });
@@ -45,14 +48,17 @@ export const checkImpersonation = (
   res: Response,
   next: NextFunction,
 ) => {
+  const userRole = (req.user.role || "").toLowerCase();
+  const isAdmin = userRole === UserRole.ADMIN.toLowerCase();
+
   // Only Admin can impersonate
-  if (req.header("x-impersonate-role") && req.user.role !== UserRole.ADMIN) {
+  if (req.header("x-impersonate-role") && !isAdmin) {
     return res
       .status(403)
       .json({ message: "Only Admin can impersonate roles" });
   }
 
-  if (req.header("x-impersonate-role") && req.user.role === UserRole.ADMIN) {
+  if (req.header("x-impersonate-role") && isAdmin) {
     req.impersonatedRole = req.header("x-impersonate-role");
   }
   next();

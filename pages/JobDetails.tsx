@@ -41,12 +41,8 @@ export const JobDetails: React.FC = () => {
             const user = await db.getCurrentUser();
             setCurrentUser(user);
 
-            // Check application status through API
-            const apps = await db.getApplications({
-              task: id,
-              applicant: user?.id,
-            });
-            if (apps.length > 0) {
+            // Check if user has already applied (from backend)
+            if (found.hasApplied) {
               setApplicationStep("applied");
             }
           }

@@ -28,7 +28,7 @@ export const createTask = async (req: any, res: Response) => {
       eligibility,
       visibility: visibility || TaskVisibility.GLOBAL,
       status:
-        req.user.role === UserRole.INDEPENDENT
+        req.user.role.toLowerCase() === UserRole.INDEPENDENT.toLowerCase()
           ? TaskStatus.PUBLISHED
           : TaskStatus.PENDING,
       organization: req.user.organization,
@@ -43,44 +43,71 @@ export const createTask = async (req: any, res: Response) => {
 
 export const getTasks = async (req: any, res: Response) => {
   try {
-    const { role, organization } = req.user;
+    const { role, organization, _id: userId } = req.user;
+    const normalizedRole = (role || "").toLowerCase();
     let query: any = {};
 
-    if (role === UserRole.INDEPENDENT) {
-      query = {
-        status: TaskStatus.PUBLISHED,
-        visibility: TaskVisibility.EXTERNAL,
-      };
-    } else if (
-      role === UserRole.MEMBER ||
-      role === UserRole.APPROVER ||
-      role === UserRole.OWNER
+    if (
+      normalizedRole === UserRole.INDEPENDENT.toLowerCase() ||
+      normalizedRole === UserRole.MEMBER.toLowerCase()
     ) {
-      // Members see their org's tasks (even private) and other org's public tasks
+      // Independent users and Members: Only see Published tasks
+      // Members can see their org's published tasks + global/external published tasks
+      if (normalizedRole === UserRole.MEMBER.toLowerCase() && organization) {
+        query = {
+          $or: [
+            // Their organization's published tasks
+            {
+              organization: organization,
+              status: TaskStatus.PUBLISHED,
+            },
+            // External/Global published tasks from other orgs
+            {
+              visibility: {
+                $in: [TaskVisibility.EXTERNAL, TaskVisibility.GLOBAL],
+              },
+              status: TaskStatus.PUBLISHED,
+            },
+          ],
+        };
+      } else {
+        // Independents: only external/global published tasks
+        query = {
+          status: TaskStatus.PUBLISHED,
+          visibility: { $in: [TaskVisibility.EXTERNAL, TaskVisibility.GLOBAL] },
+        };
+      }
+    } else if (
+      normalizedRole === UserRole.APPROVER.toLowerCase() ||
+      normalizedRole === UserRole.OWNER.toLowerCase()
+    ) {
+      // Approvers and Owners: See their org's tasks (Published, Pending, Draft)
+      // but NOT Archived. Also see external Published tasks
       query = {
         $or: [
           {
             organization: organization,
             status: {
-              $in: [
-                TaskStatus.PUBLISHED,
-                TaskStatus.PENDING,
-                TaskStatus.APPROVED,
-              ],
+              $in: [TaskStatus.PUBLISHED, TaskStatus.PENDING, TaskStatus.DRAFT],
             },
           },
-          { visibility: TaskVisibility.EXTERNAL, status: TaskStatus.PUBLISHED },
-          { visibility: TaskVisibility.GLOBAL, status: TaskStatus.PUBLISHED },
+          {
+            visibility: {
+              $in: [TaskVisibility.EXTERNAL, TaskVisibility.GLOBAL],
+            },
+            status: TaskStatus.PUBLISHED,
+          },
         ],
       };
-    } else if (role === UserRole.ADMIN) {
-      // Admin sees everything
+    } else if (normalizedRole === UserRole.ADMIN.toLowerCase()) {
+      // Admin sees everything (including Draft and Archived)
       query = {};
     }
 
     const tasks = await Task.find(query)
       .populate("organization", "name")
-      .populate("createdBy", "name");
+      .populate("createdBy", "name")
+      .sort({ createdAt: -1 });
 
     // Get application counts for each task
     const taskIds = tasks.map((t) => t._id);
@@ -90,9 +117,19 @@ export const getTasks = async (req: any, res: Response) => {
     ]);
     const countMap = new Map(counts.map((c) => [c._id.toString(), c.count]));
 
+    // Check if current user has applied to each task
+    const userApplications = await Application.find({
+      task: { $in: taskIds },
+      applicant: userId,
+    }).select("task");
+    const appliedTaskIds = new Set(
+      userApplications.map((app) => app.task.toString()),
+    );
+
     const tasksWithCounts = tasks.map((task) => ({
       ...task.toObject(),
       applicantsCount: countMap.get(task._id.toString()) || 0,
+      hasApplied: appliedTaskIds.has(task._id.toString()),
     }));
 
     res.json(tasksWithCounts);
@@ -134,7 +171,7 @@ export const approveTask = async (req: any, res: Response) => {
 
     // Ensure approver is from the same org
     if (
-      req.user.role !== UserRole.ADMIN &&
+      req.user.role.toLowerCase() !== UserRole.ADMIN.toLowerCase() &&
       (!task.organization ||
         task.organization.toString() !== req.user.organization.toString())
     ) {

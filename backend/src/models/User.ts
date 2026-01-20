@@ -52,6 +52,14 @@ const UserSchema: Schema = new Schema(
       type: String,
       enum: Object.values(UserRole),
       default: UserRole.INDEPENDENT,
+      set: (v: string) => {
+        if (!v) return v;
+        // Find existing role value matching case-insensitively
+        const role = Object.values(UserRole).find(
+          (r) => r.toLowerCase() === v.toLowerCase(),
+        );
+        return role || v;
+      },
     },
     organization: { type: Schema.Types.ObjectId, ref: "Organization" },
     avatar: { type: String },

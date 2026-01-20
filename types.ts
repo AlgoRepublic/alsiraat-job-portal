@@ -76,6 +76,7 @@ export interface Job {
   createdBy: string;
   createdAt: string;
   applicantsCount: number;
+  hasApplied?: boolean; // Whether current user has applied
 }
 
 export interface User {
