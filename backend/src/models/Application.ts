@@ -4,11 +4,8 @@ export enum ApplicationStatus {
   PENDING = "Pending",
   REVIEWING = "Reviewing",
   SHORTLISTED = "Shortlisted",
-  OFFER_SENT = "Offer Sent",
-  OFFER_ACCEPTED = "Offer Accepted",
-  OFFER_DECLINED = "Offer Declined",
+  APPROVED = "Approved",
   REJECTED = "Rejected",
-  WITHDRAWN = "Withdrawn",
 }
 
 export interface IApplication extends Document {

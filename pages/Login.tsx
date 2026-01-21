@@ -17,9 +17,15 @@ export const Login: React.FC = () => {
     setError("");
     try {
       await db.login(email, password);
-      setTimeout(() => {
-        window.location.reload();
-      }, 100);
+      // Get updated user info
+      const user = await db.getCurrentUser();
+
+      // Role-based redirect
+      if (user.role === "Admin" || user.role === "Owner") {
+        navigate("/dashboard");
+      } else {
+        navigate("/jobs");
+      }
     } catch (err: any) {
       setError(err.message || "Login failed. Please check your credentials.");
       setIsLoading(false);

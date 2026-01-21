@@ -107,7 +107,7 @@ export interface Application {
   applicantName: string;
   applicantEmail: string;
   applicantAvatar: string;
-  status: "Pending" | "Reviewing" | "Approved" | "Rejected";
+  status: "Pending" | "Reviewing" | "Shortlisted" | "Approved" | "Rejected";
   appliedAt: string;
   coverLetter: string;
   availability: string;

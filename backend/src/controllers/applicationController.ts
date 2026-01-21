@@ -52,7 +52,7 @@ export const updateApplicationStatus = async (req: any, res: Response) => {
 
     const task: any = app.task;
 
-    // Authorization: Owner, Approver of the org, or Admin
+    // Authorization: Must belong to organization or be Admin
     if (
       req.user.role !== "Admin" &&
       (!task.organization ||
@@ -63,15 +63,51 @@ export const updateApplicationStatus = async (req: any, res: Response) => {
         .json({ message: "Not authorized to update this application" });
     }
 
+    // Role-based permission checks
+    if (req.user.role === "Approver") {
+      // Approvers can only set status to Shortlisted
+      if (status !== ApplicationStatus.SHORTLISTED) {
+        return res.status(403).json({
+          message:
+            "Approvers can only shortlist applications. You cannot approve or reject applications.",
+        });
+      }
+    } else if (req.user.role === "Owner") {
+      // Owners can only approve/reject applications that are already shortlisted
+      if (
+        status === ApplicationStatus.APPROVED ||
+        status === ApplicationStatus.REJECTED
+      ) {
+        if (app.status !== ApplicationStatus.SHORTLISTED) {
+          return res.status(400).json({
+            message:
+              "Only shortlisted applications can be approved or rejected.",
+          });
+        }
+      } else if (status === ApplicationStatus.SHORTLISTED) {
+        return res.status(403).json({
+          message:
+            "Owners cannot shortlist applications. This action is reserved for Approvers.",
+        });
+      }
+    } else if (req.user.role !== "Admin") {
+      // Regular users have no permission to change status
+      return res
+        .status(403)
+        .json({
+          message: "You do not have permission to update application status.",
+        });
+    }
+
     app.status = status;
     await app.save();
 
     // Notifications
-    if (status === ApplicationStatus.OFFER_SENT) {
+    if (status === ApplicationStatus.APPROVED) {
       await sendNotification(
         app.applicant._id.toString(),
-        "Job Offer",
-        `You have received an offer for the task: "${task.title}".`,
+        "Application Approved",
+        `Congratulations! Your application for "${task.title}" has been approved.`,
         "success",
         `/application/${app._id}`,
       );
@@ -81,6 +117,14 @@ export const updateApplicationStatus = async (req: any, res: Response) => {
         "Application Update",
         `Your application for "${task.title}" was not selected.`,
         "warning",
+      );
+    } else if (status === ApplicationStatus.SHORTLISTED) {
+      await sendNotification(
+        app.applicant._id.toString(),
+        "Application Shortlisted",
+        `Great news! Your application for "${task.title}" has been shortlisted.`,
+        "info",
+        `/application/${app._id}`,
       );
     }
 

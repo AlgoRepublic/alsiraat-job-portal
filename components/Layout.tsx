@@ -205,6 +205,7 @@ export const Layout: React.FC<LayoutProps> = ({
       label: "Overview",
       path: "/dashboard",
       protected: true,
+      roles: [UserRole.ADMIN, UserRole.OWNER],
     },
     { icon: Briefcase, label: "Browse Tasks", path: "/jobs" },
     {

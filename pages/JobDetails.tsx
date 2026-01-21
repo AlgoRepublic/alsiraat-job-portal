@@ -202,9 +202,12 @@ export const JobDetails: React.FC = () => {
         </div>
       )}
 
+      {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-8">
+        {/* Main Content - Left Side */}
+        <div
+          className={`${isInternalUser ? "lg:col-span-2" : "lg:col-span-3"} space-y-8`}
+        >
           {/* Metadata Card */}
           <div className="glass-card rounded-2xl p-6 shadow-sm border border-zinc-100 dark:border-zinc-800 flex flex-wrap gap-6">
             <div className="flex items-center">
@@ -321,10 +324,88 @@ export const JobDetails: React.FC = () => {
           )}
         </div>
 
-        {/* Sidebar Application Form or Actions */}
+        {/* Sidebar - Right Side */}
         <div className="lg:col-span-1">
           <div className="sticky top-24 space-y-6">
-            {!isInternalUser && (
+            {isInternalUser ? (
+              /* Applicants List for Internal Users */
+              <div className="glass-card rounded-2xl shadow-sm border border-zinc-100 dark:border-zinc-800 overflow-hidden">
+                <div className="p-6 bg-[#812349] dark:bg-[#601a36] text-white">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-5 h-5" />
+                      <h3 className="text-lg font-bold">Applicants</h3>
+                    </div>
+                    <span className="px-2.5 py-1 bg-white/20 rounded-lg text-xs font-black">
+                      {applicants.length}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="max-h-[600px] overflow-y-auto">
+                  {applicants.length === 0 ? (
+                    <div className="p-8 text-center">
+                      <p className="text-sm text-zinc-400 dark:text-zinc-500">
+                        No applications yet
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                      {applicants.map((app) => (
+                        <div
+                          key={app.id}
+                          onClick={() => navigate(`/application/${app.id}`)}
+                          className="p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer"
+                        >
+                          <div className="flex items-start gap-3">
+                            <img
+                              src={app.applicantAvatar}
+                              alt={app.applicantName}
+                              className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-zinc-900 dark:text-white truncate">
+                                {app.applicantName}
+                              </p>
+                              <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                                {app.applicantEmail}
+                              </p>
+                              <div className="mt-2">
+                                <span
+                                  className={`px-2 py-1 text-[9px] font-black rounded-lg uppercase tracking-wider ${
+                                    app.status === "Approved"
+                                      ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
+                                      : app.status === "Shortlisted"
+                                        ? "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400"
+                                        : app.status === "Rejected"
+                                          ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                                          : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
+                                  }`}
+                                >
+                                  {app.status}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {applicants.length > 0 && (
+                  <div className="p-4 border-t border-zinc-100 dark:border-zinc-800">
+                    <button
+                      onClick={() => navigate(`/jobs/${id}/applicants`)}
+                      className="w-full py-2.5 text-xs font-black uppercase tracking-widest text-[#812349] dark:text-[#a02b5a] hover:bg-zinc-50 dark:hover:bg-zinc-800/50 rounded-lg transition-colors"
+                    >
+                      View All Applications
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Application Form for External Users */
               <div className="glass-card rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:shadow-none border border-zinc-100 dark:border-zinc-800 overflow-hidden">
                 <div className="p-6 bg-[#812349] dark:bg-[#601a36] text-white">
                   <h3 className="text-lg font-bold">Apply</h3>
@@ -369,9 +450,12 @@ export const JobDetails: React.FC = () => {
                     </button>
                   </div>
                 ) : (
-                  <form onSubmit={handleApply} className="p-6 space-y-5">
+                  <form
+                    onSubmit={handleApply}
+                    className="p-6 space-y-5 relative"
+                  >
                     {applicationStep === "submitting" && (
-                      <div className="absolute inset-0 bg-white/80 dark:bg-black/80 z-10 flex flex-col items-center justify-center">
+                      <div className="absolute inset-0 bg-white/80 dark:bg-black/80 z-10 flex flex-col items-center justify-center rounded-2xl">
                         <Loader2 className="w-10 h-10 text-[#812349] dark:text-white animate-spin mb-3" />
                         <p className="font-semibold text-zinc-900 dark:text-white">
                           Sending...

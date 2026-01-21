@@ -90,7 +90,21 @@ const App: React.FC = () => {
       >
         <Routes>
           {/* Public Routes */}
-          <Route path="/" element={currentUser ? <Home /> : <JobList />} />
+          <Route
+            path="/"
+            element={
+              !currentUser ? (
+                <LandingPage
+                  onGetStarted={() => (window.location.hash = "#/login")}
+                />
+              ) : currentUser.role === "Admin" ||
+                currentUser.role === "Owner" ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <Navigate to="/jobs" replace />
+              )
+            }
+          />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
