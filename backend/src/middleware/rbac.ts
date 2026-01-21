@@ -29,6 +29,32 @@ export const authenticate = async (
   }
 };
 
+export const optionalAuthenticate = async (
+  req: any,
+  res: Response,
+  next: NextFunction,
+) => {
+  const token = req.header("Authorization")?.replace("Bearer ", "");
+
+  if (!token) {
+    return next();
+  }
+
+  try {
+    const decoded: any = jwt.verify(token, JWT_SECRET);
+    const user = await User.findById(decoded.id);
+
+    if (user) {
+      req.user = user;
+    }
+    next();
+  } catch (err) {
+    // If token is present but invalid, we still allow guest access but log out of current session.
+    // Or we can just let it be. For now, just next().
+    next();
+  }
+};
+
 export const authorize = (roles: UserRole[]) => {
   return (req: any, res: Response, next: NextFunction) => {
     const userRole = (req.user.role || "").toLowerCase();

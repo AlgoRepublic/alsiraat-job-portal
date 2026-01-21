@@ -134,12 +134,12 @@ export const JobWizard: React.FC = () => {
             className="flex flex-col items-center relative z-10 flex-1"
           >
             <div
-              className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm transition-all duration-500 shadow-xl ${step >= num ? "bg-red-600 text-white scale-110" : "glass-card text-zinc-400"}`}
+              className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm transition-all duration-500 shadow-xl ${step >= num ? "bg-[#812349] text-white scale-110" : "glass-card text-zinc-400"}`}
             >
               {num}
             </div>
             <span
-              className={`mt-4 text-[10px] font-black uppercase tracking-widest transition-colors duration-300 ${step >= num ? "text-red-700 dark:text-red-400" : "text-zinc-400"}`}
+              className={`mt-4 text-[10px] font-black uppercase tracking-widest transition-colors duration-300 ${step >= num ? "text-[#812349] dark:text-[#a02b5a]" : "text-zinc-400"}`}
             >
               {num === 1
                 ? "Information"
@@ -165,7 +165,7 @@ export const JobWizard: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  className="w-full p-4 glass rounded-2xl focus:ring-4 focus:ring-red-500/20 outline-none font-bold text-lg dark:text-white"
+                  className="w-full p-4 glass rounded-2xl focus:ring-4 focus:ring-[#812349]/20 outline-none font-bold text-lg dark:text-white"
                   value={formData.title}
                   onChange={(e) => updateField("title", e.target.value)}
                   placeholder="e.g. Lab Assistant for Bio-Chem"
@@ -197,7 +197,7 @@ export const JobWizard: React.FC = () => {
                 <button
                   onClick={handleAIHelp}
                   disabled={isGenerating}
-                  className="text-[10px] font-black uppercase tracking-widest flex items-center px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all shadow-lg shadow-red-600/20 disabled:opacity-50"
+                  className="text-[10px] font-black uppercase tracking-widest flex items-center px-4 py-2 bg-[#812349] text-white rounded-xl hover:bg-[#601a36] transition-all shadow-lg shadow-[#812349]/20 disabled:opacity-50"
                 >
                   {isGenerating ? (
                     <Loader2 className="w-3 h-3 mr-2 animate-spin" />
@@ -208,7 +208,7 @@ export const JobWizard: React.FC = () => {
                 </button>
               </div>
               <textarea
-                className="w-full p-6 glass rounded-2xl h-64 focus:ring-4 focus:ring-red-500/20 outline-none font-medium leading-relaxed dark:text-white resize-none"
+                className="w-full p-6 glass rounded-2xl h-64 focus:ring-4 focus:ring-[#812349]/20 outline-none font-medium leading-relaxed dark:text-white resize-none"
                 value={formData.description}
                 onChange={(e) => updateField("description", e.target.value)}
                 placeholder="Describe the tasks, responsibilities, and learning outcomes..."
@@ -269,7 +269,7 @@ export const JobWizard: React.FC = () => {
                 {formData.requiredSkills?.map((skill) => (
                   <span
                     key={skill}
-                    className="px-3 py-1.5 bg-red-600 text-white rounded-xl text-xs font-black uppercase tracking-widest flex items-center"
+                    className="px-3 py-1.5 bg-[#812349] text-white rounded-xl text-xs font-black uppercase tracking-widest flex items-center"
                   >
                     {skill}{" "}
                     <X
@@ -331,8 +331,8 @@ export const JobWizard: React.FC = () => {
 
         {step === 3 && (
           <div className="space-y-10 animate-fade-in">
-            <div className="border-4 border-dashed border-zinc-200 dark:border-zinc-800 rounded-[2.5rem] p-20 text-center hover:border-red-600 transition-all cursor-pointer bg-white/5 group">
-              <div className="w-20 h-20 bg-red-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-red-600/30 group-hover:scale-110 transition-transform">
+            <div className="border-4 border-dashed border-zinc-200 dark:border-zinc-800 rounded-[2.5rem] p-20 text-center hover:border-[#812349] transition-all cursor-pointer bg-white/5 group">
+              <div className="w-20 h-20 bg-[#812349] rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-[#812349]/30 group-hover:scale-110 transition-transform">
                 <Upload className="w-8 h-8 text-white" />
               </div>
               <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter">
@@ -376,7 +376,7 @@ export const JobWizard: React.FC = () => {
                   <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">
                     Domain
                   </p>
-                  <p className="text-lg font-black text-red-600">
+                  <p className="text-lg font-black text-[#812349]">
                     {formData.category}
                   </p>
                 </div>
@@ -406,7 +406,7 @@ export const JobWizard: React.FC = () => {
         {step < 4 ? (
           <button
             onClick={() => setStep((s) => s + 1)}
-            className="px-10 py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-red-700 shadow-2xl shadow-red-600/30 flex items-center transition-all hover:-translate-y-1"
+            className="px-10 py-4 bg-[#812349] text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-[#601a36] shadow-2xl shadow-[#812349]/30 flex items-center transition-all hover:-translate-y-1"
           >
             Advance <ArrowRight className="w-4 h-4 ml-3" />
           </button>

@@ -85,21 +85,17 @@ export const JobApplicants: React.FC = () => {
           <table className="w-full">
             <thead className="bg-white/50 dark:bg-zinc-800/50 border-b border-white/20 dark:border-white/5">
               <tr>
+                <th className="px-8 py-6 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]"></th>
                 <th className="px-8 py-6 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
-                  Avatar
+                  Applicant Name
                 </th>
                 <th className="px-8 py-6 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
-                  Collaborator
-                </th>
-                <th className="px-8 py-6 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
-                  Digital Mail
+                  Email Address
                 </th>
                 <th className="px-8 py-6 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
                   Status
                 </th>
-                <th className="px-8 py-6 text-right text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
-                  Actions
-                </th>
+                <th className="px-8 py-6 text-right text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/20 dark:divide-white/5">
@@ -108,32 +104,32 @@ export const JobApplicants: React.FC = () => {
                   key={app.id}
                   className="hover:bg-white/40 dark:hover:bg-white/5 transition-all group"
                 >
-                  <td className="px-8 py-6 whitespace-nowrap">
+                  <td className="px-8 py-4 whitespace-nowrap">
                     <img
                       src={app.applicantAvatar}
                       alt=""
-                      className="w-12 h-12 rounded-2xl bg-zinc-200 border-2 border-white dark:border-zinc-800 shadow-sm object-cover"
+                      className="w-10 h-10 rounded-2xl bg-zinc-200 border-2 border-white dark:border-zinc-800 shadow-sm object-cover"
                     />
                   </td>
-                  <td className="px-8 py-6 whitespace-nowrap text-sm font-black text-zinc-900 dark:text-white">
+                  <td className="px-8 py-4 whitespace-nowrap text-sm font-black text-zinc-900 dark:text-white">
                     {app.applicantName}
                   </td>
-                  <td className="px-8 py-6 whitespace-nowrap text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+                  <td className="px-8 py-4 whitespace-nowrap text-sm font-semibold text-zinc-500 dark:text-zinc-400">
                     {app.applicantEmail}
                   </td>
-                  <td className="px-8 py-6 whitespace-nowrap">
+                  <td className="px-8 py-4 whitespace-nowrap">
                     <span
                       className={`px-3 py-1.5 inline-flex text-[9px] font-black rounded-xl uppercase tracking-widest border ${getStatusStyle(app.status)}`}
                     >
                       {app.status}
                     </span>
                   </td>
-                  <td className="px-8 py-6 whitespace-nowrap text-right text-sm font-medium">
+                  <td className="px-8 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button
                       onClick={() => navigate(`/application/${app.id}`)}
-                      className="px-6 py-2.5 bg-red-900 dark:bg-red-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-800 transition-all shadow-lg shadow-red-900/10 group-hover:scale-105"
+                      className="px-6 py-2.5 bg-[#812349] dark:bg-[#601a36] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#601a36] transition-all shadow-lg shadow-[#812349]/10 group-hover:scale-105"
                     >
-                      Inspect
+                      View
                     </button>
                   </td>
                 </tr>

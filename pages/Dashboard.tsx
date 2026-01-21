@@ -188,20 +188,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
                     key={job.id}
                     className="group hover:bg-white/40 dark:hover:bg-white/5 transition-all"
                   >
-                    <td className="py-6 pl-2 font-black text-zinc-900 dark:text-white text-base tracking-tight">
+                    <td className="py-4 pl-2 font-black text-zinc-900 dark:text-white text-base tracking-tight">
                       {job.title}
                     </td>
-                    <td className="py-6 text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+                    <td className="py-4 text-sm font-semibold text-zinc-500 dark:text-zinc-400">
                       {job.category}
                     </td>
-                    <td className="py-6">
+                    <td className="py-4">
                       <span
                         className={`px-3 py-1.5 text-[10px] font-black rounded-xl uppercase tracking-widest border ${getStatusColor(job.status)}`}
                       >
                         {job.status}
                       </span>
                     </td>
-                    <td className="py-6 text-right">
+                    <td className="py-4 text-right">
                       <button
                         onClick={() => navigate(`/jobs/${job.id}`)}
                         className="p-3 bg-white/60 dark:bg-zinc-800/60 hover:bg-[#812349] hover:text-white rounded-2xl transition-all shadow-sm"

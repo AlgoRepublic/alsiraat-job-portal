@@ -75,6 +75,25 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
     );
   };
 
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && profile) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setProfile({ ...profile, avatar: event.target?.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleResumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Mock upload
+      alert(`Resume "${file.name}" uploaded successfully!`);
+    }
+  };
+
   if (!profile)
     return (
       <div className="p-8 text-center text-zinc-500 dark:text-zinc-400">
@@ -84,10 +103,26 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
+      {/* Hidden File Inputs */}
+      <input
+        type="file"
+        id="avatar-upload"
+        className="hidden"
+        accept="image/*"
+        onChange={handleAvatarChange}
+      />
+      <input
+        type="file"
+        id="resume-upload"
+        className="hidden"
+        accept=".pdf,.doc,.docx"
+        onChange={handleResumeChange}
+      />
+
       {/* Header Card */}
       <div className="glass-card rounded-2xl shadow-lg shadow-zinc-200 dark:shadow-none border border-zinc-100 dark:border-zinc-800 overflow-hidden relative group">
         {/* Cover Image */}
-        <div className="h-40 bg-red-900 dark:bg-red-950 w-full relative">
+        <div className="h-40 bg-[#812349] dark:bg-[#601a36] w-full relative">
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
         </div>
 
@@ -100,7 +135,12 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
                 className="w-28 h-28 rounded-full border-[6px] border-white dark:border-zinc-900 shadow-xl object-cover bg-zinc-100 dark:bg-zinc-800"
               />
               {isEditing && (
-                <button className="absolute bottom-1 right-1 p-2 bg-red-900 dark:bg-red-700 text-white rounded-full hover:bg-red-800 dark:hover:bg-red-600 shadow-md transition-colors">
+                <button
+                  onClick={() =>
+                    document.getElementById("avatar-upload")?.click()
+                  }
+                  className="absolute bottom-1 right-1 p-2 bg-[#812349] dark:bg-[#601a36] text-white rounded-full hover:bg-[#601a36] dark:hover:bg-[#4d152b] shadow-md transition-colors"
+                >
                   <Camera className="w-4 h-4" />
                 </button>
               )}
@@ -109,7 +149,7 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
               onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
               className={`px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all flex items-center gap-2 ${
                 isEditing
-                  ? "bg-red-900 dark:bg-red-700 text-white hover:bg-red-800 dark:hover:bg-red-600"
+                  ? "bg-[#812349] dark:bg-[#601a36] text-white hover:bg-[#601a36] dark:hover:bg-[#4d152b]"
                   : "bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700"
               }`}
             >
@@ -145,7 +185,7 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
               </h3>
               {isEditing ? (
                 <textarea
-                  className="w-full p-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-red-900 dark:focus:ring-red-500 outline-none leading-relaxed transition-all dark:text-white"
+                  className="w-full p-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-[#812349] dark:focus:ring-[#812349] outline-none leading-relaxed transition-all dark:text-white"
                   rows={4}
                   value={profile.about}
                   placeholder="Tell us about yourself..."
@@ -204,7 +244,7 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
             <div className="flex gap-2 mt-auto">
               <input
                 type="text"
-                className="flex-1 p-3 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm bg-zinc-50 dark:bg-zinc-800 focus:bg-white dark:focus:bg-zinc-900 focus:ring-2 focus:ring-red-900 dark:focus:ring-red-500 outline-none transition-all dark:text-white"
+                className="flex-1 p-3 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm bg-zinc-50 dark:bg-zinc-800 focus:bg-white dark:focus:bg-zinc-900 focus:ring-2 focus:ring-[#812349] dark:focus:ring-[#812349] outline-none transition-all dark:text-white"
                 placeholder="Add a new skill (e.g. Leadership)"
                 value={newSkill}
                 onChange={(e) => setNewSkill(e.target.value)}
@@ -212,7 +252,7 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
               />
               <button
                 onClick={handleAddSkill}
-                className="px-4 bg-red-900 dark:bg-red-700 text-white rounded-xl hover:bg-red-800 dark:hover:bg-red-600 transition-colors shadow-md"
+                className="px-4 bg-[#812349] dark:bg-[#601a36] text-white rounded-xl hover:bg-[#601a36] dark:hover:bg-[#4d152b] transition-colors shadow-md"
               >
                 <Plus className="w-5 h-5" />
               </button>
@@ -225,7 +265,10 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
           <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-4">
             Resume
           </h3>
-          <div className="flex-1 border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-2xl p-6 text-center hover:bg-red-50 dark:hover:bg-red-900/10 hover:border-red-300 dark:hover:border-red-900 transition-all cursor-pointer flex flex-col items-center justify-center group h-full min-h-[160px]">
+          <div
+            onClick={() => document.getElementById("resume-upload")?.click()}
+            className="flex-1 border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-2xl p-6 text-center hover:bg-red-50 dark:hover:bg-red-900/10 hover:border-red-300 dark:hover:border-red-900 transition-all cursor-pointer flex flex-col items-center justify-center group h-full min-h-[160px]"
+          >
             <div className="p-3 bg-zinc-100 dark:bg-zinc-800 rounded-full text-zinc-400 dark:text-zinc-500 group-hover:bg-red-100 dark:group-hover:bg-red-900/30 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors mb-3">
               <Upload className="w-6 h-6" />
             </div>

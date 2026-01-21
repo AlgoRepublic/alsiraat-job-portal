@@ -17,6 +17,7 @@ import { Login } from "./pages/Login";
 import { LandingPage } from "./components/LandingPage";
 import { JobApplicants } from "./pages/JobApplicants";
 import { ApplicationReview } from "./pages/ApplicationReview";
+import { MyTasks } from "./pages/MyTasks";
 import { AdminSettings } from "./pages/AdminSettings";
 import { Home } from "./pages/Home";
 import { Signup } from "./pages/Signup";
@@ -81,53 +82,55 @@ const App: React.FC = () => {
 
   return (
     <HashRouter>
-      {!currentUser ? (
+      <Layout
+        currentUser={currentUser}
+        onSwitchUser={handleSwitchUser}
+        isDarkMode={isDarkMode}
+        onToggleTheme={toggleTheme}
+      >
         <Routes>
-          <Route path="/" element={<PublicLanding />} />
+          {/* Public Routes */}
+          <Route path="/" element={currentUser ? <Home /> : <JobList />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
+          <Route path="/jobs" element={<JobList />} />
+          <Route path="/jobs/:id" element={<JobDetails />} />
+
+          {/* Protected Routes */}
+          {currentUser && (
+            <>
+              <Route
+                path="/dashboard"
+                element={<Dashboard role={currentUser.role} />}
+              />
+              <Route
+                path="/post-job"
+                element={
+                  currentUser.role === UserRole.OWNER ||
+                  currentUser.role === UserRole.ADMIN ||
+                  currentUser.role === UserRole.INDEPENDENT ? (
+                    <JobWizard />
+                  ) : (
+                    <Navigate to="/dashboard" replace />
+                  )
+                }
+              />
+              <Route path="/jobs/:id/applicants" element={<JobApplicants />} />
+              <Route path="/my-tasks" element={<MyTasks />} />
+              <Route
+                path="/application/:appId"
+                element={<ApplicationReview />}
+              />
+              <Route path="/admin/settings" element={<AdminSettings />} />
+              <Route path="/profile" element={<Profile user={currentUser} />} />
+            </>
+          )}
+
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      ) : (
-        <Layout
-          currentUser={currentUser}
-          onSwitchUser={handleSwitchUser}
-          isDarkMode={isDarkMode}
-          onToggleTheme={toggleTheme}
-        >
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route
-              path="/dashboard"
-              element={<Dashboard role={currentUser.role} />}
-            />
-
-            <Route
-              path="/post-job"
-              element={
-                currentUser.role === UserRole.OWNER ||
-                currentUser.role === UserRole.ADMIN ||
-                currentUser.role === UserRole.INDEPENDENT ? (
-                  <JobWizard />
-                ) : (
-                  <Navigate to="/dashboard" replace />
-                )
-              }
-            />
-
-            <Route path="/jobs" element={<JobList />} />
-            <Route path="/jobs/:id" element={<JobDetails />} />
-            <Route path="/jobs/:id/applicants" element={<JobApplicants />} />
-            <Route path="/application/:appId" element={<ApplicationReview />} />
-            <Route path="/admin/settings" element={<AdminSettings />} />
-
-            <Route path="/profile" element={<Profile user={currentUser} />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Layout>
-      )}
+      </Layout>
     </HashRouter>
   );
 };

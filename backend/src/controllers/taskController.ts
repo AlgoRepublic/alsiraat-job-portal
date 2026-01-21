@@ -27,10 +27,13 @@ export const createTask = async (req: any, res: Response) => {
       rewardValue,
       eligibility,
       visibility: visibility || TaskVisibility.GLOBAL,
-      status:
-        req.user.role.toLowerCase() === UserRole.INDEPENDENT.toLowerCase()
-          ? TaskStatus.PUBLISHED
-          : TaskStatus.PENDING,
+      status: [
+        UserRole.ADMIN.toLowerCase(),
+        UserRole.OWNER.toLowerCase(),
+        UserRole.INDEPENDENT.toLowerCase(),
+      ].includes(req.user.role.toLowerCase())
+        ? TaskStatus.PUBLISHED
+        : TaskStatus.PENDING,
       organization: req.user.organization,
       createdBy: req.user._id,
     });
@@ -43,11 +46,18 @@ export const createTask = async (req: any, res: Response) => {
 
 export const getTasks = async (req: any, res: Response) => {
   try {
-    const { role, organization, _id: userId } = req.user;
+    const user = req.user;
+    const { role, organization, _id: userId } = user || {};
     const normalizedRole = (role || "").trim().toLowerCase();
     let query: any = {};
 
-    if (
+    if (!user) {
+      // Guest: Only see Published or Approved tasks that are Global or External
+      query = {
+        status: { $in: [TaskStatus.PUBLISHED, TaskStatus.APPROVED] },
+        visibility: { $in: [TaskVisibility.EXTERNAL, TaskVisibility.GLOBAL] },
+      };
+    } else if (
       normalizedRole === UserRole.INDEPENDENT.toLowerCase() ||
       normalizedRole === UserRole.MEMBER.toLowerCase()
     ) {
@@ -122,14 +132,17 @@ export const getTasks = async (req: any, res: Response) => {
     ]);
     const countMap = new Map(counts.map((c) => [c._id.toString(), c.count]));
 
-    // Check if current user has applied to each task
-    const userApplications = await Application.find({
-      task: { $in: taskIds },
-      applicant: userId,
-    }).select("task");
-    const appliedTaskIds = new Set(
-      userApplications.map((app) => app.task.toString()),
-    );
+    // Check if current user has applied to each task (if logged in)
+    let appliedTaskIds = new Set<string>();
+    if (user) {
+      const userApplications = await Application.find({
+        task: { $in: taskIds },
+        applicant: userId,
+      }).select("task");
+      appliedTaskIds = new Set(
+        userApplications.map((app) => app.task.toString()),
+      );
+    }
 
     const tasksWithCounts = tasks.map((task) => ({
       ...task.toObject(),

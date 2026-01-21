@@ -45,16 +45,10 @@ export const Login: React.FC = () => {
         <div className="text-center mb-10">
           <div className="w-16 h-16 bg-gradient-to-tr from-[#812349] to-[#a02b5a] dark:from-[#601a36] dark:to-[#812349] rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-[#812349]/20 relative">
             <Layers className="text-white w-9 h-9" strokeWidth={2.5} />
-            <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-blue-600 rounded-full border-2 border-white dark:border-zinc-900 flex items-center justify-center text-[10px] text-white font-bold">
-              T
-            </div>
           </div>
           <h1 className="text-3xl font-black text-zinc-900 dark:text-white mb-2 tracking-tighter">
             Tasker
           </h1>
-          <p className="text-zinc-500 dark:text-zinc-400 text-sm font-bold uppercase tracking-widest text-[10px]">
-            School Task Portal
-          </p>
         </div>
 
         <div className="mb-8 space-y-3">
@@ -108,11 +102,6 @@ export const Login: React.FC = () => {
               Sign in with Google
             </span>
           </button>
-          <div className="mt-3 flex justify-center">
-            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest flex items-center gap-2">
-              <Shield className="w-3 h-3 text-emerald-500" /> Secure Login
-            </span>
-          </div>
         </div>
 
         <div className="flex items-center mb-8">
@@ -139,7 +128,7 @@ export const Login: React.FC = () => {
               <input
                 type="email"
                 required
-                placeholder="Work Email"
+                placeholder="Email Address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-[#812349]/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
@@ -196,11 +185,7 @@ export const Login: React.FC = () => {
           </p>
         </div>
 
-        <div className="mt-8 text-center">
-          <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-[0.3em]">
-            School Task Portal
-          </p>
-        </div>
+        <div className="mt-8 text-center text-zinc-500 font-bold uppercase tracking-widest"></div>
       </div>
     </div>
   );

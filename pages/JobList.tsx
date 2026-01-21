@@ -107,17 +107,17 @@ export const JobList: React.FC = () => {
 
   return (
     <div className="space-y-10 animate-fade-in pb-20">
-      {/* Header / Hero Section */}
-      <div className="relative overflow-hidden rounded-[3rem] p-12 md:p-16 shadow-2xl transition-all duration-300 bg-red-900 dark:bg-zinc-900 border border-white/10">
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/20 rounded-full -mr-40 -mt-40 blur-[120px] pointer-events-none"></div>
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-red-600/10 rounded-full -ml-20 -mb-20 blur-[100px] pointer-events-none"></div>
+      <div className="relative overflow-hidden rounded-[3rem] p-12 md:p-16 shadow-2xl transition-all duration-300 bg-[#812349] dark:bg-zinc-900 border border-white/10">
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-red-600/20 rounded-full -mr-40 -mt-40 blur-[120px] pointer-events-none"></div>
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#812349]/10 rounded-full -ml-20 -mb-20 blur-[100px] pointer-events-none"></div>
 
         <div className="relative z-10 max-w-4xl mx-auto">
           <h2 className="text-5xl md:text-6xl font-black mb-6 text-center md:text-left text-white tracking-tighter">
-            Opportunity Portal
+            Browse Tasks
           </h2>
           <p className="text-red-100 dark:text-zinc-400 text-lg md:text-xl mb-12 text-center md:text-left font-medium leading-relaxed">
-            Browse high-impact opportunities within the institution.
+            Discover high-impact opportunities within the AlSiraat{" "}
+            <span className="font-bold text-white">Organisation</span>.
           </p>
 
           <div className="flex flex-col md:flex-row gap-4">
@@ -125,8 +125,8 @@ export const JobList: React.FC = () => {
               <Search className="absolute left-5 top-5 text-zinc-400 w-6 h-6" />
               <input
                 type="text"
-                placeholder="Search roles, skills, locations..."
-                className="w-full pl-14 pr-6 py-5 rounded-2xl bg-white/95 dark:bg-zinc-800 border-0 focus:ring-4 focus:ring-red-500/30 outline-none shadow-2xl placeholder-zinc-400 dark:text-white font-bold transition-all text-lg"
+                placeholder="Search tasks, skills, locations..."
+                className="w-full pl-14 pr-6 py-5 rounded-2xl bg-white/95 dark:bg-zinc-800 border-0 focus:ring-4 focus:ring-[#812349]/30 outline-none shadow-2xl placeholder-zinc-400 dark:text-white font-bold transition-all text-lg"
                 value={searchTerm}
                 onChange={(e) => updateParam("q", e.target.value)}
               />
@@ -135,7 +135,7 @@ export const JobList: React.FC = () => {
               onClick={() => setShowFilters(!showFilters)}
               className={`px-8 py-5 rounded-2xl font-black flex items-center justify-center transition-all shadow-2xl border-2 ${
                 showFilters || hasActiveFilters
-                  ? "bg-white text-red-900 border-white"
+                  ? "bg-white text-[#812349] border-white"
                   : "bg-transparent text-white border-white/20 hover:bg-white/10"
               }`}
             >
@@ -144,7 +144,7 @@ export const JobList: React.FC = () => {
                 Filter Browser
               </span>
               {hasActiveFilters && (
-                <span className="ml-3 w-3 h-3 rounded-full bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.8)]"></span>
+                <span className="ml-3 w-3 h-3 rounded-full bg-[#812349] shadow-[0_0_12px_rgba(129,35,73,0.8)]"></span>
               )}
             </button>
           </div>
@@ -156,7 +156,7 @@ export const JobList: React.FC = () => {
                   Category
                 </label>
                 <select
-                  className="w-full px-5 py-3 rounded-xl bg-white/90 dark:bg-zinc-900 border-0 focus:ring-2 focus:ring-red-500 outline-none font-bold text-sm"
+                  className="w-full px-5 py-3 rounded-xl bg-white/90 dark:bg-zinc-900 border-0 focus:ring-2 focus:ring-[#812349] outline-none font-bold text-sm"
                   value={filterCategory}
                   onChange={(e) => updateParam("category", e.target.value)}
                 >
@@ -173,7 +173,7 @@ export const JobList: React.FC = () => {
                   Status
                 </label>
                 <select
-                  className="w-full px-5 py-3 rounded-xl bg-white/90 dark:bg-zinc-900 border-0 focus:ring-2 focus:ring-red-500 outline-none font-bold text-sm"
+                  className="w-full px-5 py-3 rounded-xl bg-white/90 dark:bg-zinc-900 border-0 focus:ring-2 focus:ring-[#812349] outline-none font-bold text-sm"
                   value={filterStatus}
                   onChange={(e) => updateParam("status", e.target.value)}
                 >
@@ -190,7 +190,7 @@ export const JobList: React.FC = () => {
                   Reward Type
                 </label>
                 <select
-                  className="w-full px-5 py-3 rounded-xl bg-white/90 dark:bg-zinc-900 border-0 focus:ring-2 focus:ring-red-500 outline-none font-bold text-sm"
+                  className="w-full px-5 py-3 rounded-xl bg-white/90 dark:bg-zinc-900 border-0 focus:ring-2 focus:ring-[#812349] outline-none font-bold text-sm"
                   value={filterReward}
                   onChange={(e) => updateParam("reward", e.target.value)}
                 >
@@ -284,12 +284,12 @@ export const JobList: React.FC = () => {
                     {job.category}
                   </span>
                   {job.rewardType !== RewardType.VOLUNTEER && (
-                    <span className="px-3 py-1.5 bg-red-600 text-white text-[10px] font-black rounded-xl uppercase tracking-widest shadow-lg shadow-red-600/20">
+                    <span className="px-3 py-1.5 bg-[#812349] text-white text-[10px] font-black rounded-xl uppercase tracking-widest shadow-lg shadow-[#812349]/20">
                       {job.rewardType}
                     </span>
                   )}
                 </div>
-                <h3 className="text-3xl font-black text-zinc-900 dark:text-white group-hover:text-red-700 transition-colors mb-3 tracking-tighter">
+                <h3 className="text-3xl font-black text-zinc-900 dark:text-white group-hover:text-[#812349] transition-colors mb-3 tracking-tighter">
                   {job.title}
                 </h3>
                 <p className="text-zinc-500 dark:text-zinc-400 text-base line-clamp-2 leading-relaxed font-medium max-w-4xl">

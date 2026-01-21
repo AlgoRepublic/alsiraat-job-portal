@@ -76,6 +76,7 @@ const mapAppToFrontend = (app: any): Application => {
   return {
     id: app._id,
     jobId: app.task?._id || app.task,
+    jobTitle: app.task?.title || "Task",
     userId: app.applicant?._id || app.applicant,
     applicantName: app.applicant?.name || "Unknown",
     applicantEmail: app.applicant?.email || "",

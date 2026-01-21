@@ -102,6 +102,7 @@ export interface ApplicantProfile extends User {
 export interface Application {
   id: string;
   jobId: string;
+  jobTitle?: string;
   userId: string;
   applicantName: string;
   applicantEmail: string;

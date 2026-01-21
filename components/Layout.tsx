@@ -15,6 +15,7 @@ import {
   Bell,
   Palette,
   Check,
+  CheckCircle,
   Layers,
 } from "lucide-react";
 import { UserRole, User } from "../types";
@@ -23,13 +24,30 @@ import { api } from "../services/api";
 
 interface LayoutProps {
   children: React.ReactNode;
-  currentUser: User;
+  currentUser: User | null;
   onSwitchUser: (role: UserRole) => void;
   isDarkMode: boolean;
   onToggleTheme: () => void;
 }
 
 const COLORS = [
+  {
+    name: "AlSiraat",
+    class: "bg-[#812349]",
+    palette: {
+      50: "#fdf2f6",
+      100: "#fbe6ee",
+      200: "#f8cfdf",
+      300: "#f1a9c6",
+      400: "#e478a3",
+      500: "#d44e80",
+      600: "#bc3363",
+      700: "#a0274f",
+      800: "#812349",
+      900: "#6d203f",
+      950: "#430d22",
+    },
+  },
   {
     name: "Red",
     class: "bg-red-600",
@@ -168,21 +186,54 @@ export const Layout: React.FC<LayoutProps> = ({
     setShowColorPicker(false);
   };
 
+  const isAuthPage = ["/login", "/signup", "/forgot-password"].some((path) =>
+    location.pathname.startsWith(path),
+  );
+
+  if (isAuthPage) {
+    return (
+      <div className="min-h-screen font-sans">
+        <SnowBackground isDarkMode={isDarkMode} />
+        {children}
+      </div>
+    );
+  }
+
   const navItems = [
-    { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
-    { icon: Briefcase, label: "Tasks", path: "/jobs" },
-    { icon: UserCircle, label: "Profile", path: "/profile" },
+    {
+      icon: LayoutDashboard,
+      label: "Overview",
+      path: "/dashboard",
+      protected: true,
+    },
+    { icon: Briefcase, label: "Browse Tasks", path: "/jobs" },
+    {
+      icon: CheckCircle,
+      label: "My Tasks",
+      path: "/my-tasks",
+      protected: true,
+    },
+    {
+      icon: UserCircle,
+      label: "My Profile",
+      path: "/profile",
+      protected: true,
+    },
     {
       icon: Settings,
       label: "Admin Settings",
       path: "/admin/settings",
       roles: [UserRole.ADMIN],
+      protected: true,
     },
   ];
 
-  const filteredNav = navItems.filter(
-    (item) => !item.roles || item.roles.includes(currentUser.role),
-  );
+  const filteredNav = navItems.filter((item) => {
+    if (item.protected && !currentUser) return false;
+    if (item.roles && (!currentUser || !item.roles.includes(currentUser.role)))
+      return false;
+    return true;
+  });
 
   const handleLogout = () => {
     api.logout();
@@ -209,28 +260,28 @@ export const Layout: React.FC<LayoutProps> = ({
             to="/"
             className="flex items-center px-6 h-24 border-b border-white/20 dark:border-white/5"
           >
-            <div className="w-12 h-12 bg-gradient-to-tr from-red-900 to-red-600 dark:from-red-800 dark:to-red-500 rounded-2xl flex items-center justify-center shadow-lg shadow-red-900/30 relative">
+            <div className="w-12 h-12 bg-gradient-to-tr from-[#812349] to-[#601a36] rounded-2xl flex items-center justify-center shadow-lg shadow-[#812349]/30 relative">
               <Layers className="text-white w-7 h-7" strokeWidth={2.5} />
             </div>
             <div className="ml-4">
               <span className="block text-2xl font-black text-zinc-900 dark:text-white tracking-tighter leading-none">
                 Tasker
               </span>
-              <span className="text-[10px] text-red-700 dark:text-red-400 font-black tracking-[0.2em] uppercase">
+              <span className="text-[10px] text-[#812349] dark:text-[#a02b5a] font-black tracking-[0.2em] uppercase">
                 Connect
               </span>
             </div>
           </Link>
 
           <nav className="flex-1 px-4 py-8 space-y-2 overflow-y-auto">
-            {currentUser.role !== UserRole.INDEPENDENT && (
+            {currentUser && currentUser.role !== UserRole.INDEPENDENT && (
               <Link
                 to="/post-job"
-                className="flex items-center justify-center w-full px-4 py-4 mb-8 text-white bg-red-900 dark:bg-red-700 hover:bg-red-800 dark:hover:bg-red-600 rounded-2xl shadow-xl shadow-red-900/20 transition-all transform hover:-translate-y-1 active:scale-95"
+                className="flex items-center justify-center w-full px-4 py-4 mb-8 text-white bg-[#812349] dark:bg-[#601a36] hover:bg-[#601a36] dark:hover:bg-[#4d152b] rounded-2xl shadow-xl shadow-[#812349]/20 transition-all transform hover:-translate-y-1 active:scale-95"
                 onClick={() => setSidebarOpen(false)}
               >
                 <PlusCircle className="w-5 h-5 mr-3" />
-                <span className="font-bold text-sm">Create New Task</span>
+                <span className="font-bold text-sm">Post a Task</span>
               </Link>
             )}
 
@@ -245,14 +296,14 @@ export const Layout: React.FC<LayoutProps> = ({
                     key={item.path}
                     to={item.path}
                     onClick={() => setSidebarOpen(false)}
-                    className={`flex items-center px-5 py-4 rounded-2xl transition-all duration-300 relative group ${isActive ? "bg-white/60 dark:bg-white/10 text-red-900 dark:text-red-400 font-bold shadow-sm" : "text-zinc-500 dark:text-zinc-400 hover:bg-white/30 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white"}`}
+                    className={`flex items-center px-5 py-4 rounded-2xl transition-all duration-300 relative group ${isActive ? "bg-white/60 dark:bg-white/10 text-[#812349] dark:text-[#a02b5a] font-bold shadow-sm" : "text-zinc-500 dark:text-zinc-400 hover:bg-white/30 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white"}`}
                   >
                     <item.icon
-                      className={`w-5 h-5 mr-4 transition-transform group-hover:scale-110 ${isActive ? "text-red-700 dark:text-red-400" : "text-zinc-400"}`}
+                      className={`w-5 h-5 mr-4 transition-transform group-hover:scale-110 ${isActive ? "text-[#812349] dark:text-[#a02b5a]" : "text-zinc-400"}`}
                     />
                     <span className="text-sm tracking-tight">{item.label}</span>
                     {isActive && (
-                      <div className="absolute right-4 w-1.5 h-1.5 rounded-full bg-red-600 dark:bg-red-500" />
+                      <div className="absolute right-4 w-1.5 h-1.5 rounded-full bg-[#812349] dark:bg-[#a02b5a]" />
                     )}
                   </Link>
                 );
@@ -261,33 +312,42 @@ export const Layout: React.FC<LayoutProps> = ({
           </nav>
 
           <div className="p-6 border-t border-white/20 dark:border-white/5">
-            <div
-              className="flex items-center p-3 rounded-2xl hover:bg-white/40 dark:hover:bg-white/5 transition-all group cursor-pointer border border-transparent hover:border-white/30 dark:hover:border-white/10"
-              onClick={() => navigate("/profile")}
-            >
-              <img
-                src={currentUser.avatar}
-                alt="User"
-                className="w-10 h-10 rounded-xl object-cover shadow-sm border border-white/50"
-              />
-              <div className="flex-1 min-w-0 ml-3">
-                <p className="text-sm font-bold text-zinc-900 dark:text-white truncate group-hover:text-red-700 transition-colors">
-                  {currentUser.name}
-                </p>
-                <p className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                  {currentUser.role}
-                </p>
-              </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleLogout();
-                }}
-                className="ml-auto p-2 text-zinc-400 hover:text-red-600 transition-colors"
+            {currentUser ? (
+              <div
+                className="flex items-center p-3 rounded-2xl hover:bg-white/40 dark:hover:bg-white/5 transition-all group cursor-pointer border border-transparent hover:border-white/30 dark:hover:border-white/10"
+                onClick={() => navigate("/profile")}
               >
-                <LogOut className="w-4 h-4" />
+                <img
+                  src={currentUser.avatar}
+                  alt="User"
+                  className="w-10 h-10 rounded-xl object-cover shadow-sm border border-white/50"
+                />
+                <div className="flex-1 min-w-0 ml-3">
+                  <p className="text-sm font-bold text-zinc-900 dark:text-white truncate group-hover:text-[#812349] transition-colors">
+                    {currentUser.name}
+                  </p>
+                  <p className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                    {currentUser.role}
+                  </p>
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleLogout();
+                  }}
+                  className="ml-auto p-2 text-zinc-400 hover:text-red-600 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => navigate("/login")}
+                className="w-full py-4 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-black dark:hover:bg-zinc-100 transition-all"
+              >
+                Sign In
               </button>
-            </div>
+            )}
           </div>
         </div>
       </aside>
@@ -309,7 +369,7 @@ export const Layout: React.FC<LayoutProps> = ({
                   : location.pathname === "/dashboard"
                     ? "Overview"
                     : location.pathname.startsWith("/jobs")
-                      ? "Active Tasks"
+                      ? "Browse Tasks"
                       : location.pathname.startsWith("/admin")
                         ? "Administration"
                         : location.pathname
@@ -357,7 +417,7 @@ export const Layout: React.FC<LayoutProps> = ({
                 label="Theme"
                 onClick={onToggleTheme}
               />
-              <div className="hidden md:flex items-center px-5 py-3 glass-card rounded-2xl border-white/30 w-72 focus-within:ring-2 focus-within:ring-red-500/30 transition-all">
+              <div className="hidden md:flex items-center px-5 py-3 glass-card rounded-2xl border-white/30 w-72 focus-within:ring-2 focus-within:ring-[#812349]/30 transition-all">
                 <Search className="w-4 h-4 text-zinc-400" />
                 <input
                   type="text"

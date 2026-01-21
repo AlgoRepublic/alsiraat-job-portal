@@ -22,6 +22,7 @@ export const JobDetails: React.FC = () => {
   const [job, setJob] = useState<Job | undefined>();
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [applicants, setApplicants] = useState<Application[]>([]);
   const [applicationStep, setApplicationStep] = useState<
     "form" | "submitting" | "success" | "applied"
   >("form");
@@ -44,6 +45,18 @@ export const JobDetails: React.FC = () => {
             // Check if user has already applied (from backend)
             if (found.hasApplied) {
               setApplicationStep("applied");
+            }
+
+            // Fetch applicants if internal user
+            const isInternal =
+              user?.role === UserRole.OWNER ||
+              user?.role === UserRole.ADMIN ||
+              user?.role === UserRole.APPROVER ||
+              user?.role === UserRole.MEMBER;
+
+            if (isInternal) {
+              const appList = await db.getApplicationsForJob(id);
+              setApplicants(appList);
             }
           }
         } catch (err) {
@@ -255,22 +268,62 @@ export const JobDetails: React.FC = () => {
               </div>
             )}
           </div>
+
+          {/* Applicants Section (Internal Only) */}
+          {isInternalUser && (
+            <div className="glass-card rounded-2xl p-8 shadow-sm border border-zinc-100 dark:border-zinc-800">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                  <Users className="w-5 h-5" /> Applicants (
+                  {job.applicantsCount})
+                </h3>
+                <button
+                  onClick={() => navigate(`/jobs/${id}/applicants`)}
+                  className="text-xs font-black uppercase tracking-widest text-[#812349] hover:underline"
+                >
+                  View All Applications
+                </button>
+              </div>
+
+              {applicants.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {applicants.slice(0, 5).map((app) => (
+                    <div
+                      key={app.id}
+                      onClick={() => navigate(`/application/${app.id}`)}
+                      className="flex items-center p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-100 dark:border-zinc-800 hover:border-[#812349]/30 transition-all cursor-pointer group"
+                    >
+                      <img
+                        src={app.applicantAvatar}
+                        alt=""
+                        className="w-10 h-10 rounded-full border-2 border-white dark:border-zinc-700 shadow-sm object-cover"
+                      />
+                      <div className="ml-3 flex-1">
+                        <p className="text-sm font-bold text-zinc-900 dark:text-white group-hover:text-[#812349] transition-colors">
+                          {app.applicantName}
+                        </p>
+                        <p className="text-[10px] text-zinc-500 font-medium truncate max-w-[150px]">
+                          {app.applicantEmail}
+                        </p>
+                      </div>
+                      <span className="text-[8px] font-black uppercase tracking-widest bg-white dark:bg-zinc-800 px-2 py-1 rounded border border-zinc-200 dark:border-zinc-700">
+                        {app.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-zinc-500 italic">
+                  No applications received yet.
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Sidebar Application Form or Actions */}
         <div className="lg:col-span-1">
           <div className="sticky top-24 space-y-6">
-            {/* View Applicants Button (For Manager/Owner) */}
-            {isInternalUser && (
-              <button
-                onClick={() => navigate(`/jobs/${id}/applicants`)}
-                className="w-full py-4 bg-white dark:bg-zinc-800 border-2 border-[#812349] dark:border-[#812349] text-[#812349] dark:text-red-100 rounded-2xl font-bold hover:bg-[#812349]/5 dark:hover:bg-[#812349]/20 shadow-sm flex items-center justify-center transition-all"
-              >
-                <Users className="w-5 h-5 mr-2" />
-                View Applicants ({job.applicantsCount})
-              </button>
-            )}
-
             {!isInternalUser && (
               <div className="glass-card rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:shadow-none border border-zinc-100 dark:border-zinc-800 overflow-hidden">
                 <div className="p-6 bg-[#812349] dark:bg-[#601a36] text-white">
@@ -280,8 +333,20 @@ export const JobDetails: React.FC = () => {
                   </p>
                 </div>
 
-                {applicationStep === "success" ||
-                applicationStep === "applied" ? (
+                {!currentUser ? (
+                  <div className="p-8 text-center">
+                    <p className="text-sm text-zinc-500 mb-6 font-medium">
+                      You must be logged in to apply for this task.
+                    </p>
+                    <button
+                      onClick={() => navigate("/login")}
+                      className="w-full py-3.5 bg-[#812349] dark:bg-[#601a36] text-white rounded-xl font-bold hover:bg-[#601a36] transition-all"
+                    >
+                      Login to Apply
+                    </button>
+                  </div>
+                ) : applicationStep === "success" ||
+                  applicationStep === "applied" ? (
                   <div className="p-8 text-center animate-fade-in">
                     <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center mx-auto mb-4">
                       <CheckCircle className="w-8 h-8" />
