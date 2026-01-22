@@ -60,24 +60,12 @@ export const Login: React.FC = () => {
         <div className="mb-8 space-y-3">
           <button
             onClick={handleEntraLogin}
-            className="w-full flex items-center justify-center relative px-4 py-3.5 bg-[#2F2F2F] hover:bg-[#1a1a1a] dark:bg-[#0078D4] dark:hover:bg-[#006cbd] text-white border border-transparent rounded-xl transition-all shadow-md group"
+            className="w-full flex items-center justify-center relative px-4 py-3.5 bg-[#812349] hover:bg-[#601a36] dark:bg-[#812349] dark:hover:bg-[#601a36] text-white border border-transparent rounded-xl transition-all shadow-md group"
           >
             <div className="absolute left-4 flex items-center">
-              <svg
-                className="w-5 h-5"
-                viewBox="0 0 23 23"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path d="M0 0H10.555V10.555H0V0Z" fill="#F25022" />
-                <path d="M12.444 0H23V10.555H12.444V0Z" fill="#7FBA00" />
-                <path d="M0 12.444H10.555V23H0V12.444Z" fill="#00A4EF" />
-                <path d="M12.444 12.444H23V23H12.444V12.444Z" fill="#FFB900" />
-              </svg>
+              <Shield className="w-5 h-5" />
             </div>
-            <span className="font-bold tracking-tight">
-              Sign in with Microsoft
-            </span>
+            <span className="font-bold tracking-tight">Sign in with SSO</span>
           </button>
 
           <button

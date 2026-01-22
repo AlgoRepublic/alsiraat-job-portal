@@ -119,13 +119,25 @@ export const JobDetails: React.FC = () => {
     );
   }
 
-  const isInternalUser =
+  // Role-based permissions
+  // Can see applicants: Admin, Owner, Approver, or Independent who created the job
+  const isJobOwner = currentUser?.id === job.createdBy;
+  const canSeeApplicants =
     currentUser?.role === UserRole.OWNER ||
     currentUser?.role === UserRole.ADMIN ||
     currentUser?.role === UserRole.APPROVER ||
-    currentUser?.role === UserRole.MEMBER;
+    (currentUser?.role === UserRole.INDEPENDENT && isJobOwner);
+
+  // Can apply: Member, Independent (unless they own the job), or not logged in (shows login prompt)
+  const canApply =
+    !currentUser ||
+    currentUser?.role === UserRole.MEMBER ||
+    (currentUser?.role === UserRole.INDEPENDENT && !isJobOwner);
+
+  // Can approve posted jobs: Admin, Owner, Approver
   const isApprover =
     currentUser?.role === UserRole.ADMIN ||
+    currentUser?.role === UserRole.OWNER ||
     currentUser?.role === UserRole.APPROVER;
   const showManagerActions = isApprover && job.status === JobStatus.PENDING;
 
@@ -205,9 +217,7 @@ export const JobDetails: React.FC = () => {
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Content - Left Side */}
-        <div
-          className={`${isInternalUser ? "lg:col-span-2" : "lg:col-span-3"} space-y-8`}
-        >
+        <div className="lg:col-span-2 space-y-8">
           {/* Metadata Card */}
           <div className="glass-card rounded-2xl p-6 shadow-sm border border-zinc-100 dark:border-zinc-800 flex flex-wrap gap-6">
             <div className="flex items-center">
@@ -271,63 +281,12 @@ export const JobDetails: React.FC = () => {
               </div>
             )}
           </div>
-
-          {/* Applicants Section (Internal Only) */}
-          {isInternalUser && (
-            <div className="glass-card rounded-2xl p-8 shadow-sm border border-zinc-100 dark:border-zinc-800">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-                  <Users className="w-5 h-5" /> Applicants (
-                  {job.applicantsCount})
-                </h3>
-                <button
-                  onClick={() => navigate(`/jobs/${id}/applicants`)}
-                  className="text-xs font-black uppercase tracking-widest text-[#812349] hover:underline"
-                >
-                  View All Applications
-                </button>
-              </div>
-
-              {applicants.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {applicants.slice(0, 5).map((app) => (
-                    <div
-                      key={app.id}
-                      onClick={() => navigate(`/application/${app.id}`)}
-                      className="flex items-center p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-100 dark:border-zinc-800 hover:border-[#812349]/30 transition-all cursor-pointer group"
-                    >
-                      <img
-                        src={app.applicantAvatar}
-                        alt=""
-                        className="w-10 h-10 rounded-full border-2 border-white dark:border-zinc-700 shadow-sm object-cover"
-                      />
-                      <div className="ml-3 flex-1">
-                        <p className="text-sm font-bold text-zinc-900 dark:text-white group-hover:text-[#812349] transition-colors">
-                          {app.applicantName}
-                        </p>
-                        <p className="text-[10px] text-zinc-500 font-medium truncate max-w-[150px]">
-                          {app.applicantEmail}
-                        </p>
-                      </div>
-                      <span className="text-[8px] font-black uppercase tracking-widest bg-white dark:bg-zinc-800 px-2 py-1 rounded border border-zinc-200 dark:border-zinc-700">
-                        {app.status}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-zinc-500 italic">
-                  No applications received yet.
-                </p>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Sidebar - Right Side */}
         <div className="lg:col-span-1">
           <div className="sticky top-24 space-y-6">
-            {isInternalUser ? (
+            {canSeeApplicants ? (
               /* Applicants List for Internal Users */
               <div className="glass-card rounded-2xl shadow-sm border border-zinc-100 dark:border-zinc-800 overflow-hidden">
                 <div className="p-6 bg-[#812349] dark:bg-[#601a36] text-white">

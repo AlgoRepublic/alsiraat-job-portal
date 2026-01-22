@@ -205,7 +205,7 @@ class DatabaseService {
   }
 
   async getApplicationsForJob(jobId: string): Promise<Application[]> {
-    return this.getApplications({ task: jobId });
+    return this.getApplications({ taskId: jobId });
   }
 
   async getApplication(id: string): Promise<Application | undefined> {

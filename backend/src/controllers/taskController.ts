@@ -30,7 +30,7 @@ export const createTask = async (req: any, res: Response) => {
       status: [
         UserRole.ADMIN.toLowerCase(),
         UserRole.OWNER.toLowerCase(),
-        UserRole.INDEPENDENT.toLowerCase(),
+        UserRole.APPROVER.toLowerCase(),
       ].includes(req.user.role.toLowerCase())
         ? TaskStatus.PUBLISHED
         : TaskStatus.PENDING,
