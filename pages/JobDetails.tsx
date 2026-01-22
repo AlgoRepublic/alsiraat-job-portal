@@ -15,10 +15,12 @@ import {
 } from "lucide-react";
 import { db } from "../services/database";
 import { Job, RewardType, Application, UserRole, JobStatus } from "../types";
+import { useToast } from "../components/Toast";
 
 export const JobDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { showSuccess, showError } = useToast();
   const [job, setJob] = useState<Job | undefined>();
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -81,9 +83,12 @@ export const JobDetails: React.FC = () => {
         availability,
       });
       setApplicationStep("success");
-    } catch (err) {
+      showSuccess("Your application has been submitted successfully!");
+    } catch (err: any) {
       console.error("Application failed", err);
-      alert("Failed to submit application.");
+      const errorMessage =
+        err?.data?.message || err?.message || "Failed to submit application.";
+      showError(errorMessage);
       setApplicationStep("form");
     }
   };
@@ -94,12 +99,19 @@ export const JobDetails: React.FC = () => {
       if (action === "approve") {
         await db.approveJob(job.id);
         setJob({ ...job, status: JobStatus.PUBLISHED });
+        showSuccess("Task has been approved and published!");
       } else {
         await db.updateJob(job.id, { status: "Archived" });
         setJob({ ...job, status: JobStatus.ARCHIVED });
+        showSuccess("Task has been declined and archived.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Manager action failed", err);
+      const errorMessage =
+        err?.data?.message ||
+        err?.message ||
+        "Action failed. Please try again.";
+      showError(errorMessage);
     }
   };
 

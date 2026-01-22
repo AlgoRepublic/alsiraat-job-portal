@@ -19,7 +19,7 @@ router.get("/", optionalAuthenticate, getTasks);
 router.get("/:id", optionalAuthenticate, getTaskById);
 
 // Approver/Owner/Admin: approve task
-router.post(
+router.put(
   "/:taskId/approve",
   authenticate,
   authorize([UserRole.ADMIN, UserRole.OWNER, UserRole.APPROVER]),

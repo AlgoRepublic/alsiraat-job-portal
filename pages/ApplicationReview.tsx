@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db } from "../services/database";
 import { Application, Job, UserRole } from "../types";
+import { useToast } from "../components/Toast";
 import {
   ArrowLeft,
   CheckCircle,
@@ -46,19 +47,27 @@ export const ApplicationReview: React.FC = () => {
     fetchData();
   }, [appId]);
 
+  const { showSuccess, showError } = useToast();
+
   const handleStatusUpdate = async (status: string) => {
     if (app) {
       setIsUpdating(true);
       try {
         await db.updateApplicationStatus(app.id, status);
         setApp({ ...app, status });
+        showSuccess(`Application ${status.toLowerCase()} successfully!`);
         // Trigger reload of job to update counts if necessary
         if (appId) {
           const updatedApp = await db.getApplication(appId);
           if (updatedApp) setApp(updatedApp);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Status update failed", err);
+        const errorMessage =
+          err?.data?.message ||
+          err?.message ||
+          "Failed to update status. Please try again.";
+        showError(errorMessage);
       } finally {
         setIsUpdating(false);
       }

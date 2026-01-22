@@ -23,6 +23,7 @@ import { Home } from "./pages/Home";
 import { Signup } from "./pages/Signup";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
+import { ToastProvider } from "./components/Toast";
 import { User, UserRole } from "./types";
 import { db } from "./services/database";
 
@@ -82,78 +83,84 @@ const App: React.FC = () => {
 
   // For non-logged-in users visiting root, show LandingPage without Layout
   return (
-    <HashRouter>
-      <Routes>
-        {/* Landing page outside Layout for non-authenticated users */}
-        <Route
-          path="/"
-          element={
-            !currentUser ? (
-              <LandingPage
-                onGetStarted={() => (window.location.hash = "#/login")}
-                onBrowseTasks={() => (window.location.hash = "#/jobs")}
-              />
-            ) : currentUser.role === "Admin" || currentUser.role === "Owner" ? (
-              <Navigate to="/dashboard" replace />
-            ) : (
-              <Navigate to="/jobs" replace />
-            )
-          }
-        />
-
-        {/* All other routes wrapped in Layout */}
-        <Route
-          path="/*"
-          element={
-            <Layout
-              currentUser={currentUser}
-              onSwitchUser={handleSwitchUser}
-              isDarkMode={isDarkMode}
-              onToggleTheme={toggleTheme}
-            >
-              <Routes>
-                <Route path="/login" element={<Login />} />
-                <Route path="/signup" element={<Signup />} />
-                <Route path="/forgot-password" element={<ForgotPassword />} />
-                <Route
-                  path="/reset-password/:token"
-                  element={<ResetPassword />}
+    <ToastProvider>
+      <HashRouter>
+        <Routes>
+          {/* Landing page outside Layout for non-authenticated users */}
+          <Route
+            path="/"
+            element={
+              !currentUser ? (
+                <LandingPage
+                  onGetStarted={() => (window.location.hash = "#/login")}
+                  onBrowseTasks={() => (window.location.hash = "#/jobs")}
                 />
-                <Route path="/jobs" element={<JobList />} />
-                <Route path="/jobs/:id" element={<JobDetails />} />
+              ) : currentUser.role === "Admin" ||
+                currentUser.role === "Owner" ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <Navigate to="/jobs" replace />
+              )
+            }
+          />
 
-                {/* Protected Routes */}
-                {currentUser && (
-                  <>
-                    <Route
-                      path="/dashboard"
-                      element={<Dashboard role={currentUser.role} />}
-                    />
-                    <Route path="/post-job" element={<JobWizard />} />
-                    <Route
-                      path="/jobs/:id/applicants"
-                      element={<JobApplicants />}
-                    />
-                    <Route path="/my-tasks" element={<MyTasks />} />
-                    <Route
-                      path="/application/:appId"
-                      element={<ApplicationReview />}
-                    />
-                    <Route path="/admin/settings" element={<AdminSettings />} />
-                    <Route
-                      path="/profile"
-                      element={<Profile user={currentUser} />}
-                    />
-                  </>
-                )}
+          {/* All other routes wrapped in Layout */}
+          <Route
+            path="/*"
+            element={
+              <Layout
+                currentUser={currentUser}
+                onSwitchUser={handleSwitchUser}
+                isDarkMode={isDarkMode}
+                onToggleTheme={toggleTheme}
+              >
+                <Routes>
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/signup" element={<Signup />} />
+                  <Route path="/forgot-password" element={<ForgotPassword />} />
+                  <Route
+                    path="/reset-password/:token"
+                    element={<ResetPassword />}
+                  />
+                  <Route path="/jobs" element={<JobList />} />
+                  <Route path="/jobs/:id" element={<JobDetails />} />
 
-                <Route path="*" element={<Navigate to="/jobs" replace />} />
-              </Routes>
-            </Layout>
-          }
-        />
-      </Routes>
-    </HashRouter>
+                  {/* Protected Routes */}
+                  {currentUser && (
+                    <>
+                      <Route
+                        path="/dashboard"
+                        element={<Dashboard role={currentUser.role} />}
+                      />
+                      <Route path="/post-job" element={<JobWizard />} />
+                      <Route
+                        path="/jobs/:id/applicants"
+                        element={<JobApplicants />}
+                      />
+                      <Route path="/my-tasks" element={<MyTasks />} />
+                      <Route
+                        path="/application/:appId"
+                        element={<ApplicationReview />}
+                      />
+                      <Route
+                        path="/admin/settings"
+                        element={<AdminSettings />}
+                      />
+                      <Route
+                        path="/profile"
+                        element={<Profile user={currentUser} />}
+                      />
+                    </>
+                  )}
+
+                  <Route path="*" element={<Navigate to="/jobs" replace />} />
+                </Routes>
+              </Layout>
+            }
+          />
+        </Routes>
+      </HashRouter>
+    </ToastProvider>
   );
 };
 
