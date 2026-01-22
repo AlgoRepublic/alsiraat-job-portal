@@ -61,32 +61,33 @@ export const getTasks = async (req: any, res: Response) => {
       normalizedRole === UserRole.INDEPENDENT.toLowerCase() ||
       normalizedRole === UserRole.MEMBER.toLowerCase()
     ) {
-      // Independent users and Members: Only see Published (or Approved) tasks
-      // Members can see their org's tasks + global/external tasks
-      if (normalizedRole === UserRole.MEMBER.toLowerCase() && organization) {
-        query = {
-          $or: [
-            // Their organization's published tasks
-            {
-              organization: organization,
-              status: { $in: [TaskStatus.PUBLISHED, TaskStatus.APPROVED] },
-            },
-            // External/Global published tasks from other orgs
-            {
-              visibility: {
-                $in: [TaskVisibility.EXTERNAL, TaskVisibility.GLOBAL],
-              },
-              status: { $in: [TaskStatus.PUBLISHED, TaskStatus.APPROVED] },
-            },
-          ],
-        };
-      } else {
-        // Independents: only external/global published tasks
-        query = {
-          status: { $in: [TaskStatus.PUBLISHED, TaskStatus.APPROVED] },
+      // Independent users and Members:
+      // 1. See their own created tasks (any status except Archived)
+      // 2. See published External/Global tasks
+      // 3. Members also see their org's published tasks
+
+      const conditions: any[] = [
+        // Their own created tasks (any status except Archived)
+        {
+          createdBy: userId,
+          status: { $ne: TaskStatus.ARCHIVED },
+        },
+        // External/Global published tasks
+        {
           visibility: { $in: [TaskVisibility.EXTERNAL, TaskVisibility.GLOBAL] },
-        };
+          status: { $in: [TaskStatus.PUBLISHED, TaskStatus.APPROVED] },
+        },
+      ];
+
+      // Members can also see their org's published tasks
+      if (normalizedRole === UserRole.MEMBER.toLowerCase() && organization) {
+        conditions.push({
+          organization: organization,
+          status: { $in: [TaskStatus.PUBLISHED, TaskStatus.APPROVED] },
+        });
       }
+
+      query = { $or: conditions };
     } else if (
       normalizedRole === UserRole.APPROVER.toLowerCase() ||
       normalizedRole === UserRole.OWNER.toLowerCase()

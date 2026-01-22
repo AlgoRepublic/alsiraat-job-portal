@@ -326,6 +326,31 @@ export const JobWizard: React.FC = () => {
                 />
               </div>
             </div>
+
+            {/* Task Visibility */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">
+                Task Visibility
+              </label>
+              <select
+                className="w-full p-4 glass rounded-2xl font-bold dark:text-white"
+                value={formData.visibility}
+                onChange={(e) => updateField("visibility", e.target.value)}
+              >
+                {Object.values(Visibility).map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-zinc-400 ml-1">
+                <span className="font-bold">Internal:</span> Only your
+                organisation members can see this task.{" "}
+                <span className="font-bold">External:</span> Anyone can apply.{" "}
+                <span className="font-bold">Global:</span> Published globally
+                for all users.
+              </p>
+            </div>
           </div>
         )}
 
