@@ -29,7 +29,7 @@ services:
       - PORT=8080
       - MONGODB_URI=mongodb://mongodb:27017/tasker
       - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
-      - FRONTEND_URL=http://localhost:3000
+      - FRONTEND_URL=https://tasker.alsiraat.vic.edu.au
     depends_on:
       - mongodb
     networks:
@@ -45,7 +45,7 @@ services:
     ports:
       - "3000:8080"
     environment:
-      - VITE_API_URL=http://localhost:5001/api
+      - VITE_API_URL=https://tasker.alsiraat.vic.edu.au/api
     depends_on:
       - backend
     networks:
