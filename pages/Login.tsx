@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Mail, Lock, Loader2, Shield, AlertCircle, Layers } from "lucide-react";
 import { db } from "../services/database";
+import { API_BASE_URL } from "../services/api";
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -33,11 +34,15 @@ export const Login: React.FC = () => {
   };
 
   const handleEntraLogin = () => {
-    window.location.href = "http://localhost:5001/api/auth/saml";
+    // Replace /api with /auth/saml since API_BASE_URL likely ends with /api
+    const authUrl = API_BASE_URL.replace(/\/api$/, "") + "/api/auth/saml";
+    window.location.href = authUrl;
   };
 
   const handleGoogleLogin = () => {
-    window.location.href = "http://localhost:5001/api/auth/google";
+    // Replace /api with /auth/google since API_BASE_URL likely ends with /api
+    const authUrl = API_BASE_URL.replace(/\/api$/, "") + "/api/auth/google";
+    window.location.href = authUrl;
   };
 
   return (

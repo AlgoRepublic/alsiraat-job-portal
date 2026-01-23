@@ -7,7 +7,7 @@ import {
 } from "../types";
 
 // In production (single container), use relative path. In dev, use full URL.
-const API_BASE_URL =
+export const API_BASE_URL =
   (import.meta.env.VITE_API_URL as string) ||
   (import.meta.env.PROD ? "/api" : "http://localhost:5001/api");
 

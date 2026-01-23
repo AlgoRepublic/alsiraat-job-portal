@@ -23,6 +23,10 @@ const app = express();
 const PORT = process.env.PORT || 5001;
 const isProduction = process.env.NODE_ENV === "production";
 
+if (isProduction) {
+  app.set("trust proxy", 1);
+}
+
 // Middleware
 app.use(cors());
 app.use(express.json());
