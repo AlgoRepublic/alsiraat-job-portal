@@ -9,6 +9,7 @@ import organizationRoutes from "./routes/organizationRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
 import applicationRoutes from "./routes/applicationRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
+import roleRoutes from "./routes/roleRoutes.js";
 
 // Only load dotenv in development (Cloud Run provides env vars directly)
 if (process.env.NODE_ENV !== "production") {
@@ -54,6 +55,7 @@ app.use("/api/organizations", organizationRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/applications", applicationRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/roles", roleRoutes);
 
 // Serve frontend static files in production
 if (isProduction) {

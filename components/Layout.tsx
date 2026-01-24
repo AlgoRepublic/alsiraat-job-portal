@@ -17,6 +17,7 @@ import {
   Check,
   CheckCircle,
   Layers,
+  Shield,
 } from "lucide-react";
 import { UserRole, User } from "../types";
 import { SnowBackground } from "./SnowBackground";
@@ -224,6 +225,13 @@ export const Layout: React.FC<LayoutProps> = ({
       icon: Settings,
       label: "Admin Settings",
       path: "/admin/settings",
+      roles: [UserRole.ADMIN],
+      protected: true,
+    },
+    {
+      icon: Shield,
+      label: "Roles & Permissions",
+      path: "/admin/roles",
       roles: [UserRole.ADMIN],
       protected: true,
     },

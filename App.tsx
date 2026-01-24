@@ -19,6 +19,7 @@ import { JobApplicants } from "./pages/JobApplicants";
 import { ApplicationReview } from "./pages/ApplicationReview";
 import { MyTasks } from "./pages/MyTasks";
 import { AdminSettings } from "./pages/AdminSettings";
+import { RolePermissionManager } from "./pages/RolePermissionManager";
 import { Home } from "./pages/Home";
 import { Signup } from "./pages/Signup";
 import { ForgotPassword } from "./pages/ForgotPassword";
@@ -145,6 +146,10 @@ const App: React.FC = () => {
                       <Route
                         path="/admin/settings"
                         element={<AdminSettings />}
+                      />
+                      <Route
+                        path="/admin/roles"
+                        element={<RolePermissionManager />}
                       />
                       <Route
                         path="/profile"
