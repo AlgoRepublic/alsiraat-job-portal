@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import Application, { ApplicationStatus } from "../models/Application.js";
 import Task from "../models/Task.js";
 import { sendNotification } from "../services/notificationService.js";
+import { checkPermission, Permission } from "../middleware/rbac.js";
 
 export const applyForTask = async (req: any, res: Response) => {
   try {
@@ -52,51 +53,46 @@ export const updateApplicationStatus = async (req: any, res: Response) => {
 
     const task: any = app.task;
 
-    // Authorization: Must belong to organization or be Admin
-    if (
-      req.user.role !== "Admin" &&
-      (!task.organization ||
-        task.organization.toString() !== req.user.organization.toString())
-    ) {
-      return res
-        .status(403)
-        .json({ message: "Not authorized to update this application" });
+    // Build permission context
+    const permissionContext = {
+      taskCreatorId: task.createdBy?.toString(),
+      organizationId: task.organization?.toString(),
+    };
+
+    // Determine required permission based on status change
+    let requiredPermission: Permission;
+    if (status === ApplicationStatus.SHORTLISTED) {
+      requiredPermission = Permission.APPLICATION_SHORTLIST;
+    } else if (status === ApplicationStatus.APPROVED) {
+      requiredPermission = Permission.APPLICATION_APPROVE;
+    } else if (status === ApplicationStatus.REJECTED) {
+      requiredPermission = Permission.APPLICATION_REJECT;
+    } else {
+      return res.status(400).json({ message: "Invalid status" });
     }
 
-    // Role-based permission checks
-    if (req.user.role === "Approver") {
-      // Approvers can only set status to Shortlisted
-      if (status !== ApplicationStatus.SHORTLISTED) {
-        return res.status(403).json({
-          message:
-            "Approvers can only shortlist applications. You cannot approve or reject applications.",
-        });
-      }
-    } else if (req.user.role === "Owner") {
-      // Owners can only approve/reject applications that are already shortlisted
-      if (
-        status === ApplicationStatus.APPROVED ||
-        status === ApplicationStatus.REJECTED
-      ) {
-        if (app.status !== ApplicationStatus.SHORTLISTED) {
-          return res.status(400).json({
-            message:
-              "Only shortlisted applications can be approved or rejected.",
-          });
-        }
-      } else if (status === ApplicationStatus.SHORTLISTED) {
-        return res.status(403).json({
-          message:
-            "Owners cannot shortlist applications. This action is reserved for Approvers.",
-        });
-      }
-    } else if (req.user.role !== "Admin") {
-      // Regular users have no permission to change status
+    // Check permission with context (allows Independent users to manage own tasks)
+    const permCheck = checkPermission(
+      req.user,
+      requiredPermission,
+      permissionContext,
+    );
+    if (!permCheck.allowed) {
       return res
-        .status(403)
-        .json({
-          message: "You do not have permission to update application status.",
-        });
+        .status(permCheck.error!.status)
+        .json({ message: permCheck.error!.message });
+    }
+
+    // Additional business rule: Approve/Reject requires shortlisted first (except Admin)
+    if (
+      (status === ApplicationStatus.APPROVED ||
+        status === ApplicationStatus.REJECTED) &&
+      app.status !== ApplicationStatus.SHORTLISTED &&
+      req.user.role !== "Admin"
+    ) {
+      return res.status(400).json({
+        message: "Only shortlisted applications can be approved or rejected.",
+      });
     }
 
     app.status = status;

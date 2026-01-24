@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import Task, { TaskStatus, TaskVisibility } from "../models/Task.js";
 import User, { UserRole } from "../models/User.js";
 import Application from "../models/Application.js";
+import { canAutoPublish } from "../config/permissions.js";
 
 export const createTask = async (req: any, res: Response) => {
   try {
@@ -17,6 +18,12 @@ export const createTask = async (req: any, res: Response) => {
       visibility,
     } = req.body;
 
+    // Use centralized permission check for auto-publish
+    const userRole = req.user.role as UserRole;
+    const taskStatus = canAutoPublish(userRole)
+      ? TaskStatus.PUBLISHED
+      : TaskStatus.PENDING;
+
     const task = await Task.create({
       title,
       description,
@@ -27,13 +34,7 @@ export const createTask = async (req: any, res: Response) => {
       rewardValue,
       eligibility,
       visibility: visibility || TaskVisibility.GLOBAL,
-      status: [
-        UserRole.ADMIN.toLowerCase(),
-        UserRole.OWNER.toLowerCase(),
-        UserRole.APPROVER.toLowerCase(),
-      ].includes(req.user.role.toLowerCase())
-        ? TaskStatus.PUBLISHED
-        : TaskStatus.PENDING,
+      status: taskStatus,
       organization: req.user.organization,
       createdBy: req.user._id,
     });
