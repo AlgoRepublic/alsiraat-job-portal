@@ -96,8 +96,9 @@ const App: React.FC = () => {
                   onGetStarted={() => (window.location.hash = "#/login")}
                   onBrowseTasks={() => (window.location.hash = "#/jobs")}
                 />
-              ) : currentUser.role === "Admin" ||
-                currentUser.role === "Owner" ? (
+              ) : ["admin", "owner"].includes(
+                  currentUser.role?.toLowerCase(),
+                ) ? (
                 <Navigate to="/dashboard" replace />
               ) : (
                 <Navigate to="/jobs" replace />
@@ -143,14 +144,19 @@ const App: React.FC = () => {
                         path="/application/:appId"
                         element={<ApplicationReview />}
                       />
-                      <Route
-                        path="/admin/settings"
-                        element={<AdminSettings />}
-                      />
-                      <Route
-                        path="/admin/roles"
-                        element={<RolePermissionManager />}
-                      />
+                      {/* Admin-only routes */}
+                      {currentUser.role?.toLowerCase() === "admin" && (
+                        <>
+                          <Route
+                            path="/admin/settings"
+                            element={<AdminSettings />}
+                          />
+                          <Route
+                            path="/admin/roles"
+                            element={<RolePermissionManager />}
+                          />
+                        </>
+                      )}
                       <Route
                         path="/profile"
                         element={<Profile user={currentUser} />}

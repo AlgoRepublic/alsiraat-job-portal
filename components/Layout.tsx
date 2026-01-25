@@ -239,8 +239,16 @@ export const Layout: React.FC<LayoutProps> = ({
 
   const filteredNav = navItems.filter((item) => {
     if (item.protected && !currentUser) return false;
-    if (item.roles && (!currentUser || !item.roles.includes(currentUser.role)))
+    if (item.roles && currentUser) {
+      // Case-insensitive role comparison
+      const userRoleLower = currentUser.role?.toLowerCase() || "";
+      const hasMatchingRole = item.roles.some(
+        (role) => role.toLowerCase() === userRoleLower,
+      );
+      if (!hasMatchingRole) return false;
+    } else if (item.roles && !currentUser) {
       return false;
+    }
     return true;
   });
 
