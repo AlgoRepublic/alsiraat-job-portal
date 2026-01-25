@@ -19,7 +19,7 @@ import { JobApplicants } from "./pages/JobApplicants";
 import { ApplicationReview } from "./pages/ApplicationReview";
 import { MyTasks } from "./pages/MyTasks";
 import { AdminSettings } from "./pages/AdminSettings";
-import { RolePermissionManager } from "./pages/RolePermissionManager";
+import { Reports } from "./pages/Reports";
 import { Home } from "./pages/Home";
 import { Signup } from "./pages/Signup";
 import { ForgotPassword } from "./pages/ForgotPassword";
@@ -146,17 +146,15 @@ const App: React.FC = () => {
                       />
                       {/* Admin-only routes */}
                       {currentUser.role?.toLowerCase() === "admin" && (
-                        <>
-                          <Route
-                            path="/admin/settings"
-                            element={<AdminSettings />}
-                          />
-                          <Route
-                            path="/admin/roles"
-                            element={<RolePermissionManager />}
-                          />
-                        </>
+                        <Route
+                          path="/admin/settings"
+                          element={<AdminSettings />}
+                        />
                       )}
+                      {/* Admin and Owner routes */}
+                      {["admin", "owner"].includes(
+                        currentUser.role?.toLowerCase(),
+                      ) && <Route path="/reports" element={<Reports />} />}
                       <Route
                         path="/profile"
                         element={<Profile user={currentUser} />}

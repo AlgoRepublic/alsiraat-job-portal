@@ -6,6 +6,19 @@ import {
   Clock,
   ArrowRight,
   ClipboardCheck,
+  AlertCircle,
+  Plus,
+  Eye,
+  CheckCircle,
+  XCircle,
+  Briefcase,
+  Bell,
+  Zap,
+  Calendar,
+  ChevronRight,
+  FileText,
+  UserCheck,
+  MessageSquare,
 } from "lucide-react";
 import { UserRole, JobStatus, Job, Application } from "../types";
 import { db } from "../services/database";
@@ -34,49 +47,32 @@ export const getStatusColor = (status: JobStatus) => {
   }
 };
 
-const KPICard: React.FC<{
+interface ActionItem {
+  id: string;
+  type: "pending_task" | "new_application" | "pending_review";
   title: string;
-  value: string;
-  icon: any;
-  trend?: string;
-  color?: string;
-  onClick?: () => void;
-}> = ({ title, value, icon: Icon, trend, color, onClick }) => (
-  <div
-    onClick={onClick}
-    className={`glass-card p-8 rounded-3xl transition-all duration-300 group hover:-translate-y-1 ${onClick ? "cursor-pointer hover:shadow-lg" : ""}`}
-  >
-    <div className="flex items-start justify-between">
-      <div>
-        <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em] mb-3">
-          {title}
-        </p>
-        <h3 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tighter">
-          {value}
-        </h3>
-      </div>
-      <div
-        className={`p-4 rounded-2xl ${color || "bg-[#812349]/10 text-[#812349] dark:bg-[#812349]/30 dark:text-[#a02b5a]"} group-hover:scale-110 transition-transform`}
-      >
-        <Icon className="w-6 h-6" />
-      </div>
-    </div>
-    {trend && (
-      <div className="mt-6 flex items-center text-[10px] text-green-600 dark:text-green-400 font-black bg-green-50 dark:bg-green-900/20 w-fit px-3 py-1.5 rounded-xl uppercase tracking-widest">
-        <TrendingUp className="w-3 h-3 mr-2" />
-        <span>{trend}</span>
-      </div>
-    )}
-  </div>
-);
+  subtitle: string;
+  priority: "high" | "medium" | "low";
+  time: string;
+  link: string;
+}
 
 export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
   const navigate = useNavigate();
   const [activeJobsCount, setActiveJobsCount] = useState(0);
   const [totalApplications, setTotalApplications] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
   const [myApplications, setMyApplications] = useState<Application[]>([]);
   const [recentJobs, setRecentJobs] = useState<Job[]>([]);
+  const [actionItems, setActionItems] = useState<ActionItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Update time every minute
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const loadData = async () => {
@@ -89,8 +85,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
         ]);
 
         const published = jobs.filter((j) => j.status === JobStatus.PUBLISHED);
+        const pending = jobs.filter((j) => j.status === JobStatus.PENDING);
         setActiveJobsCount(published.length);
         setTotalApplications(apps.length);
+        setPendingCount(pending.length);
 
         if (role === UserRole.INDEPENDENT) {
           const myApps = apps.filter((a) => a.userId === user?.id);
@@ -99,6 +97,41 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
         } else {
           setRecentJobs(jobs);
         }
+
+        // Build action items
+        const items: ActionItem[] = [];
+
+        // Add pending tasks needing approval
+        pending.forEach((job) => {
+          items.push({
+            id: `task-${job.id}`,
+            type: "pending_task",
+            title: job.title,
+            subtitle: `Awaiting approval • ${job.category}`,
+            priority: "high",
+            time: getRelativeTime(job.createdAt || new Date().toISOString()),
+            link: `/jobs/${job.id}`,
+          });
+        });
+
+        // Add recent applications needing review
+        const pendingApps = apps
+          .filter((a) => a.status === "Pending")
+          .slice(0, 5);
+        pendingApps.forEach((app) => {
+          const job = jobs.find((j) => j.id === app.jobId);
+          items.push({
+            id: `app-${app.id}`,
+            type: "new_application",
+            title: app.applicantName || "New Applicant",
+            subtitle: `Applied for ${job?.title || "Unknown Task"}`,
+            priority: "medium",
+            time: getRelativeTime(app.createdAt || new Date().toISOString()),
+            link: `/jobs/${app.jobId}/applicants`,
+          });
+        });
+
+        setActionItems(items.slice(0, 8));
       } catch (err) {
         console.error("Dashboard data load failed", err);
       } finally {
@@ -109,110 +142,381 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
     loadData();
   }, [role]);
 
+  const getRelativeTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  };
+
+  const getGreeting = () => {
+    const hour = currentTime.getHours();
+    if (hour < 12) return "Good Morning";
+    if (hour < 17) return "Good Afternoon";
+    return "Good Evening";
+  };
+
+  const getActionIcon = (type: string) => {
+    switch (type) {
+      case "pending_task":
+        return <Clock className="w-4 h-4" />;
+      case "new_application":
+        return <UserCheck className="w-4 h-4" />;
+      case "pending_review":
+        return <Eye className="w-4 h-4" />;
+      default:
+        return <Bell className="w-4 h-4" />;
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case "high":
+        return "bg-red-500";
+      case "medium":
+        return "bg-amber-500";
+      default:
+        return "bg-blue-500";
+    }
+  };
+
   if (isLoading)
     return (
       <div className="flex justify-center p-20">
         <div className="animate-pulse font-bold text-zinc-400">
-          Loading Institutional Stats...
+          Loading Dashboard...
         </div>
       </div>
     );
 
   return (
-    <div className="space-y-10 animate-fade-in">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <KPICard
-          title={
-            role === UserRole.INDEPENDENT ? "My Applications" : "Total Tasks"
-          }
-          value={
-            role === UserRole.INDEPENDENT
-              ? myApplications.length.toString()
-              : recentJobs.length.toString()
-          }
-          icon={ClipboardCheck}
-          onClick={() => navigate("/jobs")}
-        />
-        <KPICard
-          title="Active Tasks"
-          value={activeJobsCount.toString()}
-          icon={CheckSquare}
-          color="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400"
-          onClick={() => navigate("/jobs?status=Published")}
-        />
-        <KPICard
-          title="Pending Review"
-          value={recentJobs
-            .filter((j) => j.status === JobStatus.PENDING)
-            .length.toString()}
-          icon={Clock}
-          color="bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400"
-          onClick={() => navigate("/jobs?status=Pending")}
-        />
-        <KPICard
-          title="Total Applicants"
-          value={totalApplications.toString()}
-          icon={Users}
-          color="bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
-          onClick={() => navigate("/jobs")}
-        />
+    <div className="space-y-8 animate-fade-in">
+      {/* Welcome Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-black text-zinc-900 dark:text-white tracking-tighter">
+            {getGreeting()} 👋
+          </h1>
+          <p className="text-zinc-500 dark:text-zinc-400 mt-1 flex items-center gap-2">
+            <Calendar className="w-4 h-4" />
+            {currentTime.toLocaleDateString("en-AU", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })}
+          </p>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="flex gap-3">
+          <button
+            onClick={() => navigate("/post-job")}
+            className="flex items-center gap-2 px-5 py-3 bg-[#812349] text-white rounded-xl font-bold text-sm hover:bg-[#6a1d3d] transition-all shadow-lg shadow-[#812349]/20"
+          >
+            <Plus className="w-4 h-4" />
+            New Task
+          </button>
+          <button
+            onClick={() => navigate("/jobs")}
+            className="flex items-center gap-2 px-5 py-3 bg-white/50 dark:bg-zinc-800/50 text-zinc-700 dark:text-zinc-300 rounded-xl font-bold text-sm border border-zinc-200 dark:border-zinc-700 hover:bg-white dark:hover:bg-zinc-800 transition-all"
+          >
+            <Briefcase className="w-4 h-4" />
+            Browse Tasks
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-3 glass-card p-10 rounded-[2.5rem]">
-          <div className="flex items-center justify-between mb-10">
-            <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter">
-              What's Happening
-            </h3>
-            <button
-              onClick={() => navigate("/jobs")}
-              className="text-xs font-black uppercase tracking-widest text-[#812349] hover:underline"
-            >
-              See All Tasks
-            </button>
+      {/* Urgent Alert Banner (if there are pending items) */}
+      {pendingCount > 0 && (
+        <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-5 flex items-center justify-between text-white shadow-lg shadow-amber-500/20">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-white/20 rounded-xl">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="font-bold text-lg">
+                {pendingCount} task{pendingCount > 1 ? "s" : ""} awaiting
+                approval
+              </p>
+              <p className="text-white/80 text-sm">
+                Review pending submissions to keep things moving
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate("/jobs?status=Pending")}
+            className="flex items-center gap-2 px-5 py-2.5 bg-white text-amber-600 rounded-xl font-bold text-sm hover:bg-amber-50 transition-all"
+          >
+            Review Now
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Stats Overview - Compact Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div
+          onClick={() => navigate("/jobs")}
+          className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-[#812349]/10 dark:bg-[#812349]/20 rounded-xl group-hover:scale-110 transition-transform">
+              <Briefcase className="w-5 h-5 text-[#812349]" />
+            </div>
+            <div>
+              <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                {recentJobs.length}
+              </p>
+              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                Total Tasks
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div
+          onClick={() => navigate("/jobs?status=Published")}
+          className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-emerald-100 dark:bg-emerald-900/20 rounded-xl group-hover:scale-110 transition-transform">
+              <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                {activeJobsCount}
+              </p>
+              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                Active
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div
+          onClick={() => navigate("/jobs?status=Pending")}
+          className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-amber-100 dark:bg-amber-900/20 rounded-xl group-hover:scale-110 transition-transform">
+              <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                {pendingCount}
+              </p>
+              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                Pending
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div
+          onClick={() => navigate("/jobs")}
+          className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-blue-100 dark:bg-blue-900/20 rounded-xl group-hover:scale-110 transition-transform">
+              <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                {totalApplications}
+              </p>
+              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                Applications
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Action Items / To-Do */}
+        <div className="lg:col-span-2 glass-card rounded-2xl overflow-hidden">
+          <div className="p-6 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-[#812349]/10 rounded-xl">
+                <Zap className="w-5 h-5 text-[#812349]" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
+                  Action Required
+                </h3>
+                <p className="text-xs text-zinc-500">
+                  Items needing your attention
+                </p>
+              </div>
+            </div>
+            {actionItems.length > 0 && (
+              <span className="px-3 py-1 bg-[#812349] text-white text-xs font-bold rounded-full">
+                {actionItems.length}
+              </span>
+            )}
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] border-b border-white/20 dark:border-white/5">
-                  <th className="pb-6 pl-2">Task Title</th>
-                  <th className="pb-6">Domain</th>
-                  <th className="pb-6">Status</th>
-                  <th className="pb-6 text-right">View</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/20 dark:divide-white/5">
-                {recentJobs.slice(0, 6).map((job) => (
-                  <tr
-                    key={job.id}
-                    className="group hover:bg-white/40 dark:hover:bg-white/5 transition-all"
-                  >
-                    <td className="py-4 pl-2 font-black text-zinc-900 dark:text-white text-base tracking-tight">
+          <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            {actionItems.length === 0 ? (
+              <div className="p-12 text-center">
+                <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto mb-4" />
+                <p className="text-lg font-bold text-zinc-900 dark:text-white">
+                  All caught up!
+                </p>
+                <p className="text-sm text-zinc-500 mt-1">
+                  No pending actions at the moment
+                </p>
+              </div>
+            ) : (
+              actionItems.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => navigate(item.link)}
+                  className="p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-all flex items-center gap-4 group"
+                >
+                  <div className="relative">
+                    <div
+                      className={`p-2.5 rounded-xl ${
+                        item.type === "pending_task"
+                          ? "bg-amber-100 dark:bg-amber-900/20 text-amber-600"
+                          : item.type === "new_application"
+                            ? "bg-blue-100 dark:bg-blue-900/20 text-blue-600"
+                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600"
+                      }`}
+                    >
+                      {getActionIcon(item.type)}
+                    </div>
+                    <div
+                      className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${getPriorityColor(item.priority)} ring-2 ring-white dark:ring-zinc-900`}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-zinc-900 dark:text-white truncate">
+                      {item.title}
+                    </p>
+                    <p className="text-sm text-zinc-500 truncate">
+                      {item.subtitle}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-zinc-400">{item.time}</span>
+                    <ChevronRight className="w-4 h-4 text-zinc-300 group-hover:text-[#812349] transition-colors" />
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Quick Links / Shortcuts */}
+        <div className="space-y-4">
+          <div className="glass-card p-6 rounded-2xl">
+            <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-4">
+              Quick Links
+            </h3>
+            <div className="space-y-2">
+              <button
+                onClick={() => navigate("/post-job")}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all group"
+              >
+                <div className="p-2 bg-emerald-100 dark:bg-emerald-900/20 rounded-lg group-hover:scale-110 transition-transform">
+                  <Plus className="w-4 h-4 text-emerald-600" />
+                </div>
+                <span className="font-bold text-zinc-700 dark:text-zinc-300">
+                  Post New Task
+                </span>
+              </button>
+              <button
+                onClick={() => navigate("/jobs")}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all group"
+              >
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg group-hover:scale-110 transition-transform">
+                  <Eye className="w-4 h-4 text-blue-600" />
+                </div>
+                <span className="font-bold text-zinc-700 dark:text-zinc-300">
+                  View All Tasks
+                </span>
+              </button>
+              <button
+                onClick={() => navigate("/my-tasks")}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all group"
+              >
+                <div className="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-lg group-hover:scale-110 transition-transform">
+                  <ClipboardCheck className="w-4 h-4 text-purple-600" />
+                </div>
+                <span className="font-bold text-zinc-700 dark:text-zinc-300">
+                  My Tasks
+                </span>
+              </button>
+              {role === UserRole.ADMIN && (
+                <button
+                  onClick={() => navigate("/admin/settings")}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all group"
+                >
+                  <div className="p-2 bg-amber-100 dark:bg-amber-900/20 rounded-lg group-hover:scale-110 transition-transform">
+                    <FileText className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <span className="font-bold text-zinc-700 dark:text-zinc-300">
+                    Admin Settings
+                  </span>
+                </button>
+              )}
+              {(role === UserRole.ADMIN || role === UserRole.OWNER) && (
+                <button
+                  onClick={() => navigate("/reports")}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all group"
+                >
+                  <div className="p-2 bg-[#812349]/10 rounded-lg group-hover:scale-110 transition-transform">
+                    <TrendingUp className="w-4 h-4 text-[#812349]" />
+                  </div>
+                  <span className="font-bold text-zinc-700 dark:text-zinc-300">
+                    View Reports
+                  </span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Recent Activity Mini */}
+          <div className="glass-card p-6 rounded-2xl">
+            <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-4">
+              Recent Tasks
+            </h3>
+            <div className="space-y-3">
+              {recentJobs.slice(0, 4).map((job) => (
+                <div
+                  key={job.id}
+                  onClick={() => navigate(`/jobs/${job.id}`)}
+                  className="flex items-center gap-3 p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer transition-all"
+                >
+                  <div
+                    className={`w-2 h-2 rounded-full ${
+                      job.status === JobStatus.PUBLISHED
+                        ? "bg-emerald-500"
+                        : job.status === JobStatus.PENDING
+                          ? "bg-amber-500"
+                          : "bg-zinc-400"
+                    }`}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-zinc-900 dark:text-white truncate">
                       {job.title}
-                    </td>
-                    <td className="py-4 text-sm font-semibold text-zinc-500 dark:text-zinc-400">
-                      {job.category}
-                    </td>
-                    <td className="py-4">
-                      <span
-                        className={`px-3 py-1.5 text-[10px] font-black rounded-xl uppercase tracking-widest border ${getStatusColor(job.status)}`}
-                      >
-                        {job.status}
-                      </span>
-                    </td>
-                    <td className="py-4 text-right">
-                      <button
-                        onClick={() => navigate(`/jobs/${job.id}`)}
-                        className="p-3 bg-white/60 dark:bg-zinc-800/60 hover:bg-[#812349] hover:text-white rounded-2xl transition-all shadow-sm"
-                      >
-                        <ArrowRight className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </p>
+                    <p className="text-xs text-zinc-500">{job.category}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
