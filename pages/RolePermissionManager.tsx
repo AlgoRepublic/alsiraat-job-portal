@@ -16,7 +16,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useToast } from "../components/Toast";
-import { db } from "../services/database";
+import { API_BASE_URL } from "../services/api";
 
 interface Permission {
   _id: string;
@@ -98,7 +98,7 @@ export const RolePermissionManager: React.FC = () => {
   };
 
   const fetchRoles = async (): Promise<Role[]> => {
-    const response = await fetch("/api/roles", {
+    const response = await fetch(`${API_BASE_URL}/roles`, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
       },
@@ -108,7 +108,7 @@ export const RolePermissionManager: React.FC = () => {
   };
 
   const fetchPermissions = async (): Promise<Permission[]> => {
-    const response = await fetch("/api/roles/permissions", {
+    const response = await fetch(`${API_BASE_URL}/roles/permissions`, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
       },
@@ -119,7 +119,7 @@ export const RolePermissionManager: React.FC = () => {
 
   const handleSeedDefaults = async () => {
     try {
-      const response = await fetch("/api/roles/seed", {
+      const response = await fetch(`${API_BASE_URL}/roles/seed`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
@@ -139,7 +139,7 @@ export const RolePermissionManager: React.FC = () => {
 
   const handleCreateRole = async () => {
     try {
-      const response = await fetch("/api/roles", {
+      const response = await fetch(`${API_BASE_URL}/roles`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
@@ -168,7 +168,7 @@ export const RolePermissionManager: React.FC = () => {
 
   const handleUpdateRole = async (role: Role) => {
     try {
-      const response = await fetch(`/api/roles/${role._id}`, {
+      const response = await fetch(`${API_BASE_URL}/roles/${role._id}`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
@@ -191,7 +191,7 @@ export const RolePermissionManager: React.FC = () => {
   const handleDeleteRole = async (roleId: string) => {
     if (!confirm("Are you sure you want to delete this role?")) return;
     try {
-      const response = await fetch(`/api/roles/${roleId}`, {
+      const response = await fetch(`${API_BASE_URL}/roles/${roleId}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
@@ -222,7 +222,7 @@ export const RolePermissionManager: React.FC = () => {
 
   const handleCreatePermission = async () => {
     try {
-      const response = await fetch("/api/roles/permissions", {
+      const response = await fetch(`${API_BASE_URL}/roles/permissions`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
@@ -250,14 +250,17 @@ export const RolePermissionManager: React.FC = () => {
 
   const handleUpdatePermission = async (permission: Permission) => {
     try {
-      const response = await fetch(`/api/roles/permissions/${permission._id}`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `${API_BASE_URL}/roles/permissions/${permission._id}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(permission),
         },
-        body: JSON.stringify(permission),
-      });
+      );
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.message);
@@ -278,12 +281,15 @@ export const RolePermissionManager: React.FC = () => {
     )
       return;
     try {
-      const response = await fetch(`/api/roles/permissions/${permissionId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+      const response = await fetch(
+        `${API_BASE_URL}/roles/permissions/${permissionId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          },
         },
-      });
+      );
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.message);

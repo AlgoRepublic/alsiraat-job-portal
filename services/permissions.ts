@@ -47,6 +47,11 @@ export enum Permission {
   DASHBOARD_VIEW = "dashboard:view",
   ANALYTICS_VIEW = "analytics:view",
 
+  // Reporting
+  REPORTS_VIEW = "reports:view",
+  REPORTS_EXPORT = "reports:export",
+  REPORTS_CREATE = "reports:create",
+
   // Admin Permissions
   ADMIN_SETTINGS = "admin:settings",
   ADMIN_AUDIT_LOG = "admin:audit_log",
@@ -76,6 +81,8 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.ORG_MANAGE_MEMBERS,
     Permission.DASHBOARD_VIEW,
     Permission.ANALYTICS_VIEW,
+    Permission.REPORTS_VIEW,
+    Permission.REPORTS_EXPORT,
   ],
 
   [UserRole.APPROVER]: [
