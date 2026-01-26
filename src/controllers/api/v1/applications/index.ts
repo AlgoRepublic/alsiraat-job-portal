@@ -1,5 +1,0 @@
-export { list } from '@/controllers/api/v1/applications/list'
-export { show } from '@/controllers/api/v1/applications/show'
-export { create } from '@/controllers/api/v1/applications/create'
-export { update } from '@/controllers/api/v1/applications/update'
-export { destroy } from '@/controllers/api/v1/applications/destroy'
