@@ -126,7 +126,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
             title: app.applicantName || "New Applicant",
             subtitle: `Applied for ${job?.title || "Unknown Task"}`,
             priority: "medium",
-            time: getRelativeTime(app.createdAt || new Date().toISOString()),
+            time: getRelativeTime(app.appliedAt || new Date().toISOString()),
             link: `/jobs/${app.jobId}/applicants`,
           });
         });
@@ -230,7 +230,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
             className="flex items-center gap-2 px-5 py-3 bg-white/50 dark:bg-zinc-800/50 text-zinc-700 dark:text-zinc-300 rounded-xl font-bold text-sm border border-zinc-200 dark:border-zinc-700 hover:bg-white dark:hover:bg-zinc-800 transition-all"
           >
             <Briefcase className="w-4 h-4" />
-            Browse Tasks
+            Search Tasks
           </button>
         </div>
       </div>

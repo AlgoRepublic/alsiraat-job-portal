@@ -141,7 +141,7 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
                   onClick={handleBrowseTasks}
                   className="bg-white/5 border border-white/10 text-white px-10 py-5 rounded-2xl hover:bg-white/10 hover:scale-105 transition-all text-lg font-black backdrop-blur-xl"
                 >
-                  Browse Tasks
+                  Search Tasks
                 </button>
               </div>
 

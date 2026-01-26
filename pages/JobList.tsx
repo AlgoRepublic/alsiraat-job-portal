@@ -113,7 +113,7 @@ export const JobList: React.FC = () => {
 
         <div className="relative z-10 max-w-4xl mx-auto">
           <h2 className="text-5xl md:text-6xl font-black mb-6 text-center md:text-left text-white tracking-tighter">
-            Browse Tasks
+            Search Tasks
           </h2>
           <p className="text-red-100 dark:text-zinc-400 text-lg md:text-xl mb-12 text-center md:text-left font-medium leading-relaxed">
             Discover high-impact opportunities within the AlSiraat{" "}

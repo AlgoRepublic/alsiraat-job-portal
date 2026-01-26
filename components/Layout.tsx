@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -18,10 +18,13 @@ import {
   CheckCircle,
   Layers,
   FileText,
+  Clock,
+  CheckCheck,
+  Trash2,
 } from "lucide-react";
-import { UserRole, User } from "../types";
+import { UserRole, User, Job } from "../types";
 import { SnowBackground } from "./SnowBackground";
-import { api } from "../services/api";
+import { api, API_BASE_URL } from "../services/api";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -29,6 +32,16 @@ interface LayoutProps {
   onSwitchUser: (role: UserRole) => void;
   isDarkMode: boolean;
   onToggleTheme: () => void;
+}
+
+interface Notification {
+  _id: string;
+  title: string;
+  message: string;
+  type: "info" | "success" | "warning" | "error";
+  link?: string;
+  read: boolean;
+  createdAt: string;
 }
 
 const COLORS = [
@@ -117,43 +130,27 @@ const COLORS = [
       950: "#2e1065",
     },
   },
-  {
-    name: "Amber",
-    class: "bg-amber-600",
-    palette: {
-      50: "#fffbeb",
-      100: "#fef3c7",
-      200: "#fde68a",
-      300: "#fcd34d",
-      400: "#fbbf24",
-      500: "#f59e0b",
-      600: "#d97706",
-      700: "#b45309",
-      800: "#92400e",
-      900: "#78350f",
-      950: "#451a03",
-    },
-  },
 ];
 
 const HeaderIconButton: React.FC<{
-  onClick?: () => void;
-  icon: React.ElementType;
+  icon: any;
   label: string;
+  onClick?: () => void;
   badge?: boolean;
-}> = ({ onClick, icon: Icon, label, badge }) => (
-  <div className="relative group">
-    <button
-      onClick={onClick}
-      className="p-2.5 rounded-xl text-zinc-500 dark:text-zinc-400 hover:bg-white/80 dark:hover:bg-zinc-800/80 hover:text-red-900 dark:hover:text-red-400 transition-all active:scale-95 duration-200"
-      aria-label={label}
-    >
-      <Icon className="w-5 h-5" />
-      {badge && (
-        <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-red-500 border-2 border-white dark:border-zinc-900"></span>
-      )}
-    </button>
-  </div>
+  badgeCount?: number;
+}> = ({ icon: Icon, label, onClick, badge = false, badgeCount = 0 }) => (
+  <button
+    onClick={onClick}
+    className="relative p-3 rounded-2xl bg-white/30 dark:bg-zinc-800/30 hover:bg-white/60 dark:hover:bg-zinc-800/60 transition-all border border-white/30 dark:border-white/5 shadow-sm"
+    title={label}
+  >
+    <Icon className="w-5 h-5 text-zinc-500 dark:text-zinc-400" />
+    {badge && badgeCount > 0 && (
+      <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-bold text-white">
+        {badgeCount > 9 ? "9+" : badgeCount}
+      </span>
+    )}
+  </button>
 );
 
 export const Layout: React.FC<LayoutProps> = ({
@@ -163,39 +160,217 @@ export const Layout: React.FC<LayoutProps> = ({
   isDarkMode,
   onToggleTheme,
 }) => {
-  const [isSidebarOpen, setSidebarOpen] = useState(false);
-  const [showColorPicker, setShowColorPicker] = useState(false);
-  const [selectedColor, setSelectedColor] = useState("Blue");
   const location = useLocation();
   const navigate = useNavigate();
+  const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [selectedColor, setSelectedColor] = useState("AlSiraat");
 
-  const hexToRgb = (hex: string) => {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result
-      ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}`
-      : null;
+  // Notification state
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notificationRef = useRef<HTMLDivElement>(null);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Job[]>([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Load notifications
+  useEffect(() => {
+    if (currentUser) {
+      loadNotifications();
+      loadUnreadCount();
+      // Poll for new notifications every 30 seconds
+      const interval = setInterval(() => {
+        loadUnreadCount();
+      }, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [currentUser]);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        notificationRef.current &&
+        !notificationRef.current.contains(event.target as Node)
+      ) {
+        setShowNotifications(false);
+      }
+      if (
+        searchRef.current &&
+        !searchRef.current.contains(event.target as Node)
+      ) {
+        setShowSearchResults(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Debounced search
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    if (searchQuery.trim().length >= 2) {
+      setIsSearching(true);
+      searchTimeoutRef.current = setTimeout(async () => {
+        try {
+          const response = await fetch(
+            `${API_BASE_URL}/tasks?search=${encodeURIComponent(searchQuery)}`,
+            {
+              headers: currentUser
+                ? {
+                    Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+                  }
+                : {},
+            },
+          );
+          if (response.ok) {
+            const data = await response.json();
+            setSearchResults((data.tasks || data || []).slice(0, 8));
+            setShowSearchResults(true);
+          }
+        } catch (err) {
+          console.error("Search error:", err);
+        } finally {
+          setIsSearching(false);
+        }
+      }, 300);
+    } else {
+      setSearchResults([]);
+      setShowSearchResults(false);
+    }
+  }, [searchQuery, currentUser]);
+
+  const loadNotifications = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/notifications`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setNotifications(data);
+      }
+    } catch (err) {
+      console.error("Failed to load notifications:", err);
+    }
   };
 
-  const changeAccentColor = (colorName: string, palette: any) => {
-    setSelectedColor(colorName);
-    const root = document.documentElement;
-    Object.keys(palette).forEach((key) => {
-      root.style.setProperty(`--accent-${key}`, palette[key]);
-      const rgb = hexToRgb(palette[key]);
-      if (rgb) root.style.setProperty(`--accent-${key}-rgb`, rgb);
-    });
+  const loadUnreadCount = async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/notifications/unread-count`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          },
+        },
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setUnreadCount(data.count);
+      }
+    } catch (err) {
+      console.error("Failed to load unread count:", err);
+    }
+  };
+
+  const markAsRead = async (id: string) => {
+    try {
+      await fetch(`${API_BASE_URL}/notifications/${id}/read`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+        },
+      });
+      setNotifications((prev) =>
+        prev.map((n) => (n._id === id ? { ...n, read: true } : n)),
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch (err) {
+      console.error("Failed to mark as read:", err);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      await fetch(`${API_BASE_URL}/notifications/read-all`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+        },
+      });
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      setUnreadCount(0);
+    } catch (err) {
+      console.error("Failed to mark all as read:", err);
+    }
+  };
+
+  const handleNotificationClick = (notification: Notification) => {
+    if (!notification.read) {
+      markAsRead(notification._id);
+    }
+    if (notification.link) {
+      navigate(notification.link);
+    }
+    setShowNotifications(false);
+  };
+
+  const getRelativeTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  };
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case "success":
+        return <CheckCircle className="w-4 h-4 text-emerald-500" />;
+      case "warning":
+        return <Clock className="w-4 h-4 text-amber-500" />;
+      case "error":
+        return <X className="w-4 h-4 text-red-500" />;
+      default:
+        return <Bell className="w-4 h-4 text-blue-500" />;
+    }
+  };
+
+  const changeAccentColor = (name: string, palette: Record<string, string>) => {
+    setSelectedColor(name);
     setShowColorPicker(false);
+    Object.entries(palette).forEach(([key, value]) => {
+      document.documentElement.style.setProperty(
+        `--color-primary-${key}`,
+        value,
+      );
+    });
   };
 
-  const isAuthPage = ["/login", "/signup", "/forgot-password"].some((path) =>
-    location.pathname.startsWith(path),
-  );
-
-  if (isAuthPage) {
+  if (!currentUser && location.pathname === "/") {
     return (
-      <div className="min-h-screen font-sans">
+      <div className="transition-colors duration-300 relative overflow-x-hidden">
         <SnowBackground isDarkMode={isDarkMode} />
-        {children}
+        <div className="relative z-10">{children}</div>
       </div>
     );
   }
@@ -208,7 +383,7 @@ export const Layout: React.FC<LayoutProps> = ({
       protected: true,
       roles: [UserRole.ADMIN, UserRole.OWNER],
     },
-    { icon: Briefcase, label: "Browse Tasks", path: "/jobs" },
+    { icon: Briefcase, label: "Search Tasks", path: "/jobs" },
     {
       icon: CheckCircle,
       label: "My Tasks",
@@ -386,15 +561,20 @@ export const Layout: React.FC<LayoutProps> = ({
                   : location.pathname === "/dashboard"
                     ? "Overview"
                     : location.pathname.startsWith("/jobs")
-                      ? "Browse Tasks"
+                      ? "Search Tasks"
                       : location.pathname.startsWith("/admin")
                         ? "Administration"
-                        : location.pathname
-                            .substring(1)
-                            .split("/")[0]
-                            .charAt(0)
-                            .toUpperCase() +
-                          location.pathname.substring(1).split("/")[0].slice(1)}
+                        : location.pathname.startsWith("/reports")
+                          ? "Reports"
+                          : location.pathname
+                              .substring(1)
+                              .split("/")[0]
+                              .charAt(0)
+                              .toUpperCase() +
+                            location.pathname
+                              .substring(1)
+                              .split("/")[0]
+                              .slice(1)}
               </h1>
             </div>
 
@@ -434,15 +614,184 @@ export const Layout: React.FC<LayoutProps> = ({
                 label="Theme"
                 onClick={onToggleTheme}
               />
-              <div className="hidden md:flex items-center px-5 py-3 glass-card rounded-2xl border-white/30 w-72 focus-within:ring-2 focus-within:ring-[#812349]/30 transition-all">
-                <Search className="w-4 h-4 text-zinc-400" />
-                <input
-                  type="text"
-                  placeholder="Quick find tasks..."
-                  className="ml-3 bg-transparent border-none outline-none text-sm w-full placeholder-zinc-400 font-medium"
-                />
+
+              {/* Search Bar with Dropdown */}
+              <div className="hidden md:block relative" ref={searchRef}>
+                <div className="flex items-center px-5 py-3 glass-card rounded-2xl border-white/30 w-72 focus-within:ring-2 focus-within:ring-[#812349]/30 transition-all">
+                  <Search className="w-4 h-4 text-zinc-400" />
+                  <input
+                    type="text"
+                    placeholder="Quick find tasks..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onFocus={() =>
+                      searchQuery.length >= 2 && setShowSearchResults(true)
+                    }
+                    className="ml-3 bg-transparent border-none outline-none text-sm w-full placeholder-zinc-400 font-medium"
+                  />
+                  {isSearching && (
+                    <div className="w-4 h-4 border-2 border-zinc-300 border-t-[#812349] rounded-full animate-spin" />
+                  )}
+                </div>
+
+                {/* Search Results Dropdown */}
+                {showSearchResults && searchResults.length > 0 && (
+                  <div className="absolute top-14 left-0 right-0 glass-card rounded-2xl shadow-2xl z-50 max-h-96 overflow-y-auto animate-slide-up">
+                    <div className="p-2">
+                      <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest px-3 py-2">
+                        Tasks ({searchResults.length})
+                      </p>
+                      {searchResults.map((task) => (
+                        <button
+                          key={task.id}
+                          onClick={() => {
+                            navigate(`/jobs/${task.id}`);
+                            setShowSearchResults(false);
+                            setSearchQuery("");
+                          }}
+                          className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 text-left transition-all"
+                        >
+                          <div className="p-2 bg-[#812349]/10 rounded-lg">
+                            <Briefcase className="w-4 h-4 text-[#812349]" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-zinc-900 dark:text-white truncate">
+                              {task.title}
+                            </p>
+                            <p className="text-xs text-zinc-500 truncate">
+                              {task.category}
+                            </p>
+                          </div>
+                          <span
+                            className={`px-2 py-1 text-[10px] font-bold rounded-lg ${
+                              task.status === "Published"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-zinc-100 text-zinc-500"
+                            }`}
+                          >
+                            {task.status}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {showSearchResults &&
+                  searchQuery.length >= 2 &&
+                  searchResults.length === 0 &&
+                  !isSearching && (
+                    <div className="absolute top-14 left-0 right-0 glass-card rounded-2xl shadow-2xl z-50 p-6 text-center animate-slide-up">
+                      <Search className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
+                      <p className="text-sm text-zinc-500">No tasks found</p>
+                    </div>
+                  )}
               </div>
-              <HeaderIconButton icon={Bell} label="Alerts" badge={true} />
+
+              {/* Notifications Bell */}
+              <div className="relative" ref={notificationRef}>
+                <HeaderIconButton
+                  icon={Bell}
+                  label="Notifications"
+                  badge={true}
+                  badgeCount={unreadCount}
+                  onClick={() => {
+                    setShowNotifications(!showNotifications);
+                    if (!showNotifications) {
+                      loadNotifications();
+                    }
+                  }}
+                />
+
+                {/* Notification Dropdown */}
+                {showNotifications && currentUser && (
+                  <div className="absolute top-14 right-0 w-96 glass-card rounded-2xl shadow-2xl z-50 max-h-[32rem] overflow-hidden animate-slide-up">
+                    <div className="p-4 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
+                      <h3 className="font-bold text-zinc-900 dark:text-white">
+                        Notifications
+                      </h3>
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={markAllAsRead}
+                          className="text-xs text-[#812349] hover:underline font-bold flex items-center gap-1"
+                        >
+                          <CheckCheck className="w-3 h-3" />
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="max-h-80 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="p-8 text-center">
+                          <Bell className="w-10 h-10 text-zinc-200 dark:text-zinc-700 mx-auto mb-3" />
+                          <p className="text-sm text-zinc-400">
+                            No notifications yet
+                          </p>
+                        </div>
+                      ) : (
+                        notifications.map((notification) => (
+                          <button
+                            key={notification._id}
+                            onClick={() =>
+                              handleNotificationClick(notification)
+                            }
+                            className={`w-full p-4 flex items-start gap-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-all text-left border-b border-zinc-100 dark:border-zinc-800 last:border-0 ${
+                              !notification.read
+                                ? "bg-blue-50/50 dark:bg-blue-900/10"
+                                : ""
+                            }`}
+                          >
+                            <div
+                              className={`p-2 rounded-xl ${
+                                notification.type === "success"
+                                  ? "bg-emerald-100 dark:bg-emerald-900/30"
+                                  : notification.type === "warning"
+                                    ? "bg-amber-100 dark:bg-amber-900/30"
+                                    : notification.type === "error"
+                                      ? "bg-red-100 dark:bg-red-900/30"
+                                      : "bg-blue-100 dark:bg-blue-900/30"
+                              }`}
+                            >
+                              {getNotificationIcon(notification.type)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p
+                                className={`text-sm ${!notification.read ? "font-bold" : "font-medium"} text-zinc-900 dark:text-white`}
+                              >
+                                {notification.title}
+                              </p>
+                              <p className="text-xs text-zinc-500 mt-0.5 line-clamp-2">
+                                {notification.message}
+                              </p>
+                              <p className="text-[10px] text-zinc-400 mt-1">
+                                {getRelativeTime(notification.createdAt)}
+                              </p>
+                            </div>
+                            {!notification.read && (
+                              <div className="w-2 h-2 rounded-full bg-blue-500 mt-2" />
+                            )}
+                          </button>
+                        ))
+                      )}
+                    </div>
+
+                    {notifications.length > 0 && (
+                      <div className="p-3 border-t border-zinc-200 dark:border-zinc-700">
+                        <button
+                          onClick={() => {
+                            navigate("/notifications");
+                            setShowNotifications(false);
+                          }}
+                          className="w-full text-center text-sm text-[#812349] font-bold hover:underline"
+                        >
+                          View All Notifications
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </header>

@@ -98,11 +98,11 @@ export const updateApplicationStatus = async (req: any, res: Response) => {
     app.status = status;
     await app.save();
 
-    // Notifications
+    // Notifications - Only send to applicant for Approved/Rejected, NOT for Shortlisted
     if (status === ApplicationStatus.APPROVED) {
       await sendNotification(
         app.applicant._id.toString(),
-        "Application Approved",
+        "🎉 Job Offer Received!",
         `Congratulations! Your application for "${task.title}" has been approved.`,
         "success",
         `/application/${app._id}`,
@@ -111,18 +111,11 @@ export const updateApplicationStatus = async (req: any, res: Response) => {
       await sendNotification(
         app.applicant._id.toString(),
         "Application Update",
-        `Your application for "${task.title}" was not selected.`,
+        `Your application for "${task.title}" was not selected this time.`,
         "warning",
       );
-    } else if (status === ApplicationStatus.SHORTLISTED) {
-      await sendNotification(
-        app.applicant._id.toString(),
-        "Application Shortlisted",
-        `Great news! Your application for "${task.title}" has been shortlisted.`,
-        "info",
-        `/application/${app._id}`,
-      );
     }
+    // Note: Shortlisted status does NOT notify the applicant - only owner is notified on application
 
     res.json(app);
   } catch (err: any) {

@@ -3,6 +3,10 @@ import Task, { TaskStatus, TaskVisibility } from "../models/Task.js";
 import User, { UserRole } from "../models/User.js";
 import Application from "../models/Application.js";
 import { canAutoPublish } from "../config/permissions.js";
+import {
+  sendNotificationToAll,
+  sendNotificationToOrganization,
+} from "../services/notificationService.js";
 
 export const createTask = async (req: any, res: Response) => {
   try {
@@ -39,6 +43,38 @@ export const createTask = async (req: any, res: Response) => {
       createdBy: req.user._id,
     });
 
+    // Notify users when a public task is published
+    if (taskStatus === TaskStatus.PUBLISHED) {
+      const taskVisibility = visibility || TaskVisibility.GLOBAL;
+
+      if (
+        taskVisibility === TaskVisibility.GLOBAL ||
+        taskVisibility === TaskVisibility.EXTERNAL
+      ) {
+        // Notify all users for public tasks
+        await sendNotificationToAll(
+          "📢 New Task Available!",
+          `A new task "${title}" has been posted in ${category}.`,
+          "info",
+          `/jobs/${task._id}`,
+          req.user._id.toString(), // Exclude the creator
+        );
+      } else if (
+        taskVisibility === TaskVisibility.INTERNAL &&
+        req.user.organization
+      ) {
+        // Notify org members for internal tasks
+        await sendNotificationToOrganization(
+          req.user.organization.toString(),
+          "📢 New Internal Task",
+          `A new internal task "${title}" has been posted.`,
+          "info",
+          `/jobs/${task._id}`,
+          req.user._id.toString(),
+        );
+      }
+    }
+
     res.status(201).json(task);
   } catch (err: any) {
     res.status(500).json({ message: err.message });
@@ -50,8 +86,10 @@ export const getTasks = async (req: any, res: Response) => {
     const user = req.user;
     const { role, organization, _id: userId } = user || {};
     const normalizedRole = (role || "").trim().toLowerCase();
+    const { search } = req.query;
     let query: any = {};
 
+    // Build base visibility/status query
     if (!user) {
       // Guest: Only see Published or Approved tasks that are Global or External
       query = {
@@ -119,6 +157,23 @@ export const getTasks = async (req: any, res: Response) => {
     } else if (normalizedRole === UserRole.ADMIN.toLowerCase()) {
       // Admin sees everything (including Draft and Archived)
       query = {};
+    }
+
+    // Add search filter if provided
+    if (search && typeof search === "string" && search.trim().length > 0) {
+      const searchRegex = new RegExp(search.trim(), "i");
+      query = {
+        $and: [
+          query,
+          {
+            $or: [
+              { title: searchRegex },
+              { description: searchRegex },
+              { category: searchRegex },
+            ],
+          },
+        ],
+      };
     }
 
     const tasks = await Task.find(query)
