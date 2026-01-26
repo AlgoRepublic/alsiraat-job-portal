@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tasker - Modern Task Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              red: {
+                50: "var(--accent-50)",
+                100: "var(--accent-100)",
+                200: "var(--accent-200)",
+                300: "var(--accent-300)",
+                400: "var(--accent-400)",
+                500: "var(--accent-500)",
+                600: "var(--accent-600)",
+                700: "var(--accent-700)",
+                800: "var(--accent-800)",
+                900: "var(--accent-900)",
+                950: "var(--accent-950)",
+              },
+              primary: "#812349",
+              primaryHover: "#601a36",
+              secondary: "#71717a",
+              surface: "#ffffff",
+              background: "#f4f4f4",
+            },
+            fontFamily: {
+              sans: ["Inter", "sans-serif"],
+            },
+            animation: {
+              "fade-in": "fadeIn 0.4s ease-out",
+              "slide-up": "slideUp 0.5s ease-out",
+              "slide-in-right": "slideInRight 0.3s ease-out",
+              blob: "blob 10s infinite",
+              float: "float 6s ease-in-out infinite",
+              "fade-in-up": "fadeInUp 0.8s ease-out forwards",
+            },
+            keyframes: {
+              fadeIn: {
+                "0%": { opacity: "0" },
+                "100%": { opacity: "1" },
+              },
+              slideUp: {
+                "0%": { transform: "translateY(15px)", opacity: "0" },
+                "100%": { transform: "translateY(0)", opacity: "1" },
+              },
+              slideInRight: {
+                "0%": { transform: "translateX(100%)" },
+                "100%": { transform: "translateX(0)" },
+              },
+              blob: {
+                "0%": { transform: "translate(0px, 0px) scale(1)" },
+                "33%": { transform: "translate(40px, -60px) scale(1.15)" },
+                "66%": { transform: "translate(-30px, 30px) scale(0.9)" },
+                "100%": { transform: "translate(0px, 0px) scale(1)" },
+              },
+              float: {
+                "0%, 100%": { transform: "translateY(0)" },
+                "50%": { transform: "translateY(-15px)" },
+              },
+              fadeInUp: {
+                "0%": { opacity: "0", transform: "translateY(20px)" },
+                "100%": { opacity: "1", transform: "translateY(0)" },
+              },
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+
+      :root {
+        --accent-50: #fdf2f6;
+        --accent-100: #fbe6ee;
+        --accent-200: #f8cfdf;
+        --accent-300: #f1a9c6;
+        --accent-400: #e478a3;
+        --accent-500: #d44e80;
+        --accent-600: #bc3363;
+        --accent-700: #a0274f;
+        --accent-800: #812349;
+        --accent-900: #6d203f;
+        --accent-950: #430d22;
+        --accent-200-rgb: 248, 207, 223;
+        --accent-100-rgb: 251, 230, 238;
+        --accent-300-rgb: 241, 169, 198;
+        --accent-400-rgb: 228, 120, 163;
+        --accent-900-rgb: 109, 32, 63;
+        --accent-950-rgb: 67, 13, 34;
+        --accent-800-rgb: 129, 35, 73;
+      }
+
+      body {
+        font-family: "Inter", sans-serif;
+        background:
+          radial-gradient(
+            at 0% 0%,
+            rgba(var(--accent-200-rgb), 0.4) 0px,
+            transparent 50%
+          ),
+          radial-gradient(
+            at 100% 0%,
+            rgba(var(--accent-100-rgb), 0.4) 0px,
+            transparent 50%
+          ),
+          radial-gradient(
+            at 100% 100%,
+            rgba(var(--accent-300-rgb), 0.3) 0px,
+            transparent 50%
+          ),
+          radial-gradient(
+            at 0% 100%,
+            rgba(var(--accent-400-rgb), 0.3) 0px,
+            transparent 50%
+          ),
+          #ffffff;
+        background-attachment: fixed;
+      }
+
+      .dark body {
+        background:
+          radial-gradient(
+            at 0% 0%,
+            rgba(var(--accent-900-rgb), 0.3) 0px,
+            transparent 50%
+          ),
+          radial-gradient(
+            at 100% 0%,
+            rgba(var(--accent-950-rgb), 0.5) 0px,
+            transparent 50%
+          ),
+          radial-gradient(
+            at 100% 100%,
+            rgba(var(--accent-800-rgb), 0.2) 0px,
+            transparent 50%
+          ),
+          #030303;
+      }
+
+      .glass {
+        background: rgba(255, 255, 255, 0.4);
+        backdrop-filter: blur(30px) saturate(180%);
+        -webkit-backdrop-filter: blur(30px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+      }
+      .dark .glass {
+        background: rgba(10, 10, 15, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .glass-card {
+        background: rgba(255, 255, 255, 0.45);
+        backdrop-filter: blur(25px) saturate(160%);
+        -webkit-backdrop-filter: blur(25px) saturate(160%);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+      }
+      .dark .glass-card {
+        background: rgba(20, 20, 25, 0.55);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+      }
+
+      .animation-delay-200 {
+        animation-delay: 0.2s;
+      }
+      .animation-delay-400 {
+        animation-delay: 0.4s;
+      }
+      .animation-delay-600 {
+        animation-delay: 0.6s;
+      }
+      .animation-delay-2000 {
+        animation-delay: 2s;
+      }
+      .animation-delay-4000 {
+        animation-delay: 4s;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.1);
+        border-radius: 4px;
+      }
+      .dark ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+      }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.6",
+          "recharts": "https://aistudiocdn.com/recharts@^3.5.0",
+          "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+          "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+          "react/": "https://aistudiocdn.com/react@^19.2.0/",
+          "react": "https://aistudiocdn.com/react@^19.2.0",
+          "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0"
+        }
+      }
+    </script>
+    <link rel="stylesheet" href="/index.css" />
+  </head>
+  <body
+    class="bg-background dark:bg-black text-zinc-900 dark:text-zinc-100 antialiased selection:bg-red-200 dark:selection:bg-red-900 transition-colors duration-300 h-full"
+  >
+    <div id="root" class="h-full"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,5 @@
+{
+  "name": "Tasker",
+  "description": "Enterprise Task Orchestration Platform connecting requesters, managers, and taskers.",
+  "requestFramePermissions": []
+}

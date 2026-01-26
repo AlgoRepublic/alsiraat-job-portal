@@ -1,0 +1,59 @@
+version: "3.8"
+
+services:
+  # MongoDB database
+  mongodb:
+    image: mongo:7
+    container_name: tasker-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=tasker
+    networks:
+      - tasker-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tasker-backend
+    restart: unless-stopped
+    ports:
+      - "5001:8080"
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - MONGODB_URI=mongodb://mongodb:27017/tasker
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      - FRONTEND_URL=https://tasker.alsiraat.vic.edu.au
+    depends_on:
+      - mongodb
+    networks:
+      - tasker-network
+
+  # Frontend (for local development with hot reload)
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend.Dockerfile
+    container_name: tasker-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:8080"
+    environment:
+      - VITE_API_URL=https://tasker.alsiraat.vic.edu.au/api
+    depends_on:
+      - backend
+    networks:
+      - tasker-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  tasker-network:
+    driver: bridge
