@@ -77,7 +77,7 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
                 Categories
               </button>
               <button className="text-gray-600 hover:text-red-600 transition-colors text-sm font-bold">
-                Organizations
+                Organisations
               </button>
             </nav>
           </div>
@@ -126,7 +126,7 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
                 Done.
               </h1>
               <p className="text-xl text-gray-400 mb-10 max-w-xl leading-relaxed">
-                Tasker connects organizations and individuals. Create tasks,
+                Tasker connects organisations and individuals. Create tasks,
                 find help, and collaborate across schools, businesses, and
                 communities.
               </p>
@@ -296,7 +296,7 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
                 <span className="text-gray-900 font-black text-xl">Tasker</span>
               </div>
               <p className="text-gray-500 text-sm leading-relaxed">
-                The task platform for schools, organizations, and communities.
+                The task platform for schools, organisations, and communities.
                 Connect, collaborate, and get things done.
               </p>
             </div>

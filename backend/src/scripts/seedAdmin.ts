@@ -258,7 +258,7 @@ async function seedDatabase() {
     console.log("   Data cleared.");
 
     // Create Organizations
-    console.log("\n🏫 Creating organizations...");
+    console.log("\n🏫 Creating organisations...");
     const orgMap: Record<string, any> = {};
     for (const orgData of ORGANIZATIONS) {
       const org = await Organization.create(orgData);

@@ -252,7 +252,7 @@ export const approveTask = async (req: any, res: Response) => {
     ) {
       return res
         .status(403)
-        .json({ message: "Not authorized to approve this task" });
+        .json({ message: "Not authorised to approve this task" });
     }
 
     task.status =

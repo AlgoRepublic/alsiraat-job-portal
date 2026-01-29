@@ -25,7 +25,7 @@ export const authenticate = async (
   if (!token)
     return res
       .status(401)
-      .json({ message: "No authentication token, authorization denied" });
+      .json({ message: "No authentication token, authorisation denied" });
 
   try {
     const decoded: any = jwt.verify(token, JWT_SECRET);
@@ -76,7 +76,7 @@ export const authorize = (roles: UserRole[]) => {
     if (!authorized) {
       return res
         .status(403)
-        .json({ message: "User not authorized to perform this action" });
+        .json({ message: "User not authorised to perform this action" });
     }
     next();
   };
