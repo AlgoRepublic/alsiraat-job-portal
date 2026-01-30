@@ -505,14 +505,11 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
       {
         name: "Approver",
         code: "approver",
-        description: "Can approve tasks and shortlist applications",
+        description: "Can approve and publish tasks for review",
         permissions: [
-          "task:create",
           "task:read",
           "task:approve",
           "task:publish",
-          "application:read",
-          "application:shortlist",
           "org:read",
           "dashboard:view",
         ],
