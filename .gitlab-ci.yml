@@ -52,12 +52,12 @@ frontend:
     - >
       docker build
       -f frontend.Dockerfile
-      -t $REGISTRY/$FRONTEND_IMAGE:$IMAGE_TAG
-      -t $REGISTRY/$FRONTEND_IMAGE:latest
+      -t $FRONTEND_IMAGE:$IMAGE_TAG
+      -t $FRONTEND_IMAGE:latest
       .
     - echo "Pushing frontend image..."
-    - docker push $REGISTRY/$FRONTEND_IMAGE:$IMAGE_TAG
-    - docker push $REGISTRY/$FRONTEND_IMAGE:latest
+    - docker push $FRONTEND_IMAGE:$IMAGE_TAG
+    - docker push $FRONTEND_IMAGE:latest
 
 # ============================================
 # Build and push backend
@@ -70,10 +70,10 @@ backend:
     - >
       docker build
       -f backend/Dockerfile
-      -t $REGISTRY/$BACKEND_IMAGE:$IMAGE_TAG
-      -t $REGISTRY/$BACKEND_IMAGE:latest
+      -t $BACKEND_IMAGE:$IMAGE_TAG
+      -t $BACKEND_IMAGE:latest
       ./backend
     - echo "Pushing backend image..."
-    - docker push $REGISTRY/$BACKEND_IMAGE:$IMAGE_TAG
-    - docker push $REGISTRY/$BACKEND_IMAGE:latest
+    - docker push $BACKEND_IMAGE:$IMAGE_TAG
+    - docker push $BACKEND_IMAGE:latest
 
