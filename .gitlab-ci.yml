@@ -55,9 +55,12 @@ frontend:
       -t $FRONTEND_IMAGE:$IMAGE_TAG
       -t $FRONTEND_IMAGE:latest
       .
+    - echo "Tagging for registry..."
+    - docker tag $FRONTEND_IMAGE:$IMAGE_TAG $REGISTRY/$FRONTEND_IMAGE:$IMAGE_TAG
+    - docker tag $FRONTEND_IMAGE:latest $REGISTRY/$FRONTEND_IMAGE:latest
     - echo "Pushing frontend image..."
-    - docker push $FRONTEND_IMAGE:$IMAGE_TAG
-    - docker push $FRONTEND_IMAGE:latest
+    - docker push $REGISTRY/$FRONTEND_IMAGE:$IMAGE_TAG
+    - docker push $REGISTRY/$FRONTEND_IMAGE:latest
 
 # ============================================
 # Build and push backend
@@ -73,7 +76,10 @@ backend:
       -t $BACKEND_IMAGE:$IMAGE_TAG
       -t $BACKEND_IMAGE:latest
       ./backend
+    - echo "Tagging for registry..."
+    - docker tag $BACKEND_IMAGE:$IMAGE_TAG $REGISTRY/$BACKEND_IMAGE:$IMAGE_TAG
+    - docker tag $BACKEND_IMAGE:latest $REGISTRY/$BACKEND_IMAGE:latest
     - echo "Pushing backend image..."
-    - docker push $BACKEND_IMAGE:$IMAGE_TAG
-    - docker push $BACKEND_IMAGE:latest
+    - docker push $REGISTRY/$BACKEND_IMAGE:$IMAGE_TAG
+    - docker push $REGISTRY/$BACKEND_IMAGE:latest
 
