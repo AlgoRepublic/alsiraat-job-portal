@@ -2,13 +2,32 @@
 # GitLab CI/CD Pipeline for Tasker
 # ============================================
 #
-# This pipeline builds and pushes the Tasker application
-# to a private Docker registry.
+# This pipeline builds, pushes, and deploys the Tasker application
+# to a private Docker registry and VPS server.
 #
 # Required CI/CD Variables (Settings > CI/CD > Variables):
 #   - REGISTRY: Registry URL (e.g., yourdomain.com)
 #   - REGISTRY_USER: Registry username
 #   - REGISTRY_PASSWORD: Registry password (masked)
+#   - VPS_HOST: VPS server hostname or IP
+#   - VPS_USER: SSH username for VPS
+#   - VPS_SSH_KEY: SSH private key for VPS (masked, file type)
+#
+# Frontend Environment Variables (prefix: FE_):
+#   - FE_VITE_API_URL: API URL
+#   - FE_VITE_GEMINI_API_KEY: Gemini AI API key
+#
+# Backend Environment Variables (prefix: BE_):
+#   - BE_PORT: Server port
+#   - BE_MONGODB_URI: MongoDB connection string
+#   - BE_JWT_SECRET: JWT secret key
+#   - BE_GOOGLE_CLIENT_ID: Google OAuth client ID
+#   - BE_GOOGLE_CLIENT_SECRET: Google OAuth client secret
+#   - BE_GOOGLE_CALLBACK_URL: Google OAuth callback URL
+#   - BE_SAML_ENTRY_POINT: SAML IDP endpoint
+#   - BE_SAML_ISSUER: SAML issuer
+#   - BE_SAML_CERT: SAML certificate (base64)
+#   - BE_FRONTEND_URL: Frontend URL
 
 # Only run pipeline on master branch
 workflow:
@@ -17,6 +36,8 @@ workflow:
 
 stages:
   - build-and-push
+  - pull
+  # - deploy
 
 # ============================================
 # Global Variables
@@ -82,4 +103,86 @@ backend:
     - echo "Pushing backend image..."
     - docker push $REGISTRY/$BACKEND_IMAGE:$IMAGE_TAG
     - docker push $REGISTRY/$BACKEND_IMAGE:latest
+
+# ============================================
+# Template: SSH to VPS
+# ============================================
+.ssh-job:
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh-client
+    - eval $(ssh-agent -s)
+    - echo "$VPS_SSH_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan -H $VPS_HOST >> ~/.ssh/known_hosts
+
+# ============================================
+# Pull images on VPS
+# ============================================
+pull:
+  extends: .ssh-job
+  stage: pull
+  needs:
+    - frontend
+    - backend
+  script:
+    - echo "Pulling images on VPS..."
+    - |
+      ssh $VPS_USER@$VPS_HOST << EOF
+        echo "Logging in to registry..."
+        echo '$REGISTRY_PASSWORD' | docker login '$REGISTRY' -u '$REGISTRY_USER' --password-stdin
+        echo "Pulling frontend image..."
+        docker pull $REGISTRY/$FRONTEND_IMAGE:latest
+        echo "Pulling backend image..."
+        docker pull $REGISTRY/$BACKEND_IMAGE:latest
+        echo "Pull completed!"
+      EOF
+
+# ============================================
+# Deploy containers on VPS
+# ============================================
+# deploy:
+#   extends: .ssh-job
+#   stage: deploy
+#   needs:
+#     - pull
+#   script:
+#     - echo "Deploying containers on VPS..."
+#     - |
+#       ssh $VPS_USER@$VPS_HOST << EOF
+#         echo "Stopping old containers..."
+#         docker stop $FRONTEND_IMAGE $BACKEND_IMAGE || true
+#         docker rm $FRONTEND_IMAGE $BACKEND_IMAGE || true
+#         
+#         echo "Starting frontend container..."
+#         docker run -d \
+#           --name $FRONTEND_IMAGE \
+#           -e VITE_API_URL='$FE_VITE_API_URL' \
+#           -e VITE_GEMINI_API_KEY='$FE_VITE_GEMINI_API_KEY' \
+#           -p 80:80 \
+#           --restart unless-stopped \
+#           $REGISTRY/$FRONTEND_IMAGE:latest
+#         
+#         echo "Starting backend container..."
+#         docker run -d \
+#           --name $BACKEND_IMAGE \
+#           -e PORT='$BE_PORT' \
+#           -e MONGODB_URI='$BE_MONGODB_URI' \
+#           -e JWT_SECRET='$BE_JWT_SECRET' \
+#           -e GOOGLE_CLIENT_ID='$BE_GOOGLE_CLIENT_ID' \
+#           -e GOOGLE_CLIENT_SECRET='$BE_GOOGLE_CLIENT_SECRET' \
+#           -e GOOGLE_CALLBACK_URL='$BE_GOOGLE_CALLBACK_URL' \
+#           -e SAML_ENTRY_POINT='$BE_SAML_ENTRY_POINT' \
+#           -e SAML_ISSUER='$BE_SAML_ISSUER' \
+#           -e SAML_CERT='$BE_SAML_CERT' \
+#           -e FRONTEND_URL='$BE_FRONTEND_URL' \
+#           -p 3000:3000 \
+#           --restart unless-stopped \
+#           $REGISTRY/$BACKEND_IMAGE:latest
+#         
+#         echo "Cleaning up old images..."
+#         docker image prune -f
+#         echo "Deployment completed!"
+#       EOF
 
