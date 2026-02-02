@@ -1,0 +1,73 @@
+# ============================================
+# GitLab CI/CD Pipeline for Tasker
+# ============================================
+#
+# This pipeline builds and pushes the Tasker application
+# to a private Docker registry.
+#
+# Required CI/CD Variables (Settings > CI/CD > Variables):
+#   - REGISTRY: Registry URL (e.g., yourdomain.com)
+#   - REGISTRY_USER: Registry username
+#   - REGISTRY_PASSWORD: Registry password (masked)
+
+stages:
+  - build-and-push
+
+# ============================================
+# Global Variables
+# ============================================
+variables:
+  FRONTEND_IMAGE: tasker-frontend
+  BACKEND_IMAGE: tasker-backend
+  IMAGE_TAG: $CI_COMMIT_SHORT_SHA
+
+# ============================================
+# Default settings for all jobs
+# ============================================
+default:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+
+# ============================================
+# Template: Registry authentication
+# ============================================
+.registry-auth:
+  before_script:
+    - echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
+
+# ============================================
+# Build and push frontend
+# ============================================
+frontend:
+  extends: .registry-auth
+  stage: build-and-push
+  script:
+    - echo "Building frontend image..."
+    - >
+      docker build
+      -f frontend.Dockerfile
+      -t $REGISTRY/$FRONTEND_IMAGE:$IMAGE_TAG
+      -t $REGISTRY/$FRONTEND_IMAGE:latest
+      .
+    - echo "Pushing frontend image..."
+    - docker push $REGISTRY/$FRONTEND_IMAGE:$IMAGE_TAG
+    - docker push $REGISTRY/$FRONTEND_IMAGE:latest
+
+# ============================================
+# Build and push backend
+# ============================================
+backend:
+  extends: .registry-auth
+  stage: build-and-push
+  script:
+    - echo "Building backend image..."
+    - >
+      docker build
+      -f backend/Dockerfile
+      -t $REGISTRY/$BACKEND_IMAGE:$IMAGE_TAG
+      -t $REGISTRY/$BACKEND_IMAGE:latest
+      ./backend
+    - echo "Pushing backend image..."
+    - docker push $REGISTRY/$BACKEND_IMAGE:$IMAGE_TAG
+    - docker push $REGISTRY/$BACKEND_IMAGE:latest
+
