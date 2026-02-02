@@ -25,11 +25,7 @@ variables:
   FRONTEND_IMAGE: tasker-frontend
   BACKEND_IMAGE: tasker-backend
   IMAGE_TAG: $CI_COMMIT_SHORT_SHA
-  # Docker-in-Docker settings
-  DOCKER_HOST: tcp://docker:2376
   DOCKER_TLS_CERTDIR: "/certs"
-  DOCKER_TLS_VERIFY: 1
-  DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
 
 # ============================================
 # Template: Docker build job
@@ -38,6 +34,10 @@ variables:
   image: docker:latest
   services:
     - docker:dind
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_VERIFY: 1
+    DOCKER_CERT_PATH: /certs/client
   before_script:
     - echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
 
