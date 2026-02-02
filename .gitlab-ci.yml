@@ -25,11 +25,19 @@ variables:
   FRONTEND_IMAGE: tasker-frontend
   BACKEND_IMAGE: tasker-backend
   IMAGE_TAG: $CI_COMMIT_SHORT_SHA
+  # Docker-in-Docker settings
+  DOCKER_HOST: tcp://docker:2376
+  DOCKER_TLS_CERTDIR: "/certs"
+  DOCKER_TLS_VERIFY: 1
+  DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
 
 # ============================================
-# Template: Registry authentication
+# Template: Docker build job
 # ============================================
-.registry-auth:
+.docker-job:
+  image: docker:latest
+  services:
+    - docker:dind
   before_script:
     - echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
 
@@ -37,7 +45,7 @@ variables:
 # Build and push frontend
 # ============================================
 frontend:
-  extends: .registry-auth
+  extends: .docker-job
   stage: build-and-push
   script:
     - echo "Building frontend image..."
@@ -55,7 +63,7 @@ frontend:
 # Build and push backend
 # ============================================
 backend:
-  extends: .registry-auth
+  extends: .docker-job
   stage: build-and-push
   script:
     - echo "Building backend image..."
