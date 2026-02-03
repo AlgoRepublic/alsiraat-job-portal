@@ -121,7 +121,7 @@ export const Home: React.FC = () => {
       {/* Browse by Category */}
       {categories.length > 0 && (
         <div className="space-y-8">
-          <div className="flex items-center justify-between px-4">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 px-4">
             <div>
               <h2 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
                 Browse by Category
@@ -129,6 +129,58 @@ export const Home: React.FC = () => {
               <p className="text-zinc-500 font-medium mt-2">
                 Find tasks that match your interests
               </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+              {/* Search */}
+              <div className="relative flex-1 md:w-64">
+                <input
+                  type="text"
+                  placeholder="Search tasks..."
+                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 focus:ring-2 focus:ring-[#812349] outline-none font-medium text-sm"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      navigate(
+                        `/jobs?q=${encodeURIComponent(e.currentTarget.value)}`,
+                      );
+                    }
+                  }}
+                />
+                <svg
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+              </div>
+
+              {/* Add Task Button */}
+              <Link
+                to="/create-task"
+                className="px-6 py-3 bg-[#812349] text-white rounded-xl font-black text-sm uppercase tracking-widest shadow-lg shadow-[#812349]/20 hover:bg-[#601a36] transition-all whitespace-nowrap flex items-center justify-center gap-2"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                Add Task
+              </Link>
             </div>
           </div>
 
