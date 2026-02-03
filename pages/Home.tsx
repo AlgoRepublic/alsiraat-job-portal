@@ -12,9 +12,33 @@ import {
   Target,
   MapPin,
   Clock,
+  PartyPopper,
+  BarChart3,
+  GraduationCap,
+  Wrench,
+  BookOpen,
+  Sparkles,
+  FolderOpen,
+  Laptop,
+  Backpack,
+  Palette,
 } from "lucide-react";
 import { db } from "../services/database";
 import { Job, JobStatus } from "../types";
+
+// Map category codes to Lucide icons
+const categoryIcons: Record<string, any> = {
+  events: PartyPopper,
+  programs: BarChart3,
+  seminar: GraduationCap,
+  maintenance: Wrench,
+  tutoring: BookOpen,
+  cleaning: Sparkles,
+  administration: FolderOpen,
+  technology: Laptop,
+  education: Backpack,
+  creative: Palette,
+};
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -111,6 +135,13 @@ export const Home: React.FC = () => {
                   <p className="text-sm text-zinc-500 font-bold mt-2">
                     {item.desc}
                   </p>
+
+                  {/* Shimmer skeleton lines */}
+                  <div className="mt-4 space-y-2 opacity-30">
+                    <div className="h-2 bg-white/20 rounded-full w-full animate-pulse"></div>
+                    <div className="h-2 bg-white/20 rounded-full w-4/5 animate-pulse delay-75"></div>
+                    <div className="h-2 bg-white/20 rounded-full w-3/5 animate-pulse delay-150"></div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -185,40 +216,45 @@ export const Home: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {categories.map((cat) => (
-              <div
-                key={cat.code}
-                onClick={() =>
-                  navigate(`/jobs?category=${encodeURIComponent(cat.name)}`)
-                }
-                className="group relative bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-6 hover:shadow-xl transition-all cursor-pointer hover:-translate-y-1 overflow-hidden"
-                style={{
-                  borderColor: cat.color + "20",
-                }}
-              >
+            {categories.map((cat) => {
+              const IconComponent = categoryIcons[cat.code] || Briefcase;
+              return (
                 <div
-                  className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity"
-                  style={{ backgroundColor: cat.color }}
-                />
-                <div className="relative z-10 text-center">
+                  key={cat.code}
+                  onClick={() =>
+                    navigate(`/jobs?category=${encodeURIComponent(cat.name)}`)
+                  }
+                  className="group relative bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-6 hover:shadow-xl transition-all cursor-pointer hover:-translate-y-1 overflow-hidden"
+                  style={{
+                    borderColor: cat.color + "20",
+                  }}
+                >
                   <div
-                    className="text-4xl mb-3 mx-auto w-16 h-16 rounded-2xl flex items-center justify-center"
-                    style={{
-                      backgroundColor: cat.color + "20",
-                      color: cat.color,
-                    }}
-                  >
-                    {cat.icon}
+                    className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity"
+                    style={{ backgroundColor: cat.color }}
+                  />
+                  <div className="relative z-10 text-center">
+                    <div
+                      className="mb-3 mx-auto w-16 h-16 rounded-2xl flex items-center justify-center"
+                      style={{
+                        backgroundColor: cat.color + "20",
+                      }}
+                    >
+                      <IconComponent
+                        className="w-8 h-8"
+                        style={{ color: cat.color }}
+                      />
+                    </div>
+                    <h3
+                      className="font-black text-sm tracking-tight"
+                      style={{ color: cat.color }}
+                    >
+                      {cat.name}
+                    </h3>
                   </div>
-                  <h3
-                    className="font-black text-sm tracking-tight"
-                    style={{ color: cat.color }}
-                  >
-                    {cat.name}
-                  </h3>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
