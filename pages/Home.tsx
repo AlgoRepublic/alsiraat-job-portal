@@ -19,6 +19,7 @@ import { Job, JobStatus } from "../types";
 export const Home: React.FC = () => {
   const navigate = useNavigate();
   const [publicJobs, setPublicJobs] = useState<Job[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchPublicJobs = async () => {
@@ -33,7 +34,18 @@ export const Home: React.FC = () => {
         console.error("Failed to fetch public tasks", err);
       }
     };
+
+    const fetchCategories = async () => {
+      try {
+        const cats = await db.getTaskCategories();
+        setCategories(cats);
+      } catch (err) {
+        console.error("Failed to fetch categories", err);
+      }
+    };
+
     fetchPublicJobs();
+    fetchCategories();
   }, []);
 
   return (
@@ -105,6 +117,59 @@ export const Home: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Browse by Category */}
+      {categories.length > 0 && (
+        <div className="space-y-8">
+          <div className="flex items-center justify-between px-4">
+            <div>
+              <h2 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
+                Browse by Category
+              </h2>
+              <p className="text-zinc-500 font-medium mt-2">
+                Find tasks that match your interests
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {categories.map((cat) => (
+              <div
+                key={cat.code}
+                onClick={() =>
+                  navigate(`/jobs?category=${encodeURIComponent(cat.name)}`)
+                }
+                className="group relative bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-6 hover:shadow-xl transition-all cursor-pointer hover:-translate-y-1 overflow-hidden"
+                style={{
+                  borderColor: cat.color + "20",
+                }}
+              >
+                <div
+                  className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity"
+                  style={{ backgroundColor: cat.color }}
+                />
+                <div className="relative z-10 text-center">
+                  <div
+                    className="text-4xl mb-3 mx-auto w-16 h-16 rounded-2xl flex items-center justify-center"
+                    style={{
+                      backgroundColor: cat.color + "20",
+                      color: cat.color,
+                    }}
+                  >
+                    {cat.icon}
+                  </div>
+                  <h3
+                    className="font-black text-sm tracking-tight"
+                    style={{ color: cat.color }}
+                  >
+                    {cat.name}
+                  </h3>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Public Tasks Section */}
       <div className="space-y-8">
