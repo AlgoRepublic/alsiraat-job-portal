@@ -156,6 +156,7 @@ class ApiService {
   async approveTask(id: string): Promise<any> {
     return this.request<any>(`/tasks/${id}/approve`, {
       method: "PUT",
+      body: JSON.stringify({ status: "approve" }),
     });
   }
 

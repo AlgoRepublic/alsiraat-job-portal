@@ -297,6 +297,33 @@ export const JobWizard: React.FC = () => {
                   }
                 />
               </div>
+
+              {/* Start Date */}
+              <div>
+                <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-3">
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  className="w-full px-6 py-4 rounded-2xl glass-card border-2 border-zinc-200 dark:border-zinc-800 focus:border-[#812349] outline-none font-medium text-base"
+                  value={formData.startDate}
+                  onChange={(e) => updateField("startDate", e.target.value)}
+                />
+              </div>
+
+              {/* End Date */}
+              <div>
+                <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-3">
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  className="w-full px-6 py-4 rounded-2xl glass-card border-2 border-zinc-200 dark:border-zinc-800 focus:border-[#812349] outline-none font-medium text-base"
+                  value={formData.endDate}
+                  onChange={(e) => updateField("endDate", e.target.value)}
+                  min={formData.startDate || undefined}
+                />
+              </div>
             </div>
           </div>
         )}

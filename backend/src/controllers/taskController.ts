@@ -268,9 +268,23 @@ export const approveTask = async (req: any, res: Response) => {
         .json({ message: "Not authorised to approve this task" });
     }
 
+    const normalizedStatus = status?.toLowerCase();
+
     const previousStatus = task.status;
-    task.status =
-      status === "approve" ? TaskStatus.PUBLISHED : TaskStatus.ARCHIVED;
+
+    if (normalizedStatus === "approve") {
+      task.status = TaskStatus.PUBLISHED;
+    } else if (
+      normalizedStatus === "decline" ||
+      normalizedStatus === "archive"
+    ) {
+      task.status = TaskStatus.ARCHIVED;
+    } else {
+      return res.status(400).json({
+        message: "Invalid status. Must be 'approve' or 'decline/archive'.",
+      });
+    }
+
     task.approvedBy = req.user._id;
     await task.save();
 
