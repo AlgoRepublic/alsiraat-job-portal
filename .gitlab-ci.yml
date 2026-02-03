@@ -18,7 +18,6 @@
 #   - FE_VITE_GEMINI_API_KEY: Gemini AI API key
 #
 # Backend Environment Variables (prefix: BE_):
-#   - BE_PORT: Server port
 #   - BE_MONGODB_URI: MongoDB connection string
 #   - BE_JWT_SECRET: JWT secret key
 #   - BE_GOOGLE_CLIENT_ID: Google OAuth client ID
@@ -37,7 +36,7 @@ workflow:
 stages:
   - build-and-push
   - pull
-  # - deploy
+  - deploy
 
 # ============================================
 # Global Variables
@@ -145,47 +144,47 @@ pull:
 # ============================================
 # Deploy containers on VPS
 # ============================================
-# deploy:
-#   extends: .ssh-job
-#   stage: deploy
-#   needs:
-#     - pull
-#   script:
-#     - echo "Deploying containers on VPS..."
-#     - |
-#       ssh -p $VPS_PORT $VPS_USER@$VPS_HOST << EOF
-#         echo "Stopping old containers..."
-#         docker stop $FRONTEND_IMAGE $BACKEND_IMAGE || true
-#         docker rm $FRONTEND_IMAGE $BACKEND_IMAGE || true
-#         
-#         echo "Starting frontend container..."
-#         docker run -d \
-#           --name $FRONTEND_IMAGE \
-#           -e VITE_API_URL='$FE_VITE_API_URL' \
-#           -e VITE_GEMINI_API_KEY='$FE_VITE_GEMINI_API_KEY' \
-#           -p 80:80 \
-#           --restart unless-stopped \
-#           $REGISTRY/$FRONTEND_IMAGE:latest
-#         
-#         echo "Starting backend container..."
-#         docker run -d \
-#           --name $BACKEND_IMAGE \
-#           -e PORT='$BE_PORT' \
-#           -e MONGODB_URI='$BE_MONGODB_URI' \
-#           -e JWT_SECRET='$BE_JWT_SECRET' \
-#           -e GOOGLE_CLIENT_ID='$BE_GOOGLE_CLIENT_ID' \
-#           -e GOOGLE_CLIENT_SECRET='$BE_GOOGLE_CLIENT_SECRET' \
-#           -e GOOGLE_CALLBACK_URL='$BE_GOOGLE_CALLBACK_URL' \
-#           -e SAML_ENTRY_POINT='$BE_SAML_ENTRY_POINT' \
-#           -e SAML_ISSUER='$BE_SAML_ISSUER' \
-#           -e SAML_CERT='$BE_SAML_CERT' \
-#           -e FRONTEND_URL='$BE_FRONTEND_URL' \
-#           -p 3000:3000 \
-#           --restart unless-stopped \
-#           $REGISTRY/$BACKEND_IMAGE:latest
-#         
-#         echo "Cleaning up old images..."
-#         docker image prune -f
-#         echo "Deployment completed!"
-#       EOF
+deploy:
+  extends: .ssh-job
+  stage: deploy
+  needs:
+    - pull
+  script:
+    - echo "Deploying containers on VPS..."
+    - |
+      ssh -p $VPS_PORT $VPS_USER@$VPS_HOST << EOF
+        echo "Stopping old containers..."
+        docker stop $FRONTEND_IMAGE $BACKEND_IMAGE || true
+        docker rm $FRONTEND_IMAGE $BACKEND_IMAGE || true
+        
+        echo "Starting frontend container..."
+        docker run -d \
+          --name $FRONTEND_IMAGE \
+          -e VITE_API_URL='$FE_VITE_API_URL' \
+          -e VITE_GEMINI_API_KEY='$FE_VITE_GEMINI_API_KEY' \
+          -p 6000:8080 \
+          --restart unless-stopped \
+          $REGISTRY/$FRONTEND_IMAGE:latest
+        
+        echo "Starting backend container..."
+        docker run -d \
+          --name $BACKEND_IMAGE \
+          --add-host=host.docker.internal:host-gateway \
+          -e MONGODB_URI='$BE_MONGODB_URI' \
+          -e JWT_SECRET='$BE_JWT_SECRET' \
+          -e GOOGLE_CLIENT_ID='$BE_GOOGLE_CLIENT_ID' \
+          -e GOOGLE_CLIENT_SECRET='$BE_GOOGLE_CLIENT_SECRET' \
+          -e GOOGLE_CALLBACK_URL='$BE_GOOGLE_CALLBACK_URL' \
+          -e SAML_ENTRY_POINT='$BE_SAML_ENTRY_POINT' \
+          -e SAML_ISSUER='$BE_SAML_ISSUER' \
+          -e SAML_CERT='$BE_SAML_CERT' \
+          -e FRONTEND_URL='$BE_FRONTEND_URL' \
+          -p 6001:8080 \
+          --restart unless-stopped \
+          $REGISTRY/$BACKEND_IMAGE:latest
+        
+        echo "Cleaning up old tasker images..."
+        docker image prune -f --filter "label=maintainer=tasker" || true
+        echo "Deployment completed!"
+      EOF
 

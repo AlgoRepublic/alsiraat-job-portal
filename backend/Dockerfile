@@ -20,6 +20,8 @@ RUN npm run build
 # ===== PRODUCTION STAGE =====
 FROM node:20-alpine AS production
 
+LABEL maintainer="tasker"
+
 WORKDIR /app
 
 # Copy built files and dependencies
