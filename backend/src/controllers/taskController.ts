@@ -2,7 +2,6 @@ import { Request, Response } from "express";
 import Task, { TaskStatus, TaskVisibility } from "../models/Task.js";
 import User, { UserRole } from "../models/User.js";
 import Application from "../models/Application.js";
-import { canAutoPublish } from "../config/permissions.js";
 import {
   sendNotificationToAll,
   sendNotificationToOrganization,
@@ -16,19 +15,33 @@ export const createTask = async (req: any, res: Response) => {
       category,
       location,
       hoursRequired,
+      startDate,
+      endDate,
       rewardType,
       rewardValue,
       eligibility,
       visibility,
     } = req.body;
 
-    // Use centralized permission check for auto-publish
-    const userRole = req.user.role as UserRole;
-    const taskStatus = canAutoPublish(userRole)
-      ? TaskStatus.PUBLISHED
-      : TaskStatus.PENDING;
+    // All tasks start as PENDING and require explicit approval
+    // Only users with task:approve permission can publish tasks
+    const taskStatus = TaskStatus.PENDING;
 
-    const task = await Task.create({
+    // Handle file attachments
+    const attachments: any[] = [];
+    if (req.files && Array.isArray(req.files)) {
+      for (const file of req.files) {
+        attachments.push({
+          filename: file.originalname,
+          url: `/uploads/${file.filename}`,
+          size: file.size,
+          mimeType: file.mimetype,
+          uploadedAt: new Date(),
+        });
+      }
+    }
+
+    const taskData: any = {
       title,
       description,
       category,
@@ -41,39 +54,17 @@ export const createTask = async (req: any, res: Response) => {
       status: taskStatus,
       organization: req.user.organization,
       createdBy: req.user._id,
-    });
+      attachments,
+    };
 
-    // Notify users when a public task is published
-    if (taskStatus === TaskStatus.PUBLISHED) {
-      const taskVisibility = visibility || TaskVisibility.GLOBAL;
+    // Only add dates if provided
+    if (startDate) taskData.startDate = new Date(startDate);
+    if (endDate) taskData.endDate = new Date(endDate);
 
-      if (
-        taskVisibility === TaskVisibility.GLOBAL ||
-        taskVisibility === TaskVisibility.EXTERNAL
-      ) {
-        // Notify all users for public tasks
-        await sendNotificationToAll(
-          "📢 New Task Available!",
-          `A new task "${title}" has been posted in ${category}.`,
-          "info",
-          `/jobs/${task._id}`,
-          req.user._id.toString(), // Exclude the creator
-        );
-      } else if (
-        taskVisibility === TaskVisibility.INTERNAL &&
-        req.user.organization
-      ) {
-        // Notify org members for internal tasks
-        await sendNotificationToOrganization(
-          req.user.organization.toString(),
-          "📢 New Internal Task",
-          `A new internal task "${title}" has been posted.`,
-          "info",
-          `/jobs/${task._id}`,
-          req.user._id.toString(),
-        );
-      }
-    }
+    const task = await Task.create(taskData);
+
+    // Note: Notifications are sent when task is approved/published, not on creation
+    // This prevents spam and ensures only reviewed tasks notify users
 
     res.status(201).json(task);
   } catch (err: any) {
@@ -86,7 +77,7 @@ export const getTasks = async (req: any, res: Response) => {
     const user = req.user;
     const { role, organization, _id: userId } = user || {};
     const normalizedRole = (role || "").trim().toLowerCase();
-    const { search } = req.query;
+    const { search, includeExpired } = req.query;
     let query: any = {};
 
     // Build base visibility/status query
@@ -176,6 +167,28 @@ export const getTasks = async (req: any, res: Response) => {
       };
     }
 
+    // Filter out expired tasks by default (unless admin requests includeExpired)
+    const isAdmin = normalizedRole === UserRole.ADMIN.toLowerCase();
+    const shouldIncludeExpired = includeExpired === "true" && isAdmin;
+
+    if (!shouldIncludeExpired) {
+      // Add expiration filter: either no endDate OR endDate is in the future
+      const expirationFilter = {
+        $or: [
+          { endDate: { $exists: false } },
+          { endDate: null },
+          { endDate: { $gte: new Date() } },
+        ],
+      };
+
+      // Merge with existing query
+      if (Object.keys(query).length > 0) {
+        query = { $and: [query, expirationFilter] };
+      } else {
+        query = expirationFilter;
+      }
+    }
+
     const tasks = await Task.find(query)
       .populate("organization", "name")
       .populate("createdBy", "name")
@@ -252,13 +265,60 @@ export const approveTask = async (req: any, res: Response) => {
     ) {
       return res
         .status(403)
-        .json({ message: "Not authorized to approve this task" });
+        .json({ message: "Not authorised to approve this task" });
     }
 
-    task.status =
-      status === "approve" ? TaskStatus.PUBLISHED : TaskStatus.ARCHIVED;
+    const normalizedStatus = status?.toLowerCase();
+
+    const previousStatus = task.status;
+
+    if (normalizedStatus === "approve") {
+      task.status = TaskStatus.PUBLISHED;
+    } else if (
+      normalizedStatus === "decline" ||
+      normalizedStatus === "archive"
+    ) {
+      task.status = TaskStatus.ARCHIVED;
+    } else {
+      return res.status(400).json({
+        message: "Invalid status. Must be 'approve' or 'decline/archive'.",
+      });
+    }
+
     task.approvedBy = req.user._id;
     await task.save();
+
+    // Send notifications when task is published
+    if (status === "approve" && previousStatus !== TaskStatus.PUBLISHED) {
+      const taskVisibility = task.visibility;
+
+      if (
+        taskVisibility === TaskVisibility.GLOBAL ||
+        taskVisibility === TaskVisibility.EXTERNAL
+      ) {
+        // Notify all users for public tasks
+        await sendNotificationToAll(
+          "📢 New Task Available!",
+          `A new task "${task.title}" has been posted in ${task.category}.`,
+          "info",
+          `/jobs/${task._id}`,
+          task.createdBy.toString(), // Exclude the creator
+        );
+      } else if (
+        taskVisibility === TaskVisibility.INTERNAL &&
+        task.organization
+      ) {
+        // Notify org members for internal tasks
+        await sendNotificationToOrganization(
+          task.organization.toString(),
+          "📢 New Internal Task",
+          `A new internal task "${task.title}" has been posted.`,
+          "info",
+          `/jobs/${task._id}`,
+          task.createdBy.toString(),
+        );
+      }
+    }
 
     res.json(task);
   } catch (err: any) {

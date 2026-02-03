@@ -25,6 +25,7 @@ import {
 } from "../types";
 import { generateJobDescription } from "../services/geminiService";
 import { db } from "../services/database";
+import { api } from "../services/api";
 
 export const JobWizard: React.FC = () => {
   const navigate = useNavigate();
@@ -32,6 +33,11 @@ export const JobWizard: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [skillInput, setSkillInput] = useState("");
+
+  // Dynamic data from API
+  const [rewardTypes, setRewardTypes] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
 
   const [formData, setFormData] = useState<Partial<Job>>({
     title: "",
@@ -52,6 +58,27 @@ export const JobWizard: React.FC = () => {
   });
 
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+
+  // Fetch reward types and categories on mount
+  React.useEffect(() => {
+    const fetchData = async () => {
+      const [types, cats] = await Promise.all([
+        db.getRewardTypes(),
+        db.getTaskCategories(),
+      ]);
+      setRewardTypes(types);
+      setCategories(cats);
+
+      // Set defaults if available
+      if (cats.length > 0) {
+        updateField("category", cats[0].name);
+      }
+      if (types.length > 0) {
+        updateField("rewardType", types[0].name);
+      }
+    };
+    fetchData();
+  }, []);
 
   const updateField = (field: keyof Job, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -95,6 +122,22 @@ export const JobWizard: React.FC = () => {
     setIsGenerating(false);
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      // Limit to 5 files
+      if (uploadedFiles.length + files.length > 5) {
+        alert("Maximum 5 files allowed");
+        return;
+      }
+      setUploadedFiles([...uploadedFiles, ...files]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setUploadedFiles(uploadedFiles.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
@@ -105,7 +148,16 @@ export const JobWizard: React.FC = () => {
         status: "Pending", // Initial state for approval flow
       };
 
-      await db.addJob(submissionData);
+      // Use the new API method that handles files
+      if (uploadedFiles.length > 0) {
+        await api.createTaskWithFiles(submissionData, uploadedFiles);
+      } else {
+        await db.addJob(submissionData);
+      }
+
+      alert(
+        "✅ Task submitted for approval! You'll be notified when it's published.",
+      );
       navigate("/jobs");
     } catch (err) {
       console.error("Task creation failed", err);
@@ -180,11 +232,15 @@ export const JobWizard: React.FC = () => {
                   value={formData.category}
                   onChange={(e) => updateField("category", e.target.value)}
                 >
-                  {Object.values(JobCategory).map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
+                  {categories.length > 0 ? (
+                    categories.map((c) => (
+                      <option key={c.code} value={c.name}>
+                        {c.icon} {c.name}
+                      </option>
+                    ))
+                  ) : (
+                    <option>Loading...</option>
+                  )}
                 </select>
               </div>
             </div>
@@ -239,6 +295,33 @@ export const JobWizard: React.FC = () => {
                   onChange={(e) =>
                     updateField("hoursRequired", Number(e.target.value))
                   }
+                />
+              </div>
+
+              {/* Start Date */}
+              <div>
+                <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-3">
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  className="w-full px-6 py-4 rounded-2xl glass-card border-2 border-zinc-200 dark:border-zinc-800 focus:border-[#812349] outline-none font-medium text-base"
+                  value={formData.startDate}
+                  onChange={(e) => updateField("startDate", e.target.value)}
+                />
+              </div>
+
+              {/* End Date */}
+              <div>
+                <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-3">
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  className="w-full px-6 py-4 rounded-2xl glass-card border-2 border-zinc-200 dark:border-zinc-800 focus:border-[#812349] outline-none font-medium text-base"
+                  value={formData.endDate}
+                  onChange={(e) => updateField("endDate", e.target.value)}
+                  min={formData.startDate || undefined}
                 />
               </div>
             </div>
@@ -304,11 +387,15 @@ export const JobWizard: React.FC = () => {
                   value={formData.rewardType}
                   onChange={(e) => updateField("rewardType", e.target.value)}
                 >
-                  {Object.values(RewardType).map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
+                  {rewardTypes.length > 0 ? (
+                    rewardTypes.map((t) => (
+                      <option key={t.code} value={t.name}>
+                        {t.name}
+                      </option>
+                    ))
+                  ) : (
+                    <option>Loading...</option>
+                  )}
                 </select>
               </div>
               <div className="space-y-2">
@@ -319,7 +406,10 @@ export const JobWizard: React.FC = () => {
                   type="number"
                   className="w-full p-4 glass rounded-2xl font-bold dark:text-white disabled:opacity-30"
                   value={formData.rewardValue}
-                  disabled={formData.rewardType === RewardType.VOLUNTEER}
+                  disabled={
+                    !rewardTypes.find((rt) => rt.name === formData.rewardType)
+                      ?.requiresValue
+                  }
                   onChange={(e) =>
                     updateField("rewardValue", Number(e.target.value))
                   }
@@ -364,12 +454,52 @@ export const JobWizard: React.FC = () => {
                 Attach Related Documents
               </h3>
               <p className="text-zinc-500 font-medium mb-8">
-                Guidelines, syllabi, or any helpful files (Max 10MB)
+                Guidelines, syllabi, or any helpful files (Max 10MB each, 5
+                files max)
               </p>
               <label className="px-10 py-4 bg-zinc-900 dark:bg-zinc-800 text-white rounded-2xl font-black uppercase tracking-widest text-xs cursor-pointer hover:bg-black transition-all">
                 Select Files
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
               </label>
             </div>
+
+            {uploadedFiles.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">
+                  Uploaded Files ({uploadedFiles.length}/5)
+                </p>
+                {uploadedFiles.map((file, index) => (
+                  <div
+                    key={index}
+                    className="glass-card p-4 rounded-2xl flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-5 h-5 text-[#812349]" />
+                      <div>
+                        <p className="font-bold text-sm dark:text-white">
+                          {file.name}
+                        </p>
+                        <p className="text-xs text-zinc-400">
+                          {(file.size / 1024).toFixed(1)} KB
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => removeFile(index)}
+                      className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
+                    >
+                      <X className="w-4 h-4 text-red-600" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

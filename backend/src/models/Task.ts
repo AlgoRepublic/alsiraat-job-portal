@@ -21,6 +21,8 @@ export interface ITask extends Document {
   category: string;
   location: string;
   hoursRequired: number;
+  startDate?: Date;
+  endDate?: Date;
   rewardType: string;
   rewardValue?: number;
   eligibility: string[];
@@ -30,8 +32,16 @@ export interface ITask extends Document {
   createdBy: mongoose.Types.ObjectId;
   approvedBy?: mongoose.Types.ObjectId;
   publishToPublic: boolean;
+  attachments: {
+    filename: string;
+    url: string;
+    size: number;
+    mimeType: string;
+    uploadedAt: Date;
+  }[];
   createdAt: Date;
   updatedAt: Date;
+  isExpired: boolean;
 }
 
 const TaskSchema: Schema = new Schema(
@@ -41,6 +51,8 @@ const TaskSchema: Schema = new Schema(
     category: { type: String, required: true },
     location: { type: String, required: true },
     hoursRequired: { type: Number },
+    startDate: { type: Date },
+    endDate: { type: Date },
     rewardType: { type: String, required: true },
     rewardValue: { type: Number },
     eligibility: [{ type: String }],
@@ -58,8 +70,27 @@ const TaskSchema: Schema = new Schema(
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
     approvedBy: { type: Schema.Types.ObjectId, ref: "User" },
     publishToPublic: { type: Boolean, default: false },
+    attachments: [
+      {
+        filename: { type: String, required: true },
+        url: { type: String, required: true },
+        size: { type: Number, required: true },
+        mimeType: { type: String, required: true },
+        uploadedAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true },
 );
+
+// Virtual property to check if task is expired
+TaskSchema.virtual("isExpired").get(function (this: ITask) {
+  if (!this.endDate) return false;
+  return new Date() > this.endDate;
+});
+
+// Ensure virtuals are included in JSON
+TaskSchema.set("toJSON", { virtuals: true });
+TaskSchema.set("toObject", { virtuals: true });
 
 export default mongoose.model<ITask>("Task", TaskSchema);

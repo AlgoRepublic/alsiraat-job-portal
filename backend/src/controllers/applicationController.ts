@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import Application, { ApplicationStatus } from "../models/Application.js";
 import Task from "../models/Task.js";
 import { sendNotification } from "../services/notificationService.js";
-import { checkPermission, Permission } from "../middleware/rbac.js";
+import { checkPermissionAsync, Permission } from "../middleware/rbac.js";
 
 export const applyForTask = async (req: any, res: Response) => {
   try {
@@ -72,7 +72,7 @@ export const updateApplicationStatus = async (req: any, res: Response) => {
     }
 
     // Check permission with context (allows Independent users to manage own tasks)
-    const permCheck = checkPermission(
+    const permCheck = await checkPermissionAsync(
       req.user,
       requiredPermission,
       permissionContext,
@@ -128,17 +128,68 @@ export const getApplications = async (req: any, res: Response) => {
     const { taskId } = req.query;
     let query: any = {};
 
+    // Check if user has permission to view applications
+    const hasFullAccess = await checkPermissionAsync(
+      req.user,
+      Permission.APPLICATION_READ,
+    );
+
+    const hasOwnAccess = await checkPermissionAsync(
+      req.user,
+      Permission.APPLICATION_READ_OWN,
+    );
+
+    // If user has neither permission, deny access
+    if (!hasFullAccess.allowed && !hasOwnAccess.allowed) {
+      return res.status(403).json({
+        message: "You don't have permission to view applications",
+      });
+    }
+
     if (taskId) {
       query.task = taskId;
-    } else if (req.user.role !== "Admin") {
-      // Non-admins see applications for their own tasks or their own applications
-      // For simplicity, let's just return apps related to their org if they are org members
-      if (req.user.organization) {
-        const tasks = await Task.find({
-          organization: req.user.organization,
-        }).select("_id");
-        query.task = { $in: tasks.map((t) => t._id) };
-      } else {
+
+      // If user only has read_own permission, ensure they can only see their own applications
+      if (!hasFullAccess.allowed && hasOwnAccess.allowed) {
+        query.applicant = req.user._id;
+      }
+      // If user has full access, check if they can view this task's applications
+      else if (hasFullAccess.allowed) {
+        const task = await Task.findById(taskId);
+        if (task && req.user.role !== "Admin") {
+          // Check if user is from the same org or is the task creator
+          if (
+            task.organization?.toString() !==
+              req.user.organization?.toString() &&
+            task.createdBy?.toString() !== req.user._id.toString()
+          ) {
+            return res.status(403).json({
+              message: "You don't have permission to view these applications",
+            });
+          }
+        }
+      }
+    } else {
+      // No specific task - filter based on permissions
+      if (req.user.role === "Admin") {
+        // Admin sees all
+        query = {};
+      } else if (hasFullAccess.allowed) {
+        // Users with APPLICATION_READ see applications for their org's tasks
+        if (req.user.organization) {
+          const tasks = await Task.find({
+            organization: req.user.organization,
+          }).select("_id");
+          query.task = { $in: tasks.map((t) => t._id) };
+        } else {
+          // Independent users with full access see applications for their own tasks
+          const tasks = await Task.find({
+            createdBy: req.user._id,
+          }).select("_id");
+          query.task = { $in: tasks.map((t) => t._id) };
+        }
+      } else if (hasOwnAccess.allowed) {
+        // Users with only APPLICATION_READ_OWN see only their own applications
         query.applicant = req.user._id;
       }
     }
@@ -161,6 +212,48 @@ export const getApplicationById = async (req: any, res: Response) => {
 
     if (!app) {
       return res.status(404).json({ message: "Application not found" });
+    }
+
+    // Check permissions
+    const hasFullAccess = await checkPermissionAsync(
+      req.user,
+      Permission.APPLICATION_READ,
+    );
+
+    const hasOwnAccess = await checkPermissionAsync(
+      req.user,
+      Permission.APPLICATION_READ_OWN,
+    );
+
+    // If user has neither permission, deny access
+    if (!hasFullAccess.allowed && !hasOwnAccess.allowed) {
+      return res.status(403).json({
+        message: "You don't have permission to view applications",
+      });
+    }
+
+    // If user only has read_own permission, verify they are the applicant
+    if (!hasFullAccess.allowed && hasOwnAccess.allowed) {
+      if (app.applicant._id.toString() !== req.user._id.toString()) {
+        return res.status(403).json({
+          message: "You can only view your own applications",
+        });
+      }
+    }
+
+    // If user has full access but is not admin, verify they can access this application
+    if (hasFullAccess.allowed && req.user.role !== "Admin") {
+      const task: any = app.task;
+      const isOrgMember =
+        task.organization?.toString() === req.user.organization?.toString();
+      const isTaskCreator =
+        task.createdBy?.toString() === req.user._id.toString();
+
+      if (!isOrgMember && !isTaskCreator) {
+        return res.status(403).json({
+          message: "You don't have permission to view this application",
+        });
+      }
     }
 
     res.json(app);

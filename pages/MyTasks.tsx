@@ -144,7 +144,7 @@ export const MyTasks: React.FC = () => {
                       onClick={() => navigate("/jobs")}
                       className="text-[#812349] font-black hover:underline ml-2"
                     >
-                      Browse Tasks
+                      Search Tasks
                     </button>
                   </td>
                 </tr>

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Briefcase,
   CheckCircle,
@@ -17,7 +18,31 @@ import {
   Layers,
   Rocket,
   ArrowRight,
+  PartyPopper,
+  BarChart3,
+  GraduationCap,
+  Wrench,
+  BookOpen,
+  Sparkles,
+  FolderOpen,
+  Laptop,
+  Backpack,
 } from "lucide-react";
+import { db } from "../services/database";
+
+// Map category codes to Lucide icons
+const categoryIcons: Record<string, any> = {
+  events: PartyPopper,
+  programs: BarChart3,
+  seminar: GraduationCap,
+  maintenance: Wrench,
+  tutoring: BookOpen,
+  cleaning: Sparkles,
+  administration: FolderOpen,
+  technology: Laptop,
+  education: Backpack,
+  creative: Palette,
+};
 
 interface LandingPageProps {
   onGetStarted: () => void;
@@ -26,6 +51,20 @@ interface LandingPageProps {
 
 export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [categories, setCategories] = useState<any[]>([]);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const cats = await db.getTaskCategories();
+        setCategories(cats);
+      } catch (err) {
+        console.error("Failed to fetch categories", err);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   const handleBrowseTasks = () => {
     if (onBrowseTasks) {
@@ -77,7 +116,7 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
                 Categories
               </button>
               <button className="text-gray-600 hover:text-red-600 transition-colors text-sm font-bold">
-                Organizations
+                Organisations
               </button>
             </nav>
           </div>
@@ -126,7 +165,7 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
                 Done.
               </h1>
               <p className="text-xl text-gray-400 mb-10 max-w-xl leading-relaxed">
-                Tasker connects organizations and individuals. Create tasks,
+                Tasker connects organisations and individuals. Create tasks,
                 find help, and collaborate across schools, businesses, and
                 communities.
               </p>
@@ -181,7 +220,7 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
                   </div>
                   <div>
                     <div className="text-white text-lg font-black">
-                      Project Task Alpha
+                      Project Task
                     </div>
                     <div className="text-red-500 text-xs font-bold">
                       Priority: High
@@ -212,10 +251,18 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
               <div className="absolute top-[-40px] right-[-20px] glass-card p-6 rounded-2xl border-white/10 z-10 opacity-60 scale-90 blur-[1px]">
                 <Zap className="text-blue-500 mb-2" />
                 <div className="text-white text-sm font-bold">Quick Match</div>
+                <div className="mt-3 space-y-2">
+                  <div className="h-1.5 bg-white/10 rounded-full w-full animate-pulse"></div>
+                  <div className="h-1.5 bg-white/10 rounded-full w-3/4 animate-pulse delay-75"></div>
+                </div>
               </div>
               <div className="absolute bottom-[-30px] left-[-20px] glass-card p-6 rounded-2xl border-white/10 z-10 opacity-60 scale-90 blur-[1px]">
                 <Shield className="text-green-500 mb-2" />
                 <div className="text-white text-sm font-bold">Verified Sec</div>
+                <div className="mt-3 space-y-2">
+                  <div className="h-1.5 bg-white/10 rounded-full w-full animate-pulse"></div>
+                  <div className="h-1.5 bg-white/10 rounded-full w-2/3 animate-pulse delay-75"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -237,49 +284,47 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
             </button>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
-            {[
-              { icon: Code, name: "Eng", color: "bg-blue-50 text-blue-600" },
-              {
-                icon: Palette,
-                name: "Design",
-                color: "bg-red-50 text-red-600",
-              },
-              {
-                icon: PenTool,
-                name: "Copy",
-                color: "bg-orange-50 text-orange-600",
-              },
-              {
-                icon: BarChart,
-                name: "Growth",
-                color: "bg-green-50 text-green-600",
-              },
-              {
-                icon: DollarSign,
-                name: "Finance",
-                color: "bg-purple-50 text-purple-600",
-              },
-              {
-                icon: HeadphonesIcon,
-                name: "Ops",
-                color: "bg-zinc-100 text-zinc-900",
-              },
-            ].map((cat) => (
-              <button
-                key={cat.name}
-                onClick={onGetStarted}
-                className="group p-8 rounded-3xl border border-gray-100 hover:border-red-600 hover:shadow-2xl transition-all text-center"
-              >
-                <div
-                  className={`w-14 h-14 rounded-2xl ${cat.color} flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform shadow-sm`}
-                >
-                  <cat.icon className="w-7 h-7" />
-                </div>
-                <div className="text-gray-900 font-black tracking-tight">
-                  {cat.name}
-                </div>
-              </button>
-            ))}
+            {categories.length > 0
+              ? categories.map((cat) => {
+                  const IconComponent = categoryIcons[cat.code] || Briefcase;
+                  return (
+                    <button
+                      key={cat.code}
+                      onClick={() =>
+                        navigate(
+                          `/jobs?category=${encodeURIComponent(cat.name)}`,
+                        )
+                      }
+                      className="group p-8 rounded-3xl border border-gray-100 hover:border-red-600 hover:shadow-2xl transition-all text-center"
+                    >
+                      <div
+                        className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform shadow-sm"
+                        style={{ backgroundColor: cat.color + "20" }}
+                      >
+                        <IconComponent
+                          className="w-7 h-7"
+                          style={{ color: cat.color }}
+                        />
+                      </div>
+                      <div
+                        className="font-black tracking-tight"
+                        style={{ color: cat.color }}
+                      >
+                        {cat.name}
+                      </div>
+                    </button>
+                  );
+                })
+              : // Skeleton loaders while loading
+                Array.from({ length: 6 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="p-8 rounded-3xl border border-gray-100 text-center animate-pulse"
+                  >
+                    <div className="w-14 h-14 rounded-2xl bg-gray-100 mx-auto mb-6"></div>
+                    <div className="h-4 bg-gray-100 rounded w-16 mx-auto"></div>
+                  </div>
+                ))}
           </div>
         </div>
       </section>
@@ -296,7 +341,7 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
                 <span className="text-gray-900 font-black text-xl">Tasker</span>
               </div>
               <p className="text-gray-500 text-sm leading-relaxed">
-                The task platform for schools, organizations, and communities.
+                The task platform for schools, organisations, and communities.
                 Connect, collaborate, and get things done.
               </p>
             </div>

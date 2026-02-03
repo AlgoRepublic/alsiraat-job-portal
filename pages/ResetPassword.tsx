@@ -62,7 +62,7 @@ export const ResetPassword: React.FC = () => {
             New Passkey
           </h1>
           <p className="text-zinc-500 dark:text-zinc-400 text-sm font-bold uppercase tracking-widest text-[10px]">
-            Re-authorize Account
+            Re-authorise Account
           </p>
         </div>
 
@@ -124,7 +124,7 @@ export const ResetPassword: React.FC = () => {
                 {isLoading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
-                  "Update Authorization"
+                  "Update Authorisation"
                 )}
               </button>
             </form>

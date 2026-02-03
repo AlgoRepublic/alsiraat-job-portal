@@ -156,6 +156,7 @@ class ApiService {
   async approveTask(id: string): Promise<any> {
     return this.request<any>(`/tasks/${id}/approve`, {
       method: "PUT",
+      body: JSON.stringify({ status: "approve" }),
     });
   }
 
@@ -192,6 +193,42 @@ class ApiService {
   async markNotificationRead(id: string): Promise<any> {
     return this.request<any>(`/notifications/${id}/read`, {
       method: "PUT",
+    });
+  }
+
+  // --- Reward Types ---
+  async getRewardTypes(): Promise<any[]> {
+    return this.request<any[]>("/reward-types");
+  }
+
+  // --- Task Categories ---
+  async getTaskCategories(): Promise<any[]> {
+    return this.request<any[]>("/task-categories");
+  }
+
+  // --- Task Creation with Files ---
+  async createTaskWithFiles(data: any, files: File[]): Promise<any> {
+    const formData = new FormData();
+
+    // Add all form fields
+    Object.keys(data).forEach((key) => {
+      if (data[key] !== undefined && data[key] !== null) {
+        if (Array.isArray(data[key])) {
+          formData.append(key, JSON.stringify(data[key]));
+        } else {
+          formData.append(key, data[key].toString());
+        }
+      }
+    });
+
+    // Add files
+    files.forEach((file) => {
+      formData.append("attachments", file);
+    });
+
+    return this.request<any>("/tasks", {
+      method: "POST",
+      body: formData,
     });
   }
 }

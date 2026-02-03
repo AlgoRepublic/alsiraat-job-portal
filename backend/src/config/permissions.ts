@@ -71,7 +71,7 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
   ],
 
   [UserRole.OWNER]: [
-    // Task Management
+    // Task Management - Full control
     Permission.TASK_CREATE,
     Permission.TASK_READ,
     Permission.TASK_UPDATE,
@@ -80,11 +80,12 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.TASK_PUBLISH,
     Permission.TASK_ARCHIVE,
 
-    // Application Management
+    // Application Management - Can view and manage applications for their org's tasks
     Permission.APPLICATION_READ,
     Permission.APPLICATION_SHORTLIST,
     Permission.APPLICATION_APPROVE,
     Permission.APPLICATION_REJECT,
+    // NOTE: Owners should NOT have APPLICATION_CREATE (they don't apply for tasks)
 
     // Organization
     Permission.ORG_READ,
@@ -101,15 +102,13 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
   ],
 
   [UserRole.APPROVER]: [
-    // Task Management (limited)
-    Permission.TASK_CREATE,
+    // Task Management - Can only approve/publish tasks, NOT create them
     Permission.TASK_READ,
     Permission.TASK_APPROVE,
     Permission.TASK_PUBLISH,
 
-    // Application Management (shortlist only)
-    Permission.APPLICATION_READ,
-    Permission.APPLICATION_SHORTLIST,
+    // Application Management - NO permissions to view or manage applications
+    // (Approvers only approve tasks for publication, not manage applications)
 
     // Organization (read only)
     Permission.ORG_READ,
@@ -150,12 +149,45 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
 // ============================================================================
 
 /**
- * Check if a role has a specific permission
+ * Check if a role has a specific permission (STATIC - uses hardcoded mapping)
+ * @deprecated Use hasPermissionAsync for database-driven permissions
  */
 export function hasPermission(role: UserRole, permission: Permission): boolean {
   const permissions = RolePermissions[role];
   if (!permissions) return false;
   return permissions.includes(permission);
+}
+
+/**
+ * Check if a role has a specific permission (DYNAMIC - uses database)
+ * This is the preferred method for production use
+ */
+export async function hasPermissionAsync(
+  role: UserRole,
+  permission: Permission,
+): Promise<boolean> {
+  try {
+    // Import Role model dynamically to avoid circular dependencies
+    const { default: Role } = await import("../models/Role.js");
+
+    // Map UserRole enum to role code (e.g., "Admin" -> "admin")
+    const roleCode = role.toLowerCase();
+
+    const roleDoc = await Role.findOne({ code: roleCode, isActive: true });
+    if (!roleDoc) {
+      // Fallback to static permissions if role not found in database
+      console.warn(
+        `Role ${role} not found in database, using static permissions`,
+      );
+      return hasPermission(role, permission);
+    }
+
+    return roleDoc.permissions.includes(permission);
+  } catch (error) {
+    console.error("Error checking permission from database:", error);
+    // Fallback to static permissions on error
+    return hasPermission(role, permission);
+  }
 }
 
 /**
@@ -176,6 +208,21 @@ export function hasAnyPermission(
   permissions: Permission[],
 ): boolean {
   return permissions.some((p) => hasPermission(role, p));
+}
+
+/**
+ * Check if a role has ANY of the specified permissions (DYNAMIC - uses database)
+ */
+export async function hasAnyPermissionAsync(
+  role: UserRole,
+  permissions: Permission[],
+): Promise<boolean> {
+  for (const permission of permissions) {
+    if (await hasPermissionAsync(role, permission)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -201,6 +248,7 @@ export interface PermissionContext {
 /**
  * Check permission with context (e.g., resource ownership)
  * This allows Independent users to manage their own tasks' applications
+ * @deprecated Use canWithContextAsync for database-driven permissions
  */
 export function canWithContext(
   role: UserRole,
@@ -212,6 +260,50 @@ export function canWithContext(
 
   // First check static permission
   if (hasPermission(role, permission)) {
+    // For org-scoped permissions, verify same organization
+    if (context.organizationId && context.userOrganizationId) {
+      if (context.organizationId !== context.userOrganizationId) {
+        // Allow if it's a global/external resource
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // Special case: Independent users can manage their own task's applications
+  if (role === UserRole.INDEPENDENT) {
+    const applicationPermissions = [
+      Permission.APPLICATION_READ,
+      Permission.APPLICATION_SHORTLIST,
+      Permission.APPLICATION_APPROVE,
+      Permission.APPLICATION_REJECT,
+    ];
+
+    if (applicationPermissions.includes(permission)) {
+      // Check if user owns the task
+      if (context.taskCreatorId && context.userId === context.taskCreatorId) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Check permission with context (DYNAMIC - uses database)
+ * This allows Independent users to manage their own tasks' applications
+ */
+export async function canWithContextAsync(
+  role: UserRole,
+  permission: Permission,
+  context: PermissionContext,
+): Promise<boolean> {
+  // Admin always has access
+  if (role === UserRole.ADMIN) return true;
+
+  // First check database permission
+  if (await hasPermissionAsync(role, permission)) {
     // For org-scoped permissions, verify same organization
     if (context.organizationId && context.userOrganizationId) {
       if (context.organizationId !== context.userOrganizationId) {

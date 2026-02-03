@@ -25,7 +25,7 @@ export const authenticate = async (
   if (!token)
     return res
       .status(401)
-      .json({ message: "No authentication token, authorization denied" });
+      .json({ message: "No authentication token, authorisation denied" });
 
   try {
     const decoded: any = jwt.verify(token, JWT_SECRET);
@@ -76,7 +76,7 @@ export const authorize = (roles: UserRole[]) => {
     if (!authorized) {
       return res
         .status(403)
-        .json({ message: "User not authorized to perform this action" });
+        .json({ message: "User not authorised to perform this action" });
     }
     next();
   };
@@ -91,7 +91,7 @@ export const authorize = (roles: UserRole[]) => {
  * Usage: requirePermission(Permission.TASK_CREATE)
  */
 export const requirePermission = (permission: Permission) => {
-  return (req: any, res: Response, next: NextFunction) => {
+  return async (req: any, res: Response, next: NextFunction) => {
     const user = req.user;
     if (!user) {
       return res.status(401).json({ message: "Authentication required" });
@@ -99,7 +99,11 @@ export const requirePermission = (permission: Permission) => {
 
     const userRole = user.role as UserRole;
 
-    if (!hasPermission(userRole, permission)) {
+    // Use dynamic permission check from database
+    const { hasPermissionAsync } = await import("../config/permissions.js");
+    const hasAccess = await hasPermissionAsync(userRole, permission);
+
+    if (!hasAccess) {
       return res.status(403).json({
         message: `Permission denied: ${permission}`,
         required: permission,
@@ -116,7 +120,7 @@ export const requirePermission = (permission: Permission) => {
  * Usage: requireAnyPermission([Permission.TASK_APPROVE, Permission.TASK_PUBLISH])
  */
 export const requireAnyPermission = (permissions: Permission[]) => {
-  return (req: any, res: Response, next: NextFunction) => {
+  return async (req: any, res: Response, next: NextFunction) => {
     const user = req.user;
     if (!user) {
       return res.status(401).json({ message: "Authentication required" });
@@ -124,7 +128,11 @@ export const requireAnyPermission = (permissions: Permission[]) => {
 
     const userRole = user.role as UserRole;
 
-    if (!hasAnyPermission(userRole, permissions)) {
+    // Use dynamic permission check from database
+    const { hasAnyPermissionAsync } = await import("../config/permissions.js");
+    const hasAccess = await hasAnyPermissionAsync(userRole, permissions);
+
+    if (!hasAccess) {
       return res.status(403).json({
         message: "Permission denied",
         required: permissions,
@@ -166,7 +174,15 @@ export const requirePermissionWithContext = (
       context.userId = user._id.toString();
       context.userOrganizationId = user.organization?.toString();
 
-      if (!canWithContext(userRole, permission, context)) {
+      // Use dynamic permission check from database
+      const { canWithContextAsync } = await import("../config/permissions.js");
+      const hasAccess = await canWithContextAsync(
+        userRole,
+        permission,
+        context,
+      );
+
+      if (!hasAccess) {
         return res.status(403).json({
           message: `Permission denied: ${permission}`,
           required: permission,
@@ -190,6 +206,7 @@ export const requirePermissionWithContext = (
 /**
  * Helper function to check permission within a controller
  * Returns true/false and the error response if denied
+ * @deprecated Use checkPermissionAsync for database-driven permissions
  */
 export function checkPermission(
   user: any,
@@ -220,6 +237,56 @@ export function checkPermission(
     }
   } else {
     if (!hasPermission(userRole, permission)) {
+      return {
+        allowed: false,
+        error: {
+          status: 403,
+          message: `You don't have permission to perform this action (${permission})`,
+        },
+      };
+    }
+  }
+
+  return { allowed: true };
+}
+
+/**
+ * Helper function to check permission within a controller (DYNAMIC - uses database)
+ * Returns true/false and the error response if denied
+ */
+export async function checkPermissionAsync(
+  user: any,
+  permission: Permission,
+  context?: PermissionContext,
+): Promise<{ allowed: boolean; error?: { status: number; message: string } }> {
+  if (!user) {
+    return {
+      allowed: false,
+      error: { status: 401, message: "Authentication required" },
+    };
+  }
+
+  const userRole = user.role as UserRole;
+  const { hasPermissionAsync, canWithContextAsync } =
+    await import("../config/permissions.js");
+
+  if (context) {
+    context.userId = user._id.toString();
+    context.userOrganizationId = user.organization?.toString();
+
+    const hasAccess = await canWithContextAsync(userRole, permission, context);
+    if (!hasAccess) {
+      return {
+        allowed: false,
+        error: {
+          status: 403,
+          message: `You don't have permission to perform this action (${permission})`,
+        },
+      };
+    }
+  } else {
+    const hasAccess = await hasPermissionAsync(userRole, permission);
+    if (!hasAccess) {
       return {
         allowed: false,
         error: {
