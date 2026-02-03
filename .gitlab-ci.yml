@@ -166,6 +166,9 @@ deploy:
           --restart unless-stopped \
           $REGISTRY/$FRONTEND_IMAGE:latest
         
+        echo "Creating uploads directory if it doesn't exist..."
+        mkdir -p ~/tasker-data/uploads
+        
         echo "Starting backend container..."
         docker run -d \
           --name $BACKEND_IMAGE \
@@ -179,6 +182,7 @@ deploy:
           -e SAML_ISSUER='$BE_SAML_ISSUER' \
           -e SAML_CERT='$BE_SAML_CERT' \
           -e FRONTEND_URL='$BE_FRONTEND_URL' \
+          -v ~/tasker-data/uploads:/app/uploads \
           -p 6001:8080 \
           --restart unless-stopped \
           $REGISTRY/$BACKEND_IMAGE:latest
