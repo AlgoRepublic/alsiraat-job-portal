@@ -21,6 +21,8 @@ export interface ITask extends Document {
   category: string;
   location: string;
   hoursRequired: number;
+  startDate?: Date;
+  endDate?: Date;
   rewardType: string;
   rewardValue?: number;
   eligibility: string[];
@@ -39,6 +41,7 @@ export interface ITask extends Document {
   }[];
   createdAt: Date;
   updatedAt: Date;
+  isExpired: boolean;
 }
 
 const TaskSchema: Schema = new Schema(
@@ -48,6 +51,8 @@ const TaskSchema: Schema = new Schema(
     category: { type: String, required: true },
     location: { type: String, required: true },
     hoursRequired: { type: Number },
+    startDate: { type: Date },
+    endDate: { type: Date },
     rewardType: { type: String, required: true },
     rewardValue: { type: Number },
     eligibility: [{ type: String }],
@@ -77,5 +82,15 @@ const TaskSchema: Schema = new Schema(
   },
   { timestamps: true },
 );
+
+// Virtual property to check if task is expired
+TaskSchema.virtual("isExpired").get(function (this: ITask) {
+  if (!this.endDate) return false;
+  return new Date() > this.endDate;
+});
+
+// Ensure virtuals are included in JSON
+TaskSchema.set("toJSON", { virtuals: true });
+TaskSchema.set("toObject", { virtuals: true });
 
 export default mongoose.model<ITask>("Task", TaskSchema);

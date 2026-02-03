@@ -15,6 +15,8 @@ export const createTask = async (req: any, res: Response) => {
       category,
       location,
       hoursRequired,
+      startDate,
+      endDate,
       rewardType,
       rewardValue,
       eligibility,
@@ -39,7 +41,7 @@ export const createTask = async (req: any, res: Response) => {
       }
     }
 
-    const task = await Task.create({
+    const taskData: any = {
       title,
       description,
       category,
@@ -53,7 +55,13 @@ export const createTask = async (req: any, res: Response) => {
       organization: req.user.organization,
       createdBy: req.user._id,
       attachments,
-    });
+    };
+
+    // Only add dates if provided
+    if (startDate) taskData.startDate = new Date(startDate);
+    if (endDate) taskData.endDate = new Date(endDate);
+
+    const task = await Task.create(taskData);
 
     // Note: Notifications are sent when task is approved/published, not on creation
     // This prevents spam and ensures only reviewed tasks notify users
@@ -69,7 +77,7 @@ export const getTasks = async (req: any, res: Response) => {
     const user = req.user;
     const { role, organization, _id: userId } = user || {};
     const normalizedRole = (role || "").trim().toLowerCase();
-    const { search } = req.query;
+    const { search, includeExpired } = req.query;
     let query: any = {};
 
     // Build base visibility/status query
@@ -157,6 +165,28 @@ export const getTasks = async (req: any, res: Response) => {
           },
         ],
       };
+    }
+
+    // Filter out expired tasks by default (unless admin requests includeExpired)
+    const isAdmin = normalizedRole === UserRole.ADMIN.toLowerCase();
+    const shouldIncludeExpired = includeExpired === "true" && isAdmin;
+
+    if (!shouldIncludeExpired) {
+      // Add expiration filter: either no endDate OR endDate is in the future
+      const expirationFilter = {
+        $or: [
+          { endDate: { $exists: false } },
+          { endDate: null },
+          { endDate: { $gte: new Date() } },
+        ],
+      };
+
+      // Merge with existing query
+      if (Object.keys(query).length > 0) {
+        query = { $and: [query, expirationFilter] };
+      } else {
+        query = expirationFilter;
+      }
     }
 
     const tasks = await Task.find(query)

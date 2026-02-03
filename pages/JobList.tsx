@@ -202,22 +202,24 @@ export const JobList: React.FC = () => {
                   ))}
                 </select>
               </div>
-              <div className="space-y-2">
+              <div className="md:col-span-2 lg:col-span-4 space-y-2">
                 <label className="text-[10px] font-black text-white/60 dark:text-zinc-500 uppercase tracking-widest ml-1">
                   Timeline
                 </label>
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                   <input
                     type="date"
-                    className="w-full px-3 py-3 rounded-xl bg-white/90 dark:bg-zinc-900 border-0 font-bold text-[10px]"
+                    className="flex-1 px-4 py-3 rounded-xl bg-white/90 dark:bg-zinc-900 border-0 focus:ring-2 focus:ring-[#812349] font-bold text-sm"
                     value={dateFrom}
                     onChange={(e) => updateParam("dateFrom", e.target.value)}
+                    placeholder="From"
                   />
                   <input
                     type="date"
-                    className="w-full px-3 py-3 rounded-xl bg-white/90 dark:bg-zinc-900 border-0 font-bold text-[10px]"
+                    className="flex-1 px-4 py-3 rounded-xl bg-white/90 dark:bg-zinc-900 border-0 focus:ring-2 focus:ring-[#812349] font-bold text-sm"
                     value={dateTo}
                     onChange={(e) => updateParam("dateTo", e.target.value)}
+                    placeholder="To"
                   />
                 </div>
               </div>
