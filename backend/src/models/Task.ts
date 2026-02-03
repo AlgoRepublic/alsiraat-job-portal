@@ -30,6 +30,13 @@ export interface ITask extends Document {
   createdBy: mongoose.Types.ObjectId;
   approvedBy?: mongoose.Types.ObjectId;
   publishToPublic: boolean;
+  attachments: {
+    filename: string;
+    url: string;
+    size: number;
+    mimeType: string;
+    uploadedAt: Date;
+  }[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -58,6 +65,15 @@ const TaskSchema: Schema = new Schema(
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
     approvedBy: { type: Schema.Types.ObjectId, ref: "User" },
     publishToPublic: { type: Boolean, default: false },
+    attachments: [
+      {
+        filename: { type: String, required: true },
+        url: { type: String, required: true },
+        size: { type: Number, required: true },
+        mimeType: { type: String, required: true },
+        uploadedAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true },
 );

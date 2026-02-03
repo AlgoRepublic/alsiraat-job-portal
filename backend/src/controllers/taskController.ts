@@ -2,7 +2,6 @@ import { Request, Response } from "express";
 import Task, { TaskStatus, TaskVisibility } from "../models/Task.js";
 import User, { UserRole } from "../models/User.js";
 import Application from "../models/Application.js";
-import { canAutoPublish } from "../config/permissions.js";
 import {
   sendNotificationToAll,
   sendNotificationToOrganization,
@@ -22,11 +21,23 @@ export const createTask = async (req: any, res: Response) => {
       visibility,
     } = req.body;
 
-    // Use centralized permission check for auto-publish
-    const userRole = req.user.role as UserRole;
-    const taskStatus = canAutoPublish(userRole)
-      ? TaskStatus.PUBLISHED
-      : TaskStatus.PENDING;
+    // All tasks start as PENDING and require explicit approval
+    // Only users with task:approve permission can publish tasks
+    const taskStatus = TaskStatus.PENDING;
+
+    // Handle file attachments
+    const attachments: any[] = [];
+    if (req.files && Array.isArray(req.files)) {
+      for (const file of req.files) {
+        attachments.push({
+          filename: file.originalname,
+          url: `/uploads/${file.filename}`,
+          size: file.size,
+          mimeType: file.mimetype,
+          uploadedAt: new Date(),
+        });
+      }
+    }
 
     const task = await Task.create({
       title,
@@ -41,39 +52,11 @@ export const createTask = async (req: any, res: Response) => {
       status: taskStatus,
       organization: req.user.organization,
       createdBy: req.user._id,
+      attachments,
     });
 
-    // Notify users when a public task is published
-    if (taskStatus === TaskStatus.PUBLISHED) {
-      const taskVisibility = visibility || TaskVisibility.GLOBAL;
-
-      if (
-        taskVisibility === TaskVisibility.GLOBAL ||
-        taskVisibility === TaskVisibility.EXTERNAL
-      ) {
-        // Notify all users for public tasks
-        await sendNotificationToAll(
-          "📢 New Task Available!",
-          `A new task "${title}" has been posted in ${category}.`,
-          "info",
-          `/jobs/${task._id}`,
-          req.user._id.toString(), // Exclude the creator
-        );
-      } else if (
-        taskVisibility === TaskVisibility.INTERNAL &&
-        req.user.organization
-      ) {
-        // Notify org members for internal tasks
-        await sendNotificationToOrganization(
-          req.user.organization.toString(),
-          "📢 New Internal Task",
-          `A new internal task "${title}" has been posted.`,
-          "info",
-          `/jobs/${task._id}`,
-          req.user._id.toString(),
-        );
-      }
-    }
+    // Note: Notifications are sent when task is approved/published, not on creation
+    // This prevents spam and ensures only reviewed tasks notify users
 
     res.status(201).json(task);
   } catch (err: any) {
@@ -255,10 +238,43 @@ export const approveTask = async (req: any, res: Response) => {
         .json({ message: "Not authorised to approve this task" });
     }
 
+    const previousStatus = task.status;
     task.status =
       status === "approve" ? TaskStatus.PUBLISHED : TaskStatus.ARCHIVED;
     task.approvedBy = req.user._id;
     await task.save();
+
+    // Send notifications when task is published
+    if (status === "approve" && previousStatus !== TaskStatus.PUBLISHED) {
+      const taskVisibility = task.visibility;
+
+      if (
+        taskVisibility === TaskVisibility.GLOBAL ||
+        taskVisibility === TaskVisibility.EXTERNAL
+      ) {
+        // Notify all users for public tasks
+        await sendNotificationToAll(
+          "📢 New Task Available!",
+          `A new task "${task.title}" has been posted in ${task.category}.`,
+          "info",
+          `/jobs/${task._id}`,
+          task.createdBy.toString(), // Exclude the creator
+        );
+      } else if (
+        taskVisibility === TaskVisibility.INTERNAL &&
+        task.organization
+      ) {
+        // Notify org members for internal tasks
+        await sendNotificationToOrganization(
+          task.organization.toString(),
+          "📢 New Internal Task",
+          `A new internal task "${task.title}" has been posted.`,
+          "info",
+          `/jobs/${task._id}`,
+          task.createdBy.toString(),
+        );
+      }
+    }
 
     res.json(task);
   } catch (err: any) {

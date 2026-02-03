@@ -117,7 +117,7 @@ export const JobList: React.FC = () => {
           </h2>
           <p className="text-red-100 dark:text-zinc-400 text-lg md:text-xl mb-12 text-center md:text-left font-medium leading-relaxed">
             Discover high-impact opportunities within the AlSiraat{" "}
-            <span className="font-bold text-white">Organisation</span>.
+            <span className="font-bold text-white">Organization</span>.
           </p>
 
           <div className="flex flex-col md:flex-row gap-4">

@@ -11,14 +11,18 @@ import {
   requirePermission,
   Permission,
 } from "../middleware/rbac.js";
+import { upload, handleUploadError } from "../middleware/upload.js";
 
 const router = express.Router();
 
 // Create task - requires TASK_CREATE permission
+// Supports up to 5 file attachments
 router.post(
   "/",
   authenticate,
   requirePermission(Permission.TASK_CREATE),
+  upload.array("attachments", 5), // Allow up to 5 files
+  handleUploadError,
   createTask,
 );
 

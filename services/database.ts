@@ -250,6 +250,26 @@ class DatabaseService {
       return [];
     }
   }
+
+  // --- Reward Types ---
+  async getRewardTypes(): Promise<any[]> {
+    try {
+      return await api.getRewardTypes();
+    } catch (err) {
+      console.warn("Failed to fetch reward types", err);
+      return [];
+    }
+  }
+
+  // --- Task Categories ---
+  async getTaskCategories(): Promise<any[]> {
+    try {
+      return await api.getTaskCategories();
+    } catch (err) {
+      console.warn("Failed to fetch task categories", err);
+      return [];
+    }
+  }
 }
 
 export const db = new DatabaseService();
