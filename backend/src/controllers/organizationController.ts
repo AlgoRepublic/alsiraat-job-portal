@@ -19,8 +19,9 @@ export const createOrganization = async (req: Request, res: Response) => {
     });
 
     // Update owner's role and organization
-    owner.role = UserRole.OWNER;
+    // Assign owner role to user
     owner.organization = org._id as any;
+    owner.role = UserRole.SCHOOL_ADMIN;
     await owner.save();
 
     res.status(201).json(org);
@@ -40,14 +41,28 @@ export const getOrganizations = async (req: Request, res: Response) => {
 
 export const addMember = async (req: Request, res: Response) => {
   try {
-    const { orgId } = req.params;
-    const { userId, role } = req.body;
+    const { id } = req.params;
+    const { email, role } = req.body;
 
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    const organization = await Organization.findById(id);
+    if (!organization) {
+      return res.status(404).json({ message: "Organization not found" });
+    }
 
-    user.organization = orgId as any;
-    user.role = role || UserRole.MEMBER;
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.organization) {
+      return res
+        .status(400)
+        .json({ message: "User already belongs to an organization" });
+    }
+
+    user.organization = organization._id as any;
+    user.role = role || UserRole.TASK_ADVERTISER;
+
     await user.save();
 
     res.json({ message: "Member added successfully", user });

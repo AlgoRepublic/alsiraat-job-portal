@@ -297,6 +297,12 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
         isSystem: true,
       },
       {
+        code: "task:submit",
+        name: "Submit Task",
+        category: "Tasks",
+        isSystem: true,
+      },
+      {
         code: "task:approve",
         name: "Approve Task",
         category: "Tasks",
@@ -417,7 +423,7 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
         isSystem: true,
       },
 
-      // Dashboard permissions
+      // Dashboard & Reports permissions
       {
         code: "dashboard:view",
         name: "View Dashboard",
@@ -428,6 +434,12 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
         code: "analytics:view",
         name: "View Analytics",
         category: "Dashboard",
+        isSystem: true,
+      },
+      {
+        code: "reports:view",
+        name: "Run Reports",
+        category: "Reports",
         isSystem: true,
       },
 
@@ -456,6 +468,12 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
         category: "Admin",
         isSystem: true,
       },
+      {
+        code: "admin:manage_tenants",
+        name: "Manage Tenants",
+        category: "Admin",
+        isSystem: true,
+      },
     ];
 
     for (const perm of defaultPermissions) {
@@ -470,17 +488,17 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
 
     const defaultRoles = [
       {
-        name: "Admin",
-        code: "admin",
-        description: "Full system access",
+        name: "Global Admin",
+        code: "global_admin",
+        description: "Manage tenants, global settings, onboarding",
         permissions: allPermissions,
         isSystem: true,
-        color: "#DC2626",
+        color: "#DC2626", // Red
       },
       {
-        name: "Owner",
-        code: "owner",
-        description: "Organization owner with full org access",
+        name: "School Admin",
+        code: "school_admin",
+        description: "Oversee tasks, manage roles, run reports",
         permissions: [
           "task:create",
           "task:read",
@@ -489,6 +507,7 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
           "task:approve",
           "task:publish",
           "task:archive",
+          "task:submit",
           "application:read",
           "application:shortlist",
           "application:approve",
@@ -496,52 +515,58 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
           "org:read",
           "org:update",
           "org:manage_members",
+          "user:read",
+          "user:update",
+          "user:manage_roles",
           "dashboard:view",
           "analytics:view",
+          "reports:view",
         ],
         isSystem: true,
-        color: "#7C3AED",
+        color: "#7C3AED", // Violet
       },
       {
-        name: "Approver",
-        code: "approver",
-        description: "Can approve and publish tasks for review",
+        name: "Task Manager",
+        code: "task_manager",
+        description: "Review, publish, shortlist, issue offers and rewards",
         permissions: [
           "task:read",
           "task:approve",
           "task:publish",
-          "org:read",
+          "application:read",
+          "application:shortlist",
+          "application:approve",
+          "application:reject",
           "dashboard:view",
         ],
         isSystem: true,
-        color: "#2563EB",
+        color: "#2563EB", // Blue
       },
       {
-        name: "Member",
-        code: "member",
-        description: "Organization member who can create tasks and apply",
+        name: "Task Advertiser",
+        code: "task_advertiser",
+        description: "Create, edit, submit tasks",
         permissions: [
           "task:create",
           "task:read",
-          "application:create",
+          "task:update",
+          "task:submit",
           "application:read_own",
-          "org:read",
         ],
         isSystem: true,
-        color: "#059669",
+        color: "#059669", // Emerald
       },
       {
-        name: "Independent",
-        code: "independent",
-        description: "Independent user who can create tasks and apply",
+        name: "Applicant",
+        code: "applicant",
+        description: "Browse, apply, manage history and skills",
         permissions: [
-          "task:create",
           "task:read",
           "application:create",
           "application:read_own",
         ],
         isSystem: true,
-        color: "#D97706",
+        color: "#D97706", // Amber
       },
     ];
 
@@ -552,8 +577,41 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
       });
     }
 
+    // Cleanup old roles
+    const newRoleCodes = defaultRoles.map((r) => r.code);
+    // Delete roles that are system roles but NOT in the new list
+    // OR just delete specific old standard roles if they exist
+    const oldRoleCodes = [
+      "admin",
+      "owner",
+      "approver",
+      "member",
+      "independent",
+    ];
+
+    // Migrate existing users to new roles
+    const roleMapping: Record<string, string> = {
+      admin: "Global Admin",
+      owner: "School Admin",
+      approver: "Task Manager",
+      member: "Task Advertiser",
+      independent: "Applicant",
+    };
+
+    for (const [oldRole, newRole] of Object.entries(roleMapping)) {
+      await User.updateMany(
+        { role: { $regex: new RegExp(`^${oldRole}$`, "i") } },
+        { role: newRole },
+      );
+    }
+
+    // We only delete them if they are NOT in the new codes (which they aren't)
+    // And to be safe, we might check if they are system roles or just delete by code
+    await Role.deleteMany({ code: { $in: oldRoleCodes } });
+
     res.json({
-      message: "Default permissions and roles seeded successfully",
+      message:
+        "Default permissions and roles seeded successfully. Old roles removed.",
       permissions: defaultPermissions.length,
       roles: defaultRoles.length,
     });

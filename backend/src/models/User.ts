@@ -1,11 +1,11 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export enum UserRole {
-  ADMIN = "Admin",
-  OWNER = "Owner",
-  APPROVER = "Approver",
-  MEMBER = "Member",
-  INDEPENDENT = "Independent",
+  GLOBAL_ADMIN = "Global Admin",
+  SCHOOL_ADMIN = "School Admin",
+  TASK_MANAGER = "Task Manager",
+  TASK_ADVERTISER = "Task Advertiser",
+  APPLICANT = "Applicant",
 }
 
 export interface ISkill {
@@ -51,7 +51,7 @@ const UserSchema: Schema = new Schema(
     role: {
       type: String,
       enum: Object.values(UserRole),
-      default: UserRole.INDEPENDENT,
+      default: UserRole.APPLICANT,
       set: (v: string) => {
         if (!v) return v;
         // Find existing role value matching case-insensitively

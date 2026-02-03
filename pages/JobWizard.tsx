@@ -213,14 +213,13 @@ export const JobWizard: React.FC = () => {
             <div className="grid md:grid-cols-2 gap-8">
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">
-                  Opportunity Title
+                  Task Title
                 </label>
                 <input
                   type="text"
                   className="w-full p-4 glass rounded-2xl focus:ring-4 focus:ring-[#812349]/20 outline-none font-bold text-lg dark:text-white"
                   value={formData.title}
                   onChange={(e) => updateField("title", e.target.value)}
-                  placeholder="e.g. Lab Assistant for Bio-Chem"
                 />
               </div>
               <div className="space-y-2">
@@ -267,7 +266,6 @@ export const JobWizard: React.FC = () => {
                 className="w-full p-6 glass rounded-2xl h-64 focus:ring-4 focus:ring-[#812349]/20 outline-none font-medium leading-relaxed dark:text-white resize-none"
                 value={formData.description}
                 onChange={(e) => updateField("description", e.target.value)}
-                placeholder="Describe the tasks, responsibilities, and learning outcomes..."
               />
             </div>
 
@@ -281,7 +279,6 @@ export const JobWizard: React.FC = () => {
                   className="w-full p-4 glass rounded-2xl font-bold dark:text-white"
                   value={formData.location}
                   onChange={(e) => updateField("location", e.target.value)}
-                  placeholder="e.g. Science Lab 102 or Remote"
                 />
               </div>
               <div className="space-y-2">
@@ -340,7 +337,6 @@ export const JobWizard: React.FC = () => {
                 onChange={(e) =>
                   updateField("selectionCriteria", e.target.value)
                 }
-                placeholder="How will applicants be evaluated? (e.g. Interview, GPA, Specific Skills)..."
               />
             </div>
 
@@ -369,7 +365,6 @@ export const JobWizard: React.FC = () => {
                 <input
                   type="text"
                   className="flex-1 bg-transparent border-none outline-none p-2 font-bold text-sm dark:text-white"
-                  placeholder="Type skill & press Enter"
                   value={skillInput}
                   onChange={(e) => setSkillInput(e.target.value)}
                   onKeyDown={handleAddSkill}
@@ -398,23 +393,60 @@ export const JobWizard: React.FC = () => {
                   )}
                 </select>
               </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">
-                  Reward Value / Credits
-                </label>
-                <input
-                  type="number"
-                  className="w-full p-4 glass rounded-2xl font-bold dark:text-white disabled:opacity-30"
-                  value={formData.rewardValue}
-                  disabled={
-                    !rewardTypes.find((rt) => rt.name === formData.rewardType)
-                      ?.requiresValue
-                  }
-                  onChange={(e) =>
-                    updateField("rewardValue", Number(e.target.value))
-                  }
-                />
-              </div>
+
+              {/* Conditional Reward Value Field */}
+              {(() => {
+                const selectedType = rewardTypes.find(
+                  (rt) => rt.name === formData.rewardType,
+                );
+
+                if (!selectedType?.requiresValue) return null;
+
+                const isHourly = selectedType.name
+                  .toLowerCase()
+                  .includes("hour");
+                const isLumpsum = selectedType.name
+                  .toLowerCase()
+                  .includes("lumpsum");
+                const isVoucher = selectedType.name
+                  .toLowerCase()
+                  .includes("voucher");
+
+                return (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">
+                      {isVoucher ? "Voucher Value" : "Reward Amount / Points"}
+                    </label>
+                    <div className="relative">
+                      {(isLumpsum || isVoucher) && (
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-zinc-400">
+                          $
+                        </span>
+                      )}
+                      <input
+                        type="number"
+                        className={`w-full p-4 glass rounded-2xl font-bold dark:text-white ${
+                          isLumpsum || isVoucher ? "pl-8" : ""
+                        }`}
+                        value={formData.rewardValue}
+                        onChange={(e) =>
+                          updateField("rewardValue", Number(e.target.value))
+                        }
+                      />
+                      {isHourly && (
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-zinc-400 text-sm">
+                          $/hr
+                        </span>
+                      )}
+                      {!isHourly && !isLumpsum && !isVoucher && (
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-zinc-400 text-sm">
+                          Points
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Task Visibility */}

@@ -65,6 +65,11 @@ const App: React.FC = () => {
 
   const toggleTheme = () => setIsDarkMode((prev) => !prev);
 
+  const refreshUser = async () => {
+    const user = await db.getCurrentUser();
+    setCurrentUser(user);
+  };
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-zinc-50 dark:bg-black overflow-hidden relative">
@@ -96,7 +101,7 @@ const App: React.FC = () => {
                   onGetStarted={() => (window.location.hash = "#/login")}
                   onBrowseTasks={() => (window.location.hash = "#/jobs")}
                 />
-              ) : ["admin", "owner"].includes(
+              ) : ["global admin", "school admin"].includes(
                   currentUser.role?.toLowerCase(),
                 ) ? (
                 <Navigate to="/dashboard" replace />
@@ -117,7 +122,10 @@ const App: React.FC = () => {
                 onToggleTheme={toggleTheme}
               >
                 <Routes>
-                  <Route path="/login" element={<Login />} />
+                  <Route
+                    path="/login"
+                    element={<Login onLoginSuccess={refreshUser} />}
+                  />
                   <Route path="/signup" element={<Signup />} />
                   <Route path="/forgot-password" element={<ForgotPassword />} />
                   <Route
@@ -145,14 +153,14 @@ const App: React.FC = () => {
                         element={<ApplicationReview />}
                       />
                       {/* Admin-only routes */}
-                      {currentUser.role?.toLowerCase() === "admin" && (
+                      {currentUser.role?.toLowerCase() === "global admin" && (
                         <Route
                           path="/admin/settings"
                           element={<AdminSettings />}
                         />
                       )}
                       {/* Admin and Owner routes */}
-                      {["admin", "owner"].includes(
+                      {["global admin", "school admin"].includes(
                         currentUser.role?.toLowerCase(),
                       ) && <Route path="/reports" element={<Reports />} />}
                       <Route

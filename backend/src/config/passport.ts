@@ -65,7 +65,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
                 email,
                 googleId: profile.id,
                 avatar: profile.photos?.[0]?.value ?? "",
-                role: UserRole.INDEPENDENT,
+                role: UserRole.APPLICANT,
               });
             }
           }
@@ -111,7 +111,7 @@ if (process.env.SAML_ENTRY_POINT) {
                 name: profile.displayName || profile.cn || "SAML User",
                 email,
                 samlId: profile.nameID,
-                role: UserRole.MEMBER, // Default to Member for SAML users
+                role: UserRole.TASK_ADVERTISER, // Default to Advertiser for SAML users
               });
             }
           }

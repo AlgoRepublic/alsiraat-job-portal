@@ -1,9 +1,9 @@
 export enum UserRole {
-  ADMIN = "Admin",
-  OWNER = "Owner",
-  APPROVER = "Approver",
-  MEMBER = "Member",
-  INDEPENDENT = "Independent",
+  GLOBAL_ADMIN = "Global Admin",
+  SCHOOL_ADMIN = "School Admin",
+  TASK_MANAGER = "Task Manager",
+  TASK_ADVERTISER = "Task Advertiser",
+  APPLICANT = "Applicant",
 }
 
 export enum JobStatus {

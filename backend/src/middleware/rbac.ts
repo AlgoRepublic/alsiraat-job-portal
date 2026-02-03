@@ -310,7 +310,7 @@ export const checkImpersonation = (
   next: NextFunction,
 ) => {
   const userRole = (req.user.role || "").toLowerCase();
-  const isAdmin = userRole === UserRole.ADMIN.toLowerCase();
+  const isAdmin = userRole === UserRole.GLOBAL_ADMIN.toLowerCase();
 
   if (req.header("x-impersonate-role") && !isAdmin) {
     return res

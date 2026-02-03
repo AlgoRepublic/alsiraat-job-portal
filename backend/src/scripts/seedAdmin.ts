@@ -48,34 +48,34 @@ const USERS = [
   {
     name: "System Administrator",
     email: "admin@alsiraat.edu.au",
-    role: UserRole.ADMIN,
+    role: UserRole.GLOBAL_ADMIN,
     orgSlug: "alsiraat",
   },
   {
     name: "Dr. Ahmed Khan",
     email: "principal@alsiraat.edu.au",
-    role: UserRole.OWNER,
+    role: UserRole.SCHOOL_ADMIN,
     orgSlug: "alsiraat",
     about: "Principal of Al-Siraat College with 20+ years in education.",
   },
   {
     name: "Mrs. Sarah Hassan",
     email: "sarah.hassan@alsiraat.edu.au",
-    role: UserRole.APPROVER,
+    role: UserRole.TASK_MANAGER,
     orgSlug: "alsiraat",
     about: "Head of Academic Affairs, responsible for curriculum development.",
   },
   {
     name: "Mr. Ali Raza",
     email: "ali.raza@alsiraat.edu.au",
-    role: UserRole.MEMBER,
+    role: UserRole.TASK_ADVERTISER,
     orgSlug: "alsiraat",
     about: "Science Department Coordinator and Physics Teacher.",
   },
   {
     name: "Fatima Zahra",
     email: "fatima.student@gmail.com",
-    role: UserRole.INDEPENDENT,
+    role: UserRole.APPLICANT,
     about: "Year 12 student interested in tutoring and community work.",
     skills: [
       { id: "1", name: "Mathematics", level: "Expert" },
@@ -85,7 +85,7 @@ const USERS = [
   {
     name: "Omar Khalid",
     email: "omar.student@gmail.com",
-    role: UserRole.INDEPENDENT,
+    role: UserRole.APPLICANT,
     about: "University student looking for part-time opportunities.",
     skills: [
       { id: "3", name: "Teaching", level: "Beginner" },
@@ -96,14 +96,14 @@ const USERS = [
   {
     name: "Prof. Jane Wilson",
     email: "jane.wilson@melbu.edu.au",
-    role: UserRole.OWNER,
+    role: UserRole.SCHOOL_ADMIN,
     orgSlug: "melbu",
     about: "Dean of Faculty of Science.",
   },
   {
     name: "Dr. Michael Chen",
     email: "m.chen@melbu.edu.au",
-    role: UserRole.MEMBER,
+    role: UserRole.TASK_ADVERTISER,
     orgSlug: "melbu",
     about: "Senior Lecturer in Computer Science.",
   },
@@ -291,7 +291,7 @@ async function seedDatabase() {
       const creator = Object.values(userMap).find(
         (u: any) =>
           u.organization?.toString() === org?._id.toString() &&
-          u.role !== UserRole.INDEPENDENT,
+          u.role !== UserRole.APPLICANT,
       );
 
       const task = await Task.create({
@@ -351,12 +351,12 @@ async function seedDatabase() {
     console.log("=".repeat(50));
     console.log("\n📋 TEST ACCOUNTS (Password: " + DEFAULT_PASSWORD + ")");
     console.log("-".repeat(50));
-    console.log("ADMIN:      admin@alsiraat.edu.au");
-    console.log("OWNER:      principal@alsiraat.edu.au");
-    console.log("APPROVER:   sarah.hassan@alsiraat.edu.au");
-    console.log("MEMBER:     ali.raza@alsiraat.edu.au");
-    console.log("STUDENT 1:  fatima.student@gmail.com");
-    console.log("STUDENT 2:  omar.student@gmail.com");
+    console.log("GLOBAL ADMIN:   admin@alsiraat.edu.au");
+    console.log("SCHOOL ADMIN:   principal@alsiraat.edu.au");
+    console.log("TASK MANAGER:   sarah.hassan@alsiraat.edu.au");
+    console.log("TASK ADVERTISER: ali.raza@alsiraat.edu.au");
+    console.log("STUDENT 1:      fatima.student@gmail.com");
+    console.log("STUDENT 2:      omar.student@gmail.com");
     console.log("-".repeat(50));
     console.log("\n⚠️  Change passwords before deploying to production!\n");
 
