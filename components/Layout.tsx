@@ -381,7 +381,7 @@ export const Layout: React.FC<LayoutProps> = ({
       label: "Overview",
       path: "/dashboard",
       protected: true,
-      roles: [UserRole.ADMIN, UserRole.OWNER],
+      roles: [UserRole.GLOBAL_ADMIN, UserRole.SCHOOL_ADMIN],
     },
     { icon: Briefcase, label: "Search Tasks", path: "/jobs" },
     {
@@ -400,14 +400,14 @@ export const Layout: React.FC<LayoutProps> = ({
       icon: Settings,
       label: "Admin Settings",
       path: "/admin/settings",
-      roles: [UserRole.ADMIN],
+      roles: [UserRole.GLOBAL_ADMIN],
       protected: true,
     },
     {
       icon: FileText,
       label: "Reports",
       path: "/reports",
-      roles: [UserRole.ADMIN, UserRole.OWNER],
+      roles: [UserRole.GLOBAL_ADMIN, UserRole.SCHOOL_ADMIN],
       protected: true,
     },
   ];
@@ -466,7 +466,7 @@ export const Layout: React.FC<LayoutProps> = ({
           </Link>
 
           <nav className="flex-1 px-4 py-8 space-y-2 overflow-y-auto">
-            {currentUser && currentUser.role !== UserRole.INDEPENDENT && (
+            {currentUser && currentUser.role !== UserRole.APPLICANT && (
               <Link
                 to="/post-job"
                 className="flex items-center justify-center w-full px-4 py-4 mb-8 text-white bg-[#812349] dark:bg-[#601a36] hover:bg-[#601a36] dark:hover:bg-[#4d152b] rounded-2xl shadow-xl shadow-[#812349]/20 transition-all transform hover:-translate-y-1 active:scale-95"

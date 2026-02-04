@@ -18,24 +18,24 @@ import { UserRole } from "../types";
 // Roles available for signup (Admin is excluded)
 const SIGNUP_ROLES = [
   {
-    value: UserRole.INDEPENDENT,
-    label: "Student / Applicant",
-    description: "Find and apply for tasks",
+    value: UserRole.APPLICANT,
+    label: "Applicant / Student",
+    description: "Browse, apply, manage history and skills",
   },
   {
-    value: UserRole.MEMBER,
-    label: "Staff Member",
-    description: "Create and manage tasks",
+    value: UserRole.TASK_ADVERTISER,
+    label: "Task Advertiser",
+    description: "Create, edit, submit tasks",
   },
   {
-    value: UserRole.APPROVER,
-    label: "Department Head",
-    description: "Approve tasks",
+    value: UserRole.TASK_MANAGER,
+    label: "Task Manager",
+    description: "Review, publish, shortlist, issue offers",
   },
   {
-    value: UserRole.OWNER,
-    label: "Principal / Director",
-    description: "Full access",
+    value: UserRole.SCHOOL_ADMIN,
+    label: "School Admin",
+    description: "Oversee tasks, manage roles, run reports",
   },
 ];
 
@@ -57,7 +57,7 @@ export const Signup: React.FC = () => {
         name: `${firstName} ${surname}`.trim(),
         email,
         password,
-        role: UserRole.INDEPENDENT,
+        role: UserRole.APPLICANT,
       });
       setTimeout(() => {
         window.location.reload();

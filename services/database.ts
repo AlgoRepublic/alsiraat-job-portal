@@ -193,8 +193,11 @@ class DatabaseService {
     });
   }
 
-  async approveJob(id: string): Promise<any> {
-    return await api.approveTask(id);
+  async approveJob(
+    id: string,
+    status: "approve" | "decline" = "approve",
+  ): Promise<any> {
+    return await api.approveTask(id, status);
   }
 
   // --- Applications ---

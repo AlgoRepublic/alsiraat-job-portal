@@ -97,11 +97,11 @@ export const JobDetails: React.FC = () => {
     if (!job) return;
     try {
       if (action === "approve") {
-        await db.approveJob(job.id);
+        await db.approveJob(job.id, "approve");
         setJob({ ...job, status: JobStatus.PUBLISHED });
         showSuccess("Task has been approved and published!");
       } else {
-        await db.updateJob(job.id, { status: "Archived" });
+        await db.approveJob(job.id, "decline");
         setJob({ ...job, status: JobStatus.ARCHIVED });
         showSuccess("Task has been declined and archived.");
       }

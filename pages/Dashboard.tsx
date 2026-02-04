@@ -90,7 +90,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
         setTotalApplications(apps.length);
         setPendingCount(pending.length);
 
-        if (role === UserRole.INDEPENDENT) {
+        if (role === UserRole.APPLICANT) {
           const myApps = apps.filter((a) => a.userId === user?.id);
           setMyApplications(myApps);
           setRecentJobs(jobs.slice(0, 5));
@@ -458,7 +458,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
                   My Tasks
                 </span>
               </button>
-              {role === UserRole.ADMIN && (
+              {role === UserRole.GLOBAL_ADMIN && (
                 <button
                   onClick={() => navigate("/admin/settings")}
                   className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all group"
@@ -471,7 +471,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
                   </span>
                 </button>
               )}
-              {(role === UserRole.ADMIN || role === UserRole.OWNER) && (
+              {(role === UserRole.GLOBAL_ADMIN ||
+                role === UserRole.SCHOOL_ADMIN) && (
                 <button
                   onClick={() => navigate("/reports")}
                   className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all group"

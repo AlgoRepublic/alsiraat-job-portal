@@ -29,7 +29,7 @@ export const signup = async (req: Request, res: Response) => {
       name,
       email,
       password: hashedPassword,
-      role: role || UserRole.INDEPENDENT,
+      role: role || UserRole.APPLICANT,
     });
 
     const token = generateToken(user);

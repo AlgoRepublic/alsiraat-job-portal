@@ -88,8 +88,8 @@ export const getTasks = async (req: any, res: Response) => {
         visibility: { $in: [TaskVisibility.EXTERNAL, TaskVisibility.GLOBAL] },
       };
     } else if (
-      normalizedRole === UserRole.INDEPENDENT.toLowerCase() ||
-      normalizedRole === UserRole.MEMBER.toLowerCase()
+      normalizedRole === UserRole.APPLICANT.toLowerCase() ||
+      normalizedRole === UserRole.TASK_ADVERTISER.toLowerCase()
     ) {
       // Independent users and Members:
       // 1. See their own created tasks (any status except Archived)
@@ -110,7 +110,10 @@ export const getTasks = async (req: any, res: Response) => {
       ];
 
       // Members can also see their org's published tasks
-      if (normalizedRole === UserRole.MEMBER.toLowerCase() && organization) {
+      if (
+        normalizedRole === UserRole.TASK_ADVERTISER.toLowerCase() &&
+        organization
+      ) {
         conditions.push({
           organization: organization,
           status: { $in: [TaskStatus.PUBLISHED, TaskStatus.APPROVED] },
@@ -119,8 +122,8 @@ export const getTasks = async (req: any, res: Response) => {
 
       query = { $or: conditions };
     } else if (
-      normalizedRole === UserRole.APPROVER.toLowerCase() ||
-      normalizedRole === UserRole.OWNER.toLowerCase()
+      normalizedRole === UserRole.TASK_MANAGER.toLowerCase() ||
+      normalizedRole === UserRole.SCHOOL_ADMIN.toLowerCase()
     ) {
       // Approvers and Owners: See their org's tasks (Published, Pending, Draft, Approved)
       // but NOT Archived. Also see external Published tasks
@@ -145,7 +148,7 @@ export const getTasks = async (req: any, res: Response) => {
           },
         ],
       };
-    } else if (normalizedRole === UserRole.ADMIN.toLowerCase()) {
+    } else if (normalizedRole === UserRole.GLOBAL_ADMIN.toLowerCase()) {
       // Admin sees everything (including Draft and Archived)
       query = {};
     }
@@ -168,7 +171,7 @@ export const getTasks = async (req: any, res: Response) => {
     }
 
     // Filter out expired tasks by default (unless admin requests includeExpired)
-    const isAdmin = normalizedRole === UserRole.ADMIN.toLowerCase();
+    const isAdmin = normalizedRole === UserRole.GLOBAL_ADMIN.toLowerCase();
     const shouldIncludeExpired = includeExpired === "true" && isAdmin;
 
     if (!shouldIncludeExpired) {
@@ -259,7 +262,7 @@ export const approveTask = async (req: any, res: Response) => {
 
     // Ensure approver is from the same org
     if (
-      req.user.role.toLowerCase() !== UserRole.ADMIN.toLowerCase() &&
+      req.user.role.toLowerCase() !== UserRole.GLOBAL_ADMIN.toLowerCase() &&
       (!task.organization ||
         task.organization.toString() !== req.user.organization.toString())
     ) {

@@ -19,6 +19,7 @@ export enum Permission {
   TASK_READ = "task:read",
   TASK_UPDATE = "task:update",
   TASK_DELETE = "task:delete",
+  TASK_SUBMIT = "task:submit", // New
   TASK_APPROVE = "task:approve",
   TASK_PUBLISH = "task:publish",
   TASK_ARCHIVE = "task:archive",
@@ -57,6 +58,7 @@ export enum Permission {
   // Admin Permissions
   ADMIN_SETTINGS = "admin:settings",
   ADMIN_AUDIT_LOG = "admin:audit_log",
+  ADMIN_MANAGE_TENANTS = "admin:manage_tenants",
 }
 
 // ============================================================================
@@ -65,32 +67,37 @@ export enum Permission {
 // ============================================================================
 
 export const RolePermissions: Record<UserRole, Permission[]> = {
-  [UserRole.ADMIN]: [
+  [UserRole.GLOBAL_ADMIN]: [
     // Admins have ALL permissions
     ...Object.values(Permission),
   ],
 
-  [UserRole.OWNER]: [
-    // Task Management - Full control
+  [UserRole.SCHOOL_ADMIN]: [
+    // Task Management - Full control within scope
     Permission.TASK_CREATE,
     Permission.TASK_READ,
     Permission.TASK_UPDATE,
     Permission.TASK_DELETE,
+    Permission.TASK_SUBMIT,
     Permission.TASK_APPROVE,
     Permission.TASK_PUBLISH,
     Permission.TASK_ARCHIVE,
 
-    // Application Management - Can view and manage applications for their org's tasks
+    // Application Management
     Permission.APPLICATION_READ,
     Permission.APPLICATION_SHORTLIST,
     Permission.APPLICATION_APPROVE,
     Permission.APPLICATION_REJECT,
-    // NOTE: Owners should NOT have APPLICATION_CREATE (they don't apply for tasks)
 
     // Organization
     Permission.ORG_READ,
     Permission.ORG_UPDATE,
     Permission.ORG_MANAGE_MEMBERS,
+
+    // User Management (scoped)
+    Permission.USER_READ,
+    Permission.USER_UPDATE,
+    Permission.USER_MANAGE_ROLES,
 
     // Dashboard & Analytics
     Permission.DASHBOARD_VIEW,
@@ -98,49 +105,40 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
 
     // Reporting
     Permission.REPORTS_VIEW,
-    Permission.REPORTS_EXPORT,
   ],
 
-  [UserRole.APPROVER]: [
-    // Task Management - Can only approve/publish tasks, NOT create them
+  [UserRole.TASK_MANAGER]: [
+    // Reviews tasks
     Permission.TASK_READ,
     Permission.TASK_APPROVE,
     Permission.TASK_PUBLISH,
 
-    // Application Management - NO permissions to view or manage applications
-    // (Approvers only approve tasks for publication, not manage applications)
-
-    // Organization (read only)
-    Permission.ORG_READ,
+    // Manages applications
+    Permission.APPLICATION_READ,
+    Permission.APPLICATION_SHORTLIST,
+    Permission.APPLICATION_APPROVE,
+    Permission.APPLICATION_REJECT,
 
     // Dashboard
     Permission.DASHBOARD_VIEW,
   ],
 
-  [UserRole.MEMBER]: [
-    // Task Management (create and read)
+  [UserRole.TASK_ADVERTISER]: [
+    // Create/Edit/Submit
     Permission.TASK_CREATE,
     Permission.TASK_READ,
+    Permission.TASK_UPDATE,
+    Permission.TASK_SUBMIT,
 
-    // Applications (can apply)
-    Permission.APPLICATION_CREATE,
+    // View own applications
     Permission.APPLICATION_READ_OWN,
-
-    // Organization (read only)
-    Permission.ORG_READ,
   ],
 
-  [UserRole.INDEPENDENT]: [
-    // Task Management
-    Permission.TASK_CREATE,
+  [UserRole.APPLICANT]: [
+    // Browse/Apply
     Permission.TASK_READ,
-
-    // Applications
     Permission.APPLICATION_CREATE,
     Permission.APPLICATION_READ_OWN,
-
-    // Special: Can manage applications for OWN tasks
-    // This is handled with context check, not static permission
   ],
 };
 
@@ -256,7 +254,7 @@ export function canWithContext(
   context: PermissionContext,
 ): boolean {
   // Admin always has access
-  if (role === UserRole.ADMIN) return true;
+  if (role === UserRole.GLOBAL_ADMIN) return true;
 
   // First check static permission
   if (hasPermission(role, permission)) {
@@ -270,8 +268,8 @@ export function canWithContext(
     return true;
   }
 
-  // Special case: Independent users can manage their own task's applications
-  if (role === UserRole.INDEPENDENT) {
+  // Special case: Advertiser users can manage their own task's applications
+  if (role === UserRole.TASK_ADVERTISER) {
     const applicationPermissions = [
       Permission.APPLICATION_READ,
       Permission.APPLICATION_SHORTLIST,
@@ -300,7 +298,7 @@ export async function canWithContextAsync(
   context: PermissionContext,
 ): Promise<boolean> {
   // Admin always has access
-  if (role === UserRole.ADMIN) return true;
+  if (role === UserRole.GLOBAL_ADMIN) return true;
 
   // First check database permission
   if (await hasPermissionAsync(role, permission)) {
@@ -314,8 +312,8 @@ export async function canWithContextAsync(
     return true;
   }
 
-  // Special case: Independent users can manage their own task's applications
-  if (role === UserRole.INDEPENDENT) {
+  // Special case: Advertiser users can manage their own task's applications
+  if (role === UserRole.TASK_ADVERTISER) {
     const applicationPermissions = [
       Permission.APPLICATION_READ,
       Permission.APPLICATION_SHORTLIST,
@@ -340,7 +338,11 @@ export async function canWithContextAsync(
 // ============================================================================
 
 export function canAutoPublish(role: UserRole): boolean {
-  const autoPublishRoles = [UserRole.ADMIN, UserRole.OWNER, UserRole.APPROVER];
+  const autoPublishRoles = [
+    UserRole.GLOBAL_ADMIN,
+    UserRole.SCHOOL_ADMIN,
+    UserRole.TASK_MANAGER,
+  ];
   return autoPublishRoles.includes(role);
 }
 

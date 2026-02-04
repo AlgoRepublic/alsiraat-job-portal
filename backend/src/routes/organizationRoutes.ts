@@ -10,16 +10,21 @@ import { UserRole } from "../models/User.js";
 const router = express.Router();
 
 // Admin only: create organization
-router.post("/", authenticate, authorize([UserRole.ADMIN]), createOrganization);
+router.post(
+  "/",
+  authenticate,
+  authorize([UserRole.GLOBAL_ADMIN]),
+  createOrganization,
+);
 
 // Public: list organizations (for signup)
 router.get("/", getOrganizations);
 
 // Owner/Admin: add member to organization
 router.post(
-  "/:orgId/members",
+  "/:id/members",
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.OWNER]),
+  authorize([UserRole.GLOBAL_ADMIN, UserRole.SCHOOL_ADMIN]),
   addMember,
 );
 

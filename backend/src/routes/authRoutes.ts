@@ -82,7 +82,7 @@ router.post(
 router.post(
   "/impersonate/:userId",
   authenticate,
-  authorize([UserRole.ADMIN]),
+  authorize([UserRole.GLOBAL_ADMIN]),
   impersonate,
 );
 

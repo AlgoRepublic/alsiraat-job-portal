@@ -4,7 +4,9 @@ import { Mail, Lock, Loader2, Shield, AlertCircle, Layers } from "lucide-react";
 import { db } from "../services/database";
 import { API_BASE_URL } from "../services/api";
 
-export const Login: React.FC = () => {
+export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
+  onLoginSuccess,
+}) => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [isSSOLoading, setIsSSOLoading] = useState(false);
@@ -18,6 +20,12 @@ export const Login: React.FC = () => {
     setError("");
     try {
       await db.login(email, password);
+
+      // Trigger global state update
+      if (onLoginSuccess) {
+        await onLoginSuccess();
+      }
+
       // Get updated user info
       const user = await db.getCurrentUser();
 
