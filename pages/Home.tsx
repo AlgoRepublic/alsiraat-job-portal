@@ -22,22 +22,34 @@ import {
   Laptop,
   Backpack,
   Palette,
+  CalendarDays,
+  LayoutGrid,
+  Presentation,
+  Hammer,
+  Lightbulb,
+  Waves,
+  Building2,
+  Cpu,
+  School,
+  Brush,
+  UserRound,
+  ShieldHalf,
 } from "lucide-react";
 import { db } from "../services/database";
 import { Job, JobStatus } from "../types";
 
 // Map category codes to Lucide icons
 const categoryIcons: Record<string, any> = {
-  events: PartyPopper,
-  programs: BarChart3,
-  seminar: GraduationCap,
-  maintenance: Wrench,
-  tutoring: BookOpen,
-  cleaning: Sparkles,
-  administration: FolderOpen,
-  technology: Laptop,
-  education: Backpack,
-  creative: Palette,
+  events: CalendarDays,
+  programs: LayoutGrid,
+  seminar: Presentation,
+  maintenance: Hammer,
+  tutoring: Lightbulb,
+  cleaning: Waves,
+  administration: Building2,
+  technology: Cpu,
+  education: School,
+  creative: Brush,
 };
 
 export const Home: React.FC = () => {
@@ -115,20 +127,36 @@ export const Home: React.FC = () => {
           <div className="hidden lg:block">
             <div className="grid grid-cols-2 gap-6">
               {[
-                { icon: Target, label: "Excellence", desc: "Top quality work" },
-                { icon: Users, label: "Community", desc: "For everyone" },
-                { icon: Zap, label: "Growth", desc: "Build skills" },
                 {
-                  icon: Shield,
+                  img: "/Users/ha/.gemini/antigravity/brain/71e3df54-7240-4472-bad4-5f126f9646bc/hero_excellence_3d_1770267393592.png",
+                  label: "Excellence",
+                  desc: "Top quality work",
+                },
+                {
+                  img: "/Users/ha/.gemini/antigravity/brain/71e3df54-7240-4472-bad4-5f126f9646bc/hero_community_3d_1770267407026.png",
+                  label: "Community",
+                  desc: "For everyone",
+                },
+                {
+                  img: "/Users/ha/.gemini/antigravity/brain/71e3df54-7240-4472-bad4-5f126f9646bc/hero_growth_3d_1770267420372.png",
+                  label: "Growth",
+                  desc: "Build skills",
+                },
+                {
+                  img: "/Users/ha/.gemini/antigravity/brain/71e3df54-7240-4472-bad4-5f126f9646bc/hero_trust_3d_1770267433189.png",
                   label: "Trust",
                   desc: "Secure portal",
                 },
               ].map((item, i) => (
                 <div
                   key={i}
-                  className={`p-8 rounded-[2rem] glass-card border-white/10 group hover:-translate-y-2 transition-all duration-500 ${i % 2 === 0 ? "mt-8" : ""}`}
+                  className={`p-8 rounded-[2rem] glass-card border-white/10 group hover:-translate-y-2 transition-all duration-500 overflow-hidden relative ${i % 2 === 0 ? "mt-8" : ""}`}
                 >
-                  <item.icon className="w-10 h-10 mb-6 text-primary group-hover:scale-110 transition-transform" />
+                  <img
+                    src={item.img}
+                    alt={item.label}
+                    className="w-16 h-16 mb-4 object-contain group-hover:scale-110 transition-transform"
+                  />
                   <h3 className="font-black text-xl text-white tracking-tighter">
                     {item.label}
                   </h3>
@@ -136,11 +164,9 @@ export const Home: React.FC = () => {
                     {item.desc}
                   </p>
 
-                  {/* Shimmer skeleton lines */}
                   <div className="mt-4 space-y-2 opacity-30">
                     <div className="h-2 bg-white/20 rounded-full w-full animate-pulse"></div>
                     <div className="h-2 bg-white/20 rounded-full w-4/5 animate-pulse delay-75"></div>
-                    <div className="h-2 bg-white/20 rounded-full w-3/5 animate-pulse delay-150"></div>
                   </div>
                 </div>
               ))}
@@ -321,8 +347,8 @@ export const Home: React.FC = () => {
       {/* Value Props */}
       <div className="grid md:grid-cols-3 gap-8">
         <div className="glass-card p-10 rounded-[2.5rem] text-center group hover:shadow-2xl transition-all">
-          <div className="w-16 h-16 bg-red-50 dark:bg-zinc-800 rounded-2xl flex items-center justify-center mx-auto mb-8 text-primary group-hover:scale-110 transition-transform shadow-xl">
-            <Users className="w-8 h-8" />
+          <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center mx-auto mb-8 text-blue-600 group-hover:scale-110 transition-transform shadow-xl">
+            <GraduationCap className="w-8 h-8" />
           </div>
           <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter mb-4">
             For Students
@@ -332,8 +358,8 @@ export const Home: React.FC = () => {
           </p>
         </div>
         <div className="glass-card p-10 rounded-[2.5rem] text-center group hover:shadow-2xl transition-all">
-          <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center mx-auto mb-8 text-blue-600 group-hover:scale-110 transition-transform shadow-xl">
-            <Rocket className="w-8 h-8" />
+          <div className="w-16 h-16 bg-amber-50 dark:bg-amber-900/20 rounded-2xl flex items-center justify-center mx-auto mb-8 text-amber-600 group-hover:scale-110 transition-transform shadow-xl">
+            <UserRound className="w-8 h-8" />
           </div>
           <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter mb-4">
             For Staff
@@ -344,7 +370,7 @@ export const Home: React.FC = () => {
         </div>
         <div className="glass-card p-10 rounded-[2.5rem] text-center group hover:shadow-2xl transition-all">
           <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl flex items-center justify-center mx-auto mb-8 text-emerald-600 group-hover:scale-110 transition-transform shadow-xl">
-            <Layers className="w-8 h-8" />
+            <ShieldHalf className="w-8 h-8" />
           </div>
           <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter mb-4">
             For Admin

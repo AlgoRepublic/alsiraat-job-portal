@@ -23,6 +23,9 @@ export enum Permission {
   TASK_APPROVE = "task:approve",
   TASK_PUBLISH = "task:publish",
   TASK_ARCHIVE = "task:archive",
+  TASK_VIEW_INTERNAL = "task:view_internal",
+  TASK_VIEW_PENDING = "task:view_pending",
+  TASK_AUTO_PUBLISH = "task:auto_publish",
 
   // Application Permissions
   APPLICATION_CREATE = "application:create", // Apply for a task
@@ -31,6 +34,7 @@ export enum Permission {
   APPLICATION_SHORTLIST = "application:shortlist",
   APPLICATION_APPROVE = "application:approve",
   APPLICATION_REJECT = "application:reject",
+  APPLICATION_CONFIRM = "application:confirm",
 
   // User Management
   USER_READ = "user:read",
@@ -82,6 +86,9 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.TASK_APPROVE,
     Permission.TASK_PUBLISH,
     Permission.TASK_ARCHIVE,
+    Permission.TASK_VIEW_INTERNAL,
+    Permission.TASK_VIEW_PENDING,
+    Permission.TASK_AUTO_PUBLISH,
 
     // Application Management
     Permission.APPLICATION_READ,
@@ -112,6 +119,9 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.TASK_READ,
     Permission.TASK_APPROVE,
     Permission.TASK_PUBLISH,
+    Permission.TASK_VIEW_INTERNAL,
+    Permission.TASK_VIEW_PENDING,
+    Permission.TASK_AUTO_PUBLISH,
 
     // Manages applications
     Permission.APPLICATION_READ,
@@ -137,6 +147,7 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.TASK_READ,
     Permission.APPLICATION_CREATE,
     Permission.APPLICATION_READ_OWN,
+    Permission.APPLICATION_CONFIRM,
   ],
 };
 
@@ -166,14 +177,19 @@ export async function hasPermissionAsync(
     // Import Role model dynamically to avoid circular dependencies
     const { default: Role } = await import("../models/Role.js");
 
-    // Map UserRole enum to role code (e.g., "Admin" -> "admin")
-    const roleCode = role.toLowerCase();
+    // Map UserRole enum to role code (e.g., "Global Admin" -> "global_admin")
+    // Use BOTH name (exact match) and code (with underscores) for maximum compatibility
+    const roleCode = role.toLowerCase().replace(/ /g, "_");
 
-    const roleDoc = await Role.findOne({ code: roleCode, isActive: true });
+    const roleDoc = await Role.findOne({
+      $or: [{ name: role }, { code: roleCode }, { code: role.toLowerCase() }],
+      isActive: true,
+    });
+
     if (!roleDoc) {
       // Fallback to static permissions if role not found in database
       console.warn(
-        `Role ${role} not found in database, using static permissions`,
+        `Role "${role}" (code: ${roleCode}) not found in database, using static permissions`,
       );
       return hasPermission(role, permission);
     }
@@ -236,9 +252,9 @@ export function getPermissionsForRole(role: UserRole): Permission[] {
 export interface PermissionContext {
   userId?: string;
   resourceOwnerId?: string;
-  organizationId?: string;
-  userOrganizationId?: string;
-  taskCreatorId?: string;
+  organizationId?: string | null;
+  userOrganizationId?: string | null;
+  taskCreatorId?: string | null;
 }
 
 /**
@@ -330,11 +346,10 @@ export async function canWithContextAsync(
   return false;
 }
 
-// ============================================================================
-// AUTO-PUBLISH CHECK
-// Determines if a role's tasks are auto-published
-// ============================================================================
-
+/**
+ * Determines if a role's tasks are auto-published (STATIC)
+ * @deprecated Use canAutoPublishAsync for database-driven check
+ */
 export function canAutoPublish(role: UserRole): boolean {
   const autoPublishRoles = [
     UserRole.GLOBAL_ADMIN,
@@ -342,6 +357,13 @@ export function canAutoPublish(role: UserRole): boolean {
     UserRole.TASK_MANAGER,
   ];
   return autoPublishRoles.includes(role);
+}
+
+/**
+ * Determines if a role's tasks are auto-published (DYNAMIC)
+ */
+export async function canAutoPublishAsync(role: UserRole): Promise<boolean> {
+  return hasPermissionAsync(role, Permission.TASK_AUTO_PUBLISH);
 }
 
 // ============================================================================

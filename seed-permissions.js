@@ -57,8 +57,8 @@ async function seedPermissions(token) {
   return data;
 }
 
-async function verifyApproverRole(token) {
-  console.log("\n🔍 Verifying Approver role...");
+async function verifyTaskManagerRole(token) {
+  console.log("\n🔍 Verifying Task Manager role...");
 
   const response = await fetch(`${BACKEND_URL}/api/roles`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -69,54 +69,49 @@ async function verifyApproverRole(token) {
   }
 
   const roles = await response.json();
-  const approverRole = roles.find((r) => r.code === "approver");
+  const tmRole = roles.find((r) => r.code === "task_manager");
 
-  if (!approverRole) {
-    console.log("❌ Approver role not found!");
+  if (!tmRole) {
+    console.log("❌ Task Manager role not found!");
     return false;
   }
 
-  console.log("✅ Approver role found");
-  console.log("   Permissions:", approverRole.permissions);
+  console.log("✅ Task Manager role found");
+  console.log("   Permissions:", tmRole.permissions);
 
   const expectedPermissions = [
     "task:read",
     "task:approve",
     "task:publish",
-    "org:read",
+    "application:read",
+    "application:shortlist",
+    "application:approve",
     "dashboard:view",
   ];
 
-  const hasTaskCreate = approverRole.permissions.includes("task:create");
-  const hasAppRead = approverRole.permissions.includes("application:read");
-  const hasAppShortlist = approverRole.permissions.includes(
-    "application:shortlist",
-  );
+  const hasTaskCreate = tmRole.permissions.includes("task:create");
 
-  if (hasTaskCreate || hasAppRead || hasAppShortlist) {
-    console.log("❌ FAIL: Approver has incorrect permissions!");
-    if (hasTaskCreate) console.log("   - Should NOT have: task:create");
-    if (hasAppRead) console.log("   - Should NOT have: application:read");
-    if (hasAppShortlist)
-      console.log("   - Should NOT have: application:shortlist");
+  if (hasTaskCreate) {
+    console.log("❌ FAIL: Task Manager has incorrect permissions!");
+    console.log("   - Should NOT have: task:create");
     return false;
   }
 
   const hasAllExpected = expectedPermissions.every((p) =>
-    approverRole.permissions.includes(p),
+    tmRole.permissions.includes(p),
   );
 
   if (!hasAllExpected) {
-    console.log("❌ FAIL: Approver missing required permissions!");
+    console.log("❌ FAIL: Task Manager missing required permissions!");
     expectedPermissions.forEach((p) => {
-      if (!approverRole.permissions.includes(p)) {
+      if (!tmRole.permissions.includes(p)) {
         console.log(`   - Missing: ${p}`);
       }
     });
     return false;
   }
 
-  console.log("✅ PASS: Approver has correct permissions!");
+  console.log("✅ PASS: Task Manager has correct permissions!");
   return true;
 }
 
@@ -133,7 +128,7 @@ async function main() {
     await seedPermissions(token);
 
     // Step 3: Verify
-    const isCorrect = await verifyApproverRole(token);
+    const isCorrect = await verifyTaskManagerRole(token);
 
     console.log("\n================================");
     if (isCorrect) {

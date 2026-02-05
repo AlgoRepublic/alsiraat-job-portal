@@ -18,6 +18,7 @@ import { LandingPage } from "./components/LandingPage";
 import { JobApplicants } from "./pages/JobApplicants";
 import { ApplicationReview } from "./pages/ApplicationReview";
 import { MyTasks } from "./pages/MyTasks";
+import { UserManagement } from "./pages/UserManagement";
 import MyApplications from "./pages/MyApplications";
 import { AdminSettings } from "./pages/AdminSettings";
 import { Reports } from "./pages/Reports";
@@ -26,7 +27,7 @@ import { Signup } from "./pages/Signup";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
 import { ToastProvider } from "./components/Toast";
-import { User, UserRole } from "./types";
+import { User, UserRole, Permission } from "./types";
 import { db } from "./services/database";
 
 const App: React.FC = () => {
@@ -102,8 +103,8 @@ const App: React.FC = () => {
                   onGetStarted={() => (window.location.hash = "#/login")}
                   onBrowseTasks={() => (window.location.hash = "#/jobs")}
                 />
-              ) : ["global admin", "school admin"].includes(
-                  currentUser.role?.toLowerCase(),
+              ) : currentUser.permissions?.includes(
+                  Permission.DASHBOARD_VIEW,
                 ) ? (
                 <Navigate to="/dashboard" replace />
               ) : (
@@ -158,15 +159,23 @@ const App: React.FC = () => {
                         element={<ApplicationReview />}
                       />
                       {/* Admin-only routes */}
-                      {currentUser.role?.toLowerCase() === "global admin" && (
-                        <Route
-                          path="/admin/settings"
-                          element={<AdminSettings />}
-                        />
+                      {currentUser.permissions?.includes(
+                        Permission.ADMIN_SETTINGS,
+                      ) && (
+                        <>
+                          <Route
+                            path="/admin/settings"
+                            element={<AdminSettings />}
+                          />
+                          <Route
+                            path="/admin/users"
+                            element={<UserManagement />}
+                          />
+                        </>
                       )}
                       {/* Admin and Owner routes */}
-                      {["global admin", "school admin"].includes(
-                        currentUser.role?.toLowerCase(),
+                      {currentUser.permissions?.includes(
+                        Permission.REPORTS_VIEW,
                       ) && <Route path="/reports" element={<Reports />} />}
                       <Route
                         path="/profile"

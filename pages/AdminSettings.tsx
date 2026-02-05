@@ -15,6 +15,7 @@ import {
   Loader2,
   Lock,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { JobCategory, UserRole } from "../types";
 import { useToast } from "../components/Toast";
 import { API_BASE_URL } from "../services/api";
@@ -41,6 +42,7 @@ interface Role {
 
 export const AdminSettings: React.FC = () => {
   const { showSuccess, showError } = useToast();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
     "roles" | "permissions" | "categories"
   >("roles");
@@ -893,6 +895,15 @@ export const AdminSettings: React.FC = () => {
             <Layers className="w-4 h-4 mr-3" />
             Categories
           </button>
+          <div className="pt-6 border-t border-zinc-100 dark:border-zinc-800">
+            <button
+              onClick={() => navigate("/admin/users")}
+              className="w-full flex items-center px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all text-zinc-500 hover:bg-white/50 dark:hover:bg-zinc-800"
+            >
+              <Users className="w-4 h-4 mr-3" />
+              Manage Users
+            </button>
+          </div>
         </div>
 
         <div className="md:col-span-3">

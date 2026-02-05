@@ -24,7 +24,7 @@ import {
   CheckCheck,
   Trash2,
 } from "lucide-react";
-import { UserRole, User, Job } from "../types";
+import { UserRole, User, Job, Permission } from "../types";
 import { SnowBackground } from "./SnowBackground";
 import { api, API_BASE_URL } from "../services/api";
 
@@ -388,17 +388,19 @@ export const Layout: React.FC<LayoutProps> = ({
     );
   }
 
-  const navItems = [
+  const navItems: {
+    icon: any;
+    label: string;
+    path: string;
+    protected?: boolean;
+    permission?: Permission;
+  }[] = [
     {
       icon: LayoutDashboard,
       label: "Overview",
       path: "/dashboard",
       protected: true,
-      roles: [
-        UserRole.GLOBAL_ADMIN,
-        UserRole.SCHOOL_ADMIN,
-        UserRole.TASK_MANAGER,
-      ],
+      permission: Permission.DASHBOARD_VIEW,
     },
     { icon: Briefcase, label: "Browse Tasks", path: "/jobs" },
     {
@@ -406,25 +408,20 @@ export const Layout: React.FC<LayoutProps> = ({
       label: "Create Task",
       path: "/post-job",
       protected: true,
-      // All authenticated users can create tasks
+      permission: Permission.TASK_CREATE,
     },
     {
       icon: FileText,
       label: "My Applications",
       path: "/my-applications",
       protected: true,
-      // All authenticated users can see their applications
     },
     {
       icon: Clock,
       label: "Pending Approvals",
       path: "/jobs?status=Pending",
       protected: true,
-      roles: [
-        UserRole.GLOBAL_ADMIN,
-        UserRole.SCHOOL_ADMIN,
-        UserRole.TASK_MANAGER,
-      ],
+      permission: Permission.TASK_APPROVE,
     },
     {
       icon: CheckCircle,
@@ -442,22 +439,15 @@ export const Layout: React.FC<LayoutProps> = ({
       icon: Settings,
       label: "Admin Settings",
       path: "/admin/settings",
-      roles: [UserRole.GLOBAL_ADMIN],
+      permission: Permission.ADMIN_SETTINGS,
       protected: true,
     },
   ];
 
   const filteredNav = navItems.filter((item) => {
     if (item.protected && !currentUser) return false;
-    if (item.roles && currentUser) {
-      // Case-insensitive role comparison
-      const userRoleLower = currentUser.role?.toLowerCase() || "";
-      const hasMatchingRole = item.roles.some(
-        (role) => role.toLowerCase() === userRoleLower,
-      );
-      if (!hasMatchingRole) return false;
-    } else if (item.roles && !currentUser) {
-      return false;
+    if (item.permission && currentUser) {
+      if (!currentUser.permissions?.includes(item.permission)) return false;
     }
     return true;
   });

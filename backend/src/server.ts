@@ -12,6 +12,7 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 import roleRoutes from "./routes/roleRoutes.js";
 import rewardTypeRoutes from "./routes/rewardTypeRoutes.js";
 import taskCategoryRoutes from "./routes/taskCategoryRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
 
 // Only load dotenv in development (Cloud Run provides env vars directly)
 if (process.env.NODE_ENV !== "production") {
@@ -58,6 +59,7 @@ app.use("/api/tasks", taskRoutes);
 app.use("/api/applications", applicationRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/roles", roleRoutes);
+app.use("/api/users", userRoutes);
 app.use("/api/reward-types", rewardTypeRoutes);
 app.use("/api/task-categories", taskCategoryRoutes);
 

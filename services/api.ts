@@ -85,6 +85,37 @@ class ApiService {
     }
   }
 
+  // --- Generic Methods ---
+
+  public async get<T>(endpoint: string): Promise<T> {
+    return this.request<T>(endpoint, { method: "GET" });
+  }
+
+  public async post<T>(endpoint: string, body?: any): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: "POST",
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  }
+
+  public async put<T>(endpoint: string, body?: any): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: "PUT",
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  }
+
+  public async patch<T>(endpoint: string, body?: any): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: "PATCH",
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  }
+
+  public async delete<T>(endpoint: string): Promise<T> {
+    return this.request<T>(endpoint, { method: "DELETE" });
+  }
+
   // --- Auth ---
 
   async login(email: string, password: string): Promise<AuthResponse> {
@@ -207,6 +238,11 @@ class ApiService {
   // --- Task Categories ---
   async getTaskCategories(): Promise<any[]> {
     return this.request<any[]>("/task-categories");
+  }
+
+  // --- Roles ---
+  async getRoles(): Promise<any[]> {
+    return this.request<any[]>("/roles");
   }
 
   // --- Task Creation with Files ---

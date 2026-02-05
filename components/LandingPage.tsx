@@ -239,7 +239,10 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
                         key={i}
                         className="w-10 h-10 rounded-xl bg-zinc-800 border-2 border-zinc-900 overflow-hidden"
                       >
-                        <img src={`https://i.pravatar.cc/100?u=${i}`} alt="" />
+                        <img
+                          src={`https://ui-avatars.com/api/?name=xx`}
+                          alt=""
+                        />
                       </div>
                     ))}
                   </div>

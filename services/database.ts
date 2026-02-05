@@ -219,8 +219,16 @@ class DatabaseService {
     return await api.applyForTask(applicationData);
   }
 
-  async updateApplicationStatus(appId: string, status: string): Promise<any> {
-    return await api.updateApplicationStatus(appId, status);
+  async updateApplicationStatus(id: string, status: string): Promise<any> {
+    return api.put(`/applications/${id}/status`, { status });
+  }
+
+  async confirmOffer(id: string): Promise<any> {
+    return api.put(`/applications/${id}/confirm`, {});
+  }
+
+  async declineOffer(id: string): Promise<any> {
+    return api.put(`/applications/${id}/decline`, {});
   }
 
   // --- Notifications ---
@@ -266,6 +274,29 @@ class DatabaseService {
       console.warn("Failed to fetch task categories", err);
       return [];
     }
+  }
+
+  async getUsers(search?: string, role?: string): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (search) params.append("search", search);
+    if (role) params.append("role", role);
+    return api.get(`/users?${params.toString()}`);
+  }
+
+  async getUser(id: string): Promise<any> {
+    return api.get(`/users/${id}`);
+  }
+
+  async updateUserRole(id: string, roleId: string): Promise<any> {
+    return api.patch(`/users/${id}/role`, { roleId });
+  }
+
+  async deleteUser(id: string): Promise<any> {
+    return api.delete(`/users/${id}`);
+  }
+
+  async getRoles(): Promise<any[]> {
+    return api.getRoles();
   }
 }
 

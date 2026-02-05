@@ -86,6 +86,7 @@ export interface User {
   role: UserRole;
   avatar: string;
   email: string;
+  permissions?: string[];
 }
 
 export interface Skill {
@@ -100,6 +101,58 @@ export interface ApplicantProfile extends User {
   experience: Job[]; // Completed tasks
 }
 
+export enum Permission {
+  // Task/Job Permissions
+  TASK_CREATE = "task:create",
+  TASK_READ = "task:read",
+  TASK_UPDATE = "task:update",
+  TASK_DELETE = "task:delete",
+  TASK_SUBMIT = "task:submit",
+  TASK_APPROVE = "task:approve",
+  TASK_PUBLISH = "task:publish",
+  TASK_ARCHIVE = "task:archive",
+  TASK_VIEW_INTERNAL = "task:view_internal",
+  TASK_VIEW_PENDING = "task:view_pending",
+  TASK_AUTO_PUBLISH = "task:auto_publish",
+
+  // Application Permissions
+  APPLICATION_CREATE = "application:create",
+  APPLICATION_READ = "application:read",
+  APPLICATION_READ_OWN = "application:read_own",
+  APPLICATION_SHORTLIST = "application:shortlist",
+  APPLICATION_APPROVE = "application:approve",
+  APPLICATION_REJECT = "application:reject",
+  APPLICATION_CONFIRM = "application:confirm",
+
+  // User Management
+  USER_READ = "user:read",
+  USER_UPDATE = "user:update",
+  USER_DELETE = "user:delete",
+  USER_IMPERSONATE = "user:impersonate",
+  USER_MANAGE_ROLES = "user:manage_roles",
+
+  // Organization Management
+  ORG_CREATE = "org:create",
+  ORG_READ = "org:read",
+  ORG_UPDATE = "org:update",
+  ORG_DELETE = "org:delete",
+  ORG_MANAGE_MEMBERS = "org:manage_members",
+
+  // Dashboard & Analytics
+  DASHBOARD_VIEW = "dashboard:view",
+  ANALYTICS_VIEW = "analytics:view",
+
+  // Reporting
+  REPORTS_VIEW = "reports:view",
+  REPORTS_EXPORT = "reports:export",
+  REPORTS_CREATE = "reports:create",
+
+  // Admin Permissions
+  ADMIN_SETTINGS = "admin:settings",
+  ADMIN_AUDIT_LOG = "admin:audit_log",
+  ADMIN_MANAGE_TENANTS = "admin:manage_tenants",
+}
+
 export interface Application {
   id: string;
   jobId: string;
@@ -108,7 +161,15 @@ export interface Application {
   applicantName: string;
   applicantEmail: string;
   applicantAvatar: string;
-  status: "Pending" | "Reviewing" | "Shortlisted" | "Approved" | "Rejected";
+  status:
+    | "Pending"
+    | "Reviewing"
+    | "Shortlisted"
+    | "Approved"
+    | "Rejected"
+    | "Offered"
+    | "Accepted"
+    | "Declined";
   appliedAt: string;
   coverLetter: string;
   availability: string;
@@ -120,7 +181,7 @@ export interface RoleDefinition {
   permissions: string[];
 }
 
-export interface Permission {
+export interface PermissionInfo {
   id: string;
   name: string;
   description: string;

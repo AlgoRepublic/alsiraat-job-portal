@@ -11,6 +11,7 @@ import {
 } from "../controllers/authController.js";
 import { authenticate, authorize } from "../middleware/rbac.js";
 import { UserRole } from "../models/User.js";
+import { hasPermissionAsync, Permission } from "../config/permissions.js";
 import "../config/passport.js";
 
 const router = express.Router();
@@ -32,19 +33,31 @@ router.post("/login", (req, res, next) => {
       }
 
       const token = generateToken(user);
-      res.json({
-        token,
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          skills: user.skills || [],
-          about: user.about || "",
-          avatar: user.avatar,
-          organisation: user.organization,
-        },
-      });
+
+      // Get current permissions for the role
+      (async () => {
+        const permissions: string[] = [];
+        for (const p of Object.values(Permission)) {
+          if (await hasPermissionAsync(user.role as UserRole, p)) {
+            permissions.push(p);
+          }
+        }
+
+        res.json({
+          token,
+          user: {
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            skills: user.skills || [],
+            about: user.about || "",
+            avatar: user.avatar,
+            organisation: user.organization,
+            permissions,
+          },
+        });
+      })();
     },
   )(req, res, next);
 });

@@ -6,6 +6,9 @@ export enum ApplicationStatus {
   SHORTLISTED = "Shortlisted",
   APPROVED = "Approved",
   REJECTED = "Rejected",
+  OFFERED = "Offered",
+  ACCEPTED = "Accepted",
+  DECLINED = "Declined",
 }
 
 export interface IApplication extends Document {
