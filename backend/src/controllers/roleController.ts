@@ -521,6 +521,7 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
           "dashboard:view",
           "analytics:view",
           "reports:view",
+          "admin:settings",
         ],
         isSystem: true,
         color: "#7C3AED", // Violet
@@ -619,4 +620,3 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
     res.status(500).json({ message: err.message });
   }
 };
-

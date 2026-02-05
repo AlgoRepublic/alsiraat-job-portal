@@ -54,9 +54,11 @@ const UserSchema: Schema = new Schema(
       default: UserRole.APPLICANT,
       set: (v: string) => {
         if (!v) return v;
-        // Find existing role value matching case-insensitively
+        // Find existing role value matching case-insensitively (handling both spaces and underscores)
         const role = Object.values(UserRole).find(
-          (r) => r.toLowerCase() === v.toLowerCase(),
+          (r) =>
+            r.toLowerCase() === v.toLowerCase() ||
+            r.toLowerCase() === v.toLowerCase().replace(/_/g, " "),
         );
         return role || v;
       },

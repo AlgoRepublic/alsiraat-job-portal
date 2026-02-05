@@ -4,6 +4,8 @@ import {
   updateApplicationStatus,
   getApplications,
   getApplicationById,
+  confirmOffer,
+  declineOffer,
 } from "../controllers/applicationController.js";
 import {
   authenticate,
@@ -29,5 +31,19 @@ router.get("/:appId", authenticate, getApplicationById);
 
 // Update application status - controller checks specific permission (shortlist/approve/reject)
 router.put("/:appId/status", authenticate, updateApplicationStatus);
+
+// Confirm/Decline offer - applicant only
+router.put(
+  "/:appId/confirm",
+  authenticate,
+  requirePermission(Permission.APPLICATION_CONFIRM),
+  confirmOffer,
+);
+router.put(
+  "/:appId/decline",
+  authenticate,
+  requirePermission(Permission.APPLICATION_CONFIRM),
+  declineOffer,
+);
 
 export default router;

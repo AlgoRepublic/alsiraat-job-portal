@@ -408,13 +408,17 @@ export const JobDetails: React.FC = () => {
                               <div className="mt-2">
                                 <span
                                   className={`px-2 py-1 text-[9px] font-black rounded-lg uppercase tracking-wider ${
-                                    app.status === "Approved"
+                                    app.status === "Approved" ||
+                                    app.status === "Accepted"
                                       ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
-                                      : app.status === "Shortlisted"
+                                      : app.status === "Offered"
                                         ? "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400"
-                                        : app.status === "Rejected"
-                                          ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
-                                          : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
+                                        : app.status === "Shortlisted"
+                                          ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
+                                          : app.status === "Rejected" ||
+                                              app.status === "Declined"
+                                            ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                                            : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
                                   }`}
                                 >
                                   {app.status}

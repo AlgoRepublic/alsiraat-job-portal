@@ -304,21 +304,24 @@ export async function checkPermissionAsync(
 // IMPERSONATION (Admin only)
 // ============================================================================
 
-export const checkImpersonation = (
+export const checkImpersonation = async (
   req: any,
   res: Response,
   next: NextFunction,
 ) => {
-  const userRole = (req.user.role || "").toLowerCase();
-  const isAdmin = userRole === UserRole.GLOBAL_ADMIN.toLowerCase();
+  const { checkPermissionAsync } = await import("./rbac.js");
+  const { allowed } = await checkPermissionAsync(
+    req.user,
+    Permission.USER_IMPERSONATE,
+  );
 
-  if (req.header("x-impersonate-role") && !isAdmin) {
+  if (req.header("x-impersonate-role") && !allowed) {
     return res
       .status(403)
-      .json({ message: "Only Admin can impersonate roles" });
+      .json({ message: "You don't have permission to impersonate roles" });
   }
 
-  if (req.header("x-impersonate-role") && isAdmin) {
+  if (req.header("x-impersonate-role") && allowed) {
     req.impersonatedRole = req.header("x-impersonate-role");
   }
   next();
@@ -343,8 +346,8 @@ export const requireTaskApproval = async (
     return res.status(401).json({ message: "Unauthorised" });
   }
 
-  const normalizedRole = (req.user.role || "").toLowerCase();
   const taskId = req.params.id || req.params.taskId;
+  const { checkPermissionAsync } = await import("./rbac.js");
 
   // Fetch the task to check its visibility type
   const Task = (await import("../models/Task.js")).default;
@@ -354,43 +357,44 @@ export const requireTaskApproval = async (
     return res.status(404).json({ message: "Task not found" });
   }
 
-  // Global Admin (Super Admin) can approve ANY task
-  if (normalizedRole === UserRole.GLOBAL_ADMIN.toLowerCase()) {
-    return next();
+  // Use dynamic permission check with context
+  const context: any = {
+    organizationId: task.organization?.toString() || null,
+    userOrganizationId: req.user.organization?.toString() || null,
+    taskCreatorId: task.createdBy?.toString() || null,
+    userId: req.user._id.toString(),
+  };
+
+  const { allowed } = await checkPermissionAsync(
+    req.user,
+    Permission.TASK_APPROVE,
+    context,
+  );
+
+  if (!allowed) {
+    // Basic role check fallback for Global tasks to ensure Global Admin can always approve
+    // but the Permission.TASK_APPROVE check should have covered this if Admin has all permissions
+    return res.status(403).json({
+      message: "Insufficient permissions to approve this task",
+      role: req.user.role,
+    });
   }
 
-  // School Admin and Task Manager can approve INTERNAL tasks from their org
+  // Cross-organisation check is already handled inside canWithContext via context.organizationId
+  // but if it's Global Visibility, we need to ensure they have the permission to approve Global tasks
+  // Let's add that specific check if visibility is Global
   if (
-    normalizedRole === UserRole.SCHOOL_ADMIN.toLowerCase() ||
-    normalizedRole === UserRole.TASK_MANAGER.toLowerCase()
+    task.visibility !== "Internal" &&
+    req.user.role.toLowerCase() !== UserRole.GLOBAL_ADMIN.toLowerCase()
   ) {
-    // Check if task is Internal
-    if (task.visibility !== "Internal") {
-      return res.status(403).json({
-        message:
-          "You can only approve Internal tasks. Global tasks require Global Admin approval.",
-        taskVisibility: task.visibility,
-      });
-    }
-
-    // Check if task belongs to their organisation
-    if (
-      !req.user.organization ||
-      task.organization?.toString() !== req.user.organization.toString()
-    ) {
-      return res.status(403).json({
-        message: "You can only approve tasks from your organisation",
-      });
-    }
-
-    return next();
+    // Only Global Admin can approve non-internal tasks
+    return res.status(403).json({
+      message:
+        "Only Global Admin can approve Global tasks. You can only approve Internal tasks from your organisation.",
+    });
   }
 
-  // All other roles cannot approve
-  return res.status(403).json({
-    message: "Insufficient permissions to approve tasks",
-    role: req.user.role,
-  });
+  return next();
 };
 
 // Re-export permissions for convenience

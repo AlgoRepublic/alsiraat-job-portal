@@ -49,6 +49,36 @@ export const ApplicationReview: React.FC = () => {
 
   const { showSuccess, showError } = useToast();
 
+  const handleConfirmOffer = async () => {
+    if (app) {
+      setIsUpdating(true);
+      try {
+        await db.confirmOffer(app.id);
+        setApp({ ...app, status: "Accepted" });
+        showSuccess("Offer accepted successfully!");
+      } catch (err: any) {
+        showError(err?.message || "Failed to confirm offer");
+      } finally {
+        setIsUpdating(false);
+      }
+    }
+  };
+
+  const handleDeclineOffer = async () => {
+    if (app) {
+      setIsUpdating(true);
+      try {
+        await db.declineOffer(app.id);
+        setApp({ ...app, status: "Declined" });
+        showSuccess("Offer declined successfully!");
+      } catch (err: any) {
+        showError(err?.message || "Failed to decline offer");
+      } finally {
+        setIsUpdating(false);
+      }
+    }
+  };
+
   const handleStatusUpdate = async (status: string) => {
     if (app) {
       setIsUpdating(true);
@@ -93,8 +123,13 @@ export const ApplicationReview: React.FC = () => {
       case "Offer Accepted":
         return "bg-green-100 text-green-800";
       case "Rejected":
+      case "Declined":
       case "Offer Declined":
         return "bg-red-100 text-red-800";
+      case "Offered":
+        return "bg-purple-100 text-purple-800";
+      case "Accepted":
+        return "bg-emerald-100 text-emerald-800";
       case "Shortlisted":
         return "bg-blue-100 text-blue-800";
       default:
@@ -230,19 +265,22 @@ export const ApplicationReview: React.FC = () => {
                     {canApproveReject && (
                       <>
                         <button
-                          onClick={() => handleStatusUpdate("Approved")}
+                          onClick={() => handleStatusUpdate("Offered")}
                           disabled={
-                            app.status === "Approved" ||
+                            app.status === "Offered" ||
+                            app.status === "Accepted" ||
+                            app.status === "Declined" ||
                             (!isGlobalAdmin && app.status !== "Shortlisted")
                           }
                           className="w-full py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <CheckCircle className="w-4 h-4 mr-2" /> Approve
+                          <CheckCircle className="w-4 h-4 mr-2" /> Offer
                         </button>
                         <button
                           onClick={() => handleStatusUpdate("Rejected")}
                           disabled={
                             app.status === "Rejected" ||
+                            app.status === "Accepted" ||
                             (!isGlobalAdmin && app.status !== "Shortlisted")
                           }
                           className="w-full py-3 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-red-600 rounded-xl font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -251,6 +289,34 @@ export const ApplicationReview: React.FC = () => {
                         </button>
                       </>
                     )}
+                  </div>
+                </div>
+              );
+            }
+
+            // Applicant View - Confirm/Decline
+            const isApplicant =
+              currentUser.id === app.userId || currentUser._id === app.userId;
+
+            if (isApplicant && app.status === "Offered") {
+              return (
+                <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6">
+                  <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wide mb-4">
+                    Job Offer
+                  </h3>
+                  <div className="space-y-3">
+                    <button
+                      onClick={handleConfirmOffer}
+                      className="w-full py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 flex items-center justify-center transition-colors shadow-lg shadow-emerald-500/20"
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" /> Confirm Offer
+                    </button>
+                    <button
+                      onClick={handleDeclineOffer}
+                      className="w-full py-3 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-red-600 rounded-xl font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center justify-center transition-colors"
+                    >
+                      <XCircle className="w-4 h-4 mr-2" /> Decline Offer
+                    </button>
                   </div>
                 </div>
               );

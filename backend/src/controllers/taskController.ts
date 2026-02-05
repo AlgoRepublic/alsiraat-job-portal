@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import Task, { TaskStatus, TaskVisibility } from "../models/Task.js";
 import User, { UserRole } from "../models/User.js";
+import { Permission } from "../config/permissions.js";
 import Application from "../models/Application.js";
 import {
   sendNotificationToAll,
@@ -24,8 +25,12 @@ export const createTask = async (req: any, res: Response) => {
     } = req.body;
 
     // All tasks start as PENDING and require explicit approval
-    // Only users with task:approve permission can publish tasks
-    const taskStatus = TaskStatus.PENDING;
+    // Only users with TASK_AUTO_PUBLISH permission can skip approval
+    const { canAutoPublishAsync } = await import("../config/permissions.js");
+    const isAutoPublish = await canAutoPublishAsync(req.user.role);
+    const taskStatus = isAutoPublish
+      ? TaskStatus.PUBLISHED
+      : TaskStatus.PENDING;
 
     // Handle file attachments
     const attachments: any[] = [];
@@ -97,35 +102,29 @@ export const getTasks = async (req: any, res: Response) => {
       return res.json(tasks);
     }
 
-    // Build base visibility/status query
+    const { checkPermissionAsync } = await import("../middleware/rbac.js");
+
+    // Dynamic Visibility Logic
     if (!user) {
       // Guest: Only see Published Global tasks
       query = {
         status: TaskStatus.PUBLISHED,
         visibility: TaskVisibility.GLOBAL,
       };
-    } else if (normalizedRole === UserRole.GLOBAL_ADMIN.toLowerCase()) {
-      // Global Admin (Super Admin): See EVERYTHING (all statuses, all visibility)
-      query = {};
-    } else if (normalizedRole === UserRole.APPLICANT.toLowerCase()) {
-      // Applicant/Independent: CANNOT see pending tasks
-      const conditions: any[] = [];
-
-      // 1. Own created tasks (any status except Archived)
-      conditions.push({
-        createdBy: userId,
-        status: { $ne: TaskStatus.ARCHIVED },
-      });
-
-      // 2. Published Global tasks only (no Internal, no Pending)
-      conditions.push({
-        visibility: TaskVisibility.GLOBAL,
-        status: TaskStatus.PUBLISHED,
-      });
-
-      query = { $or: conditions };
     } else {
-      // School Admin, Task Manager, Task Advertiser: CAN see pending tasks
+      const { allowed: canViewAll } = await checkPermissionAsync(
+        user,
+        Permission.TASK_READ,
+      );
+      const { allowed: canViewInternal } = await checkPermissionAsync(
+        user,
+        Permission.TASK_VIEW_INTERNAL,
+      );
+      const { allowed: canViewPending } = await checkPermissionAsync(
+        user,
+        Permission.TASK_VIEW_PENDING,
+      );
+
       const conditions: any[] = [];
 
       // 1. Own created tasks (any status except Archived)
@@ -140,22 +139,47 @@ export const getTasks = async (req: any, res: Response) => {
         status: TaskStatus.PUBLISHED,
       });
 
-      // 3. Pending Global tasks (can see but may not approve)
-      conditions.push({
-        visibility: TaskVisibility.GLOBAL,
-        status: TaskStatus.PENDING,
-      });
-
-      // 4. If user has organisation: Internal tasks from same org (Published AND Pending)
-      if (organization) {
+      // 3. Pending Global tasks (if user has permission to view pending)
+      if (canViewPending) {
         conditions.push({
-          visibility: TaskVisibility.INTERNAL,
-          organization: organization,
-          status: { $in: [TaskStatus.PUBLISHED, TaskStatus.PENDING] },
+          visibility: TaskVisibility.GLOBAL,
+          status: TaskStatus.PENDING,
         });
       }
 
-      query = { $or: conditions };
+      // 4. Internal tasks (if user has permission to view internal)
+      // Only show from same org unless they have global read permission
+      if (canViewInternal && organization) {
+        conditions.push({
+          visibility: TaskVisibility.INTERNAL,
+          organization: organization,
+          status: canViewPending
+            ? { $in: [TaskStatus.PUBLISHED, TaskStatus.PENDING] }
+            : TaskStatus.PUBLISHED,
+        });
+      }
+
+      if (canViewAll) {
+        // Super permissions (e.g. Global Admin) - can essentially see everything
+        // But for consistency we still use the conditions unless it's truly "view all"
+        // If they have all view permissions, we could just empty the query,
+        // but let's stick to the granular conditions for now as they are safer.
+        if (canViewInternal && canViewPending) {
+          // If they can see internal and pending, and they are global admin,
+          // they should see global tasks from other orgs too?
+          // The current system doesn't really have "global internal" tasks.
+          // Let's just allow empty query for truly global admins.
+          if (normalizedRole === UserRole.GLOBAL_ADMIN.toLowerCase()) {
+            query = {};
+          } else {
+            query = { $or: conditions };
+          }
+        } else {
+          query = { $or: conditions };
+        }
+      } else {
+        query = { $or: conditions };
+      }
     }
 
     // Add search filter if provided
