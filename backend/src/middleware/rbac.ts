@@ -324,5 +324,74 @@ export const checkImpersonation = (
   next();
 };
 
+// ============================================================================
+// TASK APPROVAL AUTHORIZATION (Context-aware)
+// ============================================================================
+
+/**
+ * Context-aware middleware for task approval
+ * - Global Admin can approve ANY task (Internal or Global)
+ * - School Admin and Task Manager can approve INTERNAL tasks from their org only
+ * - All other roles cannot approve
+ */
+export const requireTaskApproval = async (
+  req: any,
+  res: Response,
+  next: NextFunction,
+) => {
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorised" });
+  }
+
+  const normalizedRole = (req.user.role || "").toLowerCase();
+  const taskId = req.params.id || req.params.taskId;
+
+  // Fetch the task to check its visibility type
+  const Task = (await import("../models/Task.js")).default;
+  const task = await Task.findById(taskId);
+
+  if (!task) {
+    return res.status(404).json({ message: "Task not found" });
+  }
+
+  // Global Admin (Super Admin) can approve ANY task
+  if (normalizedRole === UserRole.GLOBAL_ADMIN.toLowerCase()) {
+    return next();
+  }
+
+  // School Admin and Task Manager can approve INTERNAL tasks from their org
+  if (
+    normalizedRole === UserRole.SCHOOL_ADMIN.toLowerCase() ||
+    normalizedRole === UserRole.TASK_MANAGER.toLowerCase()
+  ) {
+    // Check if task is Internal
+    if (task.visibility !== "Internal") {
+      return res.status(403).json({
+        message:
+          "You can only approve Internal tasks. Global tasks require Global Admin approval.",
+        taskVisibility: task.visibility,
+      });
+    }
+
+    // Check if task belongs to their organisation
+    if (
+      !req.user.organization ||
+      task.organization?.toString() !== req.user.organization.toString()
+    ) {
+      return res.status(403).json({
+        message: "You can only approve tasks from your organisation",
+      });
+    }
+
+    return next();
+  }
+
+  // All other roles cannot approve
+  return res.status(403).json({
+    message: "Insufficient permissions to approve tasks",
+    role: req.user.role,
+  });
+};
+
 // Re-export permissions for convenience
 export { Permission } from "../config/permissions.js";

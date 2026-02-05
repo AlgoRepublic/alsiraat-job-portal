@@ -106,7 +106,7 @@ export const ApplicationReview: React.FC = () => {
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in pb-20 relative">
       {isUpdating && (
         <div className="absolute inset-0 bg-white/40 dark:bg-black/40 z-50 flex items-center justify-center rounded-[2rem]">
-          <Loader2 className="w-10 h-10 text-red-600 animate-spin" />
+          <Loader2 className="w-10 h-10 text-primary animate-spin" />
         </div>
       )}
 
@@ -194,65 +194,69 @@ export const ApplicationReview: React.FC = () => {
             </div>
           </div>
 
-          {/* Actions - Role-based visibility */}
-          {currentUser &&
-            (currentUser.role === UserRole.ADMIN ||
-              currentUser.role === UserRole.OWNER ||
-              currentUser.role === UserRole.APPROVER ||
-              // Independent can manage their own jobs
-              (currentUser.role === UserRole.INDEPENDENT &&
-                job?.createdBy === currentUser.id)) && (
-              <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6">
-                <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wide mb-4">
-                  Actions
-                </h3>
-                <div className="space-y-3">
-                  {/* Shortlist - Visible to Approver, Owner, Admin, and job owner (Independent) */}
-                  {(currentUser.role === UserRole.APPROVER ||
-                    currentUser.role === UserRole.OWNER ||
-                    currentUser.role === UserRole.ADMIN ||
-                    (currentUser.role === UserRole.INDEPENDENT &&
-                      job?.createdBy === currentUser.id)) && (
-                    <button
-                      onClick={() => handleStatusUpdate("Shortlisted")}
-                      disabled={app.status === "Shortlisted"}
-                      className="w-full py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <CheckCircle className="w-4 h-4 mr-2" /> Shortlist
-                    </button>
-                  )}
+          {(() => {
+            if (!currentUser || !job) return null;
 
-                  {/* Approve/Reject - Visible to Owner, Admin, and job owner (Independent) */}
-                  {(currentUser.role === UserRole.OWNER ||
-                    currentUser.role === UserRole.ADMIN ||
-                    (currentUser.role === UserRole.INDEPENDENT &&
-                      job?.createdBy === currentUser.id)) && (
-                    <>
+            const isGlobalAdmin = currentUser.role === UserRole.GLOBAL_ADMIN;
+            const isPrincipal = currentUser.role === UserRole.SCHOOL_ADMIN;
+            const isCoordinator = currentUser.role === UserRole.TASK_MANAGER;
+            const isMemberOfOrg =
+              currentUser.organisation &&
+              job.organisation === currentUser.organisation;
+
+            const canShortlist =
+              isGlobalAdmin ||
+              ((isPrincipal || isCoordinator) && isMemberOfOrg);
+            const canApproveReject =
+              isGlobalAdmin || (isPrincipal && isMemberOfOrg);
+
+            if (canShortlist || canApproveReject) {
+              return (
+                <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6">
+                  <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wide mb-4">
+                    Actions
+                  </h3>
+                  <div className="space-y-3">
+                    {canShortlist && (
                       <button
-                        onClick={() => handleStatusUpdate("Approved")}
-                        disabled={
-                          app.status !== "Shortlisted" &&
-                          currentUser.role !== UserRole.ADMIN
-                        }
-                        className="w-full py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={() => handleStatusUpdate("Shortlisted")}
+                        disabled={app.status === "Shortlisted"}
+                        className="w-full py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <CheckCircle className="w-4 h-4 mr-2" /> Approve
+                        <CheckCircle className="w-4 h-4 mr-2" /> Shortlist
                       </button>
-                      <button
-                        onClick={() => handleStatusUpdate("Rejected")}
-                        disabled={
-                          app.status !== "Shortlisted" &&
-                          currentUser.role !== UserRole.ADMIN
-                        }
-                        className="w-full py-3 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-red-600 rounded-xl font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <XCircle className="w-4 h-4 mr-2" /> Reject
-                      </button>
-                    </>
-                  )}
+                    )}
+
+                    {canApproveReject && (
+                      <>
+                        <button
+                          onClick={() => handleStatusUpdate("Approved")}
+                          disabled={
+                            app.status === "Approved" ||
+                            (!isGlobalAdmin && app.status !== "Shortlisted")
+                          }
+                          className="w-full py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <CheckCircle className="w-4 h-4 mr-2" /> Approve
+                        </button>
+                        <button
+                          onClick={() => handleStatusUpdate("Rejected")}
+                          disabled={
+                            app.status === "Rejected" ||
+                            (!isGlobalAdmin && app.status !== "Shortlisted")
+                          }
+                          className="w-full py-3 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-red-600 rounded-xl font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <XCircle className="w-4 h-4 mr-2" /> Reject
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            }
+            return null;
+          })()}
         </div>
       </div>
     </div>

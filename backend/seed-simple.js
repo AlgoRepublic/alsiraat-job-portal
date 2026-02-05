@@ -119,7 +119,7 @@ async function seed() {
         code: "seminar",
         icon: "🎓",
         color: "#45B7D1",
-        description: "Seminar and workshop organization",
+        description: "Seminar and workshop organisation",
         isActive: true,
         isSystem: true,
       },

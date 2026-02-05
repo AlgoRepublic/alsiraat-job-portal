@@ -34,14 +34,14 @@ export const ForgotPassword: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 transition-colors relative overflow-hidden bg-zinc-50 dark:bg-black">
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-red-500/10 rounded-full blur-[100px]"></div>
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[100px]"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-500/10 rounded-full blur-[100px]"></div>
       </div>
 
       <div className="w-full max-w-md glass-card rounded-3xl shadow-2xl shadow-zinc-200 dark:shadow-black/50 p-8 md:p-10 border border-white/20 dark:border-zinc-700 animate-slide-up relative">
         <Link
           to="/login"
-          className="absolute top-6 left-6 text-zinc-400 hover:text-red-600 transition-colors flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
+          className="absolute top-6 left-6 text-zinc-400 hover:text-primary transition-colors flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
         >
           <ArrowLeft className="w-4 h-4" /> Back
         </Link>
@@ -74,7 +74,7 @@ export const ForgotPassword: React.FC = () => {
             </div>
             <Link
               to="/login"
-              className="inline-flex items-center gap-2 text-zinc-600 dark:text-zinc-400 font-black uppercase tracking-widest text-[10px] hover:text-red-600 transition-colors"
+              className="inline-flex items-center gap-2 text-zinc-600 dark:text-zinc-400 font-black uppercase tracking-widest text-[10px] hover:text-primary transition-colors"
             >
               Return to Entry Point
             </Link>
@@ -92,14 +92,14 @@ export const ForgotPassword: React.FC = () => {
 
             <form onSubmit={handleForgot} className="space-y-6">
               <div className="relative group">
-                <Mail className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-red-600 transition-colors" />
+                <Mail className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
                 <input
                   type="email"
                   required
                   placeholder="Registered Work Email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-red-500/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
+                  className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
                 />
               </div>
 

@@ -348,7 +348,7 @@ export const AdminSettings: React.FC = () => {
             {!showNewRoleForm && (
               <button
                 onClick={() => setShowNewRoleForm(true)}
-                className="flex items-center px-6 py-2.5 bg-[#812349] text-white rounded-xl text-sm font-bold hover:bg-[#6a1d3d] transition-all shadow-lg shadow-[#812349]/20"
+                className="flex items-center px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primaryHover transition-all shadow-lg shadow-primary/20"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 New Role
@@ -446,7 +446,7 @@ export const AdminSettings: React.FC = () => {
                             name: e.target.value,
                           })
                         }
-                        className="text-xl font-bold bg-transparent border-b-2 border-[#812349] outline-none dark:text-white"
+                        className="text-xl font-bold bg-transparent border-b-2 border-primary outline-none dark:text-white"
                       />
                       {role.isSystem && (
                         <span className="px-2 py-1 text-[10px] font-bold uppercase bg-amber-100 text-amber-700 rounded-lg">
@@ -520,7 +520,7 @@ export const AdminSettings: React.FC = () => {
                                   onChange={() =>
                                     toggleRolePermission(editingRole, perm.code)
                                   }
-                                  className="w-4 h-4 rounded accent-[#812349]"
+                                  className="w-4 h-4 rounded accent-primary"
                                 />
                                 <span className="text-sm text-zinc-700 dark:text-zinc-300">
                                   {perm.name}
@@ -564,7 +564,7 @@ export const AdminSettings: React.FC = () => {
                   <div className="flex gap-2">
                     <button
                       onClick={() => setEditingRole(role)}
-                      className="p-2 text-zinc-400 hover:text-[#812349] hover:bg-[#812349]/10 rounded-xl transition-all"
+                      className="p-2 text-zinc-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
@@ -604,7 +604,7 @@ export const AdminSettings: React.FC = () => {
           {!showNewPermissionForm && (
             <button
               onClick={() => setShowNewPermissionForm(true)}
-              className="flex items-center px-6 py-2.5 bg-[#812349] text-white rounded-xl text-sm font-bold hover:bg-[#6a1d3d] transition-all shadow-lg shadow-[#812349]/20"
+              className="flex items-center px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primaryHover transition-all shadow-lg shadow-primary/20"
             >
               <Plus className="w-4 h-4 mr-2" />
               New Permission
@@ -786,7 +786,7 @@ export const AdminSettings: React.FC = () => {
                         <div className="flex gap-2">
                           <button
                             onClick={() => setEditingPermission(perm)}
-                            className="p-2 text-zinc-400 hover:text-[#812349] hover:bg-[#812349]/10 rounded-lg transition-all"
+                            className="p-2 text-zinc-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>

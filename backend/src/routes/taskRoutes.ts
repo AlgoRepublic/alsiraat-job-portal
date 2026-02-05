@@ -9,6 +9,7 @@ import {
   authenticate,
   optionalAuthenticate,
   requirePermission,
+  requireTaskApproval,
   Permission,
 } from "../middleware/rbac.js";
 import { upload, handleUploadError } from "../middleware/upload.js";
@@ -32,12 +33,7 @@ router.get("/", optionalAuthenticate, getTasks);
 // Get single task - public with optional auth
 router.get("/:id", optionalAuthenticate, getTaskById);
 
-// Approve task - requires TASK_APPROVE permission
-router.put(
-  "/:taskId/approve",
-  authenticate,
-  requirePermission(Permission.TASK_APPROVE),
-  approveTask,
-);
+// Approve task - context-aware approval (Global Admin for all, School Admin/Task Manager for Internal)
+router.put("/:taskId/approve", authenticate, requireTaskApproval, approveTask);
 
 export default router;

@@ -77,80 +77,85 @@ export const getTasks = async (req: any, res: Response) => {
     const user = req.user;
     const { role, organization, _id: userId } = user || {};
     const normalizedRole = (role || "").trim().toLowerCase();
-    const { search, includeExpired } = req.query;
+    const { search, includeExpired, createdByMe } = req.query;
     let query: any = {};
+
+    // If createdByMe is true, only return tasks created by this user
+    if (createdByMe === "true" && user) {
+      query = {
+        createdBy: userId,
+        status: { $ne: TaskStatus.ARCHIVED },
+      };
+
+      const tasks = await Task.find(query)
+        .populate("category", "name code icon")
+        .populate("rewardType", "name code")
+        .populate("organization", "name slug")
+        .populate("createdBy", "name email")
+        .sort({ createdAt: -1 });
+
+      return res.json(tasks);
+    }
 
     // Build base visibility/status query
     if (!user) {
-      // Guest: Only see Published or Approved tasks that are Global or External
+      // Guest: Only see Published Global tasks
       query = {
-        status: { $in: [TaskStatus.PUBLISHED, TaskStatus.APPROVED] },
-        visibility: { $in: [TaskVisibility.EXTERNAL, TaskVisibility.GLOBAL] },
+        status: TaskStatus.PUBLISHED,
+        visibility: TaskVisibility.GLOBAL,
       };
-    } else if (
-      normalizedRole === UserRole.APPLICANT.toLowerCase() ||
-      normalizedRole === UserRole.TASK_ADVERTISER.toLowerCase()
-    ) {
-      // Independent users and Members:
-      // 1. See their own created tasks (any status except Archived)
-      // 2. See published External/Global tasks
-      // 3. Members also see their org's published tasks
+    } else if (normalizedRole === UserRole.GLOBAL_ADMIN.toLowerCase()) {
+      // Global Admin (Super Admin): See EVERYTHING (all statuses, all visibility)
+      query = {};
+    } else if (normalizedRole === UserRole.APPLICANT.toLowerCase()) {
+      // Applicant/Independent: CANNOT see pending tasks
+      const conditions: any[] = [];
 
-      const conditions: any[] = [
-        // Their own created tasks (any status except Archived)
-        {
-          createdBy: userId,
-          status: { $ne: TaskStatus.ARCHIVED },
-        },
-        // External/Global published tasks
-        {
-          visibility: { $in: [TaskVisibility.EXTERNAL, TaskVisibility.GLOBAL] },
-          status: { $in: [TaskStatus.PUBLISHED, TaskStatus.APPROVED] },
-        },
-      ];
+      // 1. Own created tasks (any status except Archived)
+      conditions.push({
+        createdBy: userId,
+        status: { $ne: TaskStatus.ARCHIVED },
+      });
 
-      // Members can also see their org's published tasks
-      if (
-        normalizedRole === UserRole.TASK_ADVERTISER.toLowerCase() &&
-        organization
-      ) {
+      // 2. Published Global tasks only (no Internal, no Pending)
+      conditions.push({
+        visibility: TaskVisibility.GLOBAL,
+        status: TaskStatus.PUBLISHED,
+      });
+
+      query = { $or: conditions };
+    } else {
+      // School Admin, Task Manager, Task Advertiser: CAN see pending tasks
+      const conditions: any[] = [];
+
+      // 1. Own created tasks (any status except Archived)
+      conditions.push({
+        createdBy: userId,
+        status: { $ne: TaskStatus.ARCHIVED },
+      });
+
+      // 2. Published Global tasks
+      conditions.push({
+        visibility: TaskVisibility.GLOBAL,
+        status: TaskStatus.PUBLISHED,
+      });
+
+      // 3. Pending Global tasks (can see but may not approve)
+      conditions.push({
+        visibility: TaskVisibility.GLOBAL,
+        status: TaskStatus.PENDING,
+      });
+
+      // 4. If user has organisation: Internal tasks from same org (Published AND Pending)
+      if (organization) {
         conditions.push({
+          visibility: TaskVisibility.INTERNAL,
           organization: organization,
-          status: { $in: [TaskStatus.PUBLISHED, TaskStatus.APPROVED] },
+          status: { $in: [TaskStatus.PUBLISHED, TaskStatus.PENDING] },
         });
       }
 
       query = { $or: conditions };
-    } else if (
-      normalizedRole === UserRole.TASK_MANAGER.toLowerCase() ||
-      normalizedRole === UserRole.SCHOOL_ADMIN.toLowerCase()
-    ) {
-      // Approvers and Owners: See their org's tasks (Published, Pending, Draft, Approved)
-      // but NOT Archived. Also see external Published tasks
-      query = {
-        $or: [
-          {
-            organization: organization,
-            status: {
-              $in: [
-                TaskStatus.PUBLISHED,
-                TaskStatus.PENDING,
-                TaskStatus.DRAFT,
-                TaskStatus.APPROVED,
-              ],
-            },
-          },
-          {
-            visibility: {
-              $in: [TaskVisibility.EXTERNAL, TaskVisibility.GLOBAL],
-            },
-            status: { $in: [TaskStatus.PUBLISHED, TaskStatus.APPROVED] },
-          },
-        ],
-      };
-    } else if (normalizedRole === UserRole.GLOBAL_ADMIN.toLowerCase()) {
-      // Admin sees everything (including Draft and Archived)
-      query = {};
     }
 
     // Add search filter if provided
@@ -243,9 +248,20 @@ export const getTaskById = async (req: any, res: Response) => {
     // Get applicants count
     const applicantsCount = await Application.countDocuments({ task: id });
 
+    // Check if current user has already applied
+    let hasApplied = false;
+    if (req.user) {
+      const existingApplication = await Application.findOne({
+        task: id,
+        applicant: req.user._id,
+      });
+      hasApplied = !!existingApplication;
+    }
+
     res.json({
       ...task.toObject(),
       applicantsCount,
+      hasApplied,
     });
   } catch (err: any) {
     res.status(500).json({ message: err.message });

@@ -63,7 +63,7 @@ export const JobApplicants: React.FC = () => {
     <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
       <button
         onClick={() => navigate(`/jobs/${id}`)}
-        className="flex items-center text-xs font-black uppercase tracking-widest text-zinc-500 hover:text-red-900 dark:hover:text-red-400 transition-colors"
+        className="flex items-center text-xs font-black uppercase tracking-widest text-zinc-500 hover:text-primary transition-colors"
       >
         <ArrowLeft className="w-4 h-4 mr-2" /> Back to Task
       </button>
@@ -74,9 +74,7 @@ export const JobApplicants: React.FC = () => {
         </h1>
         <p className="text-zinc-500 dark:text-zinc-400 font-medium mt-2">
           Managing collaborators for{" "}
-          <span className="font-black text-red-700 dark:text-red-400">
-            {job.title}
-          </span>
+          <span className="font-black text-primary">{job.title}</span>
         </p>
       </div>
 
@@ -127,7 +125,7 @@ export const JobApplicants: React.FC = () => {
                   <td className="px-8 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button
                       onClick={() => navigate(`/application/${app.id}`)}
-                      className="px-6 py-2.5 bg-[#812349] dark:bg-[#601a36] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#601a36] transition-all shadow-lg shadow-[#812349]/10 group-hover:scale-105"
+                      className="px-6 py-2.5 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primaryHover transition-all shadow-lg shadow-primary/10 group-hover:scale-105"
                     >
                       View
                     </button>

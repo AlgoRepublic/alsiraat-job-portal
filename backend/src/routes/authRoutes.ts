@@ -41,8 +41,8 @@ router.post("/login", (req, res, next) => {
           role: user.role,
           skills: user.skills || [],
           about: user.about || "",
-          avatar: user.avatar || `https://i.pravatar.cc/150?u=${user._id}`,
-          organization: user.organization,
+          avatar: user.avatar,
+          organisation: user.organization,
         },
       });
     },
