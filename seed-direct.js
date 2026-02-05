@@ -15,7 +15,7 @@ const rewardTypes = [
     icon: "💵",
     color: "#10B981",
     requiresValue: true,
-    active: true,
+    active: true, ]
   },
   {
     name: "Lumpsum",

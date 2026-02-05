@@ -77,19 +77,19 @@ export const Home: React.FC = () => {
       {/* Hero */}
       <div className="relative overflow-hidden rounded-[3rem] bg-zinc-900 text-white shadow-2xl p-12 md:p-20 text-center lg:text-left border border-white/5">
         <div className="absolute top-0 right-0 w-full h-full opacity-20 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]"></div>
-        <div className="absolute top-[-20%] left-[-10%] w-[80%] h-[80%] bg-[#812349] rounded-full mix-blend-screen filter blur-[150px] opacity-20"></div>
+        <div className="absolute top-[-20%] left-[-10%] w-[80%] h-[80%] bg-primary rounded-full mix-blend-screen filter blur-[150px] opacity-20"></div>
 
         <div className="relative z-10 grid lg:grid-cols-2 gap-16 items-center">
           <div className="space-y-8">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full backdrop-blur-md">
-              <Award className="w-4 h-4 text-[#812349]" />
+              <Award className="w-4 h-4 text-primary" />
               <span className="text-[10px] font-black uppercase tracking-widest text-white/80">
                 Tasker v1.0
               </span>
             </div>
             <h1 className="text-5xl md:text-7xl font-black tracking-tighter leading-[0.9]">
               Task Management <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#812349] via-pink-600 to-purple-600">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-primaryHover to-primary">
                 Simplified.
               </span>
             </h1>
@@ -100,7 +100,7 @@ export const Home: React.FC = () => {
             <div className="flex flex-wrap gap-5 justify-center lg:justify-start">
               <Link
                 to="/jobs"
-                className="px-10 py-5 bg-[#812349] text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-2xl shadow-[#812349]/30 hover:bg-[#601a36] transition-all transform hover:-translate-y-1 flex items-center"
+                className="px-10 py-5 bg-primary text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-2xl shadow-primary/30 hover:bg-primaryHover transition-all transform hover:-translate-y-1 flex items-center"
               >
                 See Tasks <ArrowRight className="w-5 h-5 ml-3" />
               </Link>
@@ -128,7 +128,7 @@ export const Home: React.FC = () => {
                   key={i}
                   className={`p-8 rounded-[2rem] glass-card border-white/10 group hover:-translate-y-2 transition-all duration-500 ${i % 2 === 0 ? "mt-8" : ""}`}
                 >
-                  <item.icon className="w-10 h-10 mb-6 text-[#812349] group-hover:scale-110 transition-transform" />
+                  <item.icon className="w-10 h-10 mb-6 text-primary group-hover:scale-110 transition-transform" />
                   <h3 className="font-black text-xl text-white tracking-tighter">
                     {item.label}
                   </h3>
@@ -168,7 +168,7 @@ export const Home: React.FC = () => {
                 <input
                   type="text"
                   placeholder="Search tasks..."
-                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 focus:ring-2 focus:ring-[#812349] outline-none font-medium text-sm"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 focus:ring-2 focus:ring-primary outline-none font-medium text-sm"
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       navigate(
@@ -195,7 +195,7 @@ export const Home: React.FC = () => {
               {/* Add Task Button */}
               <Link
                 to="/create-task"
-                className="px-6 py-3 bg-[#812349] text-white rounded-xl font-black text-sm uppercase tracking-widest shadow-lg shadow-[#812349]/20 hover:bg-[#601a36] transition-all whitespace-nowrap flex items-center justify-center gap-2"
+                className="px-6 py-3 bg-primary text-white rounded-xl font-black text-sm uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primaryHover transition-all whitespace-nowrap flex items-center justify-center gap-2"
               >
                 <svg
                   className="w-5 h-5"
@@ -272,7 +272,7 @@ export const Home: React.FC = () => {
           </div>
           <Link
             to="/jobs"
-            className="text-[#812349] font-black uppercase tracking-widest text-xs hover:underline flex items-center"
+            className="text-primary font-black uppercase tracking-widest text-xs hover:underline flex items-center"
           >
             See All <ArrowRight className="w-4 h-4 ml-1" />
           </Link>
@@ -292,7 +292,7 @@ export const Home: React.FC = () => {
               </div>
 
               <div className="mb-6">
-                <div className="w-12 h-12 bg-[#812349]/10 text-[#812349] rounded-2xl flex items-center justify-center mb-4">
+                <div className="w-12 h-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mb-4">
                   <Briefcase className="w-6 h-6" />
                 </div>
                 <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2 pr-12 leading-tight">
@@ -321,7 +321,7 @@ export const Home: React.FC = () => {
       {/* Value Props */}
       <div className="grid md:grid-cols-3 gap-8">
         <div className="glass-card p-10 rounded-[2.5rem] text-center group hover:shadow-2xl transition-all">
-          <div className="w-16 h-16 bg-red-50 dark:bg-red-900/20 rounded-2xl flex items-center justify-center mx-auto mb-8 text-[#812349] group-hover:scale-110 transition-transform shadow-xl">
+          <div className="w-16 h-16 bg-red-50 dark:bg-zinc-800 rounded-2xl flex items-center justify-center mx-auto mb-8 text-primary group-hover:scale-110 transition-transform shadow-xl">
             <Users className="w-8 h-8" />
           </div>
           <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter mb-4">

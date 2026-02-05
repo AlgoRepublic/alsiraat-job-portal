@@ -18,6 +18,7 @@ import { LandingPage } from "./components/LandingPage";
 import { JobApplicants } from "./pages/JobApplicants";
 import { ApplicationReview } from "./pages/ApplicationReview";
 import { MyTasks } from "./pages/MyTasks";
+import MyApplications from "./pages/MyApplications";
 import { AdminSettings } from "./pages/AdminSettings";
 import { Reports } from "./pages/Reports";
 import { Home } from "./pages/Home";
@@ -148,6 +149,10 @@ const App: React.FC = () => {
                         element={<JobApplicants />}
                       />
                       <Route path="/my-tasks" element={<MyTasks />} />
+                      <Route
+                        path="/my-applications"
+                        element={<MyApplications />}
+                      />
                       <Route
                         path="/application/:appId"
                         element={<ApplicationReview />}

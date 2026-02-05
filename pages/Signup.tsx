@@ -72,19 +72,19 @@ export const Signup: React.FC = () => {
     <div className="min-h-screen flex flex-col items-center justify-center p-4 transition-colors relative overflow-hidden bg-zinc-50 dark:bg-black">
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-red-500/10 rounded-full blur-[100px]"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-[#812349]/10 rounded-full blur-[100px]"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[100px]"></div>
       </div>
 
       <div className="w-full max-w-lg glass-card rounded-3xl shadow-2xl shadow-zinc-200 dark:shadow-black/50 p-8 md:p-10 border border-white/20 dark:border-zinc-700 animate-slide-up relative">
         <Link
           to="/login"
-          className="absolute top-6 left-6 text-zinc-400 hover:text-[#812349] transition-colors flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
+          className="absolute top-6 left-6 text-zinc-400 hover:text-primary transition-colors flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
         >
           <ArrowLeft className="w-4 h-4" /> Back
         </Link>
 
         <div className="text-center mb-8 mt-4">
-          <div className="w-16 h-16 bg-gradient-to-tr from-[#812349] to-[#a02b5a] dark:from-[#601a36] dark:to-[#812349] rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-[#812349]/20 relative">
+          <div className="w-16 h-16 bg-gradient-to-tr from-primary to-primaryHover rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-primary/20 relative">
             <Layers className="text-white w-9 h-9" strokeWidth={2.5} />
           </div>
           <h1 className="text-3xl font-black text-zinc-900 dark:text-white mb-2 tracking-tighter">
@@ -108,31 +108,31 @@ export const Signup: React.FC = () => {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="relative group">
-                <UserIcon className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-[#812349] transition-colors" />
+                <UserIcon className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
                 <input
                   type="text"
                   required
                   placeholder="Name"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-[#812349]/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
+                  className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
                 />
               </div>
               <div className="relative group">
-                <UserIcon className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-[#812349] transition-colors" />
+                <UserIcon className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
                 <input
                   type="text"
                   required
                   placeholder="Surname"
                   value={surname}
                   onChange={(e) => setSurname(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-[#812349]/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
+                  className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
                 />
               </div>
             </div>
 
             <div className="relative group">
-              <Mail className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-[#812349] transition-colors" />
+              <Mail className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
               <input
                 type="email"
                 required
@@ -143,7 +143,7 @@ export const Signup: React.FC = () => {
               />
             </div>
             <div className="relative group">
-              <Lock className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-[#812349] transition-colors" />
+              <Lock className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
               <input
                 type="password"
                 required
@@ -157,7 +157,7 @@ export const Signup: React.FC = () => {
 
           <button
             disabled={isLoading}
-            className="w-full py-4 bg-[#812349] dark:bg-[#601a36] text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-[#601a36] dark:hover:bg-[#4d152b] shadow-xl shadow-[#812349]/30 transition-all hover:-translate-y-1 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
+            className="w-full py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primaryHover shadow-xl shadow-primary/30 transition-all hover:-translate-y-1 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
           >
             {isLoading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -170,10 +170,7 @@ export const Signup: React.FC = () => {
         <div className="mt-8 text-center">
           <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">
             Already have access?{" "}
-            <Link
-              to="/login"
-              className="text-[#812349] dark:text-[#a02b5a] font-black hover:underline ml-1"
-            >
+            <Link to="/login" className="text-primary hover:underline ml-1">
               Sign In
             </Link>
           </p>

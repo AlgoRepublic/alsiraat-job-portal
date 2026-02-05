@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import Application, { ApplicationStatus } from "../models/Application.js";
-import Task from "../models/Task.js";
+import Task, { TaskStatus } from "../models/Task.js";
 import { sendNotification } from "../services/notificationService.js";
 import { checkPermissionAsync, Permission } from "../middleware/rbac.js";
 
@@ -88,7 +88,7 @@ export const updateApplicationStatus = async (req: any, res: Response) => {
       (status === ApplicationStatus.APPROVED ||
         status === ApplicationStatus.REJECTED) &&
       app.status !== ApplicationStatus.SHORTLISTED &&
-      req.user.role !== "Admin"
+      req.user.role !== "Global Admin"
     ) {
       return res.status(400).json({
         message: "Only shortlisted applications can be approved or rejected.",
@@ -107,6 +107,10 @@ export const updateApplicationStatus = async (req: any, res: Response) => {
         "success",
         `/application/${app._id}`,
       );
+
+      // Mark task as closed since an application has been approved
+      task.status = TaskStatus.CLOSED;
+      await task.save();
     } else if (status === ApplicationStatus.REJECTED) {
       await sendNotification(
         app.applicant._id.toString(),
@@ -156,7 +160,7 @@ export const getApplications = async (req: any, res: Response) => {
       // If user has full access, check if they can view this task's applications
       else if (hasFullAccess.allowed) {
         const task = await Task.findById(taskId);
-        if (task && req.user.role !== "Admin") {
+        if (task && req.user.role !== "Global Admin") {
           // Check if user is from the same org or is the task creator
           if (
             task.organization?.toString() !==
@@ -171,7 +175,7 @@ export const getApplications = async (req: any, res: Response) => {
       }
     } else {
       // No specific task - filter based on permissions
-      if (req.user.role === "Admin") {
+      if (req.user.role === "Global Admin") {
         // Admin sees all
         query = {};
       } else if (hasFullAccess.allowed) {
@@ -242,7 +246,7 @@ export const getApplicationById = async (req: any, res: Response) => {
     }
 
     // If user has full access but is not admin, verify they can access this application
-    if (hasFullAccess.allowed && req.user.role !== "Admin") {
+    if (hasFullAccess.allowed && req.user.role !== "Global Admin") {
       const task: any = app.task;
       const isOrgMember =
         task.organization?.toString() === req.user.organization?.toString();

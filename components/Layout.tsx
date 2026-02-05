@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { UserAvatar } from "./UserAvatar";
 import {
   LayoutDashboard,
   Briefcase,
@@ -8,6 +9,7 @@ import {
   X,
   LogOut,
   PlusCircle,
+  Plus,
   Search,
   Moon,
   Sun,
@@ -64,7 +66,7 @@ const COLORS = [
   },
   {
     name: "Red",
-    class: "bg-red-600",
+    class: "bg-yellow-600",
     palette: {
       50: "#fef2f2",
       100: "#fee2e2",
@@ -355,14 +357,25 @@ export const Layout: React.FC<LayoutProps> = ({
     }
   };
 
+  const hexToRgb = (hex: string) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `${r}, ${g}, ${b}`;
+  };
+
   const changeAccentColor = (name: string, palette: Record<string, string>) => {
     setSelectedColor(name);
     setShowColorPicker(false);
     Object.entries(palette).forEach(([key, value]) => {
-      document.documentElement.style.setProperty(
-        `--color-primary-${key}`,
-        value,
-      );
+      document.documentElement.style.setProperty(`--accent-${key}`, value);
+      // Update RGB variables for radial gradients (specific ones needed)
+      if (["100", "200", "300", "400", "800", "900", "950"].includes(key)) {
+        document.documentElement.style.setProperty(
+          `--accent-${key}-rgb`,
+          hexToRgb(value),
+        );
+      }
     });
   };
 
@@ -381,9 +394,38 @@ export const Layout: React.FC<LayoutProps> = ({
       label: "Overview",
       path: "/dashboard",
       protected: true,
-      roles: [UserRole.GLOBAL_ADMIN, UserRole.SCHOOL_ADMIN],
+      roles: [
+        UserRole.GLOBAL_ADMIN,
+        UserRole.SCHOOL_ADMIN,
+        UserRole.TASK_MANAGER,
+      ],
     },
-    { icon: Briefcase, label: "Search Tasks", path: "/jobs" },
+    { icon: Briefcase, label: "Browse Tasks", path: "/jobs" },
+    {
+      icon: Plus,
+      label: "Create Task",
+      path: "/post-job",
+      protected: true,
+      // All authenticated users can create tasks
+    },
+    {
+      icon: FileText,
+      label: "My Applications",
+      path: "/my-applications",
+      protected: true,
+      // All authenticated users can see their applications
+    },
+    {
+      icon: Clock,
+      label: "Pending Approvals",
+      path: "/jobs?status=Pending",
+      protected: true,
+      roles: [
+        UserRole.GLOBAL_ADMIN,
+        UserRole.SCHOOL_ADMIN,
+        UserRole.TASK_MANAGER,
+      ],
+    },
     {
       icon: CheckCircle,
       label: "My Tasks",
@@ -401,13 +443,6 @@ export const Layout: React.FC<LayoutProps> = ({
       label: "Admin Settings",
       path: "/admin/settings",
       roles: [UserRole.GLOBAL_ADMIN],
-      protected: true,
-    },
-    {
-      icon: FileText,
-      label: "Reports",
-      path: "/reports",
-      roles: [UserRole.GLOBAL_ADMIN, UserRole.SCHOOL_ADMIN],
       protected: true,
     },
   ];
@@ -452,14 +487,14 @@ export const Layout: React.FC<LayoutProps> = ({
             to="/"
             className="flex items-center px-6 h-24 border-b border-white/20 dark:border-white/5"
           >
-            <div className="w-12 h-12 bg-gradient-to-tr from-[#812349] to-[#601a36] rounded-2xl flex items-center justify-center shadow-lg shadow-[#812349]/30 relative">
+            <div className="w-12 h-12 bg-gradient-to-tr from-primary to-primaryHover rounded-2xl flex items-center justify-center shadow-lg shadow-primary/30 relative">
               <Layers className="text-white w-7 h-7" strokeWidth={2.5} />
             </div>
             <div className="ml-4">
               <span className="block text-2xl font-black text-zinc-900 dark:text-white tracking-tighter leading-none">
                 Tasker
               </span>
-              <span className="text-[10px] text-[#812349] dark:text-[#a02b5a] font-black tracking-[0.2em] uppercase">
+              <span className="text-[10px] text-primary dark:text-primary rounded uppercase font-black tracking-[0.2em]">
                 Connect
               </span>
             </div>
@@ -469,7 +504,7 @@ export const Layout: React.FC<LayoutProps> = ({
             {currentUser && currentUser.role !== UserRole.APPLICANT && (
               <Link
                 to="/post-job"
-                className="flex items-center justify-center w-full px-4 py-4 mb-8 text-white bg-[#812349] dark:bg-[#601a36] hover:bg-[#601a36] dark:hover:bg-[#4d152b] rounded-2xl shadow-xl shadow-[#812349]/20 transition-all transform hover:-translate-y-1 active:scale-95"
+                className="flex items-center justify-center w-full px-4 py-4 mb-8 text-white bg-primary hover:bg-primaryHover rounded-2xl shadow-xl shadow-primary/20 transition-all transform hover:-translate-y-1 active:scale-95"
                 onClick={() => setSidebarOpen(false)}
               >
                 <PlusCircle className="w-5 h-5 mr-3" />
@@ -488,14 +523,14 @@ export const Layout: React.FC<LayoutProps> = ({
                     key={item.path}
                     to={item.path}
                     onClick={() => setSidebarOpen(false)}
-                    className={`flex items-center px-5 py-4 rounded-2xl transition-all duration-300 relative group ${isActive ? "bg-white/60 dark:bg-white/10 text-[#812349] dark:text-[#a02b5a] font-bold shadow-sm" : "text-zinc-500 dark:text-zinc-400 hover:bg-white/30 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white"}`}
+                    className={`flex items-center px-5 py-4 rounded-2xl transition-all duration-300 relative group ${isActive ? "bg-white/60 dark:bg-white/10 text-primary font-bold shadow-sm" : "text-zinc-500 dark:text-zinc-400 hover:bg-white/30 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white"}`}
                   >
                     <item.icon
-                      className={`w-5 h-5 mr-4 transition-transform group-hover:scale-110 ${isActive ? "text-[#812349] dark:text-[#a02b5a]" : "text-zinc-400"}`}
+                      className={`w-5 h-5 mr-4 transition-transform group-hover:scale-110 ${isActive ? "text-primary" : "text-zinc-400"}`}
                     />
                     <span className="text-sm tracking-tight">{item.label}</span>
                     {isActive && (
-                      <div className="absolute right-4 w-1.5 h-1.5 rounded-full bg-[#812349] dark:bg-[#a02b5a]" />
+                      <div className="absolute right-4 w-1.5 h-1.5 rounded-full bg-primary" />
                     )}
                   </Link>
                 );
@@ -509,13 +544,13 @@ export const Layout: React.FC<LayoutProps> = ({
                 className="flex items-center p-3 rounded-2xl hover:bg-white/40 dark:hover:bg-white/5 transition-all group cursor-pointer border border-transparent hover:border-white/30 dark:hover:border-white/10"
                 onClick={() => navigate("/profile")}
               >
-                <img
+                <UserAvatar
                   src={currentUser.avatar}
-                  alt="User"
-                  className="w-10 h-10 rounded-xl object-cover shadow-sm border border-white/50"
+                  name={currentUser.name}
+                  className="mr-3"
                 />
                 <div className="flex-1 min-w-0 ml-3">
-                  <p className="text-sm font-bold text-zinc-900 dark:text-white truncate group-hover:text-[#812349] transition-colors">
+                  <p className="text-sm font-bold text-zinc-900 dark:text-white truncate group-hover:text-primary transition-colors">
                     {currentUser.name}
                   </p>
                   <p className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
@@ -617,7 +652,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
               {/* Search Bar with Dropdown */}
               <div className="hidden md:block relative" ref={searchRef}>
-                <div className="flex items-center px-5 py-3 glass-card rounded-2xl border-white/30 w-72 focus-within:ring-2 focus-within:ring-[#812349]/30 transition-all">
+                <div className="flex items-center px-5 py-3 glass-card rounded-2xl border-white/30 w-72 focus-within:ring-2 focus-within:ring-primary/30 transition-all">
                   <Search className="w-4 h-4 text-zinc-400" />
                   <input
                     type="text"
@@ -630,7 +665,7 @@ export const Layout: React.FC<LayoutProps> = ({
                     className="ml-3 bg-transparent border-none outline-none text-sm w-full placeholder-zinc-400 font-medium"
                   />
                   {isSearching && (
-                    <div className="w-4 h-4 border-2 border-zinc-300 border-t-[#812349] rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-2 border-zinc-300 border-t-primary rounded-full animate-spin" />
                   )}
                 </div>
 
@@ -651,8 +686,8 @@ export const Layout: React.FC<LayoutProps> = ({
                           }}
                           className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 text-left transition-all"
                         >
-                          <div className="p-2 bg-[#812349]/10 rounded-lg">
-                            <Briefcase className="w-4 h-4 text-[#812349]" />
+                          <div className="p-2 bg-primary/10 rounded-lg">
+                            <Briefcase className="w-4 h-4 text-primary" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-bold text-zinc-900 dark:text-white truncate">
@@ -713,7 +748,7 @@ export const Layout: React.FC<LayoutProps> = ({
                       {unreadCount > 0 && (
                         <button
                           onClick={markAllAsRead}
-                          className="text-xs text-[#812349] hover:underline font-bold flex items-center gap-1"
+                          className="text-xs text-primary hover:underline font-bold flex items-center gap-1"
                         >
                           <CheckCheck className="w-3 h-3" />
                           Mark all read

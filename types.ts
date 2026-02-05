@@ -67,7 +67,7 @@ export interface Job {
   endDate?: string;
   selectionCriteria?: string;
   requiredSkills?: string[];
-  rewardType: RewardType;
+  rewardType: string;
   rewardValue?: number;
   eligibility: string[]; // e.g., ['Students', 'Parents']
   visibility: Visibility;
@@ -76,7 +76,8 @@ export interface Job {
   createdBy: string;
   createdAt: string;
   applicantsCount: number;
-  hasApplied?: boolean; // Whether current user has applied
+  hasApplied?: boolean;
+  organisation?: string;
 }
 
 export interface User {

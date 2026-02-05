@@ -13,6 +13,7 @@ import {
   Check,
   X,
 } from "lucide-react";
+import { UserAvatar } from "../components/UserAvatar";
 import { db } from "../services/database";
 
 interface ProfileProps {
@@ -122,24 +123,25 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
       {/* Header Card */}
       <div className="glass-card rounded-2xl shadow-lg shadow-zinc-200 dark:shadow-none border border-zinc-100 dark:border-zinc-800 overflow-hidden relative group">
         {/* Cover Image */}
-        <div className="h-40 bg-[#812349] dark:bg-[#601a36] w-full relative">
+        <div className="h-40 bg-primary w-full relative">
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
         </div>
 
         <div className="px-8 pb-8">
           <div className="relative flex justify-between items-end -mt-12 mb-6">
             <div className="relative">
-              <img
+              <UserAvatar
                 src={profile.avatar}
-                alt="Profile"
-                className="w-28 h-28 rounded-full border-[6px] border-white dark:border-zinc-900 shadow-xl object-cover bg-zinc-100 dark:bg-zinc-800"
+                name={profile.name}
+                className="w-28 h-28 text-4xl border-[6px] border-white dark:border-zinc-900 shadow-xl"
+                size="xl"
               />
               {isEditing && (
                 <button
                   onClick={() =>
                     document.getElementById("avatar-upload")?.click()
                   }
-                  className="absolute bottom-1 right-1 p-2 bg-[#812349] dark:bg-[#601a36] text-white rounded-full hover:bg-[#601a36] dark:hover:bg-[#4d152b] shadow-md transition-colors"
+                  className="absolute bottom-1 right-1 p-2 bg-primary text-white rounded-full hover:bg-primaryHover shadow-md transition-colors"
                 >
                   <Camera className="w-4 h-4" />
                 </button>
@@ -149,7 +151,7 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
               onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
               className={`px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all flex items-center gap-2 ${
                 isEditing
-                  ? "bg-[#812349] dark:bg-[#601a36] text-white hover:bg-[#601a36] dark:hover:bg-[#4d152b]"
+                  ? "bg-primary text-white hover:bg-primaryHover"
                   : "bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700"
               }`}
             >
@@ -185,7 +187,7 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
               </h3>
               {isEditing ? (
                 <textarea
-                  className="w-full p-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-[#812349] dark:focus:ring-[#812349] outline-none leading-relaxed transition-all dark:text-white"
+                  className="w-full p-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-primary outline-none leading-relaxed transition-all dark:text-white"
                   rows={4}
                   value={profile.about}
                   placeholder="Tell us about yourself..."
@@ -252,7 +254,7 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
               />
               <button
                 onClick={handleAddSkill}
-                className="px-4 bg-[#812349] dark:bg-[#601a36] text-white rounded-xl hover:bg-[#601a36] dark:hover:bg-[#4d152b] transition-colors shadow-md"
+                className="px-4 bg-primary text-white rounded-xl hover:bg-primaryHover transition-colors shadow-md"
               >
                 <Plus className="w-5 h-5" />
               </button>

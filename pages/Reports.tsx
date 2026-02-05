@@ -238,7 +238,7 @@ export const Reports: React.FC = () => {
           <button
             onClick={handleExportCSV}
             disabled={exporting}
-            className="flex items-center gap-2 px-5 py-2.5 bg-[#812349] text-white rounded-xl font-bold text-sm hover:bg-[#6a1d3d] transition-all shadow-lg shadow-[#812349]/20 disabled:opacity-50"
+            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primaryHover transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
           >
             {exporting ? (
               <Loader2 className="w-4 h-4 animate-spin" />

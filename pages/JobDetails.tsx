@@ -12,7 +12,9 @@ import {
   Users,
   ShieldCheck,
   XCircle,
+  Lock,
 } from "lucide-react";
+import { UserAvatar } from "../components/UserAvatar";
 import { db } from "../services/database";
 import { Job, RewardType, Application, UserRole, JobStatus } from "../types";
 import { useToast } from "../components/Toast";
@@ -49,16 +51,30 @@ export const JobDetails: React.FC = () => {
               setApplicationStep("applied");
             }
 
-            // Fetch applicants if internal user
-            const isInternal =
-              user?.role === UserRole.OWNER ||
-              user?.role === UserRole.ADMIN ||
-              user?.role === UserRole.APPROVER ||
-              user?.role === UserRole.MEMBER;
+            // Fetch applicants/application status
+            if (user) {
+              try {
+                const appList = await db.getApplicationsForJob(id);
 
-            if (isInternal) {
-              const appList = await db.getApplicationsForJob(id);
-              setApplicants(appList);
+                // For internal users, this shows all applicants
+                const isInternal =
+                  user.role === UserRole.GLOBAL_ADMIN ||
+                  user.role === UserRole.SCHOOL_ADMIN ||
+                  user.role === UserRole.TASK_MANAGER ||
+                  user.role === UserRole.TASK_ADVERTISER;
+
+                if (isInternal) {
+                  setApplicants(appList);
+                } else {
+                  // For applicants, this returns only their own application (due to RBAC)
+                  // If we find an application, it means they've applied
+                  if (appList.length > 0) {
+                    setApplicationStep("applied");
+                  }
+                }
+              } catch (err) {
+                console.error("Failed to check application status", err);
+              }
             }
           }
         } catch (err) {
@@ -132,26 +148,57 @@ export const JobDetails: React.FC = () => {
   }
 
   // Role-based permissions
-  // Can see applicants: Admin, Owner, Approver, or Independent who created the job
   const isJobOwner = currentUser?.id === job.createdBy;
+  const hasApplied = job.hasApplied || applicationStep === "applied";
+
+  // Can see applicants: Global Admin, School Admin, Task Manager, or task creator
   const canSeeApplicants =
-    currentUser?.role === UserRole.OWNER ||
-    currentUser?.role === UserRole.ADMIN ||
-    currentUser?.role === UserRole.APPROVER ||
-    (currentUser?.role === UserRole.INDEPENDENT && isJobOwner);
+    currentUser?.role === UserRole.GLOBAL_ADMIN ||
+    currentUser?.role === UserRole.SCHOOL_ADMIN ||
+    currentUser?.role === UserRole.TASK_MANAGER ||
+    isJobOwner;
 
-  // Can apply: Member, Independent (unless they own the job), or not logged in (shows login prompt)
+  // Can apply: All roles EXCEPT Global Admin
   const canApply =
-    !currentUser ||
-    currentUser?.role === UserRole.MEMBER ||
-    (currentUser?.role === UserRole.INDEPENDENT && !isJobOwner);
+    !currentUser || // Guest can see login prompt
+    (currentUser.role !== UserRole.GLOBAL_ADMIN && !hasApplied);
 
-  // Can approve posted jobs: Admin, Owner, Approver
-  const isApprover =
-    currentUser?.role === UserRole.ADMIN ||
-    currentUser?.role === UserRole.OWNER ||
-    currentUser?.role === UserRole.APPROVER;
-  const showManagerActions = isApprover && job.status === JobStatus.PENDING;
+  // Can approve: Context-aware based on task visibility
+  const canApprove = (() => {
+    if (!currentUser) return false;
+
+    // Global Admin (Super Admin) can approve ANY task
+    if (currentUser.role === UserRole.GLOBAL_ADMIN) {
+      return true;
+    }
+
+    // School Admin and Task Manager can approve INTERNAL tasks from their org
+    if (
+      currentUser.role === UserRole.SCHOOL_ADMIN ||
+      currentUser.role === UserRole.TASK_MANAGER
+    ) {
+      // Check if task is Internal
+      // Check if task is Internal - REMOVED to allow approving Global tasks if owned by org
+      // if (job.visibility !== "Internal") {
+      //   return false; // Cannot approve Global tasks
+      // }
+
+      // Check if task belongs to their organisation
+      if (
+        !currentUser.organisation ||
+        job.organisation !== currentUser.organisation
+      ) {
+        return false; // Cannot approve tasks from other organisations
+      }
+
+      return true;
+    }
+
+    // All other roles cannot approve
+    return false;
+  })();
+
+  const showManagerActions = canApprove && job.status === JobStatus.PENDING;
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pb-20">
@@ -167,7 +214,7 @@ export const JobDetails: React.FC = () => {
         <div className="flex flex-col md:flex-row justify-between items-start gap-4">
           <div>
             <div className="flex items-center gap-3 mb-3">
-              <span className="px-2.5 py-1 bg-[#812349] dark:bg-[#601a36] text-white text-xs font-bold rounded-md uppercase tracking-wide">
+              <span className="px-2.5 py-1 bg-primary text-white text-xs font-bold rounded-md uppercase tracking-wide">
                 {job.category}
               </span>
               <span
@@ -188,11 +235,28 @@ export const JobDetails: React.FC = () => {
           </div>
           <div className="flex flex-col items-end">
             <span className="text-2xl font-bold text-zinc-900 dark:text-white">
-              {job.rewardType === RewardType.PAID
-                ? `$${job.rewardValue}`
-                : job.rewardType === RewardType.VIA_POINTS
-                  ? `${job.rewardValue} Pts`
-                  : "Volunteer"}
+              {(() => {
+                const rt = job.rewardType;
+                const rv = job.rewardValue;
+
+                if (rt === "Hourly") return `$${rv}/hr`;
+                if (rt === "Lumpsum") return `$${rv}`;
+                if (rt === "Voucher") return `$${rv} Voucher`;
+                if (rt === "VIA Hours") return `${rv} Hours`;
+                if (rt === "Community service recognition")
+                  return "Recognition";
+
+                // Fallbacks for other variations
+                if (
+                  String(rt).toLowerCase().includes("hour") &&
+                  rt !== "VIA Hours"
+                )
+                  return `$${rv}/hr`;
+                if (rt === "Paid" || rt === "Monetary") return `$${rv}`;
+                if (rt === "VIA Points") return `${rv} Pts`;
+
+                return rt;
+              })()}
             </span>
           </div>
         </div>
@@ -233,7 +297,7 @@ export const JobDetails: React.FC = () => {
           {/* Metadata Card */}
           <div className="glass-card rounded-2xl p-6 shadow-sm border border-zinc-100 dark:border-zinc-800 flex flex-wrap gap-6">
             <div className="flex items-center">
-              <div className="w-10 h-10 rounded-full bg-[#812349]/10 dark:bg-[#812349]/20 flex items-center justify-center mr-3 text-[#812349] dark:text-[#a02b5a]">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mr-3 text-primary">
                 <MapPin className="w-5 h-5" />
               </div>
               <div>
@@ -246,7 +310,7 @@ export const JobDetails: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center">
-              <div className="w-10 h-10 rounded-full bg-[#812349]/10 dark:bg-[#812349]/20 flex items-center justify-center mr-3 text-[#812349] dark:text-[#a02b5a]">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mr-3 text-primary">
                 <Clock className="w-5 h-5" />
               </div>
               <div>
@@ -259,7 +323,7 @@ export const JobDetails: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center">
-              <div className="w-10 h-10 rounded-full bg-[#812349]/10 dark:bg-[#812349]/20 flex items-center justify-center mr-3 text-[#812349] dark:text-[#a02b5a]">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mr-3 text-primary">
                 <Calendar className="w-5 h-5" />
               </div>
               <div>
@@ -301,7 +365,7 @@ export const JobDetails: React.FC = () => {
             {canSeeApplicants ? (
               /* Applicants List for Internal Users */
               <div className="glass-card rounded-2xl shadow-sm border border-zinc-100 dark:border-zinc-800 overflow-hidden">
-                <div className="p-6 bg-[#812349] dark:bg-[#601a36] text-white">
+                <div className="p-6 bg-primary text-white">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Users className="w-5 h-5" />
@@ -329,10 +393,10 @@ export const JobDetails: React.FC = () => {
                           className="p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer"
                         >
                           <div className="flex items-start gap-3">
-                            <img
+                            <UserAvatar
                               src={app.applicantAvatar}
-                              alt={app.applicantName}
-                              className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                              name={app.applicantName}
+                              className="flex-shrink-0"
                             />
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-bold text-zinc-900 dark:text-white truncate">
@@ -368,7 +432,7 @@ export const JobDetails: React.FC = () => {
                   <div className="p-4 border-t border-zinc-100 dark:border-zinc-800">
                     <button
                       onClick={() => navigate(`/jobs/${id}/applicants`)}
-                      className="w-full py-2.5 text-xs font-black uppercase tracking-widest text-[#812349] dark:text-[#a02b5a] hover:bg-zinc-50 dark:hover:bg-zinc-800/50 rounded-lg transition-colors"
+                      className="w-full py-2.5 text-xs font-black uppercase tracking-widest text-primary hover:bg-zinc-50 dark:hover:bg-zinc-800/50 rounded-lg transition-colors"
                     >
                       View All Applications
                     </button>
@@ -378,7 +442,7 @@ export const JobDetails: React.FC = () => {
             ) : (
               /* Application Form for External Users */
               <div className="glass-card rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:shadow-none border border-zinc-100 dark:border-zinc-800 overflow-hidden">
-                <div className="p-6 bg-[#812349] dark:bg-[#601a36] text-white">
+                <div className="p-6 bg-primary text-white">
                   <h3 className="text-lg font-bold">Apply</h3>
                   <p className="text-red-100 text-sm mt-1">
                     Send us your application.
@@ -392,9 +456,27 @@ export const JobDetails: React.FC = () => {
                     </p>
                     <button
                       onClick={() => navigate("/login")}
-                      className="w-full py-3.5 bg-[#812349] dark:bg-[#601a36] text-white rounded-xl font-bold hover:bg-[#601a36] transition-all"
+                      className="w-full py-3.5 bg-primary text-white rounded-xl font-bold hover:bg-primaryHover transition-all"
                     >
                       Login to Apply
+                    </button>
+                  </div>
+                ) : job.status === JobStatus.CLOSED ? (
+                  <div className="p-8 text-center animate-fade-in">
+                    <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-dashed border-zinc-200 dark:border-zinc-700">
+                      <Lock className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">
+                      Recruitment Finished
+                    </h3>
+                    <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-6">
+                      A candidate has been selected for this position.
+                    </p>
+                    <button
+                      onClick={() => navigate("/jobs")}
+                      className="w-full py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded-xl font-semibold hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all"
+                    >
+                      Browse Other Tasks
                     </button>
                   </div>
                 ) : applicationStep === "success" ||
@@ -415,7 +497,7 @@ export const JobDetails: React.FC = () => {
                     </p>
                     <button
                       onClick={() => navigate("/jobs")}
-                      className="w-full py-3 bg-[#812349] dark:bg-[#601a36] text-white rounded-xl font-semibold hover:bg-[#601a36] dark:hover:bg-[#4d152b]"
+                      className="w-full py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primaryHover"
                     >
                       Back to Tasks
                     </button>
@@ -427,7 +509,7 @@ export const JobDetails: React.FC = () => {
                   >
                     {applicationStep === "submitting" && (
                       <div className="absolute inset-0 bg-white/80 dark:bg-black/80 z-10 flex flex-col items-center justify-center rounded-2xl">
-                        <Loader2 className="w-10 h-10 text-[#812349] dark:text-white animate-spin mb-3" />
+                        <Loader2 className="w-10 h-10 text-primary dark:text-white animate-spin mb-3" />
                         <p className="font-semibold text-zinc-900 dark:text-white">
                           Sending...
                         </p>
@@ -440,7 +522,7 @@ export const JobDetails: React.FC = () => {
                       </label>
                       <textarea
                         required
-                        className="w-full p-3 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-[#812349] dark:focus:ring-[#812349] focus:outline-none min-h-[120px] dark:text-white"
+                        className="w-full p-3 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:outline-none min-h-[120px] dark:text-white"
                         placeholder="Tell us why..."
                         value={coverLetter}
                         onChange={(e) => setCoverLetter(e.target.value)}
@@ -453,7 +535,7 @@ export const JobDetails: React.FC = () => {
                       </label>
                       <input
                         type="text"
-                        className="w-full p-3 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-[#812349] dark:focus:ring-[#812349] focus:outline-none dark:text-white"
+                        className="w-full p-3 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:outline-none dark:text-white"
                         placeholder="e.g. Monday morning"
                         value={availability}
                         onChange={(e) => setAvailability(e.target.value)}
@@ -465,7 +547,7 @@ export const JobDetails: React.FC = () => {
                         <input
                           type="checkbox"
                           required
-                          className="w-5 h-5 mt-0.5 rounded border-zinc-300 text-[#812349] dark:text-[#a02b5a] focus:ring-[#812349]"
+                          className="w-5 h-5 mt-0.5 rounded border-zinc-300 text-primary focus:ring-primary"
                           checked={agreed}
                           onChange={(e) => setAgreed(e.target.checked)}
                         />
@@ -478,7 +560,7 @@ export const JobDetails: React.FC = () => {
                     <button
                       type="submit"
                       disabled={!agreed}
-                      className="w-full py-3.5 bg-[#812349] dark:bg-[#601a36] text-white rounded-xl font-bold hover:bg-[#601a36] dark:hover:bg-[#4d152b] shadow-lg shadow-[#812349]/20 dark:shadow-none transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                      className="w-full py-3.5 bg-primary text-white rounded-xl font-bold hover:bg-primaryHover shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                     >
                       Apply
                     </button>

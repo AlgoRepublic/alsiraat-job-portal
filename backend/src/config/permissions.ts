@@ -116,8 +116,6 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     // Manages applications
     Permission.APPLICATION_READ,
     Permission.APPLICATION_SHORTLIST,
-    Permission.APPLICATION_APPROVE,
-    Permission.APPLICATION_REJECT,
 
     // Dashboard
     Permission.DASHBOARD_VIEW,

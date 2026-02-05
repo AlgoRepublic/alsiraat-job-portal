@@ -12,6 +12,8 @@ import {
 import { api, ApiError } from "./api";
 
 // Helper to map Backend Task to Frontend Job
+
+// Helper to map Backend Task to Frontend Job
 const mapTaskToJob = (task: any): Job => {
   return {
     id: task._id,
@@ -26,33 +28,25 @@ const mapTaskToJob = (task: any): Job => {
     startDate: task.createdAt ? task.createdAt.split("T")[0] : undefined,
     endDate: task.updatedAt ? task.updatedAt.split("T")[0] : undefined,
     selectionCriteria: task.eligibility?.join(", ") || "",
-    rewardType: mapRewardType(task.rewardType),
+    rewardType: task.rewardType,
     rewardValue: task.rewardValue,
     eligibility: task.eligibility || [],
     visibility:
-      task.visibility === "Public" ? Visibility.GLOBAL : Visibility.INTERNAL,
+      task.visibility === "Public" || task.visibility === "Global"
+        ? Visibility.GLOBAL
+        : Visibility.INTERNAL,
     attachments: [], // Handled separately or extended later
     status: mapStatus(task.status),
     createdBy:
       typeof task.createdBy === "object" ? task.createdBy.name : "Unknown",
     createdAt: task.createdAt,
     applicantsCount: task.applicantsCount || 0,
+    hasApplied: task.hasApplied || false,
+    organisation:
+      typeof task.organization === "object"
+        ? task.organization?._id
+        : task.organization,
   };
-};
-
-const mapRewardType = (type: string): RewardType => {
-  switch (type) {
-    case "Paid":
-      return RewardType.PAID;
-    case "Points":
-      return RewardType.VIA_POINTS;
-    case "Volunteer":
-      return RewardType.VOLUNTEER;
-    case "Voucher":
-      return RewardType.VOUCHER;
-    default:
-      return RewardType.VOLUNTEER;
-  }
 };
 
 const mapStatus = (status: string): JobStatus => {
@@ -80,7 +74,7 @@ const mapAppToFrontend = (app: any): Application => {
     userId: app.applicant?._id || app.applicant,
     applicantName: app.applicant?.name || "Unknown",
     applicantEmail: app.applicant?.email || "",
-    applicantAvatar: app.applicant?.avatar || "https://i.pravatar.cc/150",
+    applicantAvatar: app.applicant?.avatar || undefined,
     status: app.status as any,
     appliedAt: app.createdAt,
     coverLetter: app.coverLetter,
@@ -126,7 +120,7 @@ class DatabaseService {
           ...user,
           skills: user.skills || [],
           about: user.about || "",
-          avatar: user.avatar || `https://i.pravatar.cc/150?u=${user.id}`,
+          avatar: user.avatar || undefined,
         };
       } catch (e) {
         return null;
@@ -249,7 +243,7 @@ class DatabaseService {
         type: org.type,
       }));
     } catch (err) {
-      console.warn("Failed to fetch organizations", err);
+      console.warn("Failed to fetch organisations", err);
       return [];
     }
   }

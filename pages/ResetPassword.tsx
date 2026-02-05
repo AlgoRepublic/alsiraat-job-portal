@@ -50,12 +50,12 @@ export const ResetPassword: React.FC = () => {
     <div className="min-h-screen flex flex-col items-center justify-center p-4 transition-colors relative overflow-hidden bg-zinc-50 dark:bg-black">
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-[100px]"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-red-900/10 rounded-full blur-[100px]"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[100px]"></div>
       </div>
 
       <div className="w-full max-w-md glass-card rounded-3xl shadow-2xl shadow-zinc-200 dark:shadow-black/50 p-8 md:p-10 border border-white/20 dark:border-zinc-700 animate-slide-up relative">
         <div className="text-center mb-10">
-          <div className="w-16 h-16 bg-gradient-to-tr from-red-900 to-red-600 dark:from-red-800 dark:to-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-red-900/20 relative">
+          <div className="w-16 h-16 bg-gradient-to-tr from-primary to-primaryHover rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-primary/20 relative">
             <Key className="text-white w-9 h-9" strokeWidth={2.5} />
           </div>
           <h1 className="text-3xl font-black text-zinc-900 dark:text-white mb-2 tracking-tighter">
@@ -94,7 +94,7 @@ export const ResetPassword: React.FC = () => {
             <form onSubmit={handleReset} className="space-y-5">
               <div className="space-y-4">
                 <div className="relative group">
-                  <Lock className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-red-600 transition-colors" />
+                  <Lock className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
                   <input
                     type="password"
                     required
@@ -119,7 +119,7 @@ export const ResetPassword: React.FC = () => {
 
               <button
                 disabled={isLoading}
-                className="w-full py-4 bg-red-900 dark:bg-red-700 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-red-800 dark:hover:bg-red-600 shadow-xl shadow-red-900/30 transition-all hover:-translate-y-1 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
+                className="w-full py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primaryHover shadow-xl shadow-primary/30 transition-all hover:-translate-y-1 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
               >
                 {isLoading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />

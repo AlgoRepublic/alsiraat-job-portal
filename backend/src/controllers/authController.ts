@@ -42,7 +42,8 @@ export const signup = async (req: Request, res: Response) => {
         role: user.role,
         skills: user.skills || [],
         about: user.about || "",
-        avatar: user.avatar || `https://i.pravatar.cc/150?u=${user._id}`,
+        avatar: user.avatar,
+        organisation: user.organization,
       },
     });
   } catch (err: any) {
@@ -80,7 +81,8 @@ export const impersonate = async (req: Request, res: Response) => {
         role: user.role,
         skills: user.skills || [],
         about: user.about || "",
-        avatar: user.avatar || `https://i.pravatar.cc/150?u=${user._id}`,
+        avatar: user.avatar,
+        organisation: user.organization,
       },
     });
   } catch (err: any) {
@@ -184,7 +186,7 @@ export const updateProfile = async (req: Request, res: Response) => {
         role: user.role,
         skills: user.skills || [],
         about: user.about || "",
-        avatar: user.avatar || `https://i.pravatar.cc/150?u=${user._id}`,
+        avatar: user.avatar,
       },
     });
   } catch (err: any) {

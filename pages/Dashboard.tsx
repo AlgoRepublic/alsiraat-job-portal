@@ -220,7 +220,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
         <div className="flex gap-3">
           <button
             onClick={() => navigate("/post-job")}
-            className="flex items-center gap-2 px-5 py-3 bg-[#812349] text-white rounded-xl font-bold text-sm hover:bg-[#6a1d3d] transition-all shadow-lg shadow-[#812349]/20"
+            className="flex items-center gap-2 px-5 py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primaryHover transition-all shadow-lg shadow-primary/20"
           >
             <Plus className="w-4 h-4" />
             New Task
@@ -269,8 +269,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
           className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
         >
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-[#812349]/10 dark:bg-[#812349]/20 rounded-xl group-hover:scale-110 transition-transform">
-              <Briefcase className="w-5 h-5 text-[#812349]" />
+            <div className="p-2.5 bg-primary/10 rounded-xl group-hover:scale-110 transition-transform">
+              <Briefcase className="w-5 h-5 text-primary" />
             </div>
             <div>
               <p className="text-2xl font-black text-zinc-900 dark:text-white">
@@ -347,8 +347,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
         <div className="lg:col-span-2 glass-card rounded-2xl overflow-hidden">
           <div className="p-6 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-[#812349]/10 rounded-xl">
-                <Zap className="w-5 h-5 text-[#812349]" />
+              <div className="p-2 bg-primary/10 rounded-xl">
+                <Zap className="w-5 h-5 text-primary" />
               </div>
               <div>
                 <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
@@ -360,7 +360,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
               </div>
             </div>
             {actionItems.length > 0 && (
-              <span className="px-3 py-1 bg-[#812349] text-white text-xs font-bold rounded-full">
+              <span className="px-3 py-1 bg-primary text-white text-xs font-bold rounded-full">
                 {actionItems.length}
               </span>
             )}
@@ -410,7 +410,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-zinc-400">{item.time}</span>
-                    <ChevronRight className="w-4 h-4 text-zinc-300 group-hover:text-[#812349] transition-colors" />
+                    <ChevronRight className="w-4 h-4 text-zinc-300 group-hover:text-primary transition-colors" />
                   </div>
                 </div>
               ))
@@ -477,8 +477,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
                   onClick={() => navigate("/reports")}
                   className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all group"
                 >
-                  <div className="p-2 bg-[#812349]/10 rounded-lg group-hover:scale-110 transition-transform">
-                    <TrendingUp className="w-4 h-4 text-[#812349]" />
+                  <div className="p-2 bg-primary/10 rounded-lg group-hover:scale-110 transition-transform">
+                    <TrendingUp className="w-4 h-4 text-primary" />
                   </div>
                   <span className="font-bold text-zinc-700 dark:text-zinc-300">
                     View Reports
