@@ -243,7 +243,7 @@ class DatabaseService {
         type: org.type,
       }));
     } catch (err) {
-      console.warn("Failed to fetch organizations", err);
+      console.warn("Failed to fetch organisations", err);
       return [];
     }
   }
