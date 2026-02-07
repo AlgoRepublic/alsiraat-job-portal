@@ -358,6 +358,12 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
         category: "Applications",
         isSystem: true,
       },
+      {
+        code: "application:confirm",
+        name: "Confirm Offer",
+        category: "Applications",
+        isSystem: true,
+      },
 
       // User permissions
       {
@@ -565,6 +571,8 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
           "task:read",
           "application:create",
           "application:read_own",
+          "application:confirm",
+          "application:reject",
         ],
         isSystem: true,
         color: "#D97706", // Amber

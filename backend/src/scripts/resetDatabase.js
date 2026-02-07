@@ -74,7 +74,7 @@ async function resetDatabase() {
 
     // Step 1: Drop all collections
     console.log("\n🗑️  Dropping all collections...");
-    const collections = await mongoose.connection.dbdd
+    const collections = await mongoose.connection.db
       .listCollections()
       .toArray();
 
@@ -137,6 +137,8 @@ async function resetDatabase() {
           "reports:create",
           "admin:settings",
           "admin:audit_log",
+          "application:confirm",
+          "application:reject",
         ],
       },
       {
@@ -166,6 +168,7 @@ async function resetDatabase() {
           "dashboard:view",
           "analytics:view",
           "reports:view",
+          "admin:settings",
         ],
       },
       {
@@ -206,6 +209,8 @@ async function resetDatabase() {
           "task:read",
           "application:create",
           "application:read_own",
+          "application:confirm",
+          "application:reject",
         ],
       },
     ];

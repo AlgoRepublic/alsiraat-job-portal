@@ -90,11 +90,11 @@ export function usePermissions(
       // User info
       role,
       userId,
-      isAdmin: role === UserRole.ADMIN,
-      isOwner: role === UserRole.OWNER,
-      isApprover: role === UserRole.APPROVER,
-      isMember: role === UserRole.MEMBER,
-      isIndependent: role === UserRole.INDEPENDENT,
+      isAdmin: role === UserRole.GLOBAL_ADMIN,
+      isOwner: role === UserRole.SCHOOL_ADMIN,
+      isApprover: role === UserRole.TASK_MANAGER,
+      isMember: role === UserRole.TASK_ADVERTISER,
+      isIndependent: role === UserRole.APPLICANT,
     };
   }, [user?.id, user?.role]);
 }

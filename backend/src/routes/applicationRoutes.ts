@@ -42,7 +42,7 @@ router.put(
 router.put(
   "/:appId/decline",
   authenticate,
-  requirePermission(Permission.APPLICATION_CONFIRM),
+  requirePermission(Permission.APPLICATION_REJECT),
   declineOffer,
 );
 

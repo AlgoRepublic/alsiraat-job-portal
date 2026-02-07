@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { Mail, Lock, Loader2, Shield, AlertCircle, Layers } from "lucide-react";
 import { db } from "../services/database";
 import { API_BASE_URL } from "../services/api";
+import { UserRole } from "../types";
 
 export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
   onLoginSuccess,
@@ -30,7 +31,12 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
       const user = await db.getCurrentUser();
 
       // Role-based redirect
-      if (user.role === "Admin" || user.role === "Owner") {
+      if (
+        user &&
+        (user.role === UserRole.GLOBAL_ADMIN ||
+          user.role === UserRole.SCHOOL_ADMIN ||
+          user.role === UserRole.TASK_MANAGER)
+      ) {
         navigate("/dashboard");
       } else {
         navigate("/jobs");

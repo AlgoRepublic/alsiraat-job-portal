@@ -1,12 +1,13 @@
 import mongoose, { Schema, Document } from "mongoose";
 
-export enum UserRole {
-  GLOBAL_ADMIN = "Global Admin",
-  SCHOOL_ADMIN = "School Admin",
-  TASK_MANAGER = "Task Manager",
-  TASK_ADVERTISER = "Task Advertiser",
-  APPLICANT = "Applicant",
-}
+export const UserRole = {
+  GLOBAL_ADMIN: "Global Admin",
+  SCHOOL_ADMIN: "School Admin",
+  TASK_MANAGER: "Task Manager",
+  TASK_ADVERTISER: "Task Advertiser",
+  APPLICANT: "Applicant",
+} as const;
+export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 
 export interface ISkill {
   id: string;

@@ -172,26 +172,22 @@ export const JobDetails: React.FC = () => {
       return true;
     }
 
-    // School Admin and Task Manager can approve INTERNAL tasks from their org
+    // School Admin and Task Manager can approve tasks from their organisation
     if (
       currentUser.role === UserRole.SCHOOL_ADMIN ||
       currentUser.role === UserRole.TASK_MANAGER
     ) {
-      // Check if task is Internal
-      // Check if task is Internal - REMOVED to allow approving Global tasks if owned by org
-      // if (job.visibility !== "Internal") {
-      //   return false; // Cannot approve Global tasks
-      // }
+      // Get organization ID from either property (S or Z)
+      const taskOrgId = job.organisation || (job as any).organization;
+      const userOrgId = currentUser.organisation || currentUser.organization;
 
       // Check if task belongs to their organisation
-      if (
-        !currentUser.organisation ||
-        job.organisation !== currentUser.organisation
-      ) {
-        return false; // Cannot approve tasks from other organisations
+      if (!userOrgId || !taskOrgId) {
+        return false;
       }
 
-      return true;
+      // String comparison for IDs to be safe
+      return String(taskOrgId) === String(userOrgId);
     }
 
     // All other roles cannot approve

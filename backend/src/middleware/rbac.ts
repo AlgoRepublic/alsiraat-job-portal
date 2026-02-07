@@ -385,12 +385,13 @@ export const requireTaskApproval = async (
   // Let's add that specific check if visibility is Global
   if (
     task.visibility !== "Internal" &&
-    req.user.role.toLowerCase() !== UserRole.GLOBAL_ADMIN.toLowerCase()
+    req.user.role.toLowerCase() !== UserRole.GLOBAL_ADMIN.toLowerCase() &&
+    task.organiation.toString() !== req.user.organization.toString()
   ) {
-    // Only Global Admin can approve non-internal tasks
+    // Only Global Admin (or Org Admin for their own tasks) can approve non-internal tasks
     return res.status(403).json({
       message:
-        "Only Global Admin can approve Global tasks. You can only approve Internal tasks from your organisation.",
+        "Only Global Admin can approve Global tasks from other organisations. You can only approve tasks from your own organisation.",
     });
   }
 

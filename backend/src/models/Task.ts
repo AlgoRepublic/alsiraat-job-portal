@@ -1,19 +1,22 @@
 import mongoose, { Schema, Document } from "mongoose";
 
-export enum TaskStatus {
-  DRAFT = "Draft",
-  PENDING = "Pending",
-  APPROVED = "Approved",
-  PUBLISHED = "Published",
-  CLOSED = "Closed",
-  ARCHIVED = "Archived",
-}
+export const TaskStatus = {
+  DRAFT: "Draft",
+  PENDING: "Pending",
+  APPROVED: "Approved",
+  PUBLISHED: "Published",
+  CLOSED: "Closed",
+  ARCHIVED: "Archived",
+} as const;
+export type TaskStatus = (typeof TaskStatus)[keyof typeof TaskStatus];
 
-export enum TaskVisibility {
-  INTERNAL = "Internal",
-  EXTERNAL = "External",
-  GLOBAL = "Global",
-}
+export const TaskVisibility = {
+  INTERNAL: "Internal",
+  EXTERNAL: "External",
+  GLOBAL: "Global",
+} as const;
+export type TaskVisibility =
+  (typeof TaskVisibility)[keyof typeof TaskVisibility];
 
 export interface ITask extends Document {
   title: string;

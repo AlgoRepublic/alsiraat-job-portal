@@ -11,60 +11,61 @@ import { UserRole } from "../types";
 // PERMISSION DEFINITIONS
 // ============================================================================
 
-export enum Permission {
+export const Permission = {
   // Task/Job Permissions
-  TASK_CREATE = "task:create",
-  TASK_READ = "task:read",
-  TASK_UPDATE = "task:update",
-  TASK_DELETE = "task:delete",
-  TASK_APPROVE = "task:approve",
-  TASK_PUBLISH = "task:publish",
-  TASK_ARCHIVE = "task:archive",
+  TASK_CREATE: "task:create",
+  TASK_READ: "task:read",
+  TASK_UPDATE: "task:update",
+  TASK_DELETE: "task:delete",
+  TASK_APPROVE: "task:approve",
+  TASK_PUBLISH: "task:publish",
+  TASK_ARCHIVE: "task:archive",
 
   // Application Permissions
-  APPLICATION_CREATE = "application:create",
-  APPLICATION_READ = "application:read",
-  APPLICATION_READ_OWN = "application:read_own",
-  APPLICATION_SHORTLIST = "application:shortlist",
-  APPLICATION_APPROVE = "application:approve",
-  APPLICATION_REJECT = "application:reject",
+  APPLICATION_CREATE: "application:create",
+  APPLICATION_READ: "application:read",
+  APPLICATION_READ_OWN: "application:read_own",
+  APPLICATION_SHORTLIST: "application:shortlist",
+  APPLICATION_APPROVE: "application:approve",
+  APPLICATION_REJECT: "application:reject",
 
   // User Management
-  USER_READ = "user:read",
-  USER_UPDATE = "user:update",
-  USER_DELETE = "user:delete",
-  USER_IMPERSONATE = "user:impersonate",
-  USER_MANAGE_ROLES = "user:manage_roles",
+  USER_READ: "user:read",
+  USER_UPDATE: "user:update",
+  USER_DELETE: "user:delete",
+  USER_IMPERSONATE: "user:impersonate",
+  USER_MANAGE_ROLES: "user:manage_roles",
 
   // Organization Management
-  ORG_CREATE = "org:create",
-  ORG_READ = "org:read",
-  ORG_UPDATE = "org:update",
-  ORG_DELETE = "org:delete",
-  ORG_MANAGE_MEMBERS = "org:manage_members",
+  ORG_CREATE: "org:create",
+  ORG_READ: "org:read",
+  ORG_UPDATE: "org:update",
+  ORG_DELETE: "org:delete",
+  ORG_MANAGE_MEMBERS: "org:manage_members",
 
   // Dashboard & Analytics
-  DASHBOARD_VIEW = "dashboard:view",
-  ANALYTICS_VIEW = "analytics:view",
+  DASHBOARD_VIEW: "dashboard:view",
+  ANALYTICS_VIEW: "analytics:view",
 
   // Reporting
-  REPORTS_VIEW = "reports:view",
-  REPORTS_EXPORT = "reports:export",
-  REPORTS_CREATE = "reports:create",
+  REPORTS_VIEW: "reports:view",
+  REPORTS_EXPORT: "reports:export",
+  REPORTS_CREATE: "reports:create",
 
   // Admin Permissions
-  ADMIN_SETTINGS = "admin:settings",
-  ADMIN_AUDIT_LOG = "admin:audit_log",
-}
+  ADMIN_SETTINGS: "admin:settings",
+  ADMIN_AUDIT_LOG: "admin:audit_log",
+} as const;
+export type Permission = (typeof Permission)[keyof typeof Permission];
 
 // ============================================================================
 // ROLE-PERMISSION MAPPINGS
 // ============================================================================
 
 export const RolePermissions: Record<UserRole, Permission[]> = {
-  [UserRole.ADMIN]: Object.values(Permission),
+  [UserRole.GLOBAL_ADMIN]: Object.values(Permission),
 
-  [UserRole.OWNER]: [
+  [UserRole.SCHOOL_ADMIN]: [
     Permission.TASK_CREATE,
     Permission.TASK_READ,
     Permission.TASK_UPDATE,
@@ -85,7 +86,7 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.REPORTS_EXPORT,
   ],
 
-  [UserRole.APPROVER]: [
+  [UserRole.TASK_MANAGER]: [
     Permission.TASK_CREATE,
     Permission.TASK_READ,
     Permission.TASK_APPROVE,
@@ -96,7 +97,7 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.DASHBOARD_VIEW,
   ],
 
-  [UserRole.MEMBER]: [
+  [UserRole.TASK_ADVERTISER]: [
     Permission.TASK_CREATE,
     Permission.TASK_READ,
     Permission.APPLICATION_CREATE,
@@ -104,7 +105,7 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.ORG_READ,
   ],
 
-  [UserRole.INDEPENDENT]: [
+  [UserRole.APPLICANT]: [
     Permission.TASK_CREATE,
     Permission.TASK_READ,
     Permission.APPLICATION_CREATE,
@@ -161,14 +162,14 @@ export function canWithContext(
   context: PermissionContext,
 ): boolean {
   if (!role) return false;
-  if (role === UserRole.ADMIN) return true;
+  if (role === UserRole.GLOBAL_ADMIN) return true;
 
   if (hasPermission(role, permission)) {
     return true;
   }
 
-  // Independent can manage their own task's applications
-  if (role === UserRole.INDEPENDENT) {
+  // Advertiser/Applicant can manage their own task's applications if they are the creator
+  if (role === UserRole.TASK_ADVERTISER || role === UserRole.APPLICANT) {
     const appPermissions = [
       Permission.APPLICATION_READ,
       Permission.APPLICATION_SHORTLIST,
@@ -176,7 +177,7 @@ export function canWithContext(
       Permission.APPLICATION_REJECT,
     ];
 
-    if (appPermissions.includes(permission)) {
+    if ((appPermissions as Permission[]).includes(permission)) {
       if (context.taskCreatorId && context.userId === context.taskCreatorId) {
         return true;
       }
@@ -192,7 +193,13 @@ export function canWithContext(
 
 export function canAutoPublish(role: UserRole | undefined): boolean {
   if (!role) return false;
-  return [UserRole.ADMIN, UserRole.OWNER, UserRole.APPROVER].includes(role);
+  return (
+    [
+      UserRole.GLOBAL_ADMIN,
+      UserRole.SCHOOL_ADMIN,
+      UserRole.TASK_MANAGER,
+    ] as UserRole[]
+  ).includes(role);
 }
 
 export function canViewDashboard(role: UserRole | undefined): boolean {
@@ -207,9 +214,9 @@ export function canViewApplicants(
   if (!role) return false;
   if (hasPermission(role, Permission.APPLICATION_READ)) return true;
 
-  // Independent can view applicants for their own tasks
+  // Creators can view applicants for their own tasks
   if (
-    role === UserRole.INDEPENDENT &&
+    (role === UserRole.TASK_ADVERTISER || role === UserRole.APPLICANT) &&
     taskCreatorId &&
     userId === taskCreatorId
   ) {
@@ -242,9 +249,9 @@ export function canManageApplicationStatus(
   // Check static permission
   if (hasPermission(role, permission)) return true;
 
-  // Independent can manage their own task's applications
+  // Creators can manage their own task's applications
   if (
-    role === UserRole.INDEPENDENT &&
+    (role === UserRole.TASK_ADVERTISER || role === UserRole.APPLICANT) &&
     taskCreatorId &&
     userId === taskCreatorId
   ) {

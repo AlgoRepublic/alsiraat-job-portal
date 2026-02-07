@@ -13,57 +13,58 @@ import { UserRole } from "../models/User.js";
 // Define all possible actions in the system
 // ============================================================================
 
-export enum Permission {
+export const Permission = {
   // Task/Job Permissions
-  TASK_CREATE = "task:create",
-  TASK_READ = "task:read",
-  TASK_UPDATE = "task:update",
-  TASK_DELETE = "task:delete",
-  TASK_SUBMIT = "task:submit", // New
-  TASK_APPROVE = "task:approve",
-  TASK_PUBLISH = "task:publish",
-  TASK_ARCHIVE = "task:archive",
-  TASK_VIEW_INTERNAL = "task:view_internal",
-  TASK_VIEW_PENDING = "task:view_pending",
-  TASK_AUTO_PUBLISH = "task:auto_publish",
+  TASK_CREATE: "task:create",
+  TASK_READ: "task:read",
+  TASK_UPDATE: "task:update",
+  TASK_DELETE: "task:delete",
+  TASK_SUBMIT: "task:submit", // New
+  TASK_APPROVE: "task:approve",
+  TASK_PUBLISH: "task:publish",
+  TASK_ARCHIVE: "task:archive",
+  TASK_VIEW_INTERNAL: "task:view_internal",
+  TASK_VIEW_PENDING: "task:view_pending",
+  TASK_AUTO_PUBLISH: "task:auto_publish",
 
   // Application Permissions
-  APPLICATION_CREATE = "application:create", // Apply for a task
-  APPLICATION_READ = "application:read", // View applications
-  APPLICATION_READ_OWN = "application:read_own", // View own applications only
-  APPLICATION_SHORTLIST = "application:shortlist",
-  APPLICATION_APPROVE = "application:approve",
-  APPLICATION_REJECT = "application:reject",
-  APPLICATION_CONFIRM = "application:confirm",
+  APPLICATION_CREATE: "application:create", // Apply for a task
+  APPLICATION_READ: "application:read", // View applications
+  APPLICATION_READ_OWN: "application:read_own", // View own applications only
+  APPLICATION_SHORTLIST: "application:shortlist",
+  APPLICATION_APPROVE: "application:approve",
+  APPLICATION_REJECT: "application:reject",
+  APPLICATION_CONFIRM: "application:confirm",
 
   // User Management
-  USER_READ = "user:read",
-  USER_UPDATE = "user:update",
-  USER_DELETE = "user:delete",
-  USER_IMPERSONATE = "user:impersonate",
-  USER_MANAGE_ROLES = "user:manage_roles",
+  USER_READ: "user:read",
+  USER_UPDATE: "user:update",
+  USER_DELETE: "user:delete",
+  USER_IMPERSONATE: "user:impersonate",
+  USER_MANAGE_ROLES: "user:manage_roles",
 
   // Organization Management
-  ORG_CREATE = "org:create",
-  ORG_READ = "org:read",
-  ORG_UPDATE = "org:update",
-  ORG_DELETE = "org:delete",
-  ORG_MANAGE_MEMBERS = "org:manage_members",
+  ORG_CREATE: "org:create",
+  ORG_READ: "org:read",
+  ORG_UPDATE: "org:update",
+  ORG_DELETE: "org:delete",
+  ORG_MANAGE_MEMBERS: "org:manage_members",
 
   // Dashboard & Analytics
-  DASHBOARD_VIEW = "dashboard:view",
-  ANALYTICS_VIEW = "analytics:view",
+  DASHBOARD_VIEW: "dashboard:view",
+  ANALYTICS_VIEW: "analytics:view",
 
   // Reporting
-  REPORTS_VIEW = "reports:view",
-  REPORTS_EXPORT = "reports:export",
-  REPORTS_CREATE = "reports:create",
+  REPORTS_VIEW: "reports:view",
+  REPORTS_EXPORT: "reports:export",
+  REPORTS_CREATE: "reports:create",
 
   // Admin Permissions
-  ADMIN_SETTINGS = "admin:settings",
-  ADMIN_AUDIT_LOG = "admin:audit_log",
-  ADMIN_MANAGE_TENANTS = "admin:manage_tenants",
-}
+  ADMIN_SETTINGS: "admin:settings",
+  ADMIN_AUDIT_LOG: "admin:audit_log",
+  ADMIN_MANAGE_TENANTS: "admin:manage_tenants",
+} as const;
+export type Permission = (typeof Permission)[keyof typeof Permission];
 
 // ============================================================================
 // ROLE-PERMISSION MAPPINGS
@@ -148,6 +149,7 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.APPLICATION_CREATE,
     Permission.APPLICATION_READ_OWN,
     Permission.APPLICATION_CONFIRM,
+    Permission.APPLICATION_REJECT,
   ],
 };
 
@@ -291,7 +293,7 @@ export function canWithContext(
       Permission.APPLICATION_REJECT,
     ];
 
-    if (applicationPermissions.includes(permission)) {
+    if ((applicationPermissions as Permission[]).includes(permission)) {
       // Check if user owns the task
       if (context.taskCreatorId && context.userId === context.taskCreatorId) {
         return true;
@@ -335,7 +337,7 @@ export async function canWithContextAsync(
       Permission.APPLICATION_REJECT,
     ];
 
-    if (applicationPermissions.includes(permission)) {
+    if ((applicationPermissions as Permission[]).includes(permission)) {
       // Check if user owns the task
       if (context.taskCreatorId && context.userId === context.taskCreatorId) {
         return true;
@@ -356,7 +358,7 @@ export function canAutoPublish(role: UserRole): boolean {
     UserRole.SCHOOL_ADMIN,
     UserRole.TASK_MANAGER,
   ];
-  return autoPublishRoles.includes(role);
+  return (autoPublishRoles as UserRole[]).includes(role);
 }
 
 /**
