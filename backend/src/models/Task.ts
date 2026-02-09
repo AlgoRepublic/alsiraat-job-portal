@@ -33,7 +33,7 @@ export interface ITask extends Document {
   eligibility: string[];
   visibility: TaskVisibility;
   status: TaskStatus;
-  organization?: mongoose.Types.ObjectId;
+  organisation?: mongoose.Types.ObjectId;
   createdBy: mongoose.Types.ObjectId;
   approvedBy?: mongoose.Types.ObjectId;
   publishToPublic: boolean;
@@ -73,7 +73,7 @@ const TaskSchema: Schema = new Schema(
       enum: Object.values(TaskStatus),
       default: TaskStatus.PENDING,
     },
-    organization: { type: Schema.Types.ObjectId, ref: "Organization" },
+    organisation: { type: Schema.Types.ObjectId, ref: "Organization" },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
     approvedBy: { type: Schema.Types.ObjectId, ref: "User" },
     publishToPublic: { type: Boolean, default: false },

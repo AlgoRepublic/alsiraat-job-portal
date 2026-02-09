@@ -79,7 +79,7 @@ export const createTask = async (req: any, res: Response) => {
       eligibility: parseArrayField(eligibility),
       visibility: visibility || TaskVisibility.GLOBAL,
       status: taskStatus,
-      organization: req.user.organization,
+      organisation: req.user.organization,
       createdBy: req.user._id,
       attachments,
     };
@@ -117,7 +117,7 @@ export const getTasks = async (req: any, res: Response) => {
       const tasks = await Task.find(query)
         .populate("category", "name code icon")
         .populate("rewardType", "name code")
-        .populate("organization", "name slug")
+        .populate("organisation", "name slug")
         .populate("createdBy", "name email")
         .sort({ createdAt: -1 });
 
@@ -174,7 +174,7 @@ export const getTasks = async (req: any, res: Response) => {
       if (canViewInternal && organization) {
         conditions.push({
           visibility: TaskVisibility.INTERNAL,
-          organization: organization,
+          organisation: organization,
           status: canViewPending
             ? { $in: [TaskStatus.PUBLISHED, TaskStatus.PENDING] }
             : TaskStatus.PUBLISHED,
@@ -244,7 +244,7 @@ export const getTasks = async (req: any, res: Response) => {
     }
 
     const tasks = await Task.find(query)
-      .populate("organization", "name")
+      .populate("organisation", "name")
       .populate("createdBy", "name")
       .sort({ createdAt: -1 });
 
@@ -284,7 +284,7 @@ export const getTaskById = async (req: any, res: Response) => {
   try {
     const { id } = req.params;
     const task = await Task.findById(id)
-      .populate("organization", "name")
+      .populate("organisation", "name")
       .populate("createdBy", "name");
 
     if (!task) {
@@ -325,8 +325,8 @@ export const approveTask = async (req: any, res: Response) => {
     // Ensure approver is from the same org
     if (
       req.user.role.toLowerCase() !== UserRole.GLOBAL_ADMIN.toLowerCase() &&
-      (!task.organization ||
-        task.organization.toString() !== req.user.organization.toString())
+      (!task.organisation ||
+        task.organisation.toString() !== req.user.organization.toString())
     ) {
       return res
         .status(403)
@@ -371,11 +371,11 @@ export const approveTask = async (req: any, res: Response) => {
         );
       } else if (
         taskVisibility === TaskVisibility.INTERNAL &&
-        task.organization
+        task.organisation
       ) {
         // Notify org members for internal tasks
         await sendNotificationToOrganization(
-          task.organization.toString(),
+          task.organisation.toString(),
           "📢 New Internal Task",
           `A new internal task "${task.title}" has been posted.`,
           "info",

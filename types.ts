@@ -85,6 +85,7 @@ export interface Job {
   applicantsCount: number;
   hasApplied?: boolean;
   organisation?: string;
+  organization?: string;
 }
 
 export interface User {
@@ -94,6 +95,8 @@ export interface User {
   avatar: string;
   email: string;
   permissions?: string[];
+  organization?: string;
+  organisation?: string;
 }
 
 export interface Skill {

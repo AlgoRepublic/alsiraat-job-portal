@@ -16,7 +16,14 @@ import {
 } from "lucide-react";
 import { UserAvatar } from "../components/UserAvatar";
 import { db } from "../services/database";
-import { Job, RewardType, Application, UserRole, JobStatus } from "../types";
+import {
+  Job,
+  RewardType,
+  Application,
+  UserRole,
+  JobStatus,
+  Permission,
+} from "../types";
 import { useToast } from "../components/Toast";
 
 export const JobDetails: React.FC = () => {
@@ -151,46 +158,62 @@ export const JobDetails: React.FC = () => {
   const isJobOwner = currentUser?.id === job.createdBy;
   const hasApplied = job.hasApplied || applicationStep === "applied";
 
-  // Can see applicants: Global Admin, School Admin, Task Manager, or task creator
+  // Permission-based applicant viewing (respects role management API)
   const canSeeApplicants =
-    currentUser?.role === UserRole.GLOBAL_ADMIN ||
-    currentUser?.role === UserRole.SCHOOL_ADMIN ||
-    currentUser?.role === UserRole.TASK_MANAGER ||
+    currentUser?.permissions?.includes(Permission.APPLICATION_READ) ||
     isJobOwner;
 
-  // Can apply: All roles EXCEPT Global Admin
+  // Permission-based application capability
   const canApply =
     !currentUser || // Guest can see login prompt
-    (currentUser.role !== UserRole.GLOBAL_ADMIN && !hasApplied);
+    (currentUser.permissions?.includes(Permission.APPLICATION_CREATE) &&
+      !hasApplied);
 
-  // Can approve: Context-aware based on task visibility
+  // Permission-based approval check (respects role management API)
   const canApprove = (() => {
     if (!currentUser) return false;
 
-    // Global Admin (Super Admin) can approve ANY task
+    // Check if user has TASK_APPROVE permission
+    const hasApprovePermission = currentUser.permissions?.includes(
+      Permission.TASK_APPROVE,
+    );
+
+    if (!hasApprovePermission) {
+      return false;
+    }
+
+    // Context-aware check: Global Admin can approve any task
     if (currentUser.role === UserRole.GLOBAL_ADMIN) {
       return true;
     }
 
-    // School Admin and Task Manager can approve tasks from their organisation
-    if (
-      currentUser.role === UserRole.SCHOOL_ADMIN ||
-      currentUser.role === UserRole.TASK_MANAGER
-    ) {
-      // Get organization ID from either property (S or Z)
-      const taskOrgId = job.organisation || (job as any).organization;
-      const userOrgId = currentUser.organisation || currentUser.organization;
+    // For other roles with TASK_APPROVE permission:
+    // They can only approve tasks from their own organization
+    const taskOrgId = job.organisation || (job as any).organization;
+    const userOrgId = currentUser.organisation || currentUser.organization;
 
-      // Check if task belongs to their organisation
-      if (!userOrgId || !taskOrgId) {
-        return false;
-      }
+    console.log("Approval check:", {
+      hasApprovePermission,
+      taskOrgId,
+      userOrgId,
+      taskOrgIdType: typeof taskOrgId,
+      userOrgIdType: typeof userOrgId,
+      jobVisibility: job.visibility,
+      userRole: currentUser.role,
+    });
 
-      // String comparison for IDs to be safe
+    // If both IDs exist and match, user can approve
+    if (taskOrgId && userOrgId) {
       return String(taskOrgId) === String(userOrgId);
     }
 
-    // All other roles cannot approve
+    // For INTERNAL visibility tasks without org ID, allow if user has permission
+    // This handles legacy data or tasks where org wasn't set properly
+    if (job.visibility === "Internal" && !taskOrgId) {
+      console.log("Allowing approval for internal task without org ID");
+      return true;
+    }
+
     return false;
   })();
 

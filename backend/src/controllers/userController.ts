@@ -19,7 +19,7 @@ export const getUsers = async (req: Request, res: Response) => {
     }
 
     const users = await User.find(query)
-      .populate("organization", "name")
+      .populate("organisation", "name")
       .select("-password")
       .sort({ createdAt: -1 });
 
@@ -32,7 +32,7 @@ export const getUsers = async (req: Request, res: Response) => {
 export const getUserById = async (req: Request, res: Response) => {
   try {
     const user = await User.findById(req.params.id)
-      .populate("organization", "name")
+      .populate("organisation", "name")
       .select("-password");
 
     if (!user) return res.status(404).json({ message: "User not found" });

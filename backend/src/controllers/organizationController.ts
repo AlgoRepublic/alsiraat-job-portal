@@ -20,7 +20,7 @@ export const createOrganization = async (req: Request, res: Response) => {
 
     // Update owner's role and organization
     // Assign owner role to user
-    owner.organization = org._id as any;
+    owner.organisation = org._id as any;
     owner.role = UserRole.SCHOOL_ADMIN;
     await owner.save();
 
@@ -54,13 +54,13 @@ export const addMember = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    if (user.organization) {
+    if (user.organisation) {
       return res
         .status(400)
         .json({ message: "User already belongs to an organization" });
     }
 
-    user.organization = organization._id as any;
+    user.organisation = organization._id as any;
     user.role = role || UserRole.TASK_ADVERTISER;
 
     await user.save();

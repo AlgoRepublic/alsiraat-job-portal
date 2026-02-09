@@ -52,7 +52,7 @@ export const signup = async (req: Request, res: Response) => {
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,
-        organisation: user.organization,
+        organisation: user.organisation,
         permissions,
       },
     });
@@ -100,7 +100,7 @@ export const impersonate = async (req: Request, res: Response) => {
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,
-        organisation: user.organization,
+        organisation: user.organisation,
         permissions,
       },
     });

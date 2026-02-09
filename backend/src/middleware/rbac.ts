@@ -172,7 +172,7 @@ export const requirePermissionWithContext = (
     try {
       const context = await getContext(req);
       context.userId = user._id.toString();
-      context.userOrganizationId = user.organization?.toString();
+      context.userOrganizationId = user.organisation?.toString();
 
       // Use dynamic permission check from database
       const { canWithContextAsync } = await import("../config/permissions.js");
@@ -224,7 +224,7 @@ export function checkPermission(
 
   if (context) {
     context.userId = user._id.toString();
-    context.userOrganizationId = user.organization?.toString();
+    context.userOrganizationId = user.organisation?.toString();
 
     if (!canWithContext(userRole, permission, context)) {
       return {
@@ -272,7 +272,7 @@ export async function checkPermissionAsync(
 
   if (context) {
     context.userId = user._id.toString();
-    context.userOrganizationId = user.organization?.toString();
+    context.userOrganizationId = user.organisation?.toString();
 
     const hasAccess = await canWithContextAsync(userRole, permission, context);
     if (!hasAccess) {
@@ -359,8 +359,8 @@ export const requireTaskApproval = async (
 
   // Use dynamic permission check with context
   const context: any = {
-    organizationId: task.organization?.toString() || null,
-    userOrganizationId: req.user.organization?.toString() || null,
+    organizationId: task.organisation?.toString() || null,
+    userOrganizationId: req.user.organisation?.toString() || null,
     taskCreatorId: task.createdBy?.toString() || null,
     userId: req.user._id.toString(),
   };
@@ -383,8 +383,8 @@ export const requireTaskApproval = async (
   // Cross-organisation check is already handled inside canWithContext via context.organizationId
   // but if it's Global Visibility, we need to ensure they have the permission to approve Global tasks
   // Let's add that specific check if visibility is Global
-  const organisationId = task.organization?.toString();
-  const userOrganisationId = req.user.organization?.toString();
+  const organisationId = task.organisation?.toString();
+  const userOrganisationId = req.user.organisation?.toString();
 
   if (
     task.visibility !== "Internal" &&

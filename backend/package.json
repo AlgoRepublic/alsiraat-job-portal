@@ -9,7 +9,8 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "seed": "tsx src/scripts/seedAdmin.ts",
-    "seed:prod": "node dist/scripts/seedAdmin.js"
+    "seed:prod": "node dist/scripts/seedAdmin.js",
+    "reset-db": "tsx src/scripts/resetDatabase.ts"
   },
   "dependencies": {
     "@types/multer": "^2.0.0",

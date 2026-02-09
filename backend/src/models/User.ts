@@ -22,7 +22,7 @@ export interface IUser extends Document {
   googleId?: string;
   samlId?: string;
   role: UserRole;
-  organization?: mongoose.Types.ObjectId;
+  organisation?: mongoose.Types.ObjectId;
   avatar?: string;
   about?: string;
   skills: ISkill[];
@@ -64,7 +64,7 @@ const UserSchema: Schema = new Schema(
         return role || v;
       },
     },
-    organization: { type: Schema.Types.ObjectId, ref: "Organization" },
+    organisation: { type: Schema.Types.ObjectId, ref: "Organization" },
     avatar: { type: String },
     about: { type: String },
     skills: [SkillSchema],

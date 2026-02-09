@@ -235,7 +235,7 @@ export const ApplicationReview: React.FC = () => {
             const hasPermission = (p: Permission) =>
               currentUser.permissions?.includes(p);
 
-            const taskOrgId = job.organisation || (job as any).organization;
+            const taskOrgId = job?.organisation || (job as any).organization;
             const userOrgId =
               currentUser.organisation || currentUser.organization;
 

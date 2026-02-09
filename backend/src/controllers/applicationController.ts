@@ -57,7 +57,7 @@ export const updateApplicationStatus = async (req: any, res: Response) => {
     // Build permission context
     const permissionContext = {
       taskCreatorId: task.createdBy?.toString(),
-      organizationId: task.organization?.toString(),
+      organizationId: task.organisation?.toString(),
     };
 
     // Determine required permission based on status change
@@ -172,7 +172,7 @@ export const getApplications = async (req: any, res: Response) => {
         if (task && req.user.role !== UserRole.GLOBAL_ADMIN) {
           // Check if user is from the same org or is the task creator
           if (
-            task.organization?.toString() !==
+            task.organisation?.toString() !==
               req.user.organization?.toString() &&
             task.createdBy?.toString() !== req.user._id.toString()
           ) {
@@ -191,7 +191,7 @@ export const getApplications = async (req: any, res: Response) => {
         // Users with APPLICATION_READ see applications for their org's tasks
         if (req.user.organization) {
           const tasks = await Task.find({
-            organization: req.user.organization,
+            organisation: req.user.organization,
           }).select("_id");
           query.task = { $in: tasks.map((t) => t._id) };
         } else {
@@ -258,7 +258,7 @@ export const getApplicationById = async (req: any, res: Response) => {
     if (hasFullAccess.allowed && req.user.role !== "Global Admin") {
       const task: any = app.task;
       const isOrgMember =
-        task.organization?.toString() === req.user.organization?.toString();
+        task.organisation?.toString() === req.user.organization?.toString();
       const isTaskCreator =
         task.createdBy?.toString() === req.user._id.toString();
 
