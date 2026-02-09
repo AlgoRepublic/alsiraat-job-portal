@@ -415,35 +415,35 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
         isSystem: true,
       },
 
-      // Organization permissions
+      // Organisation permissions
       {
         code: "org:create",
-        name: "Create Organization",
-        category: "Organization",
+        name: "Create Organisation",
+        category: "Organisation",
         isSystem: true,
       },
       {
         code: "org:read",
-        name: "View Organization",
-        category: "Organization",
+        name: "View Organisation",
+        category: "Organisation",
         isSystem: true,
       },
       {
         code: "org:update",
-        name: "Update Organization",
-        category: "Organization",
+        name: "Update Organisation",
+        category: "Organisation",
         isSystem: true,
       },
       {
         code: "org:delete",
-        name: "Delete Organization",
-        category: "Organization",
+        name: "Delete Organisation",
+        category: "Organisation",
         isSystem: true,
       },
       {
         code: "org:manage_members",
         name: "Manage Members",
-        category: "Organization",
+        category: "Organisation",
         isSystem: true,
       },
 
