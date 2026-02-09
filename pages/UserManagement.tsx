@@ -150,7 +150,7 @@ export const UserManagement: React.FC = () => {
                         User
                       </th>
                       <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                        Organization
+                        Organisation
                       </th>
                       <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400">
                         Role

@@ -26,6 +26,8 @@ export interface ITask extends Document {
   hoursRequired: number;
   startDate?: Date;
   endDate?: Date;
+  selectionCriteria?: string;
+  requiredSkills?: string[];
   rewardType: string;
   rewardValue?: number;
   eligibility: string[];
@@ -56,6 +58,8 @@ const TaskSchema: Schema = new Schema(
     hoursRequired: { type: Number },
     startDate: { type: Date },
     endDate: { type: Date },
+    selectionCriteria: { type: String },
+    requiredSkills: [{ type: String }],
     rewardType: { type: String, required: true },
     rewardValue: { type: Number },
     eligibility: [{ type: String }],

@@ -383,10 +383,13 @@ export const requireTaskApproval = async (
   // Cross-organisation check is already handled inside canWithContext via context.organizationId
   // but if it's Global Visibility, we need to ensure they have the permission to approve Global tasks
   // Let's add that specific check if visibility is Global
+  const organisationId = task.organization?.toString();
+  const userOrganisationId = req.user.organization?.toString();
+
   if (
     task.visibility !== "Internal" &&
     req.user.role.toLowerCase() !== UserRole.GLOBAL_ADMIN.toLowerCase() &&
-    task.organiation.toString() !== req.user.organization.toString()
+    organisationId !== userOrganisationId
   ) {
     // Only Global Admin (or Org Admin for their own tasks) can approve non-internal tasks
     return res.status(403).json({

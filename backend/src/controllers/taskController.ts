@@ -8,6 +8,24 @@ import {
   sendNotificationToOrganization,
 } from "../services/notificationService.js";
 
+const parseArrayField = (value: any): string[] => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed.filter(Boolean);
+    } catch {
+      // Fallback to comma-separated strings
+    }
+    return value
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
 export const createTask = async (req: any, res: Response) => {
   try {
     const {
@@ -18,6 +36,8 @@ export const createTask = async (req: any, res: Response) => {
       hoursRequired,
       startDate,
       endDate,
+      selectionCriteria,
+      requiredSkills,
       rewardType,
       rewardValue,
       eligibility,
@@ -52,9 +72,11 @@ export const createTask = async (req: any, res: Response) => {
       category,
       location,
       hoursRequired,
+      selectionCriteria,
+      requiredSkills: parseArrayField(requiredSkills),
       rewardType,
       rewardValue,
-      eligibility,
+      eligibility: parseArrayField(eligibility),
       visibility: visibility || TaskVisibility.GLOBAL,
       status: taskStatus,
       organization: req.user.organization,

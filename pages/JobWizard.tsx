@@ -575,7 +575,128 @@ export const JobWizard: React.FC = () => {
                     {formData.location}
                   </p>
                 </div>
+                <div>
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">
+                    Start Date
+                  </p>
+                  <p className="text-lg font-black text-zinc-900 dark:text-white">
+                    {formData.startDate || "ASAP"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">
+                    End Date
+                  </p>
+                  <p className="text-lg font-black text-zinc-900 dark:text-white">
+                    {formData.endDate || "Not set"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">
+                    Estimated Hours
+                  </p>
+                  <p className="text-lg font-black text-zinc-900 dark:text-white">
+                    {formData.hoursRequired || 0}h
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">
+                    Reward
+                  </p>
+                  <p className="text-lg font-black text-zinc-900 dark:text-white">
+                    {formData.rewardType}
+                    {formData.rewardValue
+                      ? ` · ${formData.rewardValue}`
+                      : ""}
+                  </p>
+                </div>
               </div>
+
+              {formData.description && (
+                <div>
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">
+                    Description
+                  </p>
+                  <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap leading-relaxed">
+                    {formData.description}
+                  </p>
+                </div>
+              )}
+
+              {formData.selectionCriteria && (
+                <div>
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">
+                    Selection Criteria
+                  </p>
+                  <div className="text-sm font-medium text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800">
+                    {formData.selectionCriteria}
+                  </div>
+                </div>
+              )}
+
+              {(formData.requiredSkills || []).length > 0 && (
+                <div>
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">
+                    Required Skills
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {(formData.requiredSkills || []).map((skill) => (
+                      <span
+                        key={skill}
+                        className="px-3 py-1 text-[10px] font-black uppercase tracking-widest bg-primary/10 text-primary rounded-xl"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(formData.eligibility || []).length > 0 && (
+                <div>
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">
+                    Eligibility
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {(formData.eligibility || []).map((item) => (
+                      <span
+                        key={item}
+                        className="px-3 py-1 text-[10px] font-black uppercase tracking-widest bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded-xl"
+                      >
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {uploadedFiles.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">
+                    Attachments
+                  </p>
+                  <div className="space-y-2">
+                    {uploadedFiles.map((file, idx) => (
+                      <div
+                        key={`${file.name}-${idx}`}
+                        className="flex items-center justify-between p-3 rounded-xl bg-white/70 dark:bg-zinc-800/60 border border-zinc-100 dark:border-zinc-700"
+                      >
+                        <div className="flex items-center gap-3">
+                          <FileText className="w-4 h-4 text-primary" />
+                          <div>
+                            <p className="text-sm font-bold text-zinc-900 dark:text-white">
+                              {file.name}
+                            </p>
+                            <p className="text-xs text-zinc-400">
+                              {(file.size / 1024).toFixed(1)} KB
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

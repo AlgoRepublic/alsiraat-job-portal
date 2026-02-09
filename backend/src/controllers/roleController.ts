@@ -320,6 +320,24 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
         category: "Tasks",
         isSystem: true,
       },
+      {
+        code: "task:view_internal",
+        name: "View Internal Tasks",
+        category: "Tasks",
+        isSystem: true,
+      },
+      {
+        code: "task:view_pending",
+        name: "View Pending Tasks",
+        category: "Tasks",
+        isSystem: true,
+      },
+      {
+        code: "task:auto_publish",
+        name: "Auto Publish Tasks",
+        category: "Tasks",
+        isSystem: true,
+      },
 
       // Application permissions
       {
@@ -448,6 +466,18 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
         category: "Reports",
         isSystem: true,
       },
+      {
+        code: "reports:export",
+        name: "Export Reports",
+        category: "Reports",
+        isSystem: true,
+      },
+      {
+        code: "reports:create",
+        name: "Create Reports",
+        category: "Reports",
+        isSystem: true,
+      },
 
       // Admin permissions
       {
@@ -514,6 +544,9 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
           "task:publish",
           "task:archive",
           "task:submit",
+          "task:view_internal",
+          "task:view_pending",
+          "task:auto_publish",
           "application:read",
           "application:shortlist",
           "application:approve",
@@ -527,6 +560,8 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
           "dashboard:view",
           "analytics:view",
           "reports:view",
+          "reports:export",
+          "reports:create",
           "admin:settings",
         ],
         isSystem: true,
@@ -537,9 +572,14 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
         code: "task_manager",
         description: "Review, publish, shortlist, issue offers and rewards",
         permissions: [
+          "task:create",
           "task:read",
+          "task:update",
           "task:approve",
           "task:publish",
+          "task:view_internal",
+          "task:view_pending",
+          "task:auto_publish",
           "application:read",
           "application:shortlist",
           "application:approve",

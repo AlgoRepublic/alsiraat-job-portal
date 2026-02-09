@@ -331,6 +331,19 @@ export const JobDetails: React.FC = () => {
                 </p>
               </div>
             </div>
+            <div className="flex items-center">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mr-3 text-primary">
+                <Calendar className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase font-bold">
+                  End Date
+                </p>
+                <p className="text-sm font-semibold text-zinc-900 dark:text-white">
+                  {job.endDate || "Not set"}
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Description */}
@@ -349,6 +362,56 @@ export const JobDetails: React.FC = () => {
                 </h4>
                 <div className="text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800">
                   {job.selectionCriteria}
+                </div>
+              </div>
+            )}
+
+            {(job.requiredSkills || []).length > 0 && (
+              <div className="mt-8">
+                <h4 className="text-base font-bold text-zinc-900 dark:text-white mb-3">
+                  Required Skills
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {(job.requiredSkills || []).map((skill) => (
+                    <span
+                      key={skill}
+                      className="px-3 py-1 text-[10px] font-black uppercase tracking-widest bg-primary/10 text-primary rounded-xl"
+                    >
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(job.attachments || []).length > 0 && (
+              <div className="mt-8">
+                <h4 className="text-base font-bold text-zinc-900 dark:text-white mb-3">
+                  Attachments
+                </h4>
+                <div className="space-y-2">
+                  {(job.attachments || []).map((file) => (
+                    <a
+                      key={file.id}
+                      href={file.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-800 hover:bg-zinc-100/70 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <FileText className="w-4 h-4 text-primary" />
+                        <div>
+                          <p className="text-sm font-bold text-zinc-900 dark:text-white">
+                            {file.name}
+                          </p>
+                          <p className="text-xs text-zinc-400">
+                            {(file.size / 1024).toFixed(1)} KB
+                          </p>
+                        </div>
+                      </div>
+                      <Download className="w-4 h-4 text-zinc-400" />
+                    </a>
+                  ))}
                 </div>
               </div>
             )}
