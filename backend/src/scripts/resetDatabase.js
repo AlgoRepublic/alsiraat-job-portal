@@ -63,8 +63,8 @@ const TaskVisibility = {
 };
 
 const MONGODB_URI =
-  // "mongodb://tasker:WdE0urFVi93pYYOLOzUGn7AGgvfFhe2adPaSj49kbqgG_3IG@1023b557-eaa1-419e-bd02-4df4d15f4409.africa-south1.firestore.goog:443/alsiraat-tasker?loadBalanced=true&tls=true&authMechanism=SCRAM-SHA-256&retryWrites=false";
-  "mongodb://localhost:27017/tasker";
+  "mongodb://tasker:WdE0urFVi93pYYOLOzUGn7AGgvfFhe2adPaSj49kbqgG_3IG@1023b557-eaa1-419e-bd02-4df4d15f4409.africa-south1.firestore.goog:443/alsiraat-tasker?loadBalanced=true&tls=true&authMechanism=SCRAM-SHA-256&retryWrites=false";
+// "mongodb://localhost:27017/tasker";
 
 async function resetDatabase() {
   try {
@@ -72,17 +72,17 @@ async function resetDatabase() {
     await mongoose.connect(MONGODB_URI);
     console.log("✅ Connected to MongoDB");
 
-    // Step 1: Drop all collections
-    console.log("\n🗑️  Dropping all collections...");
+    // Step 1: Clear all collections
+    console.log("\n🗑️  Clearing all collections...");
     const collections = await mongoose.connection.db
       .listCollections()
       .toArray();
 
     for (const collection of collections) {
-      await mongoose.connection.db.dropCollection(collection.name);
-      console.log(`   Dropped: ${collection.name}`);
+      await mongoose.connection.db.collection(collection.name).deleteMany({});
+      console.log(`   Cleared: ${collection.name}`);
     }
-    console.log("✅ All collections dropped");
+    console.log("✅ All collections cleared");
 
     // Step 2: Create Organisation
     console.log("\n🏫 Creating organisation...");
