@@ -320,6 +320,24 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
         category: "Tasks",
         isSystem: true,
       },
+      {
+        code: "task:view_internal",
+        name: "View Internal Tasks",
+        category: "Tasks",
+        isSystem: true,
+      },
+      {
+        code: "task:view_pending",
+        name: "View Pending Tasks",
+        category: "Tasks",
+        isSystem: true,
+      },
+      {
+        code: "task:auto_publish",
+        name: "Auto Publish Tasks",
+        category: "Tasks",
+        isSystem: true,
+      },
 
       // Application permissions
       {
@@ -358,6 +376,12 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
         category: "Applications",
         isSystem: true,
       },
+      {
+        code: "application:confirm",
+        name: "Confirm Offer",
+        category: "Applications",
+        isSystem: true,
+      },
 
       // User permissions
       {
@@ -391,35 +415,35 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
         isSystem: true,
       },
 
-      // Organization permissions
+      // Organisation permissions
       {
         code: "org:create",
-        name: "Create Organization",
-        category: "Organization",
+        name: "Create Organisation",
+        category: "Organisation",
         isSystem: true,
       },
       {
         code: "org:read",
-        name: "View Organization",
-        category: "Organization",
+        name: "View Organisation",
+        category: "Organisation",
         isSystem: true,
       },
       {
         code: "org:update",
-        name: "Update Organization",
-        category: "Organization",
+        name: "Update Organisation",
+        category: "Organisation",
         isSystem: true,
       },
       {
         code: "org:delete",
-        name: "Delete Organization",
-        category: "Organization",
+        name: "Delete Organisation",
+        category: "Organisation",
         isSystem: true,
       },
       {
         code: "org:manage_members",
         name: "Manage Members",
-        category: "Organization",
+        category: "Organisation",
         isSystem: true,
       },
 
@@ -439,6 +463,18 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
       {
         code: "reports:view",
         name: "Run Reports",
+        category: "Reports",
+        isSystem: true,
+      },
+      {
+        code: "reports:export",
+        name: "Export Reports",
+        category: "Reports",
+        isSystem: true,
+      },
+      {
+        code: "reports:create",
+        name: "Create Reports",
         category: "Reports",
         isSystem: true,
       },
@@ -508,6 +544,9 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
           "task:publish",
           "task:archive",
           "task:submit",
+          "task:view_internal",
+          "task:view_pending",
+          "task:auto_publish",
           "application:read",
           "application:shortlist",
           "application:approve",
@@ -521,6 +560,9 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
           "dashboard:view",
           "analytics:view",
           "reports:view",
+          "reports:export",
+          "reports:create",
+          "admin:settings",
         ],
         isSystem: true,
         color: "#7C3AED", // Violet
@@ -530,9 +572,14 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
         code: "task_manager",
         description: "Review, publish, shortlist, issue offers and rewards",
         permissions: [
+          "task:create",
           "task:read",
+          "task:update",
           "task:approve",
           "task:publish",
+          "task:view_internal",
+          "task:view_pending",
+          "task:auto_publish",
           "application:read",
           "application:shortlist",
           "application:approve",
@@ -564,6 +611,8 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
           "task:read",
           "application:create",
           "application:read_own",
+          "application:confirm",
+          "application:reject",
         ],
         isSystem: true,
         color: "#D97706", // Amber
@@ -619,4 +668,3 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
     res.status(500).json({ message: err.message });
   }
 };
-

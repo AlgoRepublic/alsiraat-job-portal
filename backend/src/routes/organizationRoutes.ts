@@ -4,8 +4,8 @@ import {
   getOrganizations,
   addMember,
 } from "../controllers/organizationController.js";
-import { authenticate, authorize } from "../middleware/rbac.js";
-import { UserRole } from "../models/User.js";
+import { authenticate, requirePermission } from "../middleware/rbac.js";
+import { Permission } from "../config/permissions.js";
 
 const router = express.Router();
 
@@ -13,7 +13,7 @@ const router = express.Router();
 router.post(
   "/",
   authenticate,
-  authorize([UserRole.GLOBAL_ADMIN]),
+  requirePermission(Permission.ORG_CREATE),
   createOrganization,
 );
 
@@ -24,7 +24,7 @@ router.get("/", getOrganizations);
 router.post(
   "/:id/members",
   authenticate,
-  authorize([UserRole.GLOBAL_ADMIN, UserRole.SCHOOL_ADMIN]),
+  requirePermission(Permission.ORG_UPDATE),
   addMember,
 );
 

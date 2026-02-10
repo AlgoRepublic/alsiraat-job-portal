@@ -6,7 +6,7 @@ import {
   Navigate,
   useNavigate,
 } from "react-router-dom";
-import { Layers } from "lucide-react";
+import { Layers, Sun, Moon } from "lucide-react";
 import { Layout } from "./components/Layout";
 import { Dashboard } from "./pages/Dashboard";
 import { JobWizard } from "./pages/JobWizard";
@@ -18,6 +18,7 @@ import { LandingPage } from "./components/LandingPage";
 import { JobApplicants } from "./pages/JobApplicants";
 import { ApplicationReview } from "./pages/ApplicationReview";
 import { MyTasks } from "./pages/MyTasks";
+import { UserManagement } from "./pages/UserManagement";
 import MyApplications from "./pages/MyApplications";
 import { AdminSettings } from "./pages/AdminSettings";
 import { Reports } from "./pages/Reports";
@@ -26,7 +27,7 @@ import { Signup } from "./pages/Signup";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
 import { ToastProvider } from "./components/Toast";
-import { User, UserRole } from "./types";
+import { User, UserRole, Permission } from "./types";
 import { db } from "./services/database";
 
 const App: React.FC = () => {
@@ -102,13 +103,91 @@ const App: React.FC = () => {
                   onGetStarted={() => (window.location.hash = "#/login")}
                   onBrowseTasks={() => (window.location.hash = "#/jobs")}
                 />
-              ) : ["global admin", "school admin"].includes(
-                  currentUser.role?.toLowerCase(),
+              ) : currentUser.permissions?.includes(
+                  Permission.DASHBOARD_VIEW,
                 ) ? (
                 <Navigate to="/dashboard" replace />
               ) : (
                 <Navigate to="/jobs" replace />
               )
+            }
+          />
+
+          {/* Auth pages without Layout (no sidebar/header) */}
+          <Route
+            path="/login"
+            element={
+              <div className="relative">
+                <button
+                  onClick={toggleTheme}
+                  className="fixed top-6 right-6 z-50 p-3 rounded-xl glass-card hover:scale-110 transition-all"
+                  title={isDarkMode ? "Light mode" : "Dark mode"}
+                >
+                  {isDarkMode ? (
+                    <Sun className="w-5 h-5 text-yellow-500" />
+                  ) : (
+                    <Moon className="w-5 h-5 text-zinc-700" />
+                  )}
+                </button>
+                <Login onLoginSuccess={refreshUser} />
+              </div>
+            }
+          />
+          <Route
+            path="/signup"
+            element={
+              <div className="relative">
+                <button
+                  onClick={toggleTheme}
+                  className="fixed top-6 right-6 z-50 p-3 rounded-xl glass-card hover:scale-110 transition-all"
+                  title={isDarkMode ? "Light mode" : "Dark mode"}
+                >
+                  {isDarkMode ? (
+                    <Sun className="w-5 h-5 text-yellow-500" />
+                  ) : (
+                    <Moon className="w-5 h-5 text-zinc-700" />
+                  )}
+                </button>
+                <Signup />
+              </div>
+            }
+          />
+          <Route
+            path="/forgot-password"
+            element={
+              <div className="relative">
+                <button
+                  onClick={toggleTheme}
+                  className="fixed top-6 right-6 z-50 p-3 rounded-xl glass-card hover:scale-110 transition-all"
+                  title={isDarkMode ? "Light mode" : "Dark mode"}
+                >
+                  {isDarkMode ? (
+                    <Sun className="w-5 h-5 text-yellow-500" />
+                  ) : (
+                    <Moon className="w-5 h-5 text-zinc-700" />
+                  )}
+                </button>
+                <ForgotPassword />
+              </div>
+            }
+          />
+          <Route
+            path="/reset-password/:token"
+            element={
+              <div className="relative">
+                <button
+                  onClick={toggleTheme}
+                  className="fixed top-6 right-6 z-50 p-3 rounded-xl glass-card hover:scale-110 transition-all"
+                  title={isDarkMode ? "Light mode" : "Dark mode"}
+                >
+                  {isDarkMode ? (
+                    <Sun className="w-5 h-5 text-yellow-500" />
+                  ) : (
+                    <Moon className="w-5 h-5 text-zinc-700" />
+                  )}
+                </button>
+                <ResetPassword />
+              </div>
             }
           />
 
@@ -123,16 +202,6 @@ const App: React.FC = () => {
                 onToggleTheme={toggleTheme}
               >
                 <Routes>
-                  <Route
-                    path="/login"
-                    element={<Login onLoginSuccess={refreshUser} />}
-                  />
-                  <Route path="/signup" element={<Signup />} />
-                  <Route path="/forgot-password" element={<ForgotPassword />} />
-                  <Route
-                    path="/reset-password/:token"
-                    element={<ResetPassword />}
-                  />
                   <Route path="/jobs" element={<JobList />} />
                   <Route path="/jobs/:id" element={<JobDetails />} />
 
@@ -158,15 +227,23 @@ const App: React.FC = () => {
                         element={<ApplicationReview />}
                       />
                       {/* Admin-only routes */}
-                      {currentUser.role?.toLowerCase() === "global admin" && (
-                        <Route
-                          path="/admin/settings"
-                          element={<AdminSettings />}
-                        />
+                      {currentUser.permissions?.includes(
+                        Permission.ADMIN_SETTINGS,
+                      ) && (
+                        <>
+                          <Route
+                            path="/admin/settings"
+                            element={<AdminSettings />}
+                          />
+                          <Route
+                            path="/admin/users"
+                            element={<UserManagement />}
+                          />
+                        </>
                       )}
                       {/* Admin and Owner routes */}
-                      {["global admin", "school admin"].includes(
-                        currentUser.role?.toLowerCase(),
+                      {currentUser.permissions?.includes(
+                        Permission.REPORTS_VIEW,
                       ) && <Route path="/reports" element={<Reports />} />}
                       <Route
                         path="/profile"

@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { Mail, Lock, Loader2, Shield, AlertCircle, Layers } from "lucide-react";
 import { db } from "../services/database";
 import { API_BASE_URL } from "../services/api";
+import { UserRole, Permission } from "../types";
 
 export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
   onLoginSuccess,
@@ -29,8 +30,8 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
       // Get updated user info
       const user = await db.getCurrentUser();
 
-      // Role-based redirect
-      if (user.role === "Admin" || user.role === "Owner") {
+      // Permission-based redirect
+      if (user?.permissions?.includes(Permission.DASHBOARD_VIEW)) {
         navigate("/dashboard");
       } else {
         navigate("/jobs");

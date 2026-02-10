@@ -5,13 +5,13 @@ import bcrypt from "bcryptjs";
 dotenv.config();
 
 // Import models
-import User from "../models/User.ts";
-import Role from "../models/Role.ts";
-import Organization from "../models/Organization.ts";
-import TaskCategory from "../models/TaskCategory.ts";
-import RewardType from "../models/RewardType.ts";
-import Task from "../models/Task.ts";
-import Application from "../models/Application.ts";
+import User from "../models/User.js";
+import Role from "../models/Role.js";
+import Organization from "../models/Organization.js";
+import TaskCategory from "../models/TaskCategory.js";
+import RewardType from "../models/RewardType.js";
+import Task from "../models/Task.js";
+import Application from "../models/Application.js";
 
 // Enums
 const UserRole = {
@@ -63,7 +63,8 @@ const TaskVisibility = {
 };
 
 const MONGODB_URI =
-  process.env.MONGODB_URI || "mongodb://localhost:27017/alsiraat-job-portal";
+  "mongodb://tasker:WdE0urFVi93pYYOLOzUGn7AGgvfFhe2adPaSj49kbqgG_3IG@1023b557-eaa1-419e-bd02-4df4d15f4409.africa-south1.firestore.goog:443/alsiraat-tasker?loadBalanced=true&tls=true&authMechanism=SCRAM-SHA-256&retryWrites=false";
+// "mongodb://localhost:27017/tasker";
 
 async function resetDatabase() {
   try {
@@ -71,17 +72,17 @@ async function resetDatabase() {
     await mongoose.connect(MONGODB_URI);
     console.log("✅ Connected to MongoDB");
 
-    // Step 1: Drop all collections
-    console.log("\n🗑️  Dropping all collections...");
-    const collections = await mongoose.connection.dbdd
+    // Step 1: Clear all collections
+    console.log("\n🗑️  Clearing all collections...");
+    const collections = await mongoose.connection.db
       .listCollections()
       .toArray();
 
     for (const collection of collections) {
-      await mongoose.connection.db.dropCollection(collection.name);
-      console.log(`   Dropped: ${collection.name}`);
+      await mongoose.connection.db.collection(collection.name).deleteMany({});
+      console.log(`   Cleared: ${collection.name}`);
     }
-    console.log("✅ All collections dropped");
+    console.log("✅ All collections cleared");
 
     // Step 2: Create Organisation
     console.log("\n🏫 Creating organisation...");
@@ -89,11 +90,13 @@ async function resetDatabase() {
       name: "Al Siraat College",
       slug: "al-siraat-college",
       description: "Islamic College in Melbourne",
-      contactEmail: "info@alsiraat.edu.au",
-      contactPhone: "+61 3 9395 5000",
+      contactEmail: "[EMAIL_ADDRESS]",
+      contactPhone: "+61 3 9`395 5000",
       isPublic: true,
     });
-    console.log(`✅ Created organisation: ${organization.name}`);
+    console.log(
+      `✅ Created organisation: ${organization.name} ${organization._id}`,
+    );
 
     // Step 3: Seed Roles with Permissions
     console.log("\n👥 Seeding roles with permissions...");
@@ -136,6 +139,8 @@ async function resetDatabase() {
           "reports:create",
           "admin:settings",
           "admin:audit_log",
+          "application:confirm",
+          "application:reject",
         ],
       },
       {
@@ -165,6 +170,7 @@ async function resetDatabase() {
           "dashboard:view",
           "analytics:view",
           "reports:view",
+          "admin:settings",
         ],
       },
       {
@@ -205,6 +211,8 @@ async function resetDatabase() {
           "task:read",
           "application:create",
           "application:read_own",
+          "application:confirm",
+          "application:reject",
         ],
       },
     ];

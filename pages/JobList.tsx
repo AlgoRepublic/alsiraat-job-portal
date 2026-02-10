@@ -60,6 +60,17 @@ export const JobList: React.FC = () => {
   useEffect(() => {
     const fetchJobs = async () => {
       const data = await db.getJobs();
+      console.log("\n📋 All Jobs (BEFORE filters):", {
+        count: data.length,
+        jobs: data.map((j) => ({
+          id: j.id,
+          title: j.title,
+          status: j.status,
+          visibility: j.visibility,
+          organisation: j.organisation,
+          organization: j.organization,
+        })),
+      });
       setJobs(data);
       setLoading(false);
     };
@@ -96,6 +107,26 @@ export const JobList: React.FC = () => {
       matchesReward &&
       matchesDate
     );
+  });
+
+  // Log filtered results
+  console.log("\n🔍 Filtered Jobs (AFTER filters):", {
+    count: filteredJobs.length,
+    activeFilters: {
+      searchTerm,
+      filterCategory,
+      filterStatus,
+      filterReward,
+      dateFrom,
+      dateTo,
+    },
+    jobs: filteredJobs.map((j) => ({
+      id: j.id,
+      title: j.title,
+      status: j.status,
+      visibility: j.visibility,
+      organisation: j.organisation,
+    })),
   });
 
   if (loading)

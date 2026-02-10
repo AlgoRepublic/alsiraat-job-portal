@@ -16,7 +16,14 @@ import {
 } from "lucide-react";
 import { UserAvatar } from "../components/UserAvatar";
 import { db } from "../services/database";
-import { Job, RewardType, Application, UserRole, JobStatus } from "../types";
+import {
+  Job,
+  RewardType,
+  Application,
+  UserRole,
+  JobStatus,
+  Permission,
+} from "../types";
 import { useToast } from "../components/Toast";
 
 export const JobDetails: React.FC = () => {
@@ -151,50 +158,52 @@ export const JobDetails: React.FC = () => {
   const isJobOwner = currentUser?.id === job.createdBy;
   const hasApplied = job.hasApplied || applicationStep === "applied";
 
-  // Can see applicants: Global Admin, School Admin, Task Manager, or task creator
+  // Permission-based applicant viewing (respects role management API)
   const canSeeApplicants =
-    currentUser?.role === UserRole.GLOBAL_ADMIN ||
-    currentUser?.role === UserRole.SCHOOL_ADMIN ||
-    currentUser?.role === UserRole.TASK_MANAGER ||
+    currentUser?.permissions?.includes(Permission.APPLICATION_READ) ||
     isJobOwner;
 
-  // Can apply: All roles EXCEPT Global Admin
+  // Permission-based application capability
   const canApply =
     !currentUser || // Guest can see login prompt
-    (currentUser.role !== UserRole.GLOBAL_ADMIN && !hasApplied);
+    (currentUser.permissions?.includes(Permission.APPLICATION_CREATE) &&
+      !hasApplied);
 
-  // Can approve: Context-aware based on task visibility
+  // Permission-based approval check (respects role management API)
   const canApprove = (() => {
     if (!currentUser) return false;
 
-    // Global Admin (Super Admin) can approve ANY task
+    // Check if user has TASK_APPROVE permission
+    const hasApprovePermission = currentUser.permissions?.includes(
+      Permission.TASK_APPROVE,
+    );
+
+    if (!hasApprovePermission) {
+      return false;
+    }
+    const taskOrgId = job.organisation || job.organization;
+    const userOrgId = currentUser.organisation || currentUser.organization;
+    console.log("Approval check:", {
+      hasApprovePermission,
+      taskOrgId,
+      userOrgId,
+      taskOrgIdType: String(taskOrgId),
+      userOrgIdType: String(userOrgId),
+      jobVisibility: job.visibility,
+      userRole: currentUser.role,
+    });
+    // Context-aware check: Global Admin can approve any task
     if (currentUser.role === UserRole.GLOBAL_ADMIN) {
       return true;
     }
 
-    // School Admin and Task Manager can approve INTERNAL tasks from their org
-    if (
-      currentUser.role === UserRole.SCHOOL_ADMIN ||
-      currentUser.role === UserRole.TASK_MANAGER
-    ) {
-      // Check if task is Internal
-      // Check if task is Internal - REMOVED to allow approving Global tasks if owned by org
-      // if (job.visibility !== "Internal") {
-      //   return false; // Cannot approve Global tasks
-      // }
-
-      // Check if task belongs to their organisation
-      if (
-        !currentUser.organisation ||
-        job.organisation !== currentUser.organisation
-      ) {
-        return false; // Cannot approve tasks from other organisations
-      }
-
+    // For other roles with TASK_APPROVE permission:
+    // They can only approve tasks from their own organization
+    if (taskOrgId == userOrgId) {
       return true;
     }
 
-    // All other roles cannot approve
+    // No organisation match = no approval (unless Global Admin)
     return false;
   })();
 
@@ -335,6 +344,19 @@ export const JobDetails: React.FC = () => {
                 </p>
               </div>
             </div>
+            <div className="flex items-center">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mr-3 text-primary">
+                <Calendar className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase font-bold">
+                  End Date
+                </p>
+                <p className="text-sm font-semibold text-zinc-900 dark:text-white">
+                  {job.endDate || "Not set"}
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Description */}
@@ -353,6 +375,56 @@ export const JobDetails: React.FC = () => {
                 </h4>
                 <div className="text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800">
                   {job.selectionCriteria}
+                </div>
+              </div>
+            )}
+
+            {(job.requiredSkills || []).length > 0 && (
+              <div className="mt-8">
+                <h4 className="text-base font-bold text-zinc-900 dark:text-white mb-3">
+                  Required Skills
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {(job.requiredSkills || []).map((skill) => (
+                    <span
+                      key={skill}
+                      className="px-3 py-1 text-[10px] font-black uppercase tracking-widest bg-primary/10 text-primary rounded-xl"
+                    >
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(job.attachments || []).length > 0 && (
+              <div className="mt-8">
+                <h4 className="text-base font-bold text-zinc-900 dark:text-white mb-3">
+                  Attachments
+                </h4>
+                <div className="space-y-2">
+                  {(job.attachments || []).map((file) => (
+                    <a
+                      key={file.id}
+                      href={file.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-800 hover:bg-zinc-100/70 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <FileText className="w-4 h-4 text-primary" />
+                        <div>
+                          <p className="text-sm font-bold text-zinc-900 dark:text-white">
+                            {file.name}
+                          </p>
+                          <p className="text-xs text-zinc-400">
+                            {(file.size / 1024).toFixed(1)} KB
+                          </p>
+                        </div>
+                      </div>
+                      <Download className="w-4 h-4 text-zinc-400" />
+                    </a>
+                  ))}
                 </div>
               </div>
             )}
@@ -408,13 +480,17 @@ export const JobDetails: React.FC = () => {
                               <div className="mt-2">
                                 <span
                                   className={`px-2 py-1 text-[9px] font-black rounded-lg uppercase tracking-wider ${
-                                    app.status === "Approved"
+                                    app.status === "Approved" ||
+                                    app.status === "Accepted"
                                       ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
-                                      : app.status === "Shortlisted"
+                                      : app.status === "Offered"
                                         ? "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400"
-                                        : app.status === "Rejected"
-                                          ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
-                                          : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
+                                        : app.status === "Shortlisted"
+                                          ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
+                                          : app.status === "Rejected" ||
+                                              app.status === "Declined"
+                                            ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                                            : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
                                   }`}
                                 >
                                   {app.status}

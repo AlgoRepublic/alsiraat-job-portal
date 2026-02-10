@@ -1,12 +1,13 @@
 import mongoose, { Schema, Document } from "mongoose";
 
-export enum UserRole {
-  GLOBAL_ADMIN = "Global Admin",
-  SCHOOL_ADMIN = "School Admin",
-  TASK_MANAGER = "Task Manager",
-  TASK_ADVERTISER = "Task Advertiser",
-  APPLICANT = "Applicant",
-}
+export const UserRole = {
+  GLOBAL_ADMIN: "Global Admin",
+  SCHOOL_ADMIN: "School Admin",
+  TASK_MANAGER: "Task Manager",
+  TASK_ADVERTISER: "Task Advertiser",
+  APPLICANT: "Applicant",
+} as const;
+export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 
 export interface ISkill {
   id: string;
@@ -21,7 +22,7 @@ export interface IUser extends Document {
   googleId?: string;
   samlId?: string;
   role: UserRole;
-  organization?: mongoose.Types.ObjectId;
+  organisation?: mongoose.Types.ObjectId;
   avatar?: string;
   about?: string;
   skills: ISkill[];
@@ -54,14 +55,16 @@ const UserSchema: Schema = new Schema(
       default: UserRole.APPLICANT,
       set: (v: string) => {
         if (!v) return v;
-        // Find existing role value matching case-insensitively
+        // Find existing role value matching case-insensitively (handling both spaces and underscores)
         const role = Object.values(UserRole).find(
-          (r) => r.toLowerCase() === v.toLowerCase(),
+          (r) =>
+            r.toLowerCase() === v.toLowerCase() ||
+            r.toLowerCase() === v.toLowerCase().replace(/_/g, " "),
         );
         return role || v;
       },
     },
-    organization: { type: Schema.Types.ObjectId, ref: "Organization" },
+    organisation: { type: Schema.Types.ObjectId, ref: "Organization" },
     avatar: { type: String },
     about: { type: String },
     skills: [SkillSchema],

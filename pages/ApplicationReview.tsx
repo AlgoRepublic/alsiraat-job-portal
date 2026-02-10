@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db } from "../services/database";
-import { Application, Job, UserRole } from "../types";
+import { Application, Job, UserRole, Permission } from "../types";
 import { useToast } from "../components/Toast";
 import {
   ArrowLeft,
@@ -49,6 +49,36 @@ export const ApplicationReview: React.FC = () => {
 
   const { showSuccess, showError } = useToast();
 
+  const handleConfirmOffer = async () => {
+    if (app) {
+      setIsUpdating(true);
+      try {
+        await db.confirmOffer(app.id);
+        setApp({ ...app, status: "Accepted" });
+        showSuccess("Offer accepted successfully!");
+      } catch (err: any) {
+        showError(err?.message || "Failed to confirm offer");
+      } finally {
+        setIsUpdating(false);
+      }
+    }
+  };
+
+  const handleDeclineOffer = async () => {
+    if (app) {
+      setIsUpdating(true);
+      try {
+        await db.declineOffer(app.id);
+        setApp({ ...app, status: "Declined" });
+        showSuccess("Offer declined successfully!");
+      } catch (err: any) {
+        showError(err?.message || "Failed to decline offer");
+      } finally {
+        setIsUpdating(false);
+      }
+    }
+  };
+
   const handleStatusUpdate = async (status: string) => {
     if (app) {
       setIsUpdating(true);
@@ -93,8 +123,13 @@ export const ApplicationReview: React.FC = () => {
       case "Offer Accepted":
         return "bg-green-100 text-green-800";
       case "Rejected":
+      case "Declined":
       case "Offer Declined":
         return "bg-red-100 text-red-800";
+      case "Offered":
+        return "bg-purple-100 text-purple-800";
+      case "Accepted":
+        return "bg-emerald-100 text-emerald-800";
       case "Shortlisted":
         return "bg-blue-100 text-blue-800";
       default:
@@ -197,18 +232,22 @@ export const ApplicationReview: React.FC = () => {
           {(() => {
             if (!currentUser || !job) return null;
 
-            const isGlobalAdmin = currentUser.role === UserRole.GLOBAL_ADMIN;
-            const isPrincipal = currentUser.role === UserRole.SCHOOL_ADMIN;
-            const isCoordinator = currentUser.role === UserRole.TASK_MANAGER;
-            const isMemberOfOrg =
-              currentUser.organisation &&
-              job.organisation === currentUser.organisation;
+            const hasPermission = (p: Permission) =>
+              currentUser.permissions?.includes(p);
 
+            const taskOrgId = job?.organisation || (job as any).organization;
+            const userOrgId =
+              currentUser.organisation || currentUser.organization;
+
+            const isMemberOfOrg =
+              userOrgId && taskOrgId && String(taskOrgId) === String(userOrgId);
+
+            // Permission-based checks (organization context enforced by backend)
             const canShortlist =
-              isGlobalAdmin ||
-              ((isPrincipal || isCoordinator) && isMemberOfOrg);
+              hasPermission(Permission.APPLICATION_SHORTLIST) && isMemberOfOrg;
+
             const canApproveReject =
-              isGlobalAdmin || (isPrincipal && isMemberOfOrg);
+              hasPermission(Permission.APPLICATION_APPROVE) && isMemberOfOrg;
 
             if (canShortlist || canApproveReject) {
               return (
@@ -230,26 +269,73 @@ export const ApplicationReview: React.FC = () => {
                     {canApproveReject && (
                       <>
                         <button
-                          onClick={() => handleStatusUpdate("Approved")}
+                          onClick={() => handleStatusUpdate("Offered")}
                           disabled={
-                            app.status === "Approved" ||
-                            (!isGlobalAdmin && app.status !== "Shortlisted")
+                            app.status === "Offered" ||
+                            app.status === "Accepted" ||
+                            app.status === "Declined" ||
+                            (currentUser.role !== UserRole.GLOBAL_ADMIN &&
+                              app.status !== "Shortlisted")
                           }
                           className="w-full py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <CheckCircle className="w-4 h-4 mr-2" /> Approve
+                          <CheckCircle className="w-4 h-4 mr-2" /> Offer
                         </button>
                         <button
                           onClick={() => handleStatusUpdate("Rejected")}
                           disabled={
                             app.status === "Rejected" ||
-                            (!isGlobalAdmin && app.status !== "Shortlisted")
+                            app.status === "Accepted" ||
+                            (currentUser.role !== UserRole.GLOBAL_ADMIN &&
+                              app.status !== "Shortlisted")
                           }
                           className="w-full py-3 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-red-600 rounded-xl font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <XCircle className="w-4 h-4 mr-2" /> Reject
                         </button>
                       </>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+
+            // Applicant View - Confirm/Decline
+            const isApplicant =
+              currentUser.id === app.userId || currentUser._id === app.userId;
+
+            const canConfirm =
+              isApplicant &&
+              hasPermission(Permission.APPLICATION_CONFIRM) &&
+              app.status === "Offered";
+
+            const canReject =
+              isApplicant &&
+              hasPermission(Permission.APPLICATION_REJECT) &&
+              app.status === "Offered";
+
+            if (canConfirm || canReject) {
+              return (
+                <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6">
+                  <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wide mb-4">
+                    Job Offer
+                  </h3>
+                  <div className="space-y-3">
+                    {canConfirm && (
+                      <button
+                        onClick={handleConfirmOffer}
+                        className="w-full py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 flex items-center justify-center transition-colors shadow-lg shadow-emerald-500/20"
+                      >
+                        <CheckCircle className="w-4 h-4 mr-2" /> Confirm Offer
+                      </button>
+                    )}
+                    {canReject && (
+                      <button
+                        onClick={handleDeclineOffer}
+                        className="w-full py-3 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-red-600 rounded-xl font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center justify-center transition-colors"
+                      >
+                        <XCircle className="w-4 h-4 mr-2" /> Decline Offer
+                      </button>
                     )}
                   </div>
                 </div>

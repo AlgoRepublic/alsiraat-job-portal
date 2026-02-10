@@ -1,12 +1,17 @@
 import mongoose, { Schema, Document } from "mongoose";
 
-export enum ApplicationStatus {
-  PENDING = "Pending",
-  REVIEWING = "Reviewing",
-  SHORTLISTED = "Shortlisted",
-  APPROVED = "Approved",
-  REJECTED = "Rejected",
-}
+export const ApplicationStatus = {
+  PENDING: "Pending",
+  REVIEWING: "Reviewing",
+  SHORTLISTED: "Shortlisted",
+  APPROVED: "Approved",
+  REJECTED: "Rejected",
+  OFFERED: "Offered",
+  ACCEPTED: "Accepted",
+  DECLINED: "Declined",
+} as const;
+export type ApplicationStatus =
+  (typeof ApplicationStatus)[keyof typeof ApplicationStatus];
 
 export interface IApplication extends Document {
   task: mongoose.Types.ObjectId;

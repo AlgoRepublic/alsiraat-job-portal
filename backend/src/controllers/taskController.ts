@@ -1,11 +1,30 @@
 import { Request, Response } from "express";
 import Task, { TaskStatus, TaskVisibility } from "../models/Task.js";
 import User, { UserRole } from "../models/User.js";
+import { Permission } from "../config/permissions.js";
 import Application from "../models/Application.js";
 import {
   sendNotificationToAll,
   sendNotificationToOrganization,
 } from "../services/notificationService.js";
+
+const parseArrayField = (value: any): string[] => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed.filter(Boolean);
+    } catch {
+      // Fallback to comma-separated strings
+    }
+    return value
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
 
 export const createTask = async (req: any, res: Response) => {
   try {
@@ -17,6 +36,8 @@ export const createTask = async (req: any, res: Response) => {
       hoursRequired,
       startDate,
       endDate,
+      selectionCriteria,
+      requiredSkills,
       rewardType,
       rewardValue,
       eligibility,
@@ -24,8 +45,12 @@ export const createTask = async (req: any, res: Response) => {
     } = req.body;
 
     // All tasks start as PENDING and require explicit approval
-    // Only users with task:approve permission can publish tasks
-    const taskStatus = TaskStatus.PENDING;
+    // Only users with TASK_AUTO_PUBLISH permission can skip approval
+    const { canAutoPublishAsync } = await import("../config/permissions.js");
+    const isAutoPublish = await canAutoPublishAsync(req.user.role);
+    const taskStatus = isAutoPublish
+      ? TaskStatus.PUBLISHED
+      : TaskStatus.PENDING;
 
     // Handle file attachments
     const attachments: any[] = [];
@@ -47,21 +72,58 @@ export const createTask = async (req: any, res: Response) => {
       category,
       location,
       hoursRequired,
+      selectionCriteria,
+      requiredSkills: parseArrayField(requiredSkills),
       rewardType,
       rewardValue,
-      eligibility,
+      eligibility: parseArrayField(eligibility),
       visibility: visibility || TaskVisibility.GLOBAL,
       status: taskStatus,
-      organization: req.user.organization,
       createdBy: req.user._id,
       attachments,
     };
+
+    // Log user data for debugging
+    console.log("\n🔍 Task Creation Debug:");
+    console.log("User Info:", {
+      id: req.user._id,
+      email: req.user.email,
+      role: req.user.role,
+      organisation: req.user.organisation,
+    });
+
+    // Validate that user has an organisation (required for all tasks)
+    if (!req.user.organisation) {
+      console.error("❌ User has no organisation - cannot create task");
+      return res.status(400).json({
+        message: "Users must belong to an organisation to create tasks",
+      });
+    }
+    taskData.organisation = req.user.organisation;
 
     // Only add dates if provided
     if (startDate) taskData.startDate = new Date(startDate);
     if (endDate) taskData.endDate = new Date(endDate);
 
+    // Log task data before saving
+    console.log("Task Data (before save):", {
+      title: taskData.title,
+      visibility: taskData.visibility,
+      status: taskData.status,
+      organisation: taskData.organisation,
+      createdBy: taskData.createdBy,
+    });
+
     const task = await Task.create(taskData);
+
+    // Log created task
+    console.log("✅ Task Created:", {
+      id: task._id,
+      title: task.title,
+      organisation: task.organisation,
+      status: task.status,
+    });
+    console.log("\n");
 
     // Note: Notifications are sent when task is approved/published, not on creation
     // This prevents spam and ensures only reviewed tasks notify users
@@ -75,7 +137,7 @@ export const createTask = async (req: any, res: Response) => {
 export const getTasks = async (req: any, res: Response) => {
   try {
     const user = req.user;
-    const { role, organization, _id: userId } = user || {};
+    const { role, organisation, _id: userId } = user || {};
     const normalizedRole = (role || "").trim().toLowerCase();
     const { search, includeExpired, createdByMe } = req.query;
     let query: any = {};
@@ -90,42 +152,36 @@ export const getTasks = async (req: any, res: Response) => {
       const tasks = await Task.find(query)
         .populate("category", "name code icon")
         .populate("rewardType", "name code")
-        .populate("organization", "name slug")
+        .populate("organisation", "name slug")
         .populate("createdBy", "name email")
         .sort({ createdAt: -1 });
 
       return res.json(tasks);
     }
 
-    // Build base visibility/status query
+    const { checkPermissionAsync } = await import("../middleware/rbac.js");
+
+    // Dynamic Visibility Logic
     if (!user) {
       // Guest: Only see Published Global tasks
       query = {
         status: TaskStatus.PUBLISHED,
         visibility: TaskVisibility.GLOBAL,
       };
-    } else if (normalizedRole === UserRole.GLOBAL_ADMIN.toLowerCase()) {
-      // Global Admin (Super Admin): See EVERYTHING (all statuses, all visibility)
-      query = {};
-    } else if (normalizedRole === UserRole.APPLICANT.toLowerCase()) {
-      // Applicant/Independent: CANNOT see pending tasks
-      const conditions: any[] = [];
-
-      // 1. Own created tasks (any status except Archived)
-      conditions.push({
-        createdBy: userId,
-        status: { $ne: TaskStatus.ARCHIVED },
-      });
-
-      // 2. Published Global tasks only (no Internal, no Pending)
-      conditions.push({
-        visibility: TaskVisibility.GLOBAL,
-        status: TaskStatus.PUBLISHED,
-      });
-
-      query = { $or: conditions };
     } else {
-      // School Admin, Task Manager, Task Advertiser: CAN see pending tasks
+      const { allowed: canViewAll } = await checkPermissionAsync(
+        user,
+        Permission.TASK_READ,
+      );
+      const { allowed: canViewInternal } = await checkPermissionAsync(
+        user,
+        Permission.TASK_VIEW_INTERNAL,
+      );
+      const { allowed: canViewPending } = await checkPermissionAsync(
+        user,
+        Permission.TASK_VIEW_PENDING,
+      );
+
       const conditions: any[] = [];
 
       // 1. Own created tasks (any status except Archived)
@@ -140,22 +196,59 @@ export const getTasks = async (req: any, res: Response) => {
         status: TaskStatus.PUBLISHED,
       });
 
-      // 3. Pending Global tasks (can see but may not approve)
-      conditions.push({
-        visibility: TaskVisibility.GLOBAL,
-        status: TaskStatus.PENDING,
-      });
-
-      // 4. If user has organisation: Internal tasks from same org (Published AND Pending)
-      if (organization) {
+      // 3. Pending Global tasks (if user has permission to view pending)
+      if (canViewPending) {
         conditions.push({
-          visibility: TaskVisibility.INTERNAL,
-          organization: organization,
-          status: { $in: [TaskStatus.PUBLISHED, TaskStatus.PENDING] },
+          visibility: TaskVisibility.GLOBAL,
+          status: TaskStatus.PENDING,
         });
       }
 
-      query = { $or: conditions };
+      // 4. Internal tasks (if user has permission to view internal)
+      // Only show from same org unless they have global read permission
+      if (canViewInternal && organisation) {
+        conditions.push({
+          visibility: TaskVisibility.INTERNAL,
+          organisation: organisation,
+          status: canViewPending
+            ? { $in: [TaskStatus.PUBLISHED, TaskStatus.PENDING] }
+            : TaskStatus.PUBLISHED,
+        });
+      }
+
+      // 5. External tasks from same organisation
+      // External tasks are visible to users from the same org + public
+      if (organisation) {
+        conditions.push({
+          visibility: TaskVisibility.EXTERNAL,
+          organisation: organisation,
+          status: canViewPending
+            ? { $in: [TaskStatus.PUBLISHED, TaskStatus.PENDING] }
+            : TaskStatus.PUBLISHED,
+        });
+      }
+
+      if (canViewAll) {
+        // Super permissions (e.g. Global Admin) - can essentially see everything
+        // But for consistency we still use the conditions unless it's truly "view all"
+        // If they have all view permissions, we could just empty the query,
+        // but let's stick to the granular conditions for now as they are safer.
+        if (canViewInternal && canViewPending) {
+          // If they can see internal and pending, and they are global admin,
+          // they should see global tasks from other orgs too?
+          // The current system doesn't really have "global internal" tasks.
+          // Let's just allow empty query for truly global admins.
+          if (normalizedRole === UserRole.GLOBAL_ADMIN.toLowerCase()) {
+            query = {};
+          } else {
+            query = { $or: conditions };
+          }
+        } else {
+          query = { $or: conditions };
+        }
+      } else {
+        query = { $or: conditions };
+      }
     }
 
     // Add search filter if provided
@@ -198,7 +291,7 @@ export const getTasks = async (req: any, res: Response) => {
     }
 
     const tasks = await Task.find(query)
-      .populate("organization", "name")
+      .populate("organisation", "name")
       .populate("createdBy", "name")
       .sort({ createdAt: -1 });
 
@@ -238,7 +331,7 @@ export const getTaskById = async (req: any, res: Response) => {
   try {
     const { id } = req.params;
     const task = await Task.findById(id)
-      .populate("organization", "name")
+      .populate("organisation", "name")
       .populate("createdBy", "name");
 
     if (!task) {
@@ -276,15 +369,19 @@ export const approveTask = async (req: any, res: Response) => {
     const task = await Task.findById(taskId);
     if (!task) return res.status(404).json({ message: "Task not found" });
 
-    // Ensure approver is from the same org
-    if (
-      req.user.role.toLowerCase() !== UserRole.GLOBAL_ADMIN.toLowerCase() &&
-      (!task.organization ||
-        task.organization.toString() !== req.user.organization.toString())
-    ) {
-      return res
-        .status(403)
-        .json({ message: "Not authorised to approve this task" });
+    // Ensure approver is from the same org (or is a global admin)
+    if (req.user.role.toLowerCase() !== UserRole.GLOBAL_ADMIN.toLowerCase()) {
+      // For non-global-admins, check organization match
+      const taskOrgId = task.organisation ? String(task.organisation) : null;
+      const userOrgId = req.user.organisation
+        ? String(req.user.organisation)
+        : null;
+
+      if (!taskOrgId || !userOrgId || taskOrgId !== userOrgId) {
+        return res
+          .status(403)
+          .json({ message: "Not authorised to approve this task" });
+      }
     }
 
     const normalizedStatus = status?.toLowerCase();
@@ -325,11 +422,11 @@ export const approveTask = async (req: any, res: Response) => {
         );
       } else if (
         taskVisibility === TaskVisibility.INTERNAL &&
-        task.organization
+        task.organisation
       ) {
         // Notify org members for internal tasks
         await sendNotificationToOrganization(
-          task.organization.toString(),
+          task.organisation.toString(),
           "📢 New Internal Task",
           `A new internal task "${task.title}" has been posted.`,
           "info",

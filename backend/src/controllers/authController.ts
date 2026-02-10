@@ -5,6 +5,7 @@ import User, { UserRole } from "../models/User.js";
 import dotenv from "dotenv";
 import crypto from "crypto";
 import { sendNotification } from "../services/notificationService.js";
+import { hasPermissionAsync, Permission } from "../config/permissions.js";
 
 dotenv.config();
 
@@ -32,6 +33,14 @@ export const signup = async (req: Request, res: Response) => {
       role: role || UserRole.APPLICANT,
     });
 
+    // Get current permissions for the role
+    const permissions: string[] = [];
+    for (const p of Object.values(Permission)) {
+      if (await hasPermissionAsync(user.role as UserRole, p)) {
+        permissions.push(p);
+      }
+    }
+
     const token = generateToken(user);
     res.status(201).json({
       token,
@@ -43,7 +52,8 @@ export const signup = async (req: Request, res: Response) => {
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,
-        organisation: user.organization,
+        organisation: user.organisation,
+        permissions,
       },
     });
   } catch (err: any) {
@@ -71,6 +81,14 @@ export const impersonate = async (req: Request, res: Response) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    // Get current permissions for the role
+    const permissions: string[] = [];
+    for (const p of Object.values(Permission)) {
+      if (await hasPermissionAsync(user.role as UserRole, p)) {
+        permissions.push(p);
+      }
+    }
+
     const token = generateToken(user);
     res.json({
       token,
@@ -82,7 +100,8 @@ export const impersonate = async (req: Request, res: Response) => {
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,
-        organisation: user.organization,
+        organisation: user.organisation,
+        permissions,
       },
     });
   } catch (err: any) {
@@ -177,6 +196,14 @@ export const updateProfile = async (req: Request, res: Response) => {
 
     await user.save();
 
+    // Get current permissions for the role
+    const permissions: string[] = [];
+    for (const p of Object.values(Permission)) {
+      if (await hasPermissionAsync(user.role as UserRole, p)) {
+        permissions.push(p);
+      }
+    }
+
     res.json({
       message: "Profile updated successfully",
       user: {
@@ -187,6 +214,7 @@ export const updateProfile = async (req: Request, res: Response) => {
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,
+        permissions,
       },
     });
   } catch (err: any) {

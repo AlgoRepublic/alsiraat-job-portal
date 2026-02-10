@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import User, { UserRole } from "../models/User.js";
 import Application, { ApplicationStatus } from "../models/Application.js";
 import Task, { TaskStatus } from "../models/Task.js";
 import { sendNotification } from "../services/notificationService.js";
@@ -56,7 +57,7 @@ export const updateApplicationStatus = async (req: any, res: Response) => {
     // Build permission context
     const permissionContext = {
       taskCreatorId: task.createdBy?.toString(),
-      organizationId: task.organization?.toString(),
+      organizationId: task.organisation?.toString(),
     };
 
     // Determine required permission based on status change
@@ -67,6 +68,8 @@ export const updateApplicationStatus = async (req: any, res: Response) => {
       requiredPermission = Permission.APPLICATION_APPROVE;
     } else if (status === ApplicationStatus.REJECTED) {
       requiredPermission = Permission.APPLICATION_REJECT;
+    } else if (status === ApplicationStatus.OFFERED) {
+      requiredPermission = Permission.APPLICATION_APPROVE; // Only admins/principals can offer
     } else {
       return res.status(400).json({ message: "Invalid status" });
     }
@@ -86,12 +89,14 @@ export const updateApplicationStatus = async (req: any, res: Response) => {
     // Additional business rule: Approve/Reject requires shortlisted first (except Admin)
     if (
       (status === ApplicationStatus.APPROVED ||
-        status === ApplicationStatus.REJECTED) &&
+        status === ApplicationStatus.REJECTED ||
+        status === ApplicationStatus.OFFERED) &&
       app.status !== ApplicationStatus.SHORTLISTED &&
-      req.user.role !== "Global Admin"
+      req.user.role !== UserRole.GLOBAL_ADMIN
     ) {
       return res.status(400).json({
-        message: "Only shortlisted applications can be approved or rejected.",
+        message:
+          "Only shortlisted applications can be offered, approved or rejected.",
       });
     }
 
@@ -99,18 +104,22 @@ export const updateApplicationStatus = async (req: any, res: Response) => {
     await app.save();
 
     // Notifications - Only send to applicant for Approved/Rejected, NOT for Shortlisted
-    if (status === ApplicationStatus.APPROVED) {
+    if (status === ApplicationStatus.OFFERED) {
       await sendNotification(
         app.applicant._id.toString(),
         "🎉 Job Offer Received!",
-        `Congratulations! Your application for "${task.title}" has been approved.`,
+        `Congratulations! You have been offered the task: "${task.title}". Please confirm or decline.`,
         "success",
         `/application/${app._id}`,
       );
-
-      // Mark task as closed since an application has been approved
-      task.status = TaskStatus.CLOSED;
-      await task.save();
+    } else if (status === ApplicationStatus.APPROVED) {
+      await sendNotification(
+        app.applicant._id.toString(),
+        "Application Approved",
+        `Your application for "${task.title}" has been finalized and approved.`,
+        "success",
+        `/application/${app._id}`,
+      );
     } else if (status === ApplicationStatus.REJECTED) {
       await sendNotification(
         app.applicant._id.toString(),
@@ -160,11 +169,11 @@ export const getApplications = async (req: any, res: Response) => {
       // If user has full access, check if they can view this task's applications
       else if (hasFullAccess.allowed) {
         const task = await Task.findById(taskId);
-        if (task && req.user.role !== "Global Admin") {
+        if (task && req.user.role !== UserRole.GLOBAL_ADMIN) {
           // Check if user is from the same org or is the task creator
           if (
-            task.organization?.toString() !==
-              req.user.organization?.toString() &&
+            task.organisation?.toString() !==
+              req.user.organisation?.toString() &&
             task.createdBy?.toString() !== req.user._id.toString()
           ) {
             return res.status(403).json({
@@ -175,14 +184,14 @@ export const getApplications = async (req: any, res: Response) => {
       }
     } else {
       // No specific task - filter based on permissions
-      if (req.user.role === "Global Admin") {
+      if (req.user.role === UserRole.GLOBAL_ADMIN) {
         // Admin sees all
         query = {};
       } else if (hasFullAccess.allowed) {
         // Users with APPLICATION_READ see applications for their org's tasks
-        if (req.user.organization) {
+        if (req.user.organisation) {
           const tasks = await Task.find({
-            organization: req.user.organization,
+            organisation: req.user.organisation,
           }).select("_id");
           query.task = { $in: tasks.map((t) => t._id) };
         } else {
@@ -249,7 +258,7 @@ export const getApplicationById = async (req: any, res: Response) => {
     if (hasFullAccess.allowed && req.user.role !== "Global Admin") {
       const task: any = app.task;
       const isOrgMember =
-        task.organization?.toString() === req.user.organization?.toString();
+        task.organisation?.toString() === req.user.organisation?.toString();
       const isTaskCreator =
         task.createdBy?.toString() === req.user._id.toString();
 
@@ -259,6 +268,84 @@ export const getApplicationById = async (req: any, res: Response) => {
         });
       }
     }
+
+    res.json(app);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const confirmOffer = async (req: any, res: Response) => {
+  try {
+    const { appId } = req.params;
+    const app = await Application.findById(appId).populate("task");
+
+    if (!app) return res.status(404).json({ message: "Application not found" });
+
+    // Verify current user is the applicant
+    if (app.applicant.toString() !== req.user._id.toString()) {
+      return res
+        .status(403)
+        .json({ message: "You can only confirm your own offers" });
+    }
+
+    if (app.status !== ApplicationStatus.OFFERED) {
+      return res
+        .status(400)
+        .json({ message: "This application has not been offered yet" });
+    }
+
+    app.status = ApplicationStatus.ACCEPTED;
+    await app.save();
+
+    const task: any = app.task;
+    // Notify task owner
+    await sendNotification(
+      task.createdBy.toString(),
+      "Offer Accepted",
+      `${req.user.name} has accepted the offer for "${task.title}".`,
+      "success",
+      `/application/${app._id}`,
+    );
+
+    res.json(app);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const declineOffer = async (req: any, res: Response) => {
+  try {
+    const { appId } = req.params;
+    const app = await Application.findById(appId).populate("task");
+
+    if (!app) return res.status(404).json({ message: "Application not found" });
+
+    // Verify current user is the applicant
+    if (app.applicant.toString() !== req.user._id.toString()) {
+      return res
+        .status(403)
+        .json({ message: "You can only decline your own offers" });
+    }
+
+    if (app.status !== ApplicationStatus.OFFERED) {
+      return res
+        .status(400)
+        .json({ message: "This application has not been offered yet" });
+    }
+
+    app.status = ApplicationStatus.DECLINED;
+    await app.save();
+
+    const task: any = app.task;
+    // Notify task owner
+    await sendNotification(
+      task.createdBy.toString(),
+      "Offer Declined",
+      `${req.user.name} has declined the offer for "${task.title}".`,
+      "warning",
+      `/application/${app._id}`,
+    );
 
     res.json(app);
   } catch (err: any) {

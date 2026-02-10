@@ -8,8 +8,9 @@ import {
   JobCategory,
   RewardType,
   Visibility,
+  FileVisibility,
 } from "../types";
-import { api, ApiError } from "./api";
+import { api, ApiError, API_BASE_URL } from "./api";
 
 // Helper to map Backend Task to Frontend Job
 
@@ -25,9 +26,14 @@ const mapTaskToJob = (task: any): Job => {
     description: task.description,
     location: task.location,
     hoursRequired: task.hoursRequired,
-    startDate: task.createdAt ? task.createdAt.split("T")[0] : undefined,
-    endDate: task.updatedAt ? task.updatedAt.split("T")[0] : undefined,
-    selectionCriteria: task.eligibility?.join(", ") || "",
+    startDate: task.startDate
+      ? task.startDate.split("T")[0]
+      : task.createdAt
+        ? task.createdAt.split("T")[0]
+        : undefined,
+    endDate: task.endDate ? task.endDate.split("T")[0] : undefined,
+    selectionCriteria: task.selectionCriteria || "",
+    requiredSkills: task.requiredSkills || [],
     rewardType: task.rewardType,
     rewardValue: task.rewardValue,
     eligibility: task.eligibility || [],
@@ -35,7 +41,18 @@ const mapTaskToJob = (task: any): Job => {
       task.visibility === "Public" || task.visibility === "Global"
         ? Visibility.GLOBAL
         : Visibility.INTERNAL,
-    attachments: [], // Handled separately or extended later
+    attachments: Array.isArray(task.attachments)
+      ? task.attachments.map((a: any) => ({
+          id: a.filename,
+          name: a.filename,
+          size: a.size,
+          type: a.mimeType,
+          visibility: FileVisibility.INTERNAL,
+          url: a.url
+            ? `${API_BASE_URL.replace(/\/api$/, "")}${a.url}`
+            : undefined,
+        }))
+      : [],
     status: mapStatus(task.status),
     createdBy:
       typeof task.createdBy === "object" ? task.createdBy.name : "Unknown",
@@ -43,9 +60,9 @@ const mapTaskToJob = (task: any): Job => {
     applicantsCount: task.applicantsCount || 0,
     hasApplied: task.hasApplied || false,
     organisation:
-      typeof task.organization === "object"
-        ? task.organization?._id
-        : task.organization,
+      typeof task.organisation === "object"
+        ? task.organisation?._id
+        : task.organisation,
   };
 };
 
@@ -219,8 +236,16 @@ class DatabaseService {
     return await api.applyForTask(applicationData);
   }
 
-  async updateApplicationStatus(appId: string, status: string): Promise<any> {
-    return await api.updateApplicationStatus(appId, status);
+  async updateApplicationStatus(id: string, status: string): Promise<any> {
+    return api.put(`/applications/${id}/status`, { status });
+  }
+
+  async confirmOffer(id: string): Promise<any> {
+    return api.put(`/applications/${id}/confirm`, {});
+  }
+
+  async declineOffer(id: string): Promise<any> {
+    return api.put(`/applications/${id}/decline`, {});
   }
 
   // --- Notifications ---
@@ -266,6 +291,29 @@ class DatabaseService {
       console.warn("Failed to fetch task categories", err);
       return [];
     }
+  }
+
+  async getUsers(search?: string, role?: string): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (search) params.append("search", search);
+    if (role) params.append("role", role);
+    return api.get(`/users?${params.toString()}`);
+  }
+
+  async getUser(id: string): Promise<any> {
+    return api.get(`/users/${id}`);
+  }
+
+  async updateUserRole(id: string, roleId: string): Promise<any> {
+    return api.patch(`/users/${id}/role`, { roleId });
+  }
+
+  async deleteUser(id: string): Promise<any> {
+    return api.delete(`/users/${id}`);
+  }
+
+  async getRoles(): Promise<any[]> {
+    return api.getRoles();
   }
 }
 

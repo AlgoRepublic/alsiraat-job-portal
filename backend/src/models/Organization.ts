@@ -35,7 +35,4 @@ const OrganizationSchema: Schema = new Schema(
   { timestamps: true },
 );
 
-export default mongoose.model<IOrganization>(
-  "Organization",
-  OrganizationSchema,
-);
+export default mongoose.model<IOrganization>("Organization", OrganizationSchema);

@@ -14,9 +14,9 @@ export const MOCK_JOBS: Job[] = [
   {
     id: "1",
     title: "Annual Science Fair Coordinator",
-    category: JobCategory.EVENT,
+    category: JobCategory.EVENT_COORDINATION,
     description:
-      "We are looking for an organized and enthusiastic individual to lead the organization of the 2024 Science Fair. \n\nResponsibilities include:\n- Coordinating with science teachers\n- Managing student registrations\n- Setting up the venue\n- Arranging judges and prizes\n\nThis is a great opportunity to get involved with the school community and support STEM education.",
+      "We are looking for an organized and enthusiastic individual to lead the organisation of the 2024 Science Fair. \n\nResponsibilities include:\n- Coordinating with science teachers\n- Managing student registrations\n- Setting up the venue\n- Arranging judges and prizes\n\nThis is a great opportunity to get involved with the school community and support STEM education.",
     location: "Main Hall",
     hoursRequired: 15,
     rewardType: RewardType.PAID,
@@ -41,7 +41,7 @@ export const MOCK_JOBS: Job[] = [
   {
     id: "2",
     title: "Math Teacher (Grade 5)",
-    category: JobCategory.TEACHING,
+    category: JobCategory.TEACHING_ASSISTANT,
     description:
       "We require a Math teacher for 5th class. It will be a contract base job.",
     location: "Melbourne Address 1",
@@ -61,7 +61,7 @@ export const MOCK_JOBS: Job[] = [
   {
     id: "3",
     title: "Garden Maintenance",
-    category: JobCategory.MAINTENANCE,
+    category: JobCategory.CLEANING_MAINTENANCE,
     description:
       "Help clear the community garden beds and prepare them for spring planting. Tools will be provided.",
     location: "North Garden",
@@ -79,7 +79,7 @@ export const MOCK_JOBS: Job[] = [
   {
     id: "4",
     title: "Sports League Helper",
-    category: JobCategory.EVENT,
+    category: JobCategory.EVENT_COORDINATION,
     description: "Assist with the weekend sports league.",
     location: "Oval",
     hoursRequired: 6,
@@ -126,7 +126,7 @@ export const MOCK_APPLICATIONS: Application[] = [
 export const INITIAL_USER: ApplicantProfile = {
   id: "u1",
   name: "Alex Johnson",
-  role: UserRole.MANAGER, // Defaulting to Manager for demo purposes to show flows
+  role: UserRole.TASK_MANAGER, // Defaulting to Manager for demo purposes to show flows
   avatar: "https://i.pravatar.cc/150?u=alex",
   email: "alex@hayati.edu",
   about:

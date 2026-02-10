@@ -1,19 +1,22 @@
 import mongoose, { Schema, Document } from "mongoose";
 
-export enum TaskStatus {
-  DRAFT = "Draft",
-  PENDING = "Pending",
-  APPROVED = "Approved",
-  PUBLISHED = "Published",
-  CLOSED = "Closed",
-  ARCHIVED = "Archived",
-}
+export const TaskStatus = {
+  DRAFT: "Draft",
+  PENDING: "Pending",
+  APPROVED: "Approved",
+  PUBLISHED: "Published",
+  CLOSED: "Closed",
+  ARCHIVED: "Archived",
+} as const;
+export type TaskStatus = (typeof TaskStatus)[keyof typeof TaskStatus];
 
-export enum TaskVisibility {
-  INTERNAL = "Internal",
-  EXTERNAL = "External",
-  GLOBAL = "Global",
-}
+export const TaskVisibility = {
+  INTERNAL: "Internal",
+  EXTERNAL: "External",
+  GLOBAL: "Global",
+} as const;
+export type TaskVisibility =
+  (typeof TaskVisibility)[keyof typeof TaskVisibility];
 
 export interface ITask extends Document {
   title: string;
@@ -23,12 +26,14 @@ export interface ITask extends Document {
   hoursRequired: number;
   startDate?: Date;
   endDate?: Date;
+  selectionCriteria?: string;
+  requiredSkills?: string[];
   rewardType: string;
   rewardValue?: number;
   eligibility: string[];
   visibility: TaskVisibility;
   status: TaskStatus;
-  organization?: mongoose.Types.ObjectId;
+  organisation?: mongoose.Types.ObjectId;
   createdBy: mongoose.Types.ObjectId;
   approvedBy?: mongoose.Types.ObjectId;
   publishToPublic: boolean;
@@ -53,6 +58,8 @@ const TaskSchema: Schema = new Schema(
     hoursRequired: { type: Number },
     startDate: { type: Date },
     endDate: { type: Date },
+    selectionCriteria: { type: String },
+    requiredSkills: [{ type: String }],
     rewardType: { type: String, required: true },
     rewardValue: { type: Number },
     eligibility: [{ type: String }],
@@ -66,7 +73,11 @@ const TaskSchema: Schema = new Schema(
       enum: Object.values(TaskStatus),
       default: TaskStatus.PENDING,
     },
-    organization: { type: Schema.Types.ObjectId, ref: "Organization" },
+    organisation: {
+      type: Schema.Types.ObjectId,
+      ref: "Organization",
+      required: true,
+    },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
     approvedBy: { type: Schema.Types.ObjectId, ref: "User" },
     publishToPublic: { type: Boolean, default: false },

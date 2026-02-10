@@ -9,7 +9,8 @@ import {
   resetPassword,
   updateProfile,
 } from "../controllers/authController.js";
-import { authenticate, authorize } from "../middleware/rbac.js";
+import { authenticate, requirePermission } from "../middleware/rbac.js";
+import { hasPermissionAsync, Permission } from "../config/permissions.js";
 import { UserRole } from "../models/User.js";
 import "../config/passport.js";
 
@@ -32,19 +33,31 @@ router.post("/login", (req, res, next) => {
       }
 
       const token = generateToken(user);
-      res.json({
-        token,
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          skills: user.skills || [],
-          about: user.about || "",
-          avatar: user.avatar,
-          organisation: user.organization,
-        },
-      });
+
+      // Get current permissions for the role
+      (async () => {
+        const permissions: string[] = [];
+        for (const p of Object.values(Permission)) {
+          if (await hasPermissionAsync(user.role as UserRole, p)) {
+            permissions.push(p);
+          }
+        }
+
+        res.json({
+          token,
+          user: {
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            skills: user.skills || [],
+            about: user.about || "",
+            avatar: user.avatar,
+            organisation: user.organisation,
+            permissions,
+          },
+        });
+      })();
     },
   )(req, res, next);
 });
@@ -82,7 +95,7 @@ router.post(
 router.post(
   "/impersonate/:userId",
   authenticate,
-  authorize([UserRole.GLOBAL_ADMIN]),
+  requirePermission(Permission.USER_IMPERSONATE),
   impersonate,
 );
 
