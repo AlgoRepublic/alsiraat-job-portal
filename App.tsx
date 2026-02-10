@@ -6,7 +6,7 @@ import {
   Navigate,
   useNavigate,
 } from "react-router-dom";
-import { Layers } from "lucide-react";
+import { Layers, Sun, Moon } from "lucide-react";
 import { Layout } from "./components/Layout";
 import { Dashboard } from "./pages/Dashboard";
 import { JobWizard } from "./pages/JobWizard";
@@ -113,6 +113,84 @@ const App: React.FC = () => {
             }
           />
 
+          {/* Auth pages without Layout (no sidebar/header) */}
+          <Route
+            path="/login"
+            element={
+              <div className="relative">
+                <button
+                  onClick={toggleTheme}
+                  className="fixed top-6 right-6 z-50 p-3 rounded-xl glass-card hover:scale-110 transition-all"
+                  title={isDarkMode ? "Light mode" : "Dark mode"}
+                >
+                  {isDarkMode ? (
+                    <Sun className="w-5 h-5 text-yellow-500" />
+                  ) : (
+                    <Moon className="w-5 h-5 text-zinc-700" />
+                  )}
+                </button>
+                <Login onLoginSuccess={refreshUser} />
+              </div>
+            }
+          />
+          <Route
+            path="/signup"
+            element={
+              <div className="relative">
+                <button
+                  onClick={toggleTheme}
+                  className="fixed top-6 right-6 z-50 p-3 rounded-xl glass-card hover:scale-110 transition-all"
+                  title={isDarkMode ? "Light mode" : "Dark mode"}
+                >
+                  {isDarkMode ? (
+                    <Sun className="w-5 h-5 text-yellow-500" />
+                  ) : (
+                    <Moon className="w-5 h-5 text-zinc-700" />
+                  )}
+                </button>
+                <Signup />
+              </div>
+            }
+          />
+          <Route
+            path="/forgot-password"
+            element={
+              <div className="relative">
+                <button
+                  onClick={toggleTheme}
+                  className="fixed top-6 right-6 z-50 p-3 rounded-xl glass-card hover:scale-110 transition-all"
+                  title={isDarkMode ? "Light mode" : "Dark mode"}
+                >
+                  {isDarkMode ? (
+                    <Sun className="w-5 h-5 text-yellow-500" />
+                  ) : (
+                    <Moon className="w-5 h-5 text-zinc-700" />
+                  )}
+                </button>
+                <ForgotPassword />
+              </div>
+            }
+          />
+          <Route
+            path="/reset-password/:token"
+            element={
+              <div className="relative">
+                <button
+                  onClick={toggleTheme}
+                  className="fixed top-6 right-6 z-50 p-3 rounded-xl glass-card hover:scale-110 transition-all"
+                  title={isDarkMode ? "Light mode" : "Dark mode"}
+                >
+                  {isDarkMode ? (
+                    <Sun className="w-5 h-5 text-yellow-500" />
+                  ) : (
+                    <Moon className="w-5 h-5 text-zinc-700" />
+                  )}
+                </button>
+                <ResetPassword />
+              </div>
+            }
+          />
+
           {/* All other routes wrapped in Layout */}
           <Route
             path="/*"
@@ -124,16 +202,6 @@ const App: React.FC = () => {
                 onToggleTheme={toggleTheme}
               >
                 <Routes>
-                  <Route
-                    path="/login"
-                    element={<Login onLoginSuccess={refreshUser} />}
-                  />
-                  <Route path="/signup" element={<Signup />} />
-                  <Route path="/forgot-password" element={<ForgotPassword />} />
-                  <Route
-                    path="/reset-password/:token"
-                    element={<ResetPassword />}
-                  />
                   <Route path="/jobs" element={<JobList />} />
                   <Route path="/jobs/:id" element={<JobDetails />} />
 
