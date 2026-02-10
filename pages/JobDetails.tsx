@@ -181,7 +181,17 @@ export const JobDetails: React.FC = () => {
     if (!hasApprovePermission) {
       return false;
     }
-
+    const taskOrgId = job.organisation || job.organization;
+    const userOrgId = currentUser.organisation || currentUser.organization;
+    console.log("Approval check:", {
+      hasApprovePermission,
+      taskOrgId,
+      userOrgId,
+      taskOrgIdType: String(taskOrgId),
+      userOrgIdType: String(userOrgId),
+      jobVisibility: job.visibility,
+      userRole: currentUser.role,
+    });
     // Context-aware check: Global Admin can approve any task
     if (currentUser.role === UserRole.GLOBAL_ADMIN) {
       return true;
@@ -189,31 +199,11 @@ export const JobDetails: React.FC = () => {
 
     // For other roles with TASK_APPROVE permission:
     // They can only approve tasks from their own organization
-    const taskOrgId = job.organisation || (job as any).organization;
-    const userOrgId = currentUser.organisation || currentUser.organization;
-
-    console.log("Approval check:", {
-      hasApprovePermission,
-      taskOrgId,
-      userOrgId,
-      taskOrgIdType: typeof taskOrgId,
-      userOrgIdType: typeof userOrgId,
-      jobVisibility: job.visibility,
-      userRole: currentUser.role,
-    });
-
-    // If both IDs exist and match, user can approve
-    if (taskOrgId && userOrgId) {
-      return String(taskOrgId) === String(userOrgId);
-    }
-
-    // For INTERNAL visibility tasks without org ID, allow if user has permission
-    // This handles legacy data or tasks where org wasn't set properly
-    if (job.visibility === "Internal" && !taskOrgId) {
-      console.log("Allowing approval for internal task without org ID");
+    if (taskOrgId == userOrgId) {
       return true;
     }
 
+    // No organisation match = no approval (unless Global Admin)
     return false;
   })();
 

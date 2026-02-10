@@ -73,7 +73,11 @@ const TaskSchema: Schema = new Schema(
       enum: Object.values(TaskStatus),
       default: TaskStatus.PENDING,
     },
-    organisation: { type: Schema.Types.ObjectId, ref: "Organization" },
+    organisation: {
+      type: Schema.Types.ObjectId,
+      ref: "Organization",
+      required: true,
+    },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
     approvedBy: { type: Schema.Types.ObjectId, ref: "User" },
     publishToPublic: { type: Boolean, default: false },

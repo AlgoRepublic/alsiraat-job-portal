@@ -173,7 +173,7 @@ export const getApplications = async (req: any, res: Response) => {
           // Check if user is from the same org or is the task creator
           if (
             task.organisation?.toString() !==
-              req.user.organization?.toString() &&
+              req.user.organisation?.toString() &&
             task.createdBy?.toString() !== req.user._id.toString()
           ) {
             return res.status(403).json({
@@ -189,9 +189,9 @@ export const getApplications = async (req: any, res: Response) => {
         query = {};
       } else if (hasFullAccess.allowed) {
         // Users with APPLICATION_READ see applications for their org's tasks
-        if (req.user.organization) {
+        if (req.user.organisation) {
           const tasks = await Task.find({
-            organisation: req.user.organization,
+            organisation: req.user.organisation,
           }).select("_id");
           query.task = { $in: tasks.map((t) => t._id) };
         } else {
@@ -258,7 +258,7 @@ export const getApplicationById = async (req: any, res: Response) => {
     if (hasFullAccess.allowed && req.user.role !== "Global Admin") {
       const task: any = app.task;
       const isOrgMember =
-        task.organisation?.toString() === req.user.organization?.toString();
+        task.organisation?.toString() === req.user.organisation?.toString();
       const isTaskCreator =
         task.createdBy?.toString() === req.user._id.toString();
 

@@ -491,7 +491,7 @@ export const Layout: React.FC<LayoutProps> = ({
           </Link>
 
           <nav className="flex-1 px-4 py-8 space-y-2 overflow-y-auto">
-            {currentUser && currentUser.role !== UserRole.APPLICANT && (
+            {currentUser?.permissions?.includes(Permission.TASK_CREATE) && (
               <Link
                 to="/post-job"
                 className="flex items-center justify-center w-full px-4 py-4 mb-8 text-white bg-primary hover:bg-primaryHover rounded-2xl shadow-xl shadow-primary/20 transition-all transform hover:-translate-y-1 active:scale-95"

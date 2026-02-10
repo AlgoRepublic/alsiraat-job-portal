@@ -242,13 +242,12 @@ export const ApplicationReview: React.FC = () => {
             const isMemberOfOrg =
               userOrgId && taskOrgId && String(taskOrgId) === String(userOrgId);
 
+            // Permission-based checks (organization context enforced by backend)
             const canShortlist =
-              hasPermission(Permission.APPLICATION_SHORTLIST) &&
-              (currentUser.role === UserRole.GLOBAL_ADMIN || isMemberOfOrg);
+              hasPermission(Permission.APPLICATION_SHORTLIST) && isMemberOfOrg;
 
             const canApproveReject =
-              hasPermission(Permission.APPLICATION_APPROVE) &&
-              (currentUser.role === UserRole.GLOBAL_ADMIN || isMemberOfOrg);
+              hasPermission(Permission.APPLICATION_APPROVE) && isMemberOfOrg;
 
             if (canShortlist || canApproveReject) {
               return (

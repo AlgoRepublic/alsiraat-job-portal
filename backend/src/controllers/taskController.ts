@@ -79,16 +79,51 @@ export const createTask = async (req: any, res: Response) => {
       eligibility: parseArrayField(eligibility),
       visibility: visibility || TaskVisibility.GLOBAL,
       status: taskStatus,
-      organisation: req.user.organization,
       createdBy: req.user._id,
       attachments,
     };
+
+    // Log user data for debugging
+    console.log("\n🔍 Task Creation Debug:");
+    console.log("User Info:", {
+      id: req.user._id,
+      email: req.user.email,
+      role: req.user.role,
+      organisation: req.user.organisation,
+    });
+
+    // Validate that user has an organisation (required for all tasks)
+    if (!req.user.organisation) {
+      console.error("❌ User has no organisation - cannot create task");
+      return res.status(400).json({
+        message: "Users must belong to an organisation to create tasks",
+      });
+    }
+    taskData.organisation = req.user.organisation;
 
     // Only add dates if provided
     if (startDate) taskData.startDate = new Date(startDate);
     if (endDate) taskData.endDate = new Date(endDate);
 
+    // Log task data before saving
+    console.log("Task Data (before save):", {
+      title: taskData.title,
+      visibility: taskData.visibility,
+      status: taskData.status,
+      organisation: taskData.organisation,
+      createdBy: taskData.createdBy,
+    });
+
     const task = await Task.create(taskData);
+
+    // Log created task
+    console.log("✅ Task Created:", {
+      id: task._id,
+      title: task.title,
+      organisation: task.organisation,
+      status: task.status,
+    });
+    console.log("\n");
 
     // Note: Notifications are sent when task is approved/published, not on creation
     // This prevents spam and ensures only reviewed tasks notify users
@@ -102,7 +137,7 @@ export const createTask = async (req: any, res: Response) => {
 export const getTasks = async (req: any, res: Response) => {
   try {
     const user = req.user;
-    const { role, organization, _id: userId } = user || {};
+    const { role, organisation, _id: userId } = user || {};
     const normalizedRole = (role || "").trim().toLowerCase();
     const { search, includeExpired, createdByMe } = req.query;
     let query: any = {};
@@ -171,10 +206,22 @@ export const getTasks = async (req: any, res: Response) => {
 
       // 4. Internal tasks (if user has permission to view internal)
       // Only show from same org unless they have global read permission
-      if (canViewInternal && organization) {
+      if (canViewInternal && organisation) {
         conditions.push({
           visibility: TaskVisibility.INTERNAL,
-          organisation: organization,
+          organisation: organisation,
+          status: canViewPending
+            ? { $in: [TaskStatus.PUBLISHED, TaskStatus.PENDING] }
+            : TaskStatus.PUBLISHED,
+        });
+      }
+
+      // 5. External tasks from same organisation
+      // External tasks are visible to users from the same org + public
+      if (organisation) {
+        conditions.push({
+          visibility: TaskVisibility.EXTERNAL,
+          organisation: organisation,
           status: canViewPending
             ? { $in: [TaskStatus.PUBLISHED, TaskStatus.PENDING] }
             : TaskStatus.PUBLISHED,
@@ -322,15 +369,19 @@ export const approveTask = async (req: any, res: Response) => {
     const task = await Task.findById(taskId);
     if (!task) return res.status(404).json({ message: "Task not found" });
 
-    // Ensure approver is from the same org
-    if (
-      req.user.role.toLowerCase() !== UserRole.GLOBAL_ADMIN.toLowerCase() &&
-      (!task.organisation ||
-        task.organisation.toString() !== req.user.organization.toString())
-    ) {
-      return res
-        .status(403)
-        .json({ message: "Not authorised to approve this task" });
+    // Ensure approver is from the same org (or is a global admin)
+    if (req.user.role.toLowerCase() !== UserRole.GLOBAL_ADMIN.toLowerCase()) {
+      // For non-global-admins, check organization match
+      const taskOrgId = task.organisation ? String(task.organisation) : null;
+      const userOrgId = req.user.organisation
+        ? String(req.user.organisation)
+        : null;
+
+      if (!taskOrgId || !userOrgId || taskOrgId !== userOrgId) {
+        return res
+          .status(403)
+          .json({ message: "Not authorised to approve this task" });
+      }
     }
 
     const normalizedStatus = status?.toLowerCase();

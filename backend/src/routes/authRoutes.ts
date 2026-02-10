@@ -9,9 +9,9 @@ import {
   resetPassword,
   updateProfile,
 } from "../controllers/authController.js";
-import { authenticate, authorize } from "../middleware/rbac.js";
-import { UserRole } from "../models/User.js";
+import { authenticate, requirePermission } from "../middleware/rbac.js";
 import { hasPermissionAsync, Permission } from "../config/permissions.js";
+import { UserRole } from "../models/User.js";
 import "../config/passport.js";
 
 const router = express.Router();
@@ -53,7 +53,7 @@ router.post("/login", (req, res, next) => {
             skills: user.skills || [],
             about: user.about || "",
             avatar: user.avatar,
-            organisation: user.organization,
+            organisation: user.organisation,
             permissions,
           },
         });
@@ -95,7 +95,7 @@ router.post(
 router.post(
   "/impersonate/:userId",
   authenticate,
-  authorize([UserRole.GLOBAL_ADMIN]),
+  requirePermission(Permission.USER_IMPERSONATE),
   impersonate,
 );
 

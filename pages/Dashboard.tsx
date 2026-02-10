@@ -20,7 +20,7 @@ import {
   UserCheck,
   MessageSquare,
 } from "lucide-react";
-import { UserRole, JobStatus, Job, Application } from "../types";
+import { UserRole, JobStatus, Job, Application, Permission } from "../types";
 import { db } from "../services/database";
 import { useNavigate } from "react-router-dom";
 
@@ -90,12 +90,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
         setTotalApplications(apps.length);
         setPendingCount(pending.length);
 
-        if (role === UserRole.APPLICANT) {
+        // Permission-based view logic
+        const canManageTasks = user?.permissions?.includes(
+          Permission.TASK_READ,
+        );
+
+        if (canManageTasks) {
+          // Users who can manage tasks see all jobs
+          setRecentJobs(jobs);
+        } else {
+          // Regular users see their applications and limited jobs
           const myApps = apps.filter((a) => a.userId === user?.id);
           setMyApplications(myApps);
           setRecentJobs(jobs.slice(0, 5));
-        } else {
-          setRecentJobs(jobs);
         }
 
         // Build action items

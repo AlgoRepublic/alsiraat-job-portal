@@ -190,7 +190,7 @@ export const UserManagement: React.FC = () => {
                           </div>
                         </td>
                         <td className="px-6 py-5 text-sm font-bold text-zinc-500 dark:text-zinc-400">
-                          {user.organization?.name || "Independent"}
+                          {(user as any).organisation?.name || "Independent"}
                         </td>
                         <td className="px-6 py-5">
                           <div className="flex items-center gap-2">

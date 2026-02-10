@@ -60,9 +60,9 @@ const mapTaskToJob = (task: any): Job => {
     applicantsCount: task.applicantsCount || 0,
     hasApplied: task.hasApplied || false,
     organisation:
-      typeof task.organization === "object"
-        ? task.organization?._id
-        : task.organization,
+      typeof task.organisation === "object"
+        ? task.organisation?._id
+        : task.organisation,
   };
 };
 

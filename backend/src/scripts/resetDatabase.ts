@@ -99,6 +99,17 @@ async function resetDatabase() {
     } as any)) as any;
     console.log(`✅ Created organisation: ${organization.name}`);
 
+    // Create System organisation for Global Admin
+    const systemOrganization = (await Organization.create({
+      name: "System",
+      slug: "system",
+      description: "System-wide organisation for global administration",
+      contactEmail: "admin@alsiraat.edu.au",
+      contactPhone: "+61 3 9395 5000",
+      isPublic: false,
+    } as any)) as any;
+    console.log(`✅ Created organisation: ${systemOrganization.name}`);
+
     // Step 3: Seed Roles with Permissions
     console.log("\n👥 Seeding roles with permissions...");
 
@@ -232,20 +243,24 @@ async function resetDatabase() {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const adminUser = (await User.create({
-      name: "Global Admin",
+      name: "Super Administrator",
       email: "admin@alsiraat.edu.au",
       password: hashedPassword,
       role: UserRole.GLOBAL_ADMIN,
-      organization: undefined,
+      organisation: systemOrganization._id,
+      about:
+        "Super admin with full system access - can manage all users, roles, permissions, organisations, and tasks",
     } as any)) as any;
-    console.log(`   Created user: admin@alsiraat.edu.au (Global Admin)`);
+    console.log(
+      `   Created user: admin@alsiraat.edu.au (SUPER ADMIN - Full Access)`,
+    );
 
     const principalUser = (await User.create({
       name: "Principal Smith",
       email: "principal@alsiraat.edu.au",
       password: hashedPassword,
       role: UserRole.SCHOOL_ADMIN,
-      organization: organization._id,
+      organisation: organization._id,
     } as any)) as any;
     console.log(`   Created user: principal@alsiraat.edu.au (School Admin)`);
 
@@ -254,7 +269,7 @@ async function resetDatabase() {
       email: "coordinator@alsiraat.edu.au",
       password: hashedPassword,
       role: UserRole.TASK_MANAGER,
-      organization: organization._id,
+      organisation: organization._id,
     } as any)) as any;
     console.log(`   Created user: coordinator@alsiraat.edu.au (Task Manager)`);
 
@@ -263,16 +278,16 @@ async function resetDatabase() {
       email: "teacher@alsiraat.edu.au",
       password: hashedPassword,
       role: UserRole.TASK_ADVERTISER,
-      organization: organization._id,
+      organisation: organization._id,
     } as any)) as any;
     console.log(`   Created user: teacher@alsiraat.edu.au (Task Advertiser)`);
 
     const studentUser = (await User.create({
-      name: "Student Independent",
+      name: "Ahmed Khan",
       email: "student@alsiraat.edu.au",
       password: hashedPassword,
       role: UserRole.APPLICANT,
-      organization: undefined,
+      organisation: organization._id,
     } as any)) as any;
     console.log(`   Created user: student@alsiraat.edu.au (Applicant)`);
 
@@ -510,7 +525,7 @@ async function resetDatabase() {
         rewardValue: 4,
         eligibility: ["Students", "Parents", "Staff", "Public"],
         visibility: TaskVisibility.GLOBAL,
-        organisation: undefined as any,
+        organisation: systemOrganization._id,
         status: TaskStatus.PUBLISHED,
         createdBy: teacherUser._id,
         attachments: [],
@@ -536,13 +551,24 @@ async function resetDatabase() {
     console.log(`   Tasks: ${await Task.countDocuments()}`);
     console.log(`   Applications: ${await Application.countDocuments()}`);
 
-    console.log("\n🔑 Test User Credentials:");
-    console.log("   Email: admin@alsiraat.edu.au (Global Admin)");
-    console.log("   Email: principal@alsiraat.edu.au (School Admin)");
-    console.log("   Email: coordinator@alsiraat.edu.au (Task Manager)");
-    console.log("   Email: teacher@alsiraat.edu.au (Task Advertiser)");
-    console.log("   Email: student@alsiraat.edu.au (Applicant - Independent)");
+    console.log("\n" + "=".repeat(70));
+    console.log("🔑 SUPER ADMIN LOGIN CREDENTIALS");
+    console.log("=".repeat(70));
+    console.log(`   Email:    admin@alsiraat.edu.au`);
     console.log(`   Password: ${password}`);
+    console.log(`   Role:     GLOBAL ADMIN (Full System Access)`);
+    console.log("=".repeat(70));
+    console.log("\n⚠️  SECURITY WARNING:");
+    console.log("   • This account has UNRESTRICTED access to ALL features");
+    console.log("   • Can manage users, roles, permissions, and organisations");
+    console.log("   • Change password immediately after first login");
+    console.log("   • DO NOT use these credentials in production");
+    console.log("\n🧪 Additional Test User Credentials:");
+    console.log("   - principal@alsiraat.edu.au (School Admin)");
+    console.log("   - coordinator@alsiraat.edu.au (Task Manager)");
+    console.log("   - teacher@alsiraat.edu.au (Task Advertiser)");
+    console.log("   - student@alsiraat.edu.au (Applicant)");
+    console.log(`   Password for all users: ${password}`);
 
     console.log("\n📝 Sample Tasks Created:");
     console.log("   - 3 Pending tasks (2 Internal, 1 Global)");
