@@ -166,7 +166,10 @@ export const Layout: React.FC<LayoutProps> = ({
   const navigate = useNavigate();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
-  const [selectedColor, setSelectedColor] = useState("AlSiraat");
+  const [selectedColor, setSelectedColor] = useState(() => {
+    const stored = localStorage.getItem("accentColor");
+    return stored || "AlSiraat";
+  });
 
   // Notification state
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -181,6 +184,22 @@ export const Layout: React.FC<LayoutProps> = ({
   const [isSearching, setIsSearching] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Apply saved accent color on mount
+  useEffect(() => {
+    const savedColor = COLORS.find((c) => c.name === selectedColor);
+    if (savedColor) {
+      Object.entries(savedColor.palette).forEach(([key, value]) => {
+        document.documentElement.style.setProperty(`--accent-${key}`, value);
+        if (["100", "200", "300", "400", "800", "900", "950"].includes(key)) {
+          document.documentElement.style.setProperty(
+            `--accent-${key}-rgb`,
+            hexToRgb(value),
+          );
+        }
+      });
+    }
+  }, []); // Only run on mount
 
   // Load notifications
   useEffect(() => {
@@ -366,6 +385,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
   const changeAccentColor = (name: string, palette: Record<string, string>) => {
     setSelectedColor(name);
+    localStorage.setItem("accentColor", name);
     setShowColorPicker(false);
     Object.entries(palette).forEach(([key, value]) => {
       document.documentElement.style.setProperty(`--accent-${key}`, value);
