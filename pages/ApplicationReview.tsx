@@ -12,8 +12,9 @@ import {
   Mail,
   Phone,
   MapPin,
-  Loader2,
 } from "lucide-react";
+
+import { Loading, LoadingOverlay } from "../components/Loading";
 
 export const ApplicationReview: React.FC = () => {
   const { appId } = useParams<{ appId: string }>();
@@ -104,12 +105,9 @@ export const ApplicationReview: React.FC = () => {
     }
   };
 
-  if (loading)
-    return (
-      <div className="p-10 text-center animate-pulse">
-        Loading application...
-      </div>
-    );
+  if (loading) {
+    return <Loading message="Loading application..." />;
+  }
   if (!app || !job)
     return (
       <div className="p-10 text-center font-bold text-red-600">
@@ -139,11 +137,7 @@ export const ApplicationReview: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in pb-20 relative">
-      {isUpdating && (
-        <div className="absolute inset-0 bg-white/40 dark:bg-black/40 z-50 flex items-center justify-center rounded-[2rem]">
-          <Loader2 className="w-10 h-10 text-primary animate-spin" />
-        </div>
-      )}
+      {isUpdating && <LoadingOverlay message="Updating Status..." />}
 
       <button
         onClick={() => navigate(-1)}
@@ -273,9 +267,7 @@ export const ApplicationReview: React.FC = () => {
                           disabled={
                             app.status === "Offered" ||
                             app.status === "Accepted" ||
-                            app.status === "Declined" ||
-                            (currentUser.role !== UserRole.GLOBAL_ADMIN &&
-                              app.status !== "Shortlisted")
+                            app.status === "Declined"
                           }
                           className="w-full py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -285,9 +277,7 @@ export const ApplicationReview: React.FC = () => {
                           onClick={() => handleStatusUpdate("Rejected")}
                           disabled={
                             app.status === "Rejected" ||
-                            app.status === "Accepted" ||
-                            (currentUser.role !== UserRole.GLOBAL_ADMIN &&
-                              app.status !== "Shortlisted")
+                            app.status === "Accepted"
                           }
                           className="w-full py-3 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-red-600 rounded-xl font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -318,7 +308,7 @@ export const ApplicationReview: React.FC = () => {
               return (
                 <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6">
                   <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wide mb-4">
-                    Job Offer
+                    Task Offer
                   </h3>
                   <div className="space-y-3">
                     {canConfirm && (
@@ -326,7 +316,7 @@ export const ApplicationReview: React.FC = () => {
                         onClick={handleConfirmOffer}
                         className="w-full py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 flex items-center justify-center transition-colors shadow-lg shadow-emerald-500/20"
                       >
-                        <CheckCircle className="w-4 h-4 mr-2" /> Confirm Offer
+                        <CheckCircle className="w-4 h-4 mr-2" /> Accept Offer
                       </button>
                     )}
                     {canReject && (

@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import {
   Mail,
-  Loader2,
   Shield,
   AlertCircle,
   CheckCircle2,
@@ -10,6 +9,8 @@ import {
   Send,
 } from "lucide-react";
 import { db } from "../services/database";
+
+import { LoadingOverlay } from "../components/Loading";
 
 export const ForgotPassword: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -33,6 +34,7 @@ export const ForgotPassword: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 transition-colors relative overflow-hidden bg-zinc-50 dark:bg-black">
+      {isLoading && <LoadingOverlay message="Dispatching Request..." />}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[100px]"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-500/10 rounded-full blur-[100px]"></div>
@@ -107,13 +109,7 @@ export const ForgotPassword: React.FC = () => {
                 disabled={isLoading}
                 className="w-full py-4 bg-zinc-900 dark:bg-zinc-800 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-black dark:hover:bg-zinc-700 shadow-xl transition-all hover:-translate-y-1 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {isLoading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" /> Dispatch Request
-                  </>
-                )}
+                <Send className="w-4 h-4" /> Send Request
               </button>
             </form>
           </>

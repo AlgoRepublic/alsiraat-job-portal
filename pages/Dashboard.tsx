@@ -57,6 +57,8 @@ interface ActionItem {
   link: string;
 }
 
+import { Loading } from "../components/Loading";
+
 export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
   const navigate = useNavigate();
   const [activeJobsCount, setActiveJobsCount] = useState(0);
@@ -195,14 +197,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
     }
   };
 
-  if (isLoading)
-    return (
-      <div className="flex justify-center p-20">
-        <div className="animate-pulse font-bold text-zinc-400">
-          Loading Dashboard...
-        </div>
-      </div>
-    );
+  if (isLoading) {
+    return <Loading message="Loading..." />;
+  }
 
   return (
     <div className="space-y-8 animate-fade-in">

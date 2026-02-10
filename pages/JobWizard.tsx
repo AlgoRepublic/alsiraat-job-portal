@@ -8,11 +8,13 @@ import {
   X,
   CheckCircle,
   Sparkles,
-  Loader2,
   Calendar,
   Plus,
   ClipboardCopy,
 } from "lucide-react";
+
+import { LoadingOverlay } from "../components/Loading";
+
 import {
   Job,
   JobCategory,
@@ -48,6 +50,7 @@ export const JobWizard: React.FC = () => {
     startDate: "",
     endDate: "",
     selectionCriteria: "",
+    interviewDetails: "",
     requiredSkills: [],
     rewardType: RewardType.VOLUNTEER,
     rewardValue: 0,
@@ -171,11 +174,11 @@ export const JobWizard: React.FC = () => {
     <div className="max-w-4xl mx-auto space-y-12 pb-20">
       <div className="text-center lg:text-left">
         <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tighter">
-          Post New Opportunity
+          Post New Task
         </h1>
         <p className="text-zinc-500 font-medium mt-3">
           Create a new task or role for students, faculty, or staff within your
-          institution.
+          organisation.
         </p>
       </div>
 
@@ -206,6 +209,10 @@ export const JobWizard: React.FC = () => {
       </div>
 
       <div className="glass-card rounded-[3rem] p-12 min-h-[600px] shadow-2xl relative overflow-hidden">
+        {isSubmitting && <LoadingOverlay message="Publishing Task..." />}
+        {isGenerating && (
+          <LoadingOverlay message="AI is drafting description..." />
+        )}
         <div className="absolute top-0 right-0 w-64 h-64 bg-red-600/5 rounded-full -mr-32 -mt-32 blur-3xl pointer-events-none"></div>
 
         {step === 1 && (
@@ -254,11 +261,7 @@ export const JobWizard: React.FC = () => {
                   disabled={isGenerating}
                   className="text-[10px] font-black uppercase tracking-widest flex items-center px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryHover transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
                 >
-                  {isGenerating ? (
-                    <Loader2 className="w-3 h-3 mr-2 animate-spin" />
-                  ) : (
-                    <Sparkles className="w-3 h-3 mr-2" />
-                  )}{" "}
+                  <Sparkles className="w-3 h-3 mr-2" />
                   AI Draft
                 </button>
               </div>
@@ -336,6 +339,20 @@ export const JobWizard: React.FC = () => {
                 value={formData.selectionCriteria}
                 onChange={(e) =>
                   updateField("selectionCriteria", e.target.value)
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">
+                Interview Process
+              </label>
+              <textarea
+                className="w-full p-5 glass rounded-2xl h-24 font-bold dark:text-white"
+                placeholder="Describe the interview steps (e.g. 15min Zoom call, technical review)..."
+                value={formData.interviewDetails}
+                onChange={(e) =>
+                  updateField("interviewDetails", e.target.value)
                 }
               />
             </div>
@@ -544,7 +561,7 @@ export const JobWizard: React.FC = () => {
                   Ready to Publish
                 </h3>
                 <p className="text-emerald-800 dark:text-emerald-600/80 font-medium">
-                  Review the details before posting the opportunity.
+                  Review the details before posting the task.
                 </p>
               </div>
             </div>
@@ -605,9 +622,7 @@ export const JobWizard: React.FC = () => {
                   </p>
                   <p className="text-lg font-black text-zinc-900 dark:text-white">
                     {formData.rewardType}
-                    {formData.rewardValue
-                      ? ` · ${formData.rewardValue}`
-                      : ""}
+                    {formData.rewardValue ? ` · ${formData.rewardValue}` : ""}
                   </p>
                 </div>
               </div>
@@ -697,6 +712,14 @@ export const JobWizard: React.FC = () => {
                   </div>
                 </div>
               )}
+              <div className="pt-6 border-t border-zinc-100 dark:border-zinc-800">
+                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">
+                  Interview Process
+                </p>
+                <div className="text-sm font-medium text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800">
+                  {formData.interviewDetails || "No interview required"}
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -724,12 +747,8 @@ export const JobWizard: React.FC = () => {
             disabled={isSubmitting}
             className="px-12 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-emerald-700 shadow-2xl shadow-emerald-600/20 flex items-center transition-all hover:-translate-y-1 disabled:opacity-50"
           >
-            {isSubmitting ? (
-              <Loader2 className="w-4 h-4 animate-spin mr-3" />
-            ) : (
-              <ClipboardCopy className="w-4 h-4 mr-3" />
-            )}
-            Publish Opportunity
+            <ClipboardCopy className="w-4 h-4 mr-3" />
+            Publish
           </button>
         )}
       </div>

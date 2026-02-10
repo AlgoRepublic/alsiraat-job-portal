@@ -12,9 +12,9 @@ import {
   Trash2,
   Save,
   RefreshCw,
-  Loader2,
   Lock,
 } from "lucide-react";
+import { Loading } from "../components/Loading";
 import { useNavigate } from "react-router-dom";
 import { JobCategory, UserRole } from "../types";
 import { useToast } from "../components/Toast";
@@ -325,13 +325,7 @@ export const AdminSettings: React.FC = () => {
   // ============================================================================
 
   const renderRoles = () => {
-    if (loading) {
-      return (
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-zinc-400" />
-        </div>
-      );
-    }
+    if (loading) return <Loading message="Loading roles..." />;
 
     return (
       <div className="space-y-6 animate-fade-in">
@@ -589,13 +583,7 @@ export const AdminSettings: React.FC = () => {
   };
 
   const renderPermissions = () => {
-    if (loading) {
-      return (
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-zinc-400" />
-        </div>
-      );
-    }
+    if (loading) return <Loading message="Loading permissions..." />;
 
     return (
       <div className="space-y-6 animate-fade-in">

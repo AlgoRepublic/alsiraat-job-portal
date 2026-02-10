@@ -8,13 +8,13 @@ import {
   Download,
   CheckCircle,
   FileText,
-  Loader2,
   Users,
   ShieldCheck,
   XCircle,
   Lock,
 } from "lucide-react";
 import { UserAvatar } from "../components/UserAvatar";
+import { Loading, LoadingOverlay } from "../components/Loading";
 import { db } from "../services/database";
 import {
   Job,
@@ -139,11 +139,7 @@ export const JobDetails: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="p-8 text-center text-zinc-500 dark:text-zinc-400 animate-pulse">
-        Loading task details...
-      </div>
-    );
+    return <Loading message="Loading task details..." />;
   }
 
   if (!job) {
@@ -293,7 +289,7 @@ export const JobDetails: React.FC = () => {
               onClick={() => handleManagerAction("approve")}
               className="px-4 py-2 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 shadow-md transition-colors flex items-center"
             >
-              <ShieldCheck className="w-4 h-4 mr-2" /> Approve
+              <ShieldCheck className="w-4 h-4 mr-2" /> Publish
             </button>
           </div>
         </div>
@@ -375,6 +371,17 @@ export const JobDetails: React.FC = () => {
                 </h4>
                 <div className="text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800">
                   {job.selectionCriteria}
+                </div>
+              </div>
+            )}
+
+            {job.interviewDetails && (
+              <div className="mt-8">
+                <h4 className="text-base font-bold text-zinc-900 dark:text-white mb-3">
+                  Interview Process
+                </h4>
+                <div className="text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800">
+                  {job.interviewDetails}
                 </div>
               </div>
             )}
@@ -584,12 +591,7 @@ export const JobDetails: React.FC = () => {
                     className="p-6 space-y-5 relative"
                   >
                     {applicationStep === "submitting" && (
-                      <div className="absolute inset-0 bg-white/80 dark:bg-black/80 z-10 flex flex-col items-center justify-center rounded-2xl">
-                        <Loader2 className="w-10 h-10 text-primary dark:text-white animate-spin mb-3" />
-                        <p className="font-semibold text-zinc-900 dark:text-white">
-                          Sending...
-                        </p>
-                      </div>
+                      <LoadingOverlay message="Sending..." />
                     )}
 
                     <div>

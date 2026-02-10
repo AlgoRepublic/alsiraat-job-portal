@@ -3,7 +3,6 @@ import { useNavigate, Link } from "react-router-dom";
 import {
   Mail,
   Lock,
-  Loader2,
   User as UserIcon,
   Shield,
   AlertCircle,
@@ -39,6 +38,8 @@ const SIGNUP_ROLES = [
   },
 ];
 
+import { LoadingOverlay } from "../components/Loading";
+
 export const Signup: React.FC = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
@@ -70,6 +71,7 @@ export const Signup: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 transition-colors relative overflow-hidden bg-zinc-50 dark:bg-black">
+      {isLoading && <LoadingOverlay message="Creating Account..." />}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-red-500/10 rounded-full blur-[100px]"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[100px]"></div>
@@ -159,11 +161,7 @@ export const Signup: React.FC = () => {
             disabled={isLoading}
             className="w-full py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primaryHover shadow-xl shadow-primary/30 transition-all hover:-translate-y-1 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
           >
-            {isLoading ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              "Create Account"
-            )}
+            Create Account
           </button>
         </form>
 

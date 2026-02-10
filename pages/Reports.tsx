@@ -10,13 +10,14 @@ import {
   PieChart,
   Filter,
   RefreshCw,
-  Loader2,
   ChevronDown,
   Clock,
   CheckCircle,
   XCircle,
   AlertCircle,
 } from "lucide-react";
+
+import { Loading, LoadingOverlay } from "../components/Loading";
 import { useToast } from "../components/Toast";
 import { API_BASE_URL } from "../services/api";
 
@@ -159,11 +160,7 @@ export const Reports: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-zinc-400" />
-      </div>
-    );
+    return <Loading message="Generating Analytics..." />;
   }
 
   const statCards = [
@@ -202,7 +199,8 @@ export const Reports: React.FC = () => {
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-fade-in pb-20">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative">
+        {exporting && <LoadingOverlay message="Exporting Report..." />}
         <div>
           <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tighter">
             Reports & Analytics
@@ -240,11 +238,7 @@ export const Reports: React.FC = () => {
             disabled={exporting}
             className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primaryHover transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
           >
-            {exporting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Download className="w-4 h-4" />
-            )}
+            <Download className="w-4 h-4" />
             Export CSV
           </button>
         </div>

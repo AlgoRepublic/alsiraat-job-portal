@@ -42,6 +42,7 @@ export const createTask = async (req: any, res: Response) => {
       rewardValue,
       eligibility,
       visibility,
+      interviewDetails,
     } = req.body;
 
     // All tasks start as PENDING and require explicit approval
@@ -79,6 +80,7 @@ export const createTask = async (req: any, res: Response) => {
       eligibility: parseArrayField(eligibility),
       visibility: visibility || TaskVisibility.GLOBAL,
       status: taskStatus,
+      interviewDetails,
       createdBy: req.user._id,
       attachments,
     };

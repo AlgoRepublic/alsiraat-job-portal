@@ -4,6 +4,8 @@ import { db } from "../services/database";
 import { Application, Job } from "../types";
 import { ArrowLeft, Mail, User } from "lucide-react";
 
+import { Loading } from "../components/Loading";
+
 export const JobApplicants: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -50,12 +52,9 @@ export const JobApplicants: React.FC = () => {
     }
   };
 
-  if (loading)
-    return (
-      <div className="p-10 text-center animate-pulse font-black text-zinc-400 uppercase tracking-widest text-xs">
-        Syncing Taskers...
-      </div>
-    );
+  if (loading) {
+    return <Loading message="Syncing Taskers..." />;
+  }
   if (!job)
     return (
       <div className="p-10 text-center font-bold text-red-600">

@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Mail, Lock, Loader2, Shield, AlertCircle, Layers } from "lucide-react";
+import { Mail, Lock, Shield, AlertCircle, Layers } from "lucide-react";
 import { db } from "../services/database";
 import { API_BASE_URL } from "../services/api";
 import { UserRole, Permission } from "../types";
+
+import { LoadingOverlay } from "../components/Loading";
 
 export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
   onLoginSuccess,
@@ -56,6 +58,7 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 transition-colors relative overflow-hidden bg-zinc-50 dark:bg-black">
+      {isLoading && <LoadingOverlay message="Authenticating..." />}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-[100px]"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[100px]"></div>
@@ -177,7 +180,7 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
             disabled={isLoading}
             className="w-full py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primaryHover shadow-xl shadow-primary/30 transition-all hover:-translate-y-1 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
           >
-            {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Login"}
+            Login
           </button>
         </form>
 
