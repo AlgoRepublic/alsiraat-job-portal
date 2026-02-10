@@ -267,9 +267,7 @@ export const ApplicationReview: React.FC = () => {
                           disabled={
                             app.status === "Offered" ||
                             app.status === "Accepted" ||
-                            app.status === "Declined" ||
-                            (currentUser.role !== UserRole.GLOBAL_ADMIN &&
-                              app.status !== "Shortlisted")
+                            app.status === "Declined"
                           }
                           className="w-full py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -279,9 +277,7 @@ export const ApplicationReview: React.FC = () => {
                           onClick={() => handleStatusUpdate("Rejected")}
                           disabled={
                             app.status === "Rejected" ||
-                            app.status === "Accepted" ||
-                            (currentUser.role !== UserRole.GLOBAL_ADMIN &&
-                              app.status !== "Shortlisted")
+                            app.status === "Accepted"
                           }
                           className="w-full py-3 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-red-600 rounded-xl font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -312,7 +308,7 @@ export const ApplicationReview: React.FC = () => {
               return (
                 <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6">
                   <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wide mb-4">
-                    Job Offer
+                    Task Offer
                   </h3>
                   <div className="space-y-3">
                     {canConfirm && (
@@ -320,7 +316,7 @@ export const ApplicationReview: React.FC = () => {
                         onClick={handleConfirmOffer}
                         className="w-full py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 flex items-center justify-center transition-colors shadow-lg shadow-emerald-500/20"
                       >
-                        <CheckCircle className="w-4 h-4 mr-2" /> Confirm Offer
+                        <CheckCircle className="w-4 h-4 mr-2" /> Accept Offer
                       </button>
                     )}
                     {canReject && (

@@ -16,7 +16,7 @@ export const MOCK_JOBS: Job[] = [
     title: "Annual Science Fair Coordinator",
     category: JobCategory.EVENT_COORDINATION,
     description:
-      "We are looking for an organized and enthusiastic individual to lead the organisation of the 2024 Science Fair. \n\nResponsibilities include:\n- Coordinating with science teachers\n- Managing student registrations\n- Setting up the venue\n- Arranging judges and prizes\n\nThis is a great opportunity to get involved with the school community and support STEM education.",
+      "We are looking for an organized and enthusiastic individual to lead the organisation of the 2024 Science Fair. \n\nResponsibilities include:\n- Coordinating with science teachers\n- Managing student registrations\n- Setting up the venue\n- Arranging judges and prizes\n\nThis is a great task to get involved with the school community and support STEM education.",
     location: "Main Hall",
     hoursRequired: 15,
     rewardType: RewardType.PAID,

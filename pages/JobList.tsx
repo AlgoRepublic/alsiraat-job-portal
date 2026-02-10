@@ -270,7 +270,7 @@ export const JobList: React.FC = () => {
         <p className="text-sm font-bold text-zinc-400">
           Active Board:{" "}
           <span className="text-zinc-900 dark:text-white">
-            {filteredJobs.length} opportunities
+            {filteredJobs.length} tasks
           </span>
         </p>
         {hasActiveFilters && (
@@ -358,7 +358,7 @@ export const JobList: React.FC = () => {
           <div className="text-center py-24 glass-card rounded-[3rem] border-dashed border-2 border-zinc-200 dark:border-zinc-800">
             <ClipboardList className="w-16 h-16 text-zinc-300 dark:text-zinc-700 mx-auto mb-6" />
             <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter">
-              No opportunities found
+              No tasks found
             </h3>
             <p className="text-zinc-500 dark:text-zinc-400 mt-2 font-medium">
               Your current filter configuration returned 0 results.

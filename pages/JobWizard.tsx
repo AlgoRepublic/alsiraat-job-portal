@@ -50,6 +50,7 @@ export const JobWizard: React.FC = () => {
     startDate: "",
     endDate: "",
     selectionCriteria: "",
+    interviewDetails: "",
     requiredSkills: [],
     rewardType: RewardType.VOLUNTEER,
     rewardValue: 0,
@@ -344,6 +345,20 @@ export const JobWizard: React.FC = () => {
 
             <div className="space-y-2">
               <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">
+                Interview Process
+              </label>
+              <textarea
+                className="w-full p-5 glass rounded-2xl h-24 font-bold dark:text-white"
+                placeholder="Describe the interview steps (e.g. 15min Zoom call, technical review)..."
+                value={formData.interviewDetails}
+                onChange={(e) =>
+                  updateField("interviewDetails", e.target.value)
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">
                 Required Skills / Prerequisites
               </label>
               <div className="p-3 glass rounded-2xl flex flex-wrap gap-2">
@@ -546,7 +561,7 @@ export const JobWizard: React.FC = () => {
                   Ready to Publish
                 </h3>
                 <p className="text-emerald-800 dark:text-emerald-600/80 font-medium">
-                  Review the details before posting the opportunity.
+                  Review the details before posting the task.
                 </p>
               </div>
             </div>
@@ -697,6 +712,14 @@ export const JobWizard: React.FC = () => {
                   </div>
                 </div>
               )}
+              <div className="pt-6 border-t border-zinc-100 dark:border-zinc-800">
+                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">
+                  Interview Process
+                </p>
+                <div className="text-sm font-medium text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800">
+                  {formData.interviewDetails || "No interview required"}
+                </div>
+              </div>
             </div>
           </div>
         )}

@@ -289,7 +289,7 @@ export const JobDetails: React.FC = () => {
               onClick={() => handleManagerAction("approve")}
               className="px-4 py-2 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 shadow-md transition-colors flex items-center"
             >
-              <ShieldCheck className="w-4 h-4 mr-2" /> Approve
+              <ShieldCheck className="w-4 h-4 mr-2" /> Publish
             </button>
           </div>
         </div>
@@ -371,6 +371,17 @@ export const JobDetails: React.FC = () => {
                 </h4>
                 <div className="text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800">
                   {job.selectionCriteria}
+                </div>
+              </div>
+            )}
+
+            {job.interviewDetails && (
+              <div className="mt-8">
+                <h4 className="text-base font-bold text-zinc-900 dark:text-white mb-3">
+                  Interview Process
+                </h4>
+                <div className="text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800">
+                  {job.interviewDetails}
                 </div>
               </div>
             )}

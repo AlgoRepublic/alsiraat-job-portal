@@ -121,7 +121,7 @@ export default function MyApplications() {
                     <span
                       className={`px-4 py-2 text-[10px] font-black rounded-xl uppercase tracking-widest border ${getApplicationStatusStyle(app.status)}`}
                     >
-                      {app.status}
+                      {app.status === "Shortlisted" ? "Pending" : app.status}
                     </span>
                   </td>
                   <td className="px-10 py-8 whitespace-nowrap text-right">
