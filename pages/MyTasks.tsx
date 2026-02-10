@@ -4,6 +4,8 @@ import { Briefcase, Users, Eye } from "lucide-react";
 import { api } from "../services/api";
 import { Job } from "../types";
 
+import { Loading } from "../components/Loading";
+
 export const MyTasks: React.FC = () => {
   const navigate = useNavigate();
   const [tasks, setTasks] = useState<Job[]>([]);
@@ -43,11 +45,7 @@ export const MyTasks: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="p-10 text-center animate-pulse font-black text-zinc-400 uppercase tracking-widest text-xs">
-        Loading Your Tasks...
-      </div>
-    );
+    return <Loading message="Loading..." />;
   }
 
   return (

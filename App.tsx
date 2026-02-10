@@ -30,6 +30,8 @@ import { ToastProvider } from "./components/Toast";
 import { User, UserRole, Permission } from "./types";
 import { db } from "./services/database";
 
+import { Loading } from "./components/Loading";
+
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,20 +75,7 @@ const App: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-zinc-50 dark:bg-black overflow-hidden relative">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-[100px] animate-blob"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-red-900/10 rounded-full blur-[100px] animate-blob animation-delay-2000"></div>
-        <div className="relative z-10 flex flex-col items-center">
-          <div className="w-16 h-16 bg-red-900 rounded-2xl flex items-center justify-center mb-6 shadow-2xl animate-float">
-            <Layers className="text-white w-9 h-9" />
-          </div>
-          <div className="text-zinc-400 font-black uppercase tracking-[0.4em] text-[10px] animate-pulse">
-            Loading Tasker...
-          </div>
-        </div>
-      </div>
-    );
+    return <Loading fullScreen message="Loading Tasker..." />;
   }
 
   // For non-logged-in users visiting root, show LandingPage without Layout

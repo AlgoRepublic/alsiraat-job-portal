@@ -12,6 +12,8 @@ import {
   UserCircle,
 } from "lucide-react";
 
+import { Loading } from "../components/Loading";
+
 export const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
@@ -132,10 +134,7 @@ export const UserManagement: React.FC = () => {
           {/* User List */}
           <div className="bg-white dark:bg-zinc-900 rounded-[2rem] border border-zinc-100 dark:border-zinc-800 overflow-hidden shadow-sm">
             {loading ? (
-              <div className="p-20 text-center">
-                <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-zinc-500 font-bold">Loading users...</p>
-              </div>
+              <Loading message="Loading users..." />
             ) : users.length === 0 ? (
               <div className="p-20 text-center">
                 <Users className="w-16 h-16 text-zinc-200 dark:text-zinc-800 mx-auto mb-4" />

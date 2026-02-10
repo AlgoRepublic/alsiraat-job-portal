@@ -12,8 +12,9 @@ import {
   Mail,
   Phone,
   MapPin,
-  Loader2,
 } from "lucide-react";
+
+import { Loading, LoadingOverlay } from "../components/Loading";
 
 export const ApplicationReview: React.FC = () => {
   const { appId } = useParams<{ appId: string }>();
@@ -104,12 +105,9 @@ export const ApplicationReview: React.FC = () => {
     }
   };
 
-  if (loading)
-    return (
-      <div className="p-10 text-center animate-pulse">
-        Loading application...
-      </div>
-    );
+  if (loading) {
+    return <Loading message="Loading application..." />;
+  }
   if (!app || !job)
     return (
       <div className="p-10 text-center font-bold text-red-600">
@@ -139,11 +137,7 @@ export const ApplicationReview: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in pb-20 relative">
-      {isUpdating && (
-        <div className="absolute inset-0 bg-white/40 dark:bg-black/40 z-50 flex items-center justify-center rounded-[2rem]">
-          <Loader2 className="w-10 h-10 text-primary animate-spin" />
-        </div>
-      )}
+      {isUpdating && <LoadingOverlay message="Updating Status..." />}
 
       <button
         onClick={() => navigate(-1)}

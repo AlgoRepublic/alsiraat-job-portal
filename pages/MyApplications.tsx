@@ -8,6 +8,8 @@ interface ApplicationWithJob extends Application {
   task?: Job;
 }
 
+import { Loading } from "../components/Loading";
+
 export default function MyApplications() {
   const [applications, setApplications] = useState<ApplicationWithJob[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,11 +48,7 @@ export default function MyApplications() {
   };
 
   if (loading) {
-    return (
-      <div className="p-10 text-center animate-pulse font-black text-zinc-400 uppercase tracking-widest text-xs">
-        Loading Your Applications...
-      </div>
-    );
+    return <Loading message="Loading..." />;
   }
 
   return (

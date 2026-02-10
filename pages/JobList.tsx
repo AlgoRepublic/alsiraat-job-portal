@@ -16,6 +16,8 @@ import { JobCategory, JobStatus, RewardType, Job } from "../types";
 import { db } from "../services/database";
 import { getStatusColor } from "./Dashboard";
 
+import { Loading } from "../components/Loading";
+
 export const JobList: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -129,12 +131,9 @@ export const JobList: React.FC = () => {
     })),
   });
 
-  if (loading)
-    return (
-      <div className="text-center py-20 font-black text-zinc-400">
-        Syncing Opportunity Grid...
-      </div>
-    );
+  if (loading) {
+    return <Loading message="Fetching tasks..." />;
+  }
 
   return (
     <div className="space-y-10 animate-fade-in pb-20">
@@ -147,8 +146,8 @@ export const JobList: React.FC = () => {
             Search Tasks
           </h2>
           <p className="text-white/80 dark:text-zinc-400 text-lg md:text-xl mb-12 text-center md:text-left font-medium leading-relaxed">
-            Discover high-impact opportunities within the AlSiraat{" "}
-            <span className="font-bold text-white">Organisation</span>.
+            Discover tasks within the Al Siraat{" "}
+            <span className="font-bold text-white">College</span>.
           </p>
 
           <div className="flex flex-col md:flex-row gap-4">

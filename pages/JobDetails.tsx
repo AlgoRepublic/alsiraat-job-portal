@@ -8,13 +8,13 @@ import {
   Download,
   CheckCircle,
   FileText,
-  Loader2,
   Users,
   ShieldCheck,
   XCircle,
   Lock,
 } from "lucide-react";
 import { UserAvatar } from "../components/UserAvatar";
+import { Loading, LoadingOverlay } from "../components/Loading";
 import { db } from "../services/database";
 import {
   Job,
@@ -139,11 +139,7 @@ export const JobDetails: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="p-8 text-center text-zinc-500 dark:text-zinc-400 animate-pulse">
-        Loading task details...
-      </div>
-    );
+    return <Loading message="Loading task details..." />;
   }
 
   if (!job) {
@@ -584,12 +580,7 @@ export const JobDetails: React.FC = () => {
                     className="p-6 space-y-5 relative"
                   >
                     {applicationStep === "submitting" && (
-                      <div className="absolute inset-0 bg-white/80 dark:bg-black/80 z-10 flex flex-col items-center justify-center rounded-2xl">
-                        <Loader2 className="w-10 h-10 text-primary dark:text-white animate-spin mb-3" />
-                        <p className="font-semibold text-zinc-900 dark:text-white">
-                          Sending...
-                        </p>
-                      </div>
+                      <LoadingOverlay message="Sending..." />
                     )}
 
                     <div>
