@@ -96,13 +96,19 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({
   const getToastIcon = (type: ToastType) => {
     switch (type) {
       case "success":
-        return <CheckCircle className="w-5 h-5 flex-shrink-0" />;
+        return (
+          <CheckCircle className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
+        );
       case "error":
-        return <XCircle className="w-5 h-5 flex-shrink-0" />;
+        return (
+          <XCircle className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
+        );
       case "warning":
-        return <AlertCircle className="w-5 h-5 flex-shrink-0" />;
+        return (
+          <AlertCircle className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
+        );
       case "info":
-        return <Info className="w-5 h-5 flex-shrink-0" />;
+        return <Info className="w-5 h-5 flex-shrink-0" aria-hidden="true" />;
     }
   };
 
@@ -117,6 +123,9 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({
         {toasts.map((toast) => (
           <div
             key={toast.id}
+            role={toast.type === "error" ? "alert" : "status"}
+            aria-live={toast.type === "error" ? "assertive" : "polite"}
+            aria-atomic="true"
             className={`${getToastStyles(toast.type)} border px-4 py-3 rounded-xl shadow-lg flex items-start gap-3 animate-slide-up`}
           >
             {getToastIcon(toast.type)}
@@ -127,8 +136,9 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({
             <button
               onClick={() => removeToast(toast.id)}
               className="flex-shrink-0 hover:opacity-70 transition-opacity"
+              aria-label="Close notification"
             >
-              <X className="w-4 h-4" />
+              <X className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
         ))}
