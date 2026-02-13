@@ -1,13 +1,7 @@
 import mongoose, { Schema, Document } from "mongoose";
 
-export const UserRole = {
-  GLOBAL_ADMIN: "Global Admin",
-  SCHOOL_ADMIN: "School Admin",
-  TASK_MANAGER: "Task Manager",
-  TASK_ADVERTISER: "Task Advertiser",
-  APPLICANT: "Applicant",
-} as const;
-export type UserRole = (typeof UserRole)[keyof typeof UserRole];
+import { UserRole, normalizeUserRole } from "./UserRole.js";
+export { UserRole };
 
 export interface ISkill {
   id: string;
@@ -53,16 +47,7 @@ const UserSchema: Schema = new Schema(
       type: String,
       enum: Object.values(UserRole),
       default: UserRole.APPLICANT,
-      set: (v: string) => {
-        if (!v) return v;
-        // Find existing role value matching case-insensitively (handling both spaces and underscores)
-        const role = Object.values(UserRole).find(
-          (r) =>
-            r.toLowerCase() === v.toLowerCase() ||
-            r.toLowerCase() === v.toLowerCase().replace(/_/g, " "),
-        );
-        return role || v;
-      },
+      set: normalizeUserRole,
     },
     organisation: { type: Schema.Types.ObjectId, ref: "Organization" },
     avatar: { type: String },
