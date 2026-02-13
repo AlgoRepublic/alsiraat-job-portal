@@ -161,7 +161,9 @@ export const getTasks = async (req: any, res: Response) => {
       return res.json(tasks);
     }
 
-    const { checkPermissionAsync } = await import("../middleware/rbac.js");
+    const { checkPermissionAsync, getPermissionsAsync } = await import(
+      "../middleware/rbac.js"
+    );
 
     // Dynamic Visibility Logic
     if (!user) {
@@ -171,17 +173,26 @@ export const getTasks = async (req: any, res: Response) => {
         visibility: TaskVisibility.GLOBAL,
       };
     } else {
+      // Fetch permissions once to avoid redundant DB calls
+      const userPermissions = await getPermissionsAsync(user);
+
       const { allowed: canViewAll } = await checkPermissionAsync(
         user,
         Permission.TASK_READ,
+        undefined,
+        userPermissions,
       );
       const { allowed: canViewInternal } = await checkPermissionAsync(
         user,
         Permission.TASK_VIEW_INTERNAL,
+        undefined,
+        userPermissions,
       );
       const { allowed: canViewPending } = await checkPermissionAsync(
         user,
         Permission.TASK_VIEW_PENDING,
+        undefined,
+        userPermissions,
       );
 
       const conditions: any[] = [];
