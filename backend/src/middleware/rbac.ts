@@ -1,13 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import User, { UserRole } from "../models/User.js";
-import {
-  Permission,
-  hasPermission,
-  hasAnyPermission,
-  canWithContext,
-  PermissionContext,
-} from "../config/permissions.js";
+import { Permission, PermissionContext } from "../config/permissions.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_here";
 
@@ -62,24 +56,6 @@ export const optionalAuthenticate = async (
   } catch (err) {
     next();
   }
-};
-
-// ============================================================================
-// ROLE-BASED AUTHORIZATION (Legacy - kept for backward compatibility)
-// ============================================================================
-
-export const authorize = (roles: UserRole[]) => {
-  return (req: any, res: Response, next: NextFunction) => {
-    const userRole = (req.user.role || "").toLowerCase();
-    const authorized = roles.some((r) => r.toLowerCase() === userRole);
-
-    if (!authorized) {
-      return res
-        .status(403)
-        .json({ message: "User not authorised to perform this action" });
-    }
-    next();
-  };
 };
 
 // ============================================================================
@@ -198,57 +174,6 @@ export const requirePermissionWithContext = (
     }
   };
 };
-
-// ============================================================================
-// HELPER: Check permission in controller
-// ============================================================================
-
-/**
- * Helper function to check permission within a controller
- * Returns true/false and the error response if denied
- * @deprecated Use checkPermissionAsync for database-driven permissions
- */
-export function checkPermission(
-  user: any,
-  permission: Permission,
-  context?: PermissionContext,
-): { allowed: boolean; error?: { status: number; message: string } } {
-  if (!user) {
-    return {
-      allowed: false,
-      error: { status: 401, message: "Authentication required" },
-    };
-  }
-
-  const userRole = user.role as UserRole;
-
-  if (context) {
-    context.userId = user._id.toString();
-    context.userOrganizationId = user.organisation?.toString();
-
-    if (!canWithContext(userRole, permission, context)) {
-      return {
-        allowed: false,
-        error: {
-          status: 403,
-          message: `You don't have permission to perform this action (${permission})`,
-        },
-      };
-    }
-  } else {
-    if (!hasPermission(userRole, permission)) {
-      return {
-        allowed: false,
-        error: {
-          status: 403,
-          message: `You don't have permission to perform this action (${permission})`,
-        },
-      };
-    }
-  }
-
-  return { allowed: true };
-}
 
 /**
  * Helper function to check permission within a controller (DYNAMIC - uses database)
