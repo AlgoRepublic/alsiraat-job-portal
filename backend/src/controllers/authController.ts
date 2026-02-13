@@ -137,6 +137,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
       message,
       "info",
       resetUrl,
+      true,
     );
 
     res.json({ message: "Password reset link sent to email" });
@@ -174,6 +175,16 @@ export const resetPassword = async (req: Request, res: Response) => {
     user.resetPasswordExpires = undefined;
 
     await user.save();
+
+    // Notify user that password was changed
+    await sendNotification(
+      user._id.toString(),
+      "Password Changed Successfully",
+      "Your password has been successfully reset. If you did not perform this action, please contact support immediately.",
+      "success",
+      undefined,
+      true,
+    );
 
     res.json({ message: "Password reset successful" });
   } catch (err: any) {
