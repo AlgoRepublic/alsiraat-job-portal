@@ -168,13 +168,11 @@ export function hasPermission(role: UserRole, permission: Permission): boolean {
 }
 
 /**
- * Check if a role has a specific permission (DYNAMIC - uses database)
- * This is the preferred method for production use
+ * Get all permissions for a role from the database
  */
-export async function hasPermissionAsync(
+export async function getRolePermissionsAsync(
   role: UserRole,
-  permission: Permission,
-): Promise<boolean> {
+): Promise<Permission[]> {
   try {
     // Import Role model dynamically to avoid circular dependencies
     const { default: Role } = await import("../models/Role.js");
@@ -193,15 +191,27 @@ export async function hasPermissionAsync(
       console.warn(
         `Role "${role}" (code: ${roleCode}) not found in database, using static permissions`,
       );
-      return hasPermission(role, permission);
+      return getPermissionsForRole(role);
     }
 
-    return roleDoc.permissions.includes(permission);
+    return roleDoc.permissions as Permission[];
   } catch (error) {
-    console.error("Error checking permission from database:", error);
+    console.error("Error fetching permissions from database:", error);
     // Fallback to static permissions on error
-    return hasPermission(role, permission);
+    return getPermissionsForRole(role);
   }
+}
+
+/**
+ * Check if a role has a specific permission (DYNAMIC - uses database)
+ * This is the preferred method for production use
+ */
+export async function hasPermissionAsync(
+  role: UserRole,
+  permission: Permission,
+): Promise<boolean> {
+  const permissions = await getRolePermissionsAsync(role);
+  return permissions.includes(permission);
 }
 
 /**
@@ -231,12 +241,8 @@ export async function hasAnyPermissionAsync(
   role: UserRole,
   permissions: Permission[],
 ): Promise<boolean> {
-  for (const permission of permissions) {
-    if (await hasPermissionAsync(role, permission)) {
-      return true;
-    }
-  }
-  return false;
+  const rolePermissions = await getRolePermissionsAsync(role);
+  return permissions.some((p) => rolePermissions.includes(p));
 }
 
 /**
