@@ -33,6 +33,7 @@ export interface ITask extends Document {
   rewardValue?: number;
   eligibility: string[];
   visibility: TaskVisibility;
+  allowedRoles?: string[];
   status: TaskStatus;
   organisation?: mongoose.Types.ObjectId;
   createdBy: mongoose.Types.ObjectId;
@@ -71,6 +72,7 @@ const TaskSchema: Schema = new Schema(
       enum: Object.values(TaskVisibility),
       default: TaskVisibility.GLOBAL,
     },
+    allowedRoles: [{ type: String }],
     status: {
       type: String,
       enum: Object.values(TaskStatus),

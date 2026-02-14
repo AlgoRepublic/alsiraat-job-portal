@@ -80,6 +80,7 @@ export const createTask = async (req: any, res: Response) => {
       rewardValue,
       eligibility: parseArrayField(eligibility),
       visibility: visibility || TaskVisibility.GLOBAL,
+      allowedRoles: parseArrayField(req.body.allowedRoles),
       status: taskStatus,
       interviewDetails,
       createdBy: req.user._id,
@@ -306,6 +307,11 @@ export const getTasks = async (req: any, res: Response) => {
           status: canViewPending
             ? { $in: [TaskStatus.PUBLISHED, TaskStatus.PENDING] }
             : TaskStatus.PUBLISHED,
+          $or: [
+            { allowedRoles: { $exists: false } },
+            { allowedRoles: { $size: 0 } },
+            { allowedRoles: user.role },
+          ],
         });
       }
 
