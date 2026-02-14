@@ -10,7 +10,8 @@
     "start": "node dist/server.js",
     "seed": "tsx src/scripts/seedAdmin.ts",
     "seed:prod": "node dist/scripts/seedAdmin.js",
-    "reset-db": "tsx src/scripts/resetDatabase.ts"
+    "reset-db": "tsx src/scripts/resetDatabase.ts",
+    "test": "node --experimental-strip-types --import ./test/test-runner.js --test \"src/**/*.test.ts\""
   },
   "dependencies": {
     "@types/multer": "^2.0.0",

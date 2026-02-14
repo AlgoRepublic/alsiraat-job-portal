@@ -4,6 +4,7 @@ import {
   getTasks,
   getTaskById,
   approveTask,
+  updateTask,
 } from "../controllers/taskController.js";
 import {
   authenticate,
@@ -32,6 +33,16 @@ router.get("/", optionalAuthenticate, getTasks);
 
 // Get single task - public with optional auth
 router.get("/:id", optionalAuthenticate, getTaskById);
+
+// Update task
+router.put(
+  "/:id",
+  authenticate,
+  requirePermission(Permission.TASK_UPDATE),
+  upload.array("attachments", 5),
+  handleUploadError,
+  updateTask,
+);
 
 // Approve task - context-aware approval (Global Admin for all, School Admin/Task Manager for Internal)
 router.put("/:taskId/approve", authenticate, requireTaskApproval, approveTask);

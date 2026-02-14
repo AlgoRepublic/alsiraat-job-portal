@@ -42,6 +42,8 @@ export const JobDetails: React.FC = () => {
   const [coverLetter, setCoverLetter] = useState("");
   const [availability, setAvailability] = useState("");
   const [agreed, setAgreed] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
 
   // Rejection Modal State
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -122,14 +124,17 @@ export const JobDetails: React.FC = () => {
 
   const handleManagerAction = async (action: "approve" | "decline") => {
     if (!job) return;
+
+    if (action === "decline") {
+      setShowRejectModal(true);
+      return;
+    }
+
     try {
       if (action === "approve") {
         await db.approveJob(job.id, "approve");
         setJob({ ...job, status: JobStatus.PUBLISHED });
         showSuccess("Task has been approved and published!");
-      } else {
-        setRejectionReason("");
-        setShowRejectModal(true);
       }
     } catch (err: any) {
       console.error("Manager action failed", err);
@@ -141,7 +146,7 @@ export const JobDetails: React.FC = () => {
     }
   };
 
-  const handleConfirmReject = async () => {
+  const confirmReject = async () => {
     if (!job) return;
     try {
       await db.approveJob(job.id, "decline", rejectionReason);
@@ -670,33 +675,35 @@ export const JobDetails: React.FC = () => {
         </div>
       </div>
 
-      {/* Rejection Modal */}
+      {/* Reject Modal */}
       {showRejectModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 w-full max-w-md border border-zinc-200 dark:border-zinc-800 shadow-xl animate-scale-in">
-            <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-zinc-900 w-full max-w-md p-6 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 animate-scale-in">
+            <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-4">
               Reject Task
             </h3>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-              Please provide a reason for rejecting this task. The advertiser will be notified.
+              Please provide a reason for rejecting this task. This will be sent
+              to the advertiser.
             </p>
             <textarea
-              className="w-full p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-red-500 focus:outline-none min-h-[100px] dark:text-white mb-4"
-              placeholder="Enter rejection reason..."
+              className="w-full p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl mb-4 focus:ring-2 focus:ring-red-500 focus:outline-none dark:text-white"
+              rows={4}
+              placeholder="Reason for rejection..."
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
             />
-            <div className="flex gap-3 justify-end">
+            <div className="flex justify-end gap-3">
               <button
                 onClick={() => setShowRejectModal(false)}
-                className="px-4 py-2 text-zinc-600 dark:text-zinc-400 font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
+                className="px-4 py-2 text-zinc-600 dark:text-zinc-400 font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
               >
                 Cancel
               </button>
               <button
-                onClick={handleConfirmReject}
+                onClick={confirmReject}
                 disabled={!rejectionReason.trim()}
-                className="px-4 py-2 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Reject Task
               </button>
