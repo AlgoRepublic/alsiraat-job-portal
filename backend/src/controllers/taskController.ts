@@ -4,6 +4,7 @@ import User, { UserRole } from "../models/User.js";
 import { Permission } from "../config/permissions.js";
 import Application from "../models/Application.js";
 import {
+  sendNotification,
   sendNotificationToAll,
   sendNotificationToOrganization,
 } from "../services/notificationService.js";
@@ -366,7 +367,7 @@ export const getTaskById = async (req: any, res: Response) => {
 export const approveTask = async (req: any, res: Response) => {
   try {
     const { taskId } = req.params;
-    const { status } = req.body; // Approved or Declined (Archived)
+    const { status, rejectionReason } = req.body; // Approved or Declined (Archived)
 
     const task = await Task.findById(taskId);
     if (!task) return res.status(404).json({ message: "Task not found" });
@@ -392,11 +393,15 @@ export const approveTask = async (req: any, res: Response) => {
 
     if (normalizedStatus === "approve") {
       task.status = TaskStatus.PUBLISHED;
+      task.rejectionReason = undefined;
     } else if (
       normalizedStatus === "decline" ||
       normalizedStatus === "archive"
     ) {
       task.status = TaskStatus.ARCHIVED;
+      if (rejectionReason) {
+        task.rejectionReason = rejectionReason;
+      }
     } else {
       return res.status(400).json({
         message: "Invalid status. Must be 'approve' or 'decline/archive'.",
@@ -407,7 +412,7 @@ export const approveTask = async (req: any, res: Response) => {
     await task.save();
 
     // Send notifications when task is published
-    if (status === "approve" && previousStatus !== TaskStatus.PUBLISHED) {
+    if (normalizedStatus === "approve" && previousStatus !== TaskStatus.PUBLISHED) {
       const taskVisibility = task.visibility;
 
       if (
@@ -436,6 +441,20 @@ export const approveTask = async (req: any, res: Response) => {
           task.createdBy.toString(),
         );
       }
+    } else if (
+      (normalizedStatus === "decline" || normalizedStatus === "archive") &&
+      task.createdBy
+    ) {
+      // Notify the creator about rejection
+      await sendNotification(
+        task.createdBy.toString(),
+        "Task Rejected",
+        `Your task "${task.title}" has been rejected.${
+          rejectionReason ? ` Reason: ${rejectionReason}` : ""
+        }`,
+        "error",
+        `/jobs/${task._id}`,
+      );
     }
 
     res.json(task);
