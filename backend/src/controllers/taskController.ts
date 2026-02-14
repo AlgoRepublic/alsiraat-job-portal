@@ -483,6 +483,7 @@ export const approveTask = async (req: any, res: Response) => {
 
     if (normalizedStatus === "approve") {
       task.status = TaskStatus.PUBLISHED;
+      task.rejectionReason = undefined;
     } else if (
       normalizedStatus === "decline" ||
       normalizedStatus === "archive"
@@ -543,6 +544,20 @@ export const approveTask = async (req: any, res: Response) => {
           task.createdBy.toString(),
         );
       }
+    } else if (
+      (normalizedStatus === "decline" || normalizedStatus === "archive") &&
+      task.createdBy
+    ) {
+      // Notify the creator about rejection
+      await sendNotification(
+        task.createdBy.toString(),
+        "Task Rejected",
+        `Your task "${task.title}" has been rejected.${
+          rejectionReason ? ` Reason: ${rejectionReason}` : ""
+        }`,
+        "error",
+        `/jobs/${task._id}`,
+      );
     }
 
     res.json(task);
