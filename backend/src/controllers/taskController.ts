@@ -136,6 +136,96 @@ export const createTask = async (req: any, res: Response) => {
   }
 };
 
+export const updateTask = async (req: any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const {
+      title,
+      description,
+      category,
+      location,
+      hoursRequired,
+      startDate,
+      endDate,
+      selectionCriteria,
+      requiredSkills,
+      rewardType,
+      rewardValue,
+      eligibility,
+      visibility,
+      interviewDetails,
+    } = req.body;
+
+    const task = await Task.findById(id);
+    if (!task) {
+      return res.status(404).json({ message: "Task not found" });
+    }
+
+    // Check permissions
+    const userRole = req.user.role.toLowerCase();
+    const isGlobalAdmin = userRole === UserRole.GLOBAL_ADMIN.toLowerCase();
+    const isCreator = task.createdBy.toString() === req.user._id.toString();
+
+    // Permission logic:
+    // 1. Global Admin can edit any task
+    // 2. Creator can edit task ONLY if it is PENDING
+    // 3. Others cannot edit
+    if (!isGlobalAdmin) {
+      if (!isCreator) {
+        return res
+          .status(403)
+          .json({ message: "You are not authorized to edit this task" });
+      }
+
+      if (task.status !== TaskStatus.PENDING) {
+        return res
+          .status(403)
+          .json({ message: "Only pending tasks can be edited" });
+      }
+    }
+
+    // Handle file attachments
+    const newAttachments: any[] = [];
+    if (req.files && Array.isArray(req.files)) {
+      for (const file of req.files) {
+        newAttachments.push({
+          filename: file.originalname,
+          url: `/uploads/${file.filename}`,
+          size: file.size,
+          mimeType: file.mimetype,
+          uploadedAt: new Date(),
+        });
+      }
+    }
+
+    // Update fields
+    if (title) task.title = title;
+    if (description) task.description = description;
+    if (category) task.category = category;
+    if (location) task.location = location;
+    if (hoursRequired) task.hoursRequired = hoursRequired;
+    if (startDate) task.startDate = new Date(startDate);
+    if (endDate) task.endDate = new Date(endDate);
+    if (selectionCriteria) task.selectionCriteria = selectionCriteria;
+    if (requiredSkills) task.requiredSkills = parseArrayField(requiredSkills);
+    if (rewardType) task.rewardType = rewardType;
+    if (rewardValue) task.rewardValue = rewardValue;
+    if (eligibility) task.eligibility = parseArrayField(eligibility);
+    if (visibility) task.visibility = visibility;
+    if (interviewDetails) task.interviewDetails = interviewDetails;
+
+    if (newAttachments.length > 0) {
+      task.attachments = [...task.attachments, ...newAttachments];
+    }
+
+    await task.save();
+
+    res.json(task);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 export const getTasks = async (req: any, res: Response) => {
   try {
     const user = req.user;
