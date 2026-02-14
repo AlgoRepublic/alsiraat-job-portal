@@ -6,7 +6,7 @@
  * to check authorization.
  */
 
-import { UserRole } from "../models/User.js";
+import { UserRole } from "../models/UserRole.js";
 
 // ============================================================================
 // PERMISSION DEFINITIONS

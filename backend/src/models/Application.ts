@@ -38,4 +38,8 @@ const ApplicationSchema: Schema = new Schema(
   { timestamps: true },
 );
 
+// Optimize queries on task and applicant
+ApplicationSchema.index({ task: 1, applicant: 1 }, { unique: true });
+ApplicationSchema.index({ applicant: 1 });
+
 export default mongoose.model<IApplication>("Application", ApplicationSchema);
