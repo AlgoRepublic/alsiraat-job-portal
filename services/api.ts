@@ -187,10 +187,11 @@ class ApiService {
   async approveTask(
     id: string,
     status: "approve" | "decline" = "approve",
+    rejectionReason?: string,
   ): Promise<any> {
     return this.request<any>(`/tasks/${id}/approve`, {
       method: "PUT",
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, rejectionReason }),
     });
   }
 
