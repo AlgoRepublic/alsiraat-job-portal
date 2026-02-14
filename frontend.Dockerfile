@@ -21,6 +21,8 @@ RUN yarn build
 # ===== PRODUCTION - NGINX =====
 FROM nginx:alpine AS production
 
+LABEL maintainer="tasker"
+
 # Copy built files to nginx
 COPY --from=build /app/dist /usr/share/nginx/html
 

@@ -1,0 +1,194 @@
+# ============================================
+# GitLab CI/CD Pipeline for Tasker
+# ============================================
+#
+# This pipeline builds, pushes, and deploys the Tasker application
+# to a private Docker registry and VPS server.
+#
+# Required CI/CD Variables (Settings > CI/CD > Variables):
+#   - REGISTRY: Registry URL (e.g., yourdomain.com)
+#   - REGISTRY_USER: Registry username
+#   - REGISTRY_PASSWORD: Registry password (masked)
+#   - VPS_HOST: VPS server hostname or IP
+#   - VPS_USER: SSH username for VPS
+#   - VPS_SSH_KEY: SSH private key for VPS (masked, file type)
+#
+# Frontend Environment Variables (prefix: FE_):
+#   - FE_VITE_API_URL: API URL
+#   - FE_VITE_GEMINI_API_KEY: Gemini AI API key
+#
+# Backend Environment Variables (prefix: BE_):
+#   - BE_MONGODB_URI: MongoDB connection string
+#   - BE_JWT_SECRET: JWT secret key
+#   - BE_GOOGLE_CLIENT_ID: Google OAuth client ID
+#   - BE_GOOGLE_CLIENT_SECRET: Google OAuth client secret
+#   - BE_GOOGLE_CALLBACK_URL: Google OAuth callback URL
+#   - BE_SAML_ENTRY_POINT: SAML IDP endpoint
+#   - BE_SAML_ISSUER: SAML issuer
+#   - BE_SAML_CERT: SAML certificate (base64)
+#   - BE_FRONTEND_URL: Frontend URL
+
+# Only run pipeline on master branch
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+
+stages:
+  - build-and-push
+  - pull
+  - deploy
+
+# ============================================
+# Global Variables
+# ============================================
+variables:
+  FRONTEND_IMAGE: tasker-frontend
+  BACKEND_IMAGE: tasker-backend
+  IMAGE_TAG: $CI_COMMIT_SHORT_SHA
+  DOCKER_TLS_CERTDIR: "/certs"
+
+# ============================================
+# Template: Docker build job
+# ============================================
+.docker-job:
+  image: docker:latest
+  services:
+    - docker:dind
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_VERIFY: 1
+    DOCKER_CERT_PATH: /certs/client
+  before_script:
+    - echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
+
+# ============================================
+# Build and push frontend
+# ============================================
+frontend:
+  extends: .docker-job
+  stage: build-and-push
+  script:
+    - echo "Building frontend image..."
+    - >
+      docker build
+      -f frontend.Dockerfile
+      -t $FRONTEND_IMAGE:$IMAGE_TAG
+      -t $FRONTEND_IMAGE:latest
+      .
+    - echo "Tagging for registry..."
+    - docker tag $FRONTEND_IMAGE:$IMAGE_TAG $REGISTRY/$FRONTEND_IMAGE:$IMAGE_TAG
+    - docker tag $FRONTEND_IMAGE:latest $REGISTRY/$FRONTEND_IMAGE:latest
+    - echo "Pushing frontend image..."
+    - docker push $REGISTRY/$FRONTEND_IMAGE:$IMAGE_TAG
+    - docker push $REGISTRY/$FRONTEND_IMAGE:latest
+
+# ============================================
+# Build and push backend
+# ============================================
+backend:
+  extends: .docker-job
+  stage: build-and-push
+  script:
+    - echo "Building backend image..."
+    - >
+      docker build
+      -f backend/Dockerfile
+      -t $BACKEND_IMAGE:$IMAGE_TAG
+      -t $BACKEND_IMAGE:latest
+      ./backend
+    - echo "Tagging for registry..."
+    - docker tag $BACKEND_IMAGE:$IMAGE_TAG $REGISTRY/$BACKEND_IMAGE:$IMAGE_TAG
+    - docker tag $BACKEND_IMAGE:latest $REGISTRY/$BACKEND_IMAGE:latest
+    - echo "Pushing backend image..."
+    - docker push $REGISTRY/$BACKEND_IMAGE:$IMAGE_TAG
+    - docker push $REGISTRY/$BACKEND_IMAGE:latest
+
+# ============================================
+# Template: SSH to VPS
+# ============================================
+.ssh-job:
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh-client
+    - eval $(ssh-agent -s)
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo "$VPS_SSH_KEY" | base64 -d > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-add ~/.ssh/id_rsa
+    - ssh-keyscan -p $VPS_PORT -H $VPS_HOST >> ~/.ssh/known_hosts
+    - echo -e "Host $VPS_HOST\n  StrictHostKeyChecking accept-new\n  BatchMode yes" >> ~/.ssh/config
+
+# ============================================
+# Pull images on VPS
+# ============================================
+pull:
+  extends: .ssh-job
+  stage: pull
+  needs:
+    - frontend
+    - backend
+  script:
+    - echo "Pulling images on VPS..."
+    - |
+      ssh -p $VPS_PORT $VPS_USER@$VPS_HOST << EOF
+        echo "Logging in to registry..."
+        echo '$REGISTRY_PASSWORD' | docker login '$REGISTRY' -u '$REGISTRY_USER' --password-stdin
+        echo "Pulling frontend image..."
+        docker pull $REGISTRY/$FRONTEND_IMAGE:latest
+        echo "Pulling backend image..."
+        docker pull $REGISTRY/$BACKEND_IMAGE:latest
+        echo "Pull completed!"
+      EOF
+
+# ============================================
+# Deploy containers on VPS
+# ============================================
+deploy:
+  extends: .ssh-job
+  stage: deploy
+  needs:
+    - pull
+  script:
+    - echo "Deploying containers on VPS..."
+    - |
+      ssh -p $VPS_PORT $VPS_USER@$VPS_HOST << EOF
+        echo "Stopping old containers..."
+        docker stop $FRONTEND_IMAGE $BACKEND_IMAGE || true
+        docker rm $FRONTEND_IMAGE $BACKEND_IMAGE || true
+        
+        echo "Starting frontend container..."
+        docker run -d \
+          --name $FRONTEND_IMAGE \
+          -e VITE_API_URL='$FE_VITE_API_URL' \
+          -e VITE_GEMINI_API_KEY='$FE_VITE_GEMINI_API_KEY' \
+          -p 6000:8080 \
+          --restart unless-stopped \
+          $REGISTRY/$FRONTEND_IMAGE:latest
+        
+        echo "Creating uploads directory if it doesn't exist..."
+        mkdir -p ~/tasker-data/uploads
+        
+        echo "Starting backend container..."
+        docker run -d \
+          --name $BACKEND_IMAGE \
+          --add-host=host.docker.internal:host-gateway \
+          -e MONGODB_URI='$BE_MONGODB_URI' \
+          -e JWT_SECRET='$BE_JWT_SECRET' \
+          -e GOOGLE_CLIENT_ID='$BE_GOOGLE_CLIENT_ID' \
+          -e GOOGLE_CLIENT_SECRET='$BE_GOOGLE_CLIENT_SECRET' \
+          -e GOOGLE_CALLBACK_URL='$BE_GOOGLE_CALLBACK_URL' \
+          -e SAML_ENTRY_POINT='$BE_SAML_ENTRY_POINT' \
+          -e SAML_ISSUER='$BE_SAML_ISSUER' \
+          -e SAML_CERT='$BE_SAML_CERT' \
+          -e FRONTEND_URL='$BE_FRONTEND_URL' \
+          -v ~/tasker-data/uploads:/app/uploads \
+          -p 6001:8080 \
+          --restart unless-stopped \
+          $REGISTRY/$BACKEND_IMAGE:latest
+        
+        echo "Cleaning up old tasker images..."
+        docker image prune -f --filter "label=maintainer=tasker" || true
+        echo "Deployment completed!"
+      EOF
+
