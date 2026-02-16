@@ -269,7 +269,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
       {/* Stats Overview - Compact Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div
-          onClick={() => navigate("/jobs")}
+          onClick={() => navigate("/my-applications")}
           className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
         >
           <div className="flex items-center gap-3">
