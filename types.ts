@@ -10,6 +10,7 @@ export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 export const JobStatus = {
   DRAFT: "Draft",
   PENDING: "Pending",
+  CHANGES_REQUESTED: "Changes Requested",
   APPROVED: "Approved",
   PUBLISHED: "Published",
   CLOSED: "Closed",
@@ -98,6 +99,7 @@ export interface Job {
   allowedRoles?: string[];
   attachments: Attachment[];
   status: JobStatus;
+  rejectionReason?: string;
   createdBy: string;
   createdAt: string;
   applicantsCount: number;

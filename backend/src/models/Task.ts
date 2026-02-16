@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from "mongoose";
 export const TaskStatus = {
   DRAFT: "Draft",
   PENDING: "Pending",
+  CHANGES_REQUESTED: "Changes Requested",
   APPROVED: "Approved",
   PUBLISHED: "Published",
   CLOSED: "Closed",

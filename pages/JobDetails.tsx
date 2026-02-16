@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   XCircle,
   Lock,
+  Edit,
 } from "lucide-react";
 import { UserAvatar } from "../components/UserAvatar";
 import { Loading, LoadingOverlay } from "../components/Loading";
@@ -148,9 +149,9 @@ export const JobDetails: React.FC = () => {
     if (!job) return;
     try {
       await db.approveJob(job.id, "decline", rejectionReason);
-      setJob({ ...job, status: JobStatus.ARCHIVED });
+      setJob({ ...job, status: JobStatus.CHANGES_REQUESTED, rejectionReason });
       setShowRejectModal(false);
-      showSuccess("Task has been declined and archived.");
+      showSuccess("Changes requested successfully.");
     } catch (err: any) {
       console.error("Manager action failed", err);
       const errorMessage =
@@ -232,12 +233,26 @@ export const JobDetails: React.FC = () => {
     <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pb-20">
       {/* Header */}
       <div>
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center text-sm text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 mb-6 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" /> Back
-        </button>
+        <div className="flex justify-between items-center mb-6">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center text-sm text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back
+          </button>
+
+          {isJobOwner &&
+            (job.status === JobStatus.PENDING ||
+              job.status === JobStatus.CHANGES_REQUESTED ||
+              job.status === JobStatus.DRAFT) && (
+              <button
+                onClick={() => navigate(`/edit-job/${job.id}`)}
+                className="flex items-center px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white text-sm font-bold rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+              >
+                <Edit className="w-4 h-4 mr-2" /> Edit Task
+              </button>
+            )}
+        </div>
 
         <div className="flex flex-col md:flex-row justify-between items-start gap-4">
           <div>
@@ -251,7 +266,9 @@ export const JobDetails: React.FC = () => {
                     ? "bg-emerald-100 text-emerald-800 border-emerald-200"
                     : job.status === JobStatus.PENDING
                       ? "bg-amber-100 text-amber-800 border-amber-200"
-                      : "bg-zinc-100 text-zinc-600 border-zinc-200"
+                      : job.status === JobStatus.CHANGES_REQUESTED
+                        ? "bg-red-100 text-red-800 border-red-200"
+                        : "bg-zinc-100 text-zinc-600 border-zinc-200"
                 }`}
               >
                 {job.status}
@@ -260,6 +277,18 @@ export const JobDetails: React.FC = () => {
             <h1 className="text-3xl md:text-4xl font-bold text-zinc-900 dark:text-white">
               {job.title}
             </h1>
+
+            {job.status === JobStatus.CHANGES_REQUESTED &&
+              job.rejectionReason && (
+                <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl animate-fade-in">
+                  <h4 className="text-sm font-bold text-red-800 dark:text-red-300 flex items-center mb-1">
+                    <XCircle className="w-4 h-4 mr-2" /> Changes Requested
+                  </h4>
+                  <p className="text-sm text-red-700 dark:text-red-400">
+                    {job.rejectionReason}
+                  </p>
+                </div>
+              )}
           </div>
           <div className="flex flex-col items-end">
             <span className="text-2xl font-bold text-zinc-900 dark:text-white">
