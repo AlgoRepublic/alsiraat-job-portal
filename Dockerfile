@@ -4,10 +4,10 @@ FROM node:20-alpine AS frontend-build
 WORKDIR /app/frontend
 
 # Copy frontend package files
-COPY package.json pnpm-lock.yaml ./
+COPY package.json ./
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile
+RUN yarn install
 
 # Copy frontend source
 COPY . .
@@ -16,7 +16,7 @@ COPY . .
 RUN rm -rf backend
 
 # Build frontend
-RUN pnpm build
+RUN yarn build
 
 # ===== BACKEND BUILD STAGE =====
 FROM node:20-alpine AS backend-build
@@ -27,13 +27,13 @@ WORKDIR /app/backend
 COPY backend/package*.json ./
 
 # Install dependencies
-RUN pnpm install
+RUN npm install
 
 # Copy backend source
 COPY backend/ .
 
 # Build backend (TypeScript to JavaScript)
-RUN pnpm run build
+RUN npm run build
 
 # ===== PRODUCTION STAGE =====
 FROM node:20-alpine AS production
