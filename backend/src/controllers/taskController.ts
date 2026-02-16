@@ -4,6 +4,7 @@ import User, { UserRole } from "../models/User.js";
 import { Permission } from "../config/permissions.js";
 import Application from "../models/Application.js";
 import {
+  sendNotification,
   sendNotificationToAll,
   sendNotificationToOrganization,
 } from "../services/notificationService.js";
@@ -131,6 +132,96 @@ export const createTask = async (req: any, res: Response) => {
     // This prevents spam and ensures only reviewed tasks notify users
 
     res.status(201).json(task);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const updateTask = async (req: any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const {
+      title,
+      description,
+      category,
+      location,
+      hoursRequired,
+      startDate,
+      endDate,
+      selectionCriteria,
+      requiredSkills,
+      rewardType,
+      rewardValue,
+      eligibility,
+      visibility,
+      interviewDetails,
+    } = req.body;
+
+    const task = await Task.findById(id);
+    if (!task) {
+      return res.status(404).json({ message: "Task not found" });
+    }
+
+    // Check permissions
+    const userRole = req.user.role.toLowerCase();
+    const isGlobalAdmin = userRole === UserRole.GLOBAL_ADMIN.toLowerCase();
+    const isCreator = task.createdBy.toString() === req.user._id.toString();
+
+    // Permission logic:
+    // 1. Global Admin can edit any task
+    // 2. Creator can edit task ONLY if it is PENDING
+    // 3. Others cannot edit
+    if (!isGlobalAdmin) {
+      if (!isCreator) {
+        return res
+          .status(403)
+          .json({ message: "You are not authorized to edit this task" });
+      }
+
+      if (task.status !== TaskStatus.PENDING) {
+        return res
+          .status(403)
+          .json({ message: "Only pending tasks can be edited" });
+      }
+    }
+
+    // Handle file attachments
+    const newAttachments: any[] = [];
+    if (req.files && Array.isArray(req.files)) {
+      for (const file of req.files) {
+        newAttachments.push({
+          filename: file.originalname,
+          url: `/uploads/${file.filename}`,
+          size: file.size,
+          mimeType: file.mimetype,
+          uploadedAt: new Date(),
+        });
+      }
+    }
+
+    // Update fields
+    if (title) task.title = title;
+    if (description) task.description = description;
+    if (category) task.category = category;
+    if (location) task.location = location;
+    if (hoursRequired) task.hoursRequired = hoursRequired;
+    if (startDate) task.startDate = new Date(startDate);
+    if (endDate) task.endDate = new Date(endDate);
+    if (selectionCriteria) task.selectionCriteria = selectionCriteria;
+    if (requiredSkills) task.requiredSkills = parseArrayField(requiredSkills);
+    if (rewardType) task.rewardType = rewardType;
+    if (rewardValue) task.rewardValue = rewardValue;
+    if (eligibility) task.eligibility = parseArrayField(eligibility);
+    if (visibility) task.visibility = visibility;
+    if (interviewDetails) task.interviewDetails = interviewDetails;
+
+    if (newAttachments.length > 0) {
+      task.attachments = [...task.attachments, ...newAttachments];
+    }
+
+    await task.save();
+
+    res.json(task);
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -366,7 +457,7 @@ export const getTaskById = async (req: any, res: Response) => {
 export const approveTask = async (req: any, res: Response) => {
   try {
     const { taskId } = req.params;
-    const { status } = req.body; // Approved or Declined (Archived)
+    const { status, rejectionReason } = req.body; // Approved or Declined (Archived)
 
     const task = await Task.findById(taskId);
     if (!task) return res.status(404).json({ message: "Task not found" });
@@ -392,11 +483,15 @@ export const approveTask = async (req: any, res: Response) => {
 
     if (normalizedStatus === "approve") {
       task.status = TaskStatus.PUBLISHED;
+      task.rejectionReason = undefined;
     } else if (
       normalizedStatus === "decline" ||
       normalizedStatus === "archive"
     ) {
       task.status = TaskStatus.ARCHIVED;
+      if (rejectionReason) {
+        task.rejectionReason = rejectionReason;
+      }
     } else {
       return res.status(400).json({
         message: "Invalid status. Must be 'approve' or 'decline/archive'.",
@@ -406,8 +501,21 @@ export const approveTask = async (req: any, res: Response) => {
     task.approvedBy = req.user._id;
     await task.save();
 
-    // Send notifications when task is published
-    if (status === "approve" && previousStatus !== TaskStatus.PUBLISHED) {
+    // Send notifications
+    if (
+      (normalizedStatus === "decline" || normalizedStatus === "archive") &&
+      previousStatus !== TaskStatus.ARCHIVED
+    ) {
+      // Notify the creator about rejection
+      await sendNotification(
+        task.createdBy.toString(),
+        "❌ Task Rejected",
+        `Your task "${task.title}" has been rejected.${rejectionReason ? ` Reason: ${rejectionReason}` : ""}`,
+        "error",
+        `/jobs/${task._id}`,
+        false, // Set to true if email notification is required and configured
+      );
+    } else if (status === "approve" && previousStatus !== TaskStatus.PUBLISHED) {
       const taskVisibility = task.visibility;
 
       if (
@@ -436,6 +544,20 @@ export const approveTask = async (req: any, res: Response) => {
           task.createdBy.toString(),
         );
       }
+    } else if (
+      (normalizedStatus === "decline" || normalizedStatus === "archive") &&
+      task.createdBy
+    ) {
+      // Notify the creator about rejection
+      await sendNotification(
+        task.createdBy.toString(),
+        "Task Rejected",
+        `Your task "${task.title}" has been rejected.${
+          rejectionReason ? ` Reason: ${rejectionReason}` : ""
+        }`,
+        "error",
+        `/jobs/${task._id}`,
+      );
     }
 
     res.json(task);

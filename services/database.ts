@@ -207,8 +207,9 @@ class DatabaseService {
   async approveJob(
     id: string,
     status: "approve" | "decline" = "approve",
+    rejectionReason?: string,
   ): Promise<any> {
-    return await api.approveTask(id, status);
+    return await api.approveTask(id, status, rejectionReason);
   }
 
   // --- Applications ---

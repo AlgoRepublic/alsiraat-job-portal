@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import {
   HashRouter,
   Routes,
@@ -6,31 +6,33 @@ import {
   Navigate,
   useNavigate,
 } from "react-router-dom";
-import { Layers, Sun, Moon } from "lucide-react";
-import { Layout } from "./components/Layout";
-import { Dashboard } from "./pages/Dashboard";
-import { JobWizard } from "./pages/JobWizard";
-import { JobList } from "./pages/JobList";
-import { JobDetails } from "./pages/JobDetails";
-import { Profile } from "./pages/Profile";
-import { Login } from "./pages/Login";
-import { LandingPage } from "./components/LandingPage";
-import { JobApplicants } from "./pages/JobApplicants";
-import { ApplicationReview } from "./pages/ApplicationReview";
-import { MyTasks } from "./pages/MyTasks";
-import { UserManagement } from "./pages/UserManagement";
-import MyApplications from "./pages/MyApplications";
-import { AdminSettings } from "./pages/AdminSettings";
-import { Reports } from "./pages/Reports";
-import { Home } from "./pages/Home";
-import { Signup } from "./pages/Signup";
-import { ForgotPassword } from "./pages/ForgotPassword";
-import { ResetPassword } from "./pages/ResetPassword";
+import { Layers } from "lucide-react";
 import { ToastProvider } from "./components/Toast";
 import { User, UserRole, Permission } from "./types";
 import { db } from "./services/database";
 
 import { Loading } from "./components/Loading";
+import { ThemeToggle } from "./components/ThemeToggle";
+
+// Lazy loaded components
+const Layout = lazy(() => import("./components/Layout").then(module => ({ default: module.Layout })));
+const Dashboard = lazy(() => import("./pages/Dashboard").then(module => ({ default: module.Dashboard })));
+const JobWizard = lazy(() => import("./pages/JobWizard").then(module => ({ default: module.JobWizard })));
+const JobList = lazy(() => import("./pages/JobList").then(module => ({ default: module.JobList })));
+const JobDetails = lazy(() => import("./pages/JobDetails").then(module => ({ default: module.JobDetails })));
+const Profile = lazy(() => import("./pages/Profile").then(module => ({ default: module.Profile })));
+const Login = lazy(() => import("./pages/Login").then(module => ({ default: module.Login })));
+const LandingPage = lazy(() => import("./components/LandingPage").then(module => ({ default: module.LandingPage })));
+const JobApplicants = lazy(() => import("./pages/JobApplicants").then(module => ({ default: module.JobApplicants })));
+const ApplicationReview = lazy(() => import("./pages/ApplicationReview").then(module => ({ default: module.ApplicationReview })));
+const MyTasks = lazy(() => import("./pages/MyTasks").then(module => ({ default: module.MyTasks })));
+const UserManagement = lazy(() => import("./pages/UserManagement").then(module => ({ default: module.UserManagement })));
+const MyApplications = lazy(() => import("./pages/MyApplications"));
+const AdminSettings = lazy(() => import("./pages/AdminSettings").then(module => ({ default: module.AdminSettings })));
+const Reports = lazy(() => import("./pages/Reports").then(module => ({ default: module.Reports })));
+const Signup = lazy(() => import("./pages/Signup").then(module => ({ default: module.Signup })));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword").then(module => ({ default: module.ForgotPassword })));
+const ResetPassword = lazy(() => import("./pages/ResetPassword").then(module => ({ default: module.ResetPassword })));
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -82,183 +84,137 @@ const App: React.FC = () => {
   return (
     <ToastProvider>
       <HashRouter>
-        <Routes>
-          {/* Landing page outside Layout for non-authenticated users */}
-          <Route
-            path="/"
-            element={
-              !currentUser ? (
-                <LandingPage
-                  onGetStarted={() => (window.location.hash = "#/login")}
-                  onBrowseTasks={() => (window.location.hash = "#/jobs")}
-                />
-              ) : currentUser.permissions?.includes(
-                  Permission.DASHBOARD_VIEW,
-                ) ? (
-                <Navigate to="/dashboard" replace />
-              ) : (
-                <Navigate to="/jobs" replace />
-              )
-            }
-          />
+        <Suspense fallback={<Loading fullScreen message="Loading..." />}>
+          <Routes>
+            {/* Landing page outside Layout for non-authenticated users */}
+            <Route
+              path="/"
+              element={
+                !currentUser ? (
+                  <LandingPage
+                    onGetStarted={() => (window.location.hash = "#/login")}
+                    onBrowseTasks={() => (window.location.hash = "#/jobs")}
+                  />
+                ) : currentUser.permissions?.includes(
+                    Permission.DASHBOARD_VIEW,
+                  ) ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <Navigate to="/jobs" replace />
+                )
+              }
+            />
 
-          {/* Auth pages without Layout (no sidebar/header) */}
-          <Route
-            path="/login"
-            element={
-              <div className="relative">
-                <button
-                  onClick={toggleTheme}
-                  className="fixed top-6 right-6 z-50 p-3 rounded-xl glass-card hover:scale-110 transition-all"
-                  title={isDarkMode ? "Light mode" : "Dark mode"}
-                >
-                  {isDarkMode ? (
-                    <Sun className="w-5 h-5 text-yellow-500" />
-                  ) : (
-                    <Moon className="w-5 h-5 text-zinc-700" />
-                  )}
-                </button>
-                <Login onLoginSuccess={refreshUser} />
-              </div>
-            }
-          />
-          <Route
-            path="/signup"
-            element={
-              <div className="relative">
-                <button
-                  onClick={toggleTheme}
-                  className="fixed top-6 right-6 z-50 p-3 rounded-xl glass-card hover:scale-110 transition-all"
-                  title={isDarkMode ? "Light mode" : "Dark mode"}
-                >
-                  {isDarkMode ? (
-                    <Sun className="w-5 h-5 text-yellow-500" />
-                  ) : (
-                    <Moon className="w-5 h-5 text-zinc-700" />
-                  )}
-                </button>
-                <Signup />
-              </div>
-            }
-          />
-          <Route
-            path="/forgot-password"
-            element={
-              <div className="relative">
-                <button
-                  onClick={toggleTheme}
-                  className="fixed top-6 right-6 z-50 p-3 rounded-xl glass-card hover:scale-110 transition-all"
-                  title={isDarkMode ? "Light mode" : "Dark mode"}
-                >
-                  {isDarkMode ? (
-                    <Sun className="w-5 h-5 text-yellow-500" />
-                  ) : (
-                    <Moon className="w-5 h-5 text-zinc-700" />
-                  )}
-                </button>
-                <ForgotPassword />
-              </div>
-            }
-          />
-          <Route
-            path="/reset-password/:token"
-            element={
-              <div className="relative">
-                <button
-                  onClick={toggleTheme}
-                  className="fixed top-6 right-6 z-50 p-3 rounded-xl glass-card hover:scale-110 transition-all"
-                  title={isDarkMode ? "Light mode" : "Dark mode"}
-                >
-                  {isDarkMode ? (
-                    <Sun className="w-5 h-5 text-yellow-500" />
-                  ) : (
-                    <Moon className="w-5 h-5 text-zinc-700" />
-                  )}
-                </button>
-                <ResetPassword />
-              </div>
-            }
-          />
+            {/* Auth pages without Layout (no sidebar/header) */}
+            <Route
+              path="/login"
+              element={
+                <div className="relative">
+                  <ThemeToggle isDarkMode={isDarkMode} onToggle={toggleTheme} />
+                  <Login onLoginSuccess={refreshUser} />
+                </div>
+              }
+            />
+            <Route
+              path="/signup"
+              element={
+                <div className="relative">
+                  <ThemeToggle isDarkMode={isDarkMode} onToggle={toggleTheme} />
+                  <Signup />
+                </div>
+              }
+            />
+            <Route
+              path="/forgot-password"
+              element={
+                <div className="relative">
+                  <ThemeToggle isDarkMode={isDarkMode} onToggle={toggleTheme} />
+                  <ForgotPassword />
+                </div>
+              }
+            />
+            <Route
+              path="/reset-password/:token"
+              element={
+                <div className="relative">
+                  <ThemeToggle isDarkMode={isDarkMode} onToggle={toggleTheme} />
+                  <ResetPassword />
+                </div>
+              }
+            />
 
-          {/* All other routes wrapped in Layout */}
-          <Route
-            path="/*"
-            element={
-              <Layout
-                currentUser={currentUser}
-                onSwitchUser={handleSwitchUser}
-                isDarkMode={isDarkMode}
-                onToggleTheme={toggleTheme}
-              >
-                <Routes>
-                  <Route path="/jobs" element={<JobList />} />
-                  <Route path="/jobs/:id" element={<JobDetails />} />
+            {/* All other routes wrapped in Layout */}
+            <Route
+              path="/*"
+              element={
+                <Layout
+                  currentUser={currentUser}
+                  onSwitchUser={handleSwitchUser}
+                  isDarkMode={isDarkMode}
+                  onToggleTheme={toggleTheme}
+                >
+                  <Suspense fallback={<Loading message="Loading Page..." />}>
+                    <Routes>
+                      <Route path="/jobs" element={<JobList />} />
+                      <Route path="/jobs/:id" element={<JobDetails />} />
 
-                  {/* Protected Routes */}
-                  {currentUser && (
-                    <>
-                      <Route
-                        path="/dashboard"
-                        element={<Dashboard role={currentUser.role} />}
-                      />
-                      <Route path="/post-job" element={<JobWizard />} />
-                      <Route
-                        path="/jobs/:id/applicants"
-                        element={<JobApplicants />}
-                      />
-                      <Route path="/my-tasks" element={<MyTasks />} />
-                      <Route
-                        path="/my-applications"
-                        element={<MyApplications />}
-                      />
-                      <Route
-                        path="/application/:appId"
-                        element={<ApplicationReview />}
-                      />
-                      {/* Admin-only routes */}
-                      {currentUser.permissions?.includes(
-                        Permission.ADMIN_SETTINGS,
-                      ) && (
+                      {/* Protected Routes */}
+                      {currentUser && (
                         <>
                           <Route
-                            path="/admin/settings"
-                            element={<AdminSettings />}
+                            path="/dashboard"
+                            element={<Dashboard role={currentUser.role} />}
+                          />
+                          <Route path="/post-job" element={<JobWizard />} />
+                          <Route
+                            path="/jobs/:id/applicants"
+                            element={<JobApplicants />}
+                          />
+                          <Route path="/my-tasks" element={<MyTasks />} />
+                          <Route
+                            path="/my-applications"
+                            element={<MyApplications />}
                           />
                           <Route
-                            path="/admin/users"
-                            element={<UserManagement />}
+                            path="/application/:appId"
+                            element={<ApplicationReview />}
+                          />
+                          {/* Admin-only routes */}
+                          {currentUser.permissions?.includes(
+                            Permission.ADMIN_SETTINGS,
+                          ) && (
+                            <>
+                              <Route
+                                path="/admin/settings"
+                                element={<AdminSettings />}
+                              />
+                              <Route
+                                path="/admin/users"
+                                element={<UserManagement />}
+                              />
+                            </>
+                          )}
+                          {/* Admin and Owner routes */}
+                          {currentUser.permissions?.includes(
+                            Permission.REPORTS_VIEW,
+                          ) && <Route path="/reports" element={<Reports />} />}
+                          <Route
+                            path="/profile"
+                            element={<Profile user={currentUser} />}
                           />
                         </>
                       )}
-                      {/* Admin and Owner routes */}
-                      {currentUser.permissions?.includes(
-                        Permission.REPORTS_VIEW,
-                      ) && <Route path="/reports" element={<Reports />} />}
-                      <Route
-                        path="/profile"
-                        element={<Profile user={currentUser} />}
-                      />
-                    </>
-                  )}
 
-                  <Route path="*" element={<Navigate to="/jobs" replace />} />
-                </Routes>
-              </Layout>
-            }
-          />
-        </Routes>
+                      <Route path="*" element={<Navigate to="/jobs" replace />} />
+                    </Routes>
+                  </Suspense>
+                </Layout>
+              }
+            />
+          </Routes>
+        </Suspense>
       </HashRouter>
     </ToastProvider>
-  );
-};
-
-const PublicLanding = () => {
-  const navigate = useNavigate();
-  return (
-    <LandingPage
-      onGetStarted={() => navigate("/login")}
-      onBrowseTasks={() => navigate("/jobs")}
-    />
   );
 };
 

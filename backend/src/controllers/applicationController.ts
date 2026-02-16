@@ -4,6 +4,7 @@ import Application, { ApplicationStatus } from "../models/Application.js";
 import Task, { TaskStatus } from "../models/Task.js";
 import { sendNotification } from "../services/notificationService.js";
 import { checkPermissionAsync, Permission } from "../middleware/rbac.js";
+import { buildApplicationQuery } from "./applicationQueryBuilder.js";
 
 export const applyForTask = async (req: any, res: Response) => {
   try {
@@ -139,7 +140,6 @@ export const updateApplicationStatus = async (req: any, res: Response) => {
 export const getApplications = async (req: any, res: Response) => {
   try {
     const { taskId } = req.query;
-    let query: any = {};
 
     // Check if user has permission to view applications
     const hasFullAccess = await checkPermissionAsync(
@@ -159,59 +159,29 @@ export const getApplications = async (req: any, res: Response) => {
       });
     }
 
-    if (taskId) {
-      query.task = taskId;
-
-      // If user only has read_own permission, ensure they can only see their own applications
-      if (!hasFullAccess.allowed && hasOwnAccess.allowed) {
-        query.applicant = req.user._id;
-      }
-      // If user has full access, check if they can view this task's applications
-      else if (hasFullAccess.allowed) {
-        const task = await Task.findById(taskId);
-        if (task && req.user.role !== UserRole.GLOBAL_ADMIN) {
-          // Check if user is from the same org or is the task creator
-          if (
-            task.organisation?.toString() !==
-              req.user.organisation?.toString() &&
-            task.createdBy?.toString() !== req.user._id.toString()
-          ) {
-            return res.status(403).json({
-              message: "You don't have permission to view these applications",
-            });
-          }
-        }
-      }
-    } else {
-      // No specific task - filter based on permissions
-      if (req.user.role === UserRole.GLOBAL_ADMIN) {
-        // Admin sees all
-        query = {};
-      } else if (hasFullAccess.allowed) {
-        // Users with APPLICATION_READ see applications for their org's tasks
-        if (req.user.organisation) {
-          const tasks = await Task.find({
-            organisation: req.user.organisation,
-          }).select("_id");
-          query.task = { $in: tasks.map((t) => t._id) };
-        } else {
-          // Independent users with full access see applications for their own tasks
-          const tasks = await Task.find({
-            createdBy: req.user._id,
-          }).select("_id");
-          query.task = { $in: tasks.map((t) => t._id) };
-        }
-      } else if (hasOwnAccess.allowed) {
-        // Users with only APPLICATION_READ_OWN see only their own applications
-        query.applicant = req.user._id;
-      }
-    }
+    // Build the query using the helper
+    const query = await buildApplicationQuery(
+      req.user,
+      taskId,
+      {
+        hasFullAccess: hasFullAccess.allowed,
+        hasOwnAccess: hasOwnAccess.allowed,
+      },
+      {
+        TaskModel: Task,
+      },
+      UserRole,
+    );
 
     const apps = await Application.find(query)
       .populate("task")
       .populate("applicant", "name email avatar");
     res.json(apps);
   } catch (err: any) {
+    // Check if error is due to permission denied (thrown from helper)
+    if (err.message.includes("permission")) {
+      return res.status(403).json({ message: err.message });
+    }
     res.status(500).json({ message: err.message });
   }
 };

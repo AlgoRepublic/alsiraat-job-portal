@@ -37,6 +37,7 @@ export interface ITask extends Document {
   organisation?: mongoose.Types.ObjectId;
   createdBy: mongoose.Types.ObjectId;
   approvedBy?: mongoose.Types.ObjectId;
+  rejectionReason?: string;
   publishToPublic: boolean;
   attachments: {
     filename: string;
@@ -82,6 +83,7 @@ const TaskSchema: Schema = new Schema(
     },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
     approvedBy: { type: Schema.Types.ObjectId, ref: "User" },
+    rejectionReason: { type: String },
     publishToPublic: { type: Boolean, default: false },
     attachments: [
       {

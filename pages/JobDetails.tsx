@@ -42,6 +42,12 @@ export const JobDetails: React.FC = () => {
   const [coverLetter, setCoverLetter] = useState("");
   const [availability, setAvailability] = useState("");
   const [agreed, setAgreed] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
+
+  // Rejection Modal State
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
 
   useEffect(() => {
     const loadJob = async () => {
@@ -118,16 +124,35 @@ export const JobDetails: React.FC = () => {
 
   const handleManagerAction = async (action: "approve" | "decline") => {
     if (!job) return;
+
+    if (action === "decline") {
+      setShowRejectModal(true);
+      return;
+    }
+
     try {
       if (action === "approve") {
         await db.approveJob(job.id, "approve");
         setJob({ ...job, status: JobStatus.PUBLISHED });
         showSuccess("Task has been approved and published!");
-      } else {
-        await db.approveJob(job.id, "decline");
-        setJob({ ...job, status: JobStatus.ARCHIVED });
-        showSuccess("Task has been declined and archived.");
       }
+    } catch (err: any) {
+      console.error("Manager action failed", err);
+      const errorMessage =
+        err?.data?.message ||
+        err?.message ||
+        "Action failed. Please try again.";
+      showError(errorMessage);
+    }
+  };
+
+  const confirmReject = async () => {
+    if (!job) return;
+    try {
+      await db.approveJob(job.id, "decline", rejectionReason);
+      setJob({ ...job, status: JobStatus.ARCHIVED });
+      setShowRejectModal(false);
+      showSuccess("Task has been declined and archived.");
     } catch (err: any) {
       console.error("Manager action failed", err);
       const errorMessage =
@@ -649,6 +674,43 @@ export const JobDetails: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Reject Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-zinc-900 w-full max-w-md p-6 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 animate-scale-in">
+            <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-4">
+              Reject Task
+            </h3>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
+              Please provide a reason for rejecting this task. This will be sent
+              to the advertiser.
+            </p>
+            <textarea
+              className="w-full p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl mb-4 focus:ring-2 focus:ring-red-500 focus:outline-none dark:text-white"
+              rows={4}
+              placeholder="Reason for rejection..."
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowRejectModal(false)}
+                className="px-4 py-2 text-zinc-600 dark:text-zinc-400 font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmReject}
+                disabled={!rejectionReason.trim()}
+                className="px-4 py-2 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Reject Task
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
