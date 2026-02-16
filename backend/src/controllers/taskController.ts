@@ -483,7 +483,7 @@ export const approveTask = async (req: any, res: Response) => {
 
     if (normalizedStatus === "approve") {
       task.status = TaskStatus.PUBLISHED;
-      task.rejectionReason = undefined;
+      delete task.rejectionReason;
     } else if (
       normalizedStatus === "decline" ||
       normalizedStatus === "archive"
