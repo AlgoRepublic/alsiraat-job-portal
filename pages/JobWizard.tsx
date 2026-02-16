@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowRight,
   ArrowLeft,
@@ -31,6 +31,7 @@ import { api } from "../services/api";
 
 export const JobWizard: React.FC = () => {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
   const [step, setStep] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -72,16 +73,47 @@ export const JobWizard: React.FC = () => {
       setRewardTypes(types);
       setCategories(cats);
 
-      // Set defaults if available
-      if (cats.length > 0) {
-        updateField("category", cats[0].name);
-      }
-      if (types.length > 0) {
-        updateField("rewardType", types[0].name);
+      if (id) {
+        // Edit mode: fetch existing job
+        try {
+          const job = await db.getJob(id);
+          if (job) {
+            setFormData({
+              title: job.title,
+              category: job.category as any,
+              description: job.description,
+              location: job.location,
+              hoursRequired: job.hoursRequired,
+              startDate: job.startDate,
+              endDate: job.endDate,
+              selectionCriteria: job.selectionCriteria,
+              interviewDetails: job.interviewDetails,
+              requiredSkills: job.requiredSkills,
+              rewardType: job.rewardType,
+              rewardValue: job.rewardValue,
+              eligibility: job.eligibility,
+              visibility: job.visibility,
+              attachments: [],
+              status: job.status,
+            });
+          }
+        } catch (err) {
+          console.error("Failed to load task for editing", err);
+          alert("Failed to load task.");
+          navigate("/jobs");
+        }
+      } else {
+        // Create mode: Set defaults if available
+        if (cats.length > 0) {
+          updateField("category", cats[0].name);
+        }
+        if (types.length > 0) {
+          updateField("rewardType", types[0].name);
+        }
       }
     };
     fetchData();
-  }, []);
+  }, [id, navigate]);
 
   const updateField = (field: keyof Job, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -148,23 +180,35 @@ export const JobWizard: React.FC = () => {
       // Backend handles IDs and timestamps
       const submissionData = {
         ...formData,
-        status: "Pending", // Initial state for approval flow
+        status: "Pending", // Reset to pending (will be handled by backend too)
       };
 
-      // Use the new API method that handles files
-      if (uploadedFiles.length > 0) {
-        await api.createTaskWithFiles(submissionData, uploadedFiles);
+      if (id) {
+        // Edit Mode
+        if (uploadedFiles.length > 0) {
+          await api.updateTaskWithFiles(id, submissionData, uploadedFiles);
+        } else {
+          await db.updateJob(id, submissionData);
+        }
+        alert("✅ Task updated and resubmitted for approval!");
       } else {
-        await db.addJob(submissionData);
+        // Create Mode
+        // Use the new API method that handles files
+        if (uploadedFiles.length > 0) {
+          await api.createTaskWithFiles(submissionData, uploadedFiles);
+        } else {
+          await db.addJob(submissionData);
+        }
+
+        alert(
+          "✅ Task submitted for approval! You'll be notified when it's published.",
+        );
       }
 
-      alert(
-        "✅ Task submitted for approval! You'll be notified when it's published.",
-      );
       navigate("/jobs");
     } catch (err) {
-      console.error("Task creation failed", err);
-      alert("Failed to create task. Please try again.");
+      console.error("Task submission failed", err);
+      alert("Failed to submit task. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -174,11 +218,12 @@ export const JobWizard: React.FC = () => {
     <div className="max-w-4xl mx-auto space-y-12 pb-20">
       <div className="text-center lg:text-left">
         <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tighter">
-          Post New Task
+          {id ? "Edit Task" : "Post New Task"}
         </h1>
         <p className="text-zinc-500 font-medium mt-3">
-          Create a new task or role for students, faculty, or staff within your
-          organisation.
+          {id
+            ? "Update task details and resubmit for approval."
+            : "Create a new task or role for students, faculty, or staff within your organisation."}
         </p>
       </div>
 
@@ -748,7 +793,7 @@ export const JobWizard: React.FC = () => {
             className="px-12 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-emerald-700 shadow-2xl shadow-emerald-600/20 flex items-center transition-all hover:-translate-y-1 disabled:opacity-50"
           >
             <ClipboardCopy className="w-4 h-4 mr-3" />
-            Publish
+            {id ? "Update & Resubmit" : "Publish"}
           </button>
         )}
       </div>
