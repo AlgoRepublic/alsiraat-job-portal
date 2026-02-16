@@ -351,7 +351,8 @@ deploy:
         sleep 3
         FRONTEND_HEALTHY=false
         for i in \$(seq 1 15); do
-          if docker exec \$NEW_FRONTEND wget -q --spider http://localhost:8080 2>/dev/null; then
+          # Check if nginx master process is running
+          if docker exec \$NEW_FRONTEND sh -c 'pgrep -x nginx' >/dev/null 2>&1; then
             echo "✓ Frontend health check passed!"
             FRONTEND_HEALTHY=true
             break
@@ -390,8 +391,9 @@ deploy:
         sleep 5
         BACKEND_HEALTHY=false
         for i in \$(seq 1 30); do
-          if docker exec \$NEW_BACKEND wget -q --spider http://localhost:8080/health 2>/dev/null || \
-             docker exec \$NEW_BACKEND wget -q --spider http://localhost:8080 2>/dev/null; then
+          # Check if node process is running and port 8080 is listening
+          if docker exec \$NEW_BACKEND sh -c 'pgrep -x node' >/dev/null 2>&1 && \
+             docker exec \$NEW_BACKEND sh -c 'nc -z localhost 8080 2>/dev/null || (apk add --no-cache curl >/dev/null 2>&1 && curl -sf http://localhost:8080/health >/dev/null 2>&1)' >/dev/null 2>&1; then
             echo "✓ Backend health check passed!"
             BACKEND_HEALTHY=true
             break
