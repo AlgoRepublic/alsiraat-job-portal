@@ -54,6 +54,7 @@ const mapTaskToJob = (task: any): Job => {
         }))
       : [],
     status: mapStatus(task.status),
+    rejectionReason: task.rejectionReason,
     createdBy:
       typeof task.createdBy === "object" ? task.createdBy.name : "Unknown",
     createdAt: task.createdAt,
@@ -72,6 +73,8 @@ const mapStatus = (status: string): JobStatus => {
       return JobStatus.DRAFT;
     case "Pending":
       return JobStatus.PENDING;
+    case "Changes Requested":
+      return JobStatus.CHANGES_REQUESTED;
     case "Published":
       return JobStatus.PUBLISHED;
     case "Closed":

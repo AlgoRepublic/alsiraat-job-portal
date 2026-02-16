@@ -271,6 +271,35 @@ class ApiService {
       body: formData,
     });
   }
+
+  async updateTaskWithFiles(
+    id: string,
+    data: any,
+    files: File[],
+  ): Promise<any> {
+    const formData = new FormData();
+
+    // Add all form fields
+    Object.keys(data).forEach((key) => {
+      if (data[key] !== undefined && data[key] !== null) {
+        if (Array.isArray(data[key])) {
+          formData.append(key, JSON.stringify(data[key]));
+        } else {
+          formData.append(key, data[key].toString());
+        }
+      }
+    });
+
+    // Add files
+    files.forEach((file) => {
+      formData.append("attachments", file);
+    });
+
+    return this.request<any>(`/tasks/${id}`, {
+      method: "PUT",
+      body: formData,
+    });
+  }
 }
 
 export const api = new ApiService();
