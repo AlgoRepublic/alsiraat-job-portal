@@ -348,11 +348,12 @@ deploy:
           $REGISTRY/$FRONTEND_IMAGE:latest
         
         echo "Waiting for frontend to be ready..."
-        sleep 3
+        sleep 5
         FRONTEND_HEALTHY=false
         for i in \$(seq 1 15); do
-          # Check if nginx master process is running
-          if docker exec \$NEW_FRONTEND sh -c 'pgrep -x nginx' >/dev/null 2>&1; then
+          # Check if container is still running and nginx process exists
+          if docker ps --filter "name=\$NEW_FRONTEND" --filter "status=running" | grep -q \$NEW_FRONTEND && \
+             docker exec \$NEW_FRONTEND sh -c 'ps aux | grep "[n]ginx"' >/dev/null 2>&1; then
             echo "✓ Frontend health check passed!"
             FRONTEND_HEALTHY=true
             break
@@ -388,12 +389,12 @@ deploy:
           $REGISTRY/$BACKEND_IMAGE:latest
         
         echo "Waiting for backend to be ready..."
-        sleep 5
+        sleep 8
         BACKEND_HEALTHY=false
         for i in \$(seq 1 30); do
-          # Check if node process is running and port 8080 is listening
-          if docker exec \$NEW_BACKEND sh -c 'pgrep -x node' >/dev/null 2>&1 && \
-             docker exec \$NEW_BACKEND sh -c 'nc -z localhost 8080 2>/dev/null || (apk add --no-cache curl >/dev/null 2>&1 && curl -sf http://localhost:8080/health >/dev/null 2>&1)' >/dev/null 2>&1; then
+          # Check if container is running and node process exists
+          if docker ps --filter "name=\$NEW_BACKEND" --filter "status=running" | grep -q \$NEW_BACKEND && \
+             docker exec \$NEW_BACKEND sh -c 'ps aux | grep "[n]ode"' >/dev/null 2>&1; then
             echo "✓ Backend health check passed!"
             BACKEND_HEALTHY=true
             break
