@@ -1,37 +1,63 @@
 # ============================================
 # GitLab CI/CD Pipeline for Tasker
+# Multi-Environment Deployment
 # ============================================
 #
-# This pipeline builds, pushes, and deploys the Tasker application
-# to a private Docker registry and VPS server.
+# This pipeline supports three environments:
+#   - dev: Development environment on Node 2
+#   - test: Testing environment on Node 2  
+#   - prod: Production environment on Node 1
 #
-# Required CI/CD Variables (Settings > CI/CD > Variables):
-#   - REGISTRY: Registry URL (e.g., yourdomain.com)
-#   - REGISTRY_USER: Registry username
-#   - REGISTRY_PASSWORD: Registry password (masked)
-#   - VPS_HOST: VPS server hostname or IP
-#   - VPS_USER: SSH username for VPS
-#   - VPS_SSH_KEY: SSH private key for VPS (masked, file type)
+# Branch Strategy:
+#   - dev branch → deploys to dev environment (Node 2)
+#   - test branch → deploys to test environment (Node 2)
+#   - master branch → deploys to prod environment (Node 1)
 #
-# Frontend Environment Variables (prefix: FE_):
-#   - FE_VITE_API_URL: API URL
-#   - FE_VITE_GEMINI_API_KEY: Gemini AI API key
+# Required CI/CD Variables per Environment:
 #
-# Backend Environment Variables (prefix: BE_):
-#   - BE_MONGODB_URI: MongoDB connection string
-#   - BE_JWT_SECRET: JWT secret key
-#   - BE_GOOGLE_CLIENT_ID: Google OAuth client ID
-#   - BE_GOOGLE_CLIENT_SECRET: Google OAuth client secret
-#   - BE_GOOGLE_CALLBACK_URL: Google OAuth callback URL
-#   - BE_SAML_ENTRY_POINT: SAML IDP endpoint
-#   - BE_SAML_ISSUER: SAML issuer
-#   - BE_SAML_CERT: SAML certificate (base64)
-#   - BE_FRONTEND_URL: Frontend URL
+# DEV Environment (prefix: DEV_):
+#   - DEV_REGISTRY: Docker registry URL (e.g., node2.alsiraat.vic.edu.au:5000)
+#   - DEV_REGISTRY_USER: Registry username
+#   - DEV_REGISTRY_PASSWORD: Registry password (masked)
+#   - DEV_VPS_HOST: VPS hostname/IP
+#   - DEV_VPS_USER: SSH username
+#   - DEV_VPS_SSH_KEY: SSH private key (masked, file type)
+#   - DEV_VPS_PORT: SSH port (default: 22)
+#   - DEV_FE_VITE_API_URL: Frontend API URL
+#   - DEV_FE_VITE_GEMINI_API_KEY: Gemini API key
+#   - DEV_BE_MONGODB_URI: MongoDB connection string
+#   - DEV_BE_JWT_SECRET: JWT secret
+#   - DEV_BE_GOOGLE_CLIENT_ID, DEV_BE_GOOGLE_CLIENT_SECRET, DEV_BE_GOOGLE_CALLBACK_URL
+#   - DEV_BE_SAML_ENTRY_POINT, DEV_BE_SAML_ISSUER, DEV_BE_SAML_CERT
+#   - DEV_BE_FRONTEND_URL: Frontend URL
+#
+# TEST Environment (prefix: TEST_):
+#   (Same variables as DEV with TEST_ prefix)
+#
+# PROD Environment (prefix: PROD_):
+#   (Same variables as DEV with PROD_ prefix)
 
-# Only run pipeline on master branch
+# Workflow rules - run on dev, test, or master branches
 workflow:
   rules:
+    - if: $CI_COMMIT_BRANCH == "dev"
+      variables:
+        ENVIRONMENT: "dev"
+        RUNNER_TAG: "dev-test-runner"
+        FRONTEND_PORT: "6000"
+        BACKEND_PORT: "6001"
+    - if: $CI_COMMIT_BRANCH == "test"
+      variables:
+        ENVIRONMENT: "test"
+        RUNNER_TAG: "dev-test-runner"
+        FRONTEND_PORT: "7000"
+        BACKEND_PORT: "7001"
     - if: $CI_COMMIT_BRANCH == "master"
+      variables:
+        ENVIRONMENT: "prod"
+        RUNNER_TAG: "prod-runner"
+        FRONTEND_PORT: "6000"
+        BACKEND_PORT: "6001"
 
 stages:
   - build-and-push
@@ -42,9 +68,6 @@ stages:
 # Global Variables
 # ============================================
 variables:
-  FRONTEND_IMAGE: tasker-frontend
-  BACKEND_IMAGE: tasker-backend
-  IMAGE_TAG: $CI_COMMIT_SHORT_SHA
   DOCKER_TLS_CERTDIR: "/certs"
 
 # ============================================
@@ -59,49 +82,72 @@ variables:
     DOCKER_TLS_VERIFY: 1
     DOCKER_CERT_PATH: /certs/client
   before_script:
+    # Dynamically set registry credentials based on environment
+    - |
+      if [ "$ENVIRONMENT" = "dev" ]; then
+        export REGISTRY=$DEV_REGISTRY
+        export REGISTRY_USER=$DEV_REGISTRY_USER
+        export REGISTRY_PASSWORD=$DEV_REGISTRY_PASSWORD
+      elif [ "$ENVIRONMENT" = "test" ]; then
+        export REGISTRY=$TEST_REGISTRY
+        export REGISTRY_USER=$TEST_REGISTRY_USER
+        export REGISTRY_PASSWORD=$TEST_REGISTRY_PASSWORD
+      elif [ "$ENVIRONMENT" = "prod" ]; then
+        export REGISTRY=$PROD_REGISTRY
+        export REGISTRY_USER=$PROD_REGISTRY_USER
+        export REGISTRY_PASSWORD=$PROD_REGISTRY_PASSWORD
+      fi
     - echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
 
 # ============================================
 # Build and push frontend
 # ============================================
-frontend:
+build-frontend:
   extends: .docker-job
   stage: build-and-push
+  tags:
+    - $RUNNER_TAG
   script:
-    - echo "Building frontend image..."
+    - echo "Building frontend for $ENVIRONMENT environment..."
+    - export IMAGE_NAME="tasker-frontend-${ENVIRONMENT}"
+    - export IMAGE_TAG="${CI_COMMIT_SHORT_SHA}"
     - >
       docker build
       -f frontend.Dockerfile
-      -t $FRONTEND_IMAGE:$IMAGE_TAG
-      -t $FRONTEND_IMAGE:latest
+      -t $IMAGE_NAME:$IMAGE_TAG
+      -t $IMAGE_NAME:latest
       .
     - echo "Tagging for registry..."
-    - docker tag $FRONTEND_IMAGE:$IMAGE_TAG $REGISTRY/$FRONTEND_IMAGE:$IMAGE_TAG
-    - docker tag $FRONTEND_IMAGE:latest $REGISTRY/$FRONTEND_IMAGE:latest
+    - docker tag $IMAGE_NAME:$IMAGE_TAG $REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+    - docker tag $IMAGE_NAME:latest $REGISTRY/$IMAGE_NAME:latest
     - echo "Pushing frontend image..."
-    - docker push $REGISTRY/$FRONTEND_IMAGE:$IMAGE_TAG
-    - docker push $REGISTRY/$FRONTEND_IMAGE:latest
+    - docker push $REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+    - docker push $REGISTRY/$IMAGE_NAME:latest
 
 # ============================================
 # Build and push backend
 # ============================================
-backend:
+build-backend:
   extends: .docker-job
   stage: build-and-push
+  tags:
+    - $RUNNER_TAG
   script:
-    - echo "Building backend image..."
+    - echo "Building backend for $ENVIRONMENT environment..."
+    - export IMAGE_NAME="tasker-backend-${ENVIRONMENT}"
+    - export IMAGE_TAG="${CI_COMMIT_SHORT_SHA}"
     - >
       docker build
       -f backend/Dockerfile
-      -t $BACKEND_IMAGE:$IMAGE_TAG
-      -t $BACKEND_IMAGE:latest
+      -t $IMAGE_NAME:$IMAGE_TAG
+      -t $IMAGE_NAME:latest
       ./backend
     - echo "Tagging for registry..."
-    - docker tag $BACKEND_IMAGE:$IMAGE_TAG $REGISTRY/$BACKEND_IMAGE:$IMAGE_TAG
-    - docker tag $BACKEND_IMAGE:latest $REGISTRY/$BACKEND_IMAGE:latest
+    - docker tag $IMAGE_NAME:$IMAGE_TAG $REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+    - docker tag $IMAGE_NAME:latest $REGISTRY/$IMAGE_NAME:latest
     - echo "Pushing backend image..."
-    - docker push $REGISTRY/$BACKEND_IMAGE:$IMAGE_TAG
-    - docker push $REGISTRY/$BACKEND_IMAGE:latest
+    - docker push $REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+    - docker push $REGISTRY/$IMAGE_NAME:latest
 
 # ============================================
 # Template: SSH to VPS
@@ -113,6 +159,33 @@ backend:
     - eval $(ssh-agent -s)
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
+    # Dynamically set VPS credentials based on environment
+    - |
+      if [ "$ENVIRONMENT" = "dev" ]; then
+        export VPS_HOST=$DEV_VPS_HOST
+        export VPS_USER=$DEV_VPS_USER
+        export VPS_SSH_KEY=$DEV_VPS_SSH_KEY
+        export VPS_PORT=$DEV_VPS_PORT
+        export REGISTRY=$DEV_REGISTRY
+        export REGISTRY_USER=$DEV_REGISTRY_USER
+        export REGISTRY_PASSWORD=$DEV_REGISTRY_PASSWORD
+      elif [ "$ENVIRONMENT" = "test" ]; then
+        export VPS_HOST=$TEST_VPS_HOST
+        export VPS_USER=$TEST_VPS_USER
+        export VPS_SSH_KEY=$TEST_VPS_SSH_KEY
+        export VPS_PORT=$TEST_VPS_PORT
+        export REGISTRY=$TEST_REGISTRY
+        export REGISTRY_USER=$TEST_REGISTRY_USER
+        export REGISTRY_PASSWORD=$TEST_REGISTRY_PASSWORD
+      elif [ "$ENVIRONMENT" = "prod" ]; then
+        export VPS_HOST=$PROD_VPS_HOST
+        export VPS_USER=$PROD_VPS_USER
+        export VPS_SSH_KEY=$PROD_VPS_SSH_KEY
+        export VPS_PORT=$PROD_VPS_PORT
+        export REGISTRY=$PROD_REGISTRY
+        export REGISTRY_USER=$PROD_REGISTRY_USER
+        export REGISTRY_PASSWORD=$PROD_REGISTRY_PASSWORD
+      fi
     - echo "$VPS_SSH_KEY" | base64 -d > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
     - ssh-add ~/.ssh/id_rsa
@@ -125,11 +198,15 @@ backend:
 pull:
   extends: .ssh-job
   stage: pull
+  tags:
+    - $RUNNER_TAG
   needs:
-    - frontend
-    - backend
+    - build-frontend
+    - build-backend
   script:
-    - echo "Pulling images on VPS..."
+    - echo "Pulling images on VPS for $ENVIRONMENT environment..."
+    - export FRONTEND_IMAGE="tasker-frontend-${ENVIRONMENT}"
+    - export BACKEND_IMAGE="tasker-backend-${ENVIRONMENT}"
     - |
       ssh -p $VPS_PORT $VPS_USER@$VPS_HOST << EOF
         echo "Logging in to registry..."
@@ -147,31 +224,77 @@ pull:
 deploy:
   extends: .ssh-job
   stage: deploy
+  tags:
+    - $RUNNER_TAG
   needs:
     - pull
   script:
-    - echo "Deploying containers on VPS..."
+    - echo "Deploying containers for $ENVIRONMENT environment..."
+    - export FRONTEND_IMAGE="tasker-frontend-${ENVIRONMENT}"
+    - export BACKEND_IMAGE="tasker-backend-${ENVIRONMENT}"
+    - export FRONTEND_CONTAINER="tasker-frontend-${ENVIRONMENT}"
+    - export BACKEND_CONTAINER="tasker-backend-${ENVIRONMENT}"
+    - export DATA_DIR="tasker-data-${ENVIRONMENT}"
+    # Set environment-specific variables
+    - |
+      if [ "$ENVIRONMENT" = "dev" ]; then
+        export FE_VITE_API_URL=$DEV_FE_VITE_API_URL
+        export FE_VITE_GEMINI_API_KEY=$DEV_FE_VITE_GEMINI_API_KEY
+        export BE_MONGODB_URI=$DEV_BE_MONGODB_URI
+        export BE_JWT_SECRET=$DEV_BE_JWT_SECRET
+        export BE_GOOGLE_CLIENT_ID=$DEV_BE_GOOGLE_CLIENT_ID
+        export BE_GOOGLE_CLIENT_SECRET=$DEV_BE_GOOGLE_CLIENT_SECRET
+        export BE_GOOGLE_CALLBACK_URL=$DEV_BE_GOOGLE_CALLBACK_URL
+        export BE_SAML_ENTRY_POINT=$DEV_BE_SAML_ENTRY_POINT
+        export BE_SAML_ISSUER=$DEV_BE_SAML_ISSUER
+        export BE_SAML_CERT=$DEV_BE_SAML_CERT
+        export BE_FRONTEND_URL=$DEV_BE_FRONTEND_URL
+      elif [ "$ENVIRONMENT" = "test" ]; then
+        export FE_VITE_API_URL=$TEST_FE_VITE_API_URL
+        export FE_VITE_GEMINI_API_KEY=$TEST_FE_VITE_GEMINI_API_KEY
+        export BE_MONGODB_URI=$TEST_BE_MONGODB_URI
+        export BE_JWT_SECRET=$TEST_BE_JWT_SECRET
+        export BE_GOOGLE_CLIENT_ID=$TEST_BE_GOOGLE_CLIENT_ID
+        export BE_GOOGLE_CLIENT_SECRET=$TEST_BE_GOOGLE_CLIENT_SECRET
+        export BE_GOOGLE_CALLBACK_URL=$TEST_BE_GOOGLE_CALLBACK_URL
+        export BE_SAML_ENTRY_POINT=$TEST_BE_SAML_ENTRY_POINT
+        export BE_SAML_ISSUER=$TEST_BE_SAML_ISSUER
+        export BE_SAML_CERT=$TEST_BE_SAML_CERT
+        export BE_FRONTEND_URL=$TEST_BE_FRONTEND_URL
+      elif [ "$ENVIRONMENT" = "prod" ]; then
+        export FE_VITE_API_URL=$PROD_FE_VITE_API_URL
+        export FE_VITE_GEMINI_API_KEY=$PROD_FE_VITE_GEMINI_API_KEY
+        export BE_MONGODB_URI=$PROD_BE_MONGODB_URI
+        export BE_JWT_SECRET=$PROD_BE_JWT_SECRET
+        export BE_GOOGLE_CLIENT_ID=$PROD_BE_GOOGLE_CLIENT_ID
+        export BE_GOOGLE_CLIENT_SECRET=$PROD_BE_GOOGLE_CLIENT_SECRET
+        export BE_GOOGLE_CALLBACK_URL=$PROD_BE_GOOGLE_CALLBACK_URL
+        export BE_SAML_ENTRY_POINT=$PROD_BE_SAML_ENTRY_POINT
+        export BE_SAML_ISSUER=$PROD_BE_SAML_ISSUER
+        export BE_SAML_CERT=$PROD_BE_SAML_CERT
+        export BE_FRONTEND_URL=$PROD_BE_FRONTEND_URL
+      fi
     - |
       ssh -p $VPS_PORT $VPS_USER@$VPS_HOST << EOF
         echo "Stopping old containers..."
-        docker stop $FRONTEND_IMAGE $BACKEND_IMAGE || true
-        docker rm $FRONTEND_IMAGE $BACKEND_IMAGE || true
+        docker stop $FRONTEND_CONTAINER $BACKEND_CONTAINER || true
+        docker rm $FRONTEND_CONTAINER $BACKEND_CONTAINER || true
         
         echo "Starting frontend container..."
         docker run -d \
-          --name $FRONTEND_IMAGE \
+          --name $FRONTEND_CONTAINER \
           -e VITE_API_URL='$FE_VITE_API_URL' \
           -e VITE_GEMINI_API_KEY='$FE_VITE_GEMINI_API_KEY' \
-          -p 6000:8080 \
+          -p $FRONTEND_PORT:8080 \
           --restart unless-stopped \
           $REGISTRY/$FRONTEND_IMAGE:latest
         
         echo "Creating uploads directory if it doesn't exist..."
-        mkdir -p ~/tasker-data/uploads
+        mkdir -p ~/$DATA_DIR/uploads
         
         echo "Starting backend container..."
         docker run -d \
-          --name $BACKEND_IMAGE \
+          --name $BACKEND_CONTAINER \
           --add-host=host.docker.internal:host-gateway \
           -e MONGODB_URI='$BE_MONGODB_URI' \
           -e JWT_SECRET='$BE_JWT_SECRET' \
@@ -182,13 +305,12 @@ deploy:
           -e SAML_ISSUER='$BE_SAML_ISSUER' \
           -e SAML_CERT='$BE_SAML_CERT' \
           -e FRONTEND_URL='$BE_FRONTEND_URL' \
-          -v ~/tasker-data/uploads:/app/uploads \
-          -p 6001:8080 \
+          -v ~/$DATA_DIR/uploads:/app/uploads \
+          -p $BACKEND_PORT:8080 \
           --restart unless-stopped \
           $REGISTRY/$BACKEND_IMAGE:latest
         
-        echo "Cleaning up old tasker images..."
+        echo "Cleaning up old images..."
         docker image prune -f --filter "label=maintainer=tasker" || true
-        echo "Deployment completed!"
+        echo "Deployment completed for $ENVIRONMENT environment!"
       EOF
-
