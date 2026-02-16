@@ -46,8 +46,8 @@ export const JobDetails: React.FC = () => {
   const [rejectionReason, setRejectionReason] = useState("");
 
   // Rejection Modal State
-  const [showRejectModal, setShowRejectModal] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState("");
+  // const [showRejectModal, setShowRejectModal] = useState(false);
+  // const [rejectionReason, setRejectionReason] = useState("");
 
   useEffect(() => {
     const loadJob = async () => {
