@@ -40,6 +40,7 @@ export const JobWizard: React.FC = () => {
   const [rewardTypes, setRewardTypes] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [roles, setRoles] = useState<any[]>([]);
 
   const [formData, setFormData] = useState<Partial<Job>>({
     title: "",
@@ -57,6 +58,7 @@ export const JobWizard: React.FC = () => {
     eligibility: [],
     visibility: Visibility.INTERNAL,
     attachments: [],
+    allowedRoles: [],
     status: JobStatus.DRAFT,
   });
 
@@ -65,12 +67,14 @@ export const JobWizard: React.FC = () => {
   // Fetch reward types and categories on mount
   React.useEffect(() => {
     const fetchData = async () => {
-      const [types, cats] = await Promise.all([
+      const [types, cats, rolesData] = await Promise.all([
         db.getRewardTypes(),
         db.getTaskCategories(),
+        db.getRoles(),
       ]);
       setRewardTypes(types);
       setCategories(cats);
+      setRoles(rolesData);
 
       // Set defaults if available
       if (cats.length > 0) {
@@ -487,9 +491,57 @@ export const JobWizard: React.FC = () => {
                 organisation members can see this task.{" "}
                 <span className="font-bold">External:</span> Anyone can apply.{" "}
                 <span className="font-bold">Global:</span> Published globally
-                for all users.
+                for all users. for all users.
               </p>
             </div>
+
+            {/* Allowed Roles Selection (Only for Internal tasks) */}
+            {formData.visibility === Visibility.INTERNAL && (
+              <div className="space-y-4 animate-fade-in bg-zinc-50 dark:bg-zinc-800/30 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+                <div>
+                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">
+                    Allowed Roles (Internal Visibility)
+                  </label>
+                  <p className="text-xs text-zinc-500 mb-3 ml-1">
+                    Select which roles can view this task. Leave empty to allow
+                    all internal users.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {roles.map((role) => {
+                    const isSelected = (formData.allowedRoles || []).includes(
+                      role.name,
+                    );
+                    return (
+                      <button
+                        key={role._id}
+                        onClick={() => {
+                          const current = formData.allowedRoles || [];
+                          if (current.includes(role.name)) {
+                            updateField(
+                              "allowedRoles",
+                              current.filter((r) => r !== role.name),
+                            );
+                          } else {
+                            updateField("allowedRoles", [
+                              ...current,
+                              role.name,
+                            ]);
+                          }
+                        }}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border-2 ${
+                          isSelected
+                            ? "bg-primary border-primary text-white shadow-lg shadow-primary/20"
+                            : "bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-primary/50"
+                        }`}
+                      >
+                        {role.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
