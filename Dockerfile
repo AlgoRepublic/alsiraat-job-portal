@@ -27,13 +27,13 @@ WORKDIR /app/backend
 COPY backend/package*.json ./
 
 # Install dependencies
-RUN npm install
+RUN yarn install
 
 # Copy backend source
 COPY backend/ .
 
 # Build backend (TypeScript to JavaScript)
-RUN npm run build
+RUN yarn run build
 
 # ===== PRODUCTION STAGE =====
 FROM node:20-alpine AS production
