@@ -99,6 +99,8 @@ stages:
         export REGISTRY_USER=$PROD_REGISTRY_USER
         export REGISTRY_PASSWORD=$PROD_REGISTRY_PASSWORD
       fi
+    # Strip http:// or https:// from registry URL (Docker doesn't accept protocols in image references)
+    - export REGISTRY=$(echo "$REGISTRY" | sed -e 's|^https\?://||')
     - echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
 
 # ============================================
