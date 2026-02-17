@@ -114,6 +114,7 @@ build-frontend:
     - export IMAGE_NAME="tasker-frontend-${ENVIRONMENT}"
     - >
       docker build
+      --no-cache
       -f frontend.Dockerfile
       -t $IMAGE_NAME:latest
       .
