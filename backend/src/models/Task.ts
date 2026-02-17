@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from "mongoose";
 export const TaskStatus = {
   DRAFT: "Draft",
   PENDING: "Pending",
+  CHANGES_REQUESTED: "Changes Requested",
   APPROVED: "Approved",
   PUBLISHED: "Published",
   CLOSED: "Closed",
@@ -24,20 +25,21 @@ export interface ITask extends Document {
   category: string;
   location: string;
   hoursRequired: number;
-  startDate?: Date;
-  endDate?: Date;
-  selectionCriteria?: string;
-  interviewDetails?: string;
-  requiredSkills?: string[];
+  startDate?: Date | undefined;
+  endDate?: Date | undefined;
+  selectionCriteria?: string | undefined;
+  interviewDetails?: string | undefined;
+  requiredSkills?: string[] | undefined;
   rewardType: string;
-  rewardValue?: number;
+  rewardValue?: number | undefined;
   eligibility: string[];
   visibility: TaskVisibility;
+  allowedRoles?: string[] | undefined;
   status: TaskStatus;
-  organisation?: mongoose.Types.ObjectId;
+  organisation?: mongoose.Types.ObjectId | undefined;
   createdBy: mongoose.Types.ObjectId;
-  approvedBy?: mongoose.Types.ObjectId;
-  rejectionReason?: string;
+  approvedBy?: mongoose.Types.ObjectId | undefined;
+  rejectionReason?: string | undefined;
   publishToPublic: boolean;
   attachments: {
     filename: string;
@@ -71,6 +73,7 @@ const TaskSchema: Schema = new Schema(
       enum: Object.values(TaskVisibility),
       default: TaskVisibility.GLOBAL,
     },
+    allowedRoles: [{ type: String }],
     status: {
       type: String,
       enum: Object.values(TaskStatus),

@@ -80,6 +80,7 @@ export const createTask = async (req: any, res: Response) => {
       rewardValue,
       eligibility: parseArrayField(eligibility),
       visibility: visibility || TaskVisibility.GLOBAL,
+      allowedRoles: parseArrayField(req.body.allowedRoles),
       status: taskStatus,
       interviewDetails,
       createdBy: req.user._id,
@@ -178,10 +179,14 @@ export const updateTask = async (req: any, res: Response) => {
           .json({ message: "You are not authorized to edit this task" });
       }
 
-      if (task.status !== TaskStatus.PENDING) {
-        return res
-          .status(403)
-          .json({ message: "Only pending tasks can be edited" });
+      if (
+        task.status !== TaskStatus.PENDING &&
+        task.status !== TaskStatus.CHANGES_REQUESTED
+      ) {
+        return res.status(403).json({
+          message:
+            "Only pending tasks or tasks with changes requested can be edited",
+        });
       }
     }
 
@@ -217,6 +222,11 @@ export const updateTask = async (req: any, res: Response) => {
 
     if (newAttachments.length > 0) {
       task.attachments = [...task.attachments, ...newAttachments];
+    }
+
+    // Reset status to PENDING if it was CHANGES_REQUESTED so it can be reviewed again
+    if (task.status === TaskStatus.CHANGES_REQUESTED) {
+      task.status = TaskStatus.PENDING;
     }
 
     await task.save();
@@ -306,6 +316,11 @@ export const getTasks = async (req: any, res: Response) => {
           status: canViewPending
             ? { $in: [TaskStatus.PUBLISHED, TaskStatus.PENDING] }
             : TaskStatus.PUBLISHED,
+          $or: [
+            { allowedRoles: { $exists: false } },
+            { allowedRoles: { $size: 0 } },
+            { allowedRoles: user.role },
+          ],
         });
       }
 
@@ -483,11 +498,13 @@ export const approveTask = async (req: any, res: Response) => {
 
     if (normalizedStatus === "approve") {
       task.status = TaskStatus.PUBLISHED;
-      delete task.rejectionReason;
-    } else if (
-      normalizedStatus === "decline" ||
-      normalizedStatus === "archive"
-    ) {
+      task.rejectionReason = undefined;
+    } else if (normalizedStatus === "decline") {
+      task.status = TaskStatus.CHANGES_REQUESTED;
+      if (rejectionReason) {
+        task.rejectionReason = rejectionReason;
+      }
+    } else if (normalizedStatus === "archive") {
       task.status = TaskStatus.ARCHIVED;
       if (rejectionReason) {
         task.rejectionReason = rejectionReason;
@@ -504,18 +521,30 @@ export const approveTask = async (req: any, res: Response) => {
     // Send notifications
     if (
       (normalizedStatus === "decline" || normalizedStatus === "archive") &&
-      previousStatus !== TaskStatus.ARCHIVED
+      previousStatus !== TaskStatus.ARCHIVED &&
+      previousStatus !== TaskStatus.CHANGES_REQUESTED
     ) {
-      // Notify the creator about rejection
+      const isChangesRequested = normalizedStatus === "decline";
+      const title = isChangesRequested
+        ? "⚠️ Changes Requested"
+        : "❌ Task Archived";
+      const message = isChangesRequested
+        ? `Changes have been requested for your task "${task.title}".${rejectionReason ? ` Reason: ${rejectionReason}` : ""}`
+        : `Your task "${task.title}" has been archived.${rejectionReason ? ` Reason: ${rejectionReason}` : ""}`;
+
+      // Notify the creator about rejection/changes requested
       await sendNotification(
         task.createdBy.toString(),
-        "❌ Task Rejected",
-        `Your task "${task.title}" has been rejected.${rejectionReason ? ` Reason: ${rejectionReason}` : ""}`,
+        title,
+        message,
         "error",
         `/jobs/${task._id}`,
         false, // Set to true if email notification is required and configured
       );
-    } else if (status === "approve" && previousStatus !== TaskStatus.PUBLISHED) {
+    } else if (
+      status === "approve" &&
+      previousStatus !== TaskStatus.PUBLISHED
+    ) {
       const taskVisibility = task.visibility;
 
       if (
@@ -548,13 +577,19 @@ export const approveTask = async (req: any, res: Response) => {
       (normalizedStatus === "decline" || normalizedStatus === "archive") &&
       task.createdBy
     ) {
+      const isChangesRequested = normalizedStatus === "decline";
+      const title = isChangesRequested
+        ? "⚠️ Changes Requested"
+        : "❌ Task Archived";
+      const message = isChangesRequested
+        ? `Changes have been requested for your task "${task.title}".${rejectionReason ? ` Reason: ${rejectionReason}` : ""}`
+        : `Your task "${task.title}" has been archived.${rejectionReason ? ` Reason: ${rejectionReason}` : ""}`;
+
       // Notify the creator about rejection
       await sendNotification(
         task.createdBy.toString(),
-        "Task Rejected",
-        `Your task "${task.title}" has been rejected.${
-          rejectionReason ? ` Reason: ${rejectionReason}` : ""
-        }`,
+        title,
+        message,
         "error",
         `/jobs/${task._id}`,
       );

@@ -10,6 +10,7 @@ export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 export const JobStatus = {
   DRAFT: "Draft",
   PENDING: "Pending",
+  CHANGES_REQUESTED: "Changes Requested",
   APPROVED: "Approved",
   PUBLISHED: "Published",
   CLOSED: "Closed",
@@ -63,6 +64,22 @@ export interface Attachment {
   url?: string; // Mock url
 }
 
+// Assuming TaskVisibility and TaskStatus are aliases for existing types or new types to be defined
+// For now, using existing types that seem most appropriate based on the context
+export type TaskVisibility = Visibility; // Or FileVisibility, depending on context
+export type TaskStatus = JobStatus; // Or a new specific TaskStatus enum
+
+export interface ITask {
+  id: string;
+  name: string;
+  size: number; // in bytes
+  type: string;
+  description?: string;
+  visibility: TaskVisibility;
+  allowedRoles?: string[];
+  status: TaskStatus; // Mock url
+}
+
 export interface Job {
   id: string;
   title: string;
@@ -79,8 +96,10 @@ export interface Job {
   rewardValue?: number;
   eligibility: string[]; // e.g., ['Students', 'Parents']
   visibility: Visibility;
+  allowedRoles?: string[];
   attachments: Attachment[];
   status: JobStatus;
+  rejectionReason?: string;
   createdBy: string;
   createdAt: string;
   applicantsCount: number;

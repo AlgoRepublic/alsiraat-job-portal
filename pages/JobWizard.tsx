@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowRight,
   ArrowLeft,
@@ -31,6 +31,7 @@ import { api } from "../services/api";
 
 export const JobWizard: React.FC = () => {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
   const [step, setStep] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -40,6 +41,7 @@ export const JobWizard: React.FC = () => {
   const [rewardTypes, setRewardTypes] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [roles, setRoles] = useState<any[]>([]);
 
   const [formData, setFormData] = useState<Partial<Job>>({
     title: "",
@@ -57,6 +59,7 @@ export const JobWizard: React.FC = () => {
     eligibility: [],
     visibility: Visibility.INTERNAL,
     attachments: [],
+    allowedRoles: [],
     status: JobStatus.DRAFT,
   });
 
@@ -65,23 +68,56 @@ export const JobWizard: React.FC = () => {
   // Fetch reward types and categories on mount
   React.useEffect(() => {
     const fetchData = async () => {
-      const [types, cats] = await Promise.all([
+      const [types, cats, rolesData] = await Promise.all([
         db.getRewardTypes(),
         db.getTaskCategories(),
+        db.getRoles(),
       ]);
       setRewardTypes(types);
       setCategories(cats);
+      setRoles(rolesData);
 
-      // Set defaults if available
-      if (cats.length > 0) {
-        updateField("category", cats[0].name);
-      }
-      if (types.length > 0) {
-        updateField("rewardType", types[0].name);
+      if (id) {
+        // Edit mode: fetch existing job
+        try {
+          const job = await db.getJob(id);
+          if (job) {
+            setFormData({
+              title: job.title,
+              category: job.category as any,
+              description: job.description,
+              location: job.location,
+              hoursRequired: job.hoursRequired,
+              startDate: job.startDate,
+              endDate: job.endDate,
+              selectionCriteria: job.selectionCriteria,
+              interviewDetails: job.interviewDetails,
+              requiredSkills: job.requiredSkills,
+              rewardType: job.rewardType,
+              rewardValue: job.rewardValue,
+              eligibility: job.eligibility,
+              visibility: job.visibility,
+              attachments: [],
+              status: job.status,
+            });
+          }
+        } catch (err) {
+          console.error("Failed to load task for editing", err);
+          alert("Failed to load task.");
+          navigate("/jobs");
+        }
+      } else {
+        // Create mode: Set defaults if available
+        if (cats.length > 0) {
+          updateField("category", cats[0].name);
+        }
+        if (types.length > 0) {
+          updateField("rewardType", types[0].name);
+        }
       }
     };
     fetchData();
-  }, []);
+  }, [id, navigate]);
 
   const updateField = (field: keyof Job, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -148,23 +184,35 @@ export const JobWizard: React.FC = () => {
       // Backend handles IDs and timestamps
       const submissionData = {
         ...formData,
-        status: "Pending", // Initial state for approval flow
+        status: "Pending", // Reset to pending (will be handled by backend too)
       };
 
-      // Use the new API method that handles files
-      if (uploadedFiles.length > 0) {
-        await api.createTaskWithFiles(submissionData, uploadedFiles);
+      if (id) {
+        // Edit Mode
+        if (uploadedFiles.length > 0) {
+          await api.updateTaskWithFiles(id, submissionData, uploadedFiles);
+        } else {
+          await db.updateJob(id, submissionData);
+        }
+        alert("✅ Task updated and resubmitted for approval!");
       } else {
-        await db.addJob(submissionData);
+        // Create Mode
+        // Use the new API method that handles files
+        if (uploadedFiles.length > 0) {
+          await api.createTaskWithFiles(submissionData, uploadedFiles);
+        } else {
+          await db.addJob(submissionData);
+        }
+
+        alert(
+          "✅ Task submitted for approval! You'll be notified when it's published.",
+        );
       }
 
-      alert(
-        "✅ Task submitted for approval! You'll be notified when it's published.",
-      );
       navigate("/jobs");
     } catch (err) {
-      console.error("Task creation failed", err);
-      alert("Failed to create task. Please try again.");
+      console.error("Task submission failed", err);
+      alert("Failed to submit task. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -174,11 +222,12 @@ export const JobWizard: React.FC = () => {
     <div className="max-w-4xl mx-auto space-y-12 pb-20">
       <div className="text-center lg:text-left">
         <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tighter">
-          Post New Task
+          {id ? "Edit Task" : "Post New Task"}
         </h1>
         <p className="text-zinc-500 font-medium mt-3">
-          Create a new task or role for students, faculty, or staff within your
-          organisation.
+          {id
+            ? "Update task details and resubmit for approval."
+            : "Create a new task or role for students, faculty, or staff within your organisation."}
         </p>
       </div>
 
@@ -487,9 +536,57 @@ export const JobWizard: React.FC = () => {
                 organisation members can see this task.{" "}
                 <span className="font-bold">External:</span> Anyone can apply.{" "}
                 <span className="font-bold">Global:</span> Published globally
-                for all users.
+                for all users. for all users.
               </p>
             </div>
+
+            {/* Allowed Roles Selection (Only for Internal tasks) */}
+            {formData.visibility === Visibility.INTERNAL && (
+              <div className="space-y-4 animate-fade-in bg-zinc-50 dark:bg-zinc-800/30 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+                <div>
+                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">
+                    Allowed Roles (Internal Visibility)
+                  </label>
+                  <p className="text-xs text-zinc-500 mb-3 ml-1">
+                    Select which roles can view this task. Leave empty to allow
+                    all internal users.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {roles.map((role) => {
+                    const isSelected = (formData.allowedRoles || []).includes(
+                      role.name,
+                    );
+                    return (
+                      <button
+                        key={role._id}
+                        onClick={() => {
+                          const current = formData.allowedRoles || [];
+                          if (current.includes(role.name)) {
+                            updateField(
+                              "allowedRoles",
+                              current.filter((r) => r !== role.name),
+                            );
+                          } else {
+                            updateField("allowedRoles", [
+                              ...current,
+                              role.name,
+                            ]);
+                          }
+                        }}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border-2 ${
+                          isSelected
+                            ? "bg-primary border-primary text-white shadow-lg shadow-primary/20"
+                            : "bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-primary/50"
+                        }`}
+                      >
+                        {role.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -748,7 +845,7 @@ export const JobWizard: React.FC = () => {
             className="px-12 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-emerald-700 shadow-2xl shadow-emerald-600/20 flex items-center transition-all hover:-translate-y-1 disabled:opacity-50"
           >
             <ClipboardCopy className="w-4 h-4 mr-3" />
-            Publish
+            {id ? "Update & Resubmit" : "Publish"}
           </button>
         )}
       </div>
