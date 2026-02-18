@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { Loading } from "../components/Loading";
+import { CustomDropdown } from "../components/CustomUI";
 
 export const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
@@ -114,20 +115,17 @@ export const UserManagement: React.FC = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <div className="relative">
-              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
-              <select
-                className="pl-10 pr-8 py-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-primary outline-none font-medium text-sm transition-all appearance-none"
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
-              >
-                <option value="">All Roles</option>
-                {roles.map((role) => (
-                  <option key={role._id} value={role.name}>
-                    {role.name}
-                  </option>
-                ))}
-              </select>
+            <div className="min-w-[200px]">
+              <CustomDropdown
+                options={[{ name: "All Roles" }, ...roles]}
+                value={roleFilter || "All Roles"}
+                onChange={(val) =>
+                  setRoleFilter(val === "All Roles" ? "" : val)
+                }
+                placeholder="All Roles"
+                variant="outline"
+                icon={<Filter className="w-4 h-4 text-zinc-400" />}
+              />
             </div>
           </div>
 
@@ -193,22 +191,17 @@ export const UserManagement: React.FC = () => {
                         </td>
                         <td className="px-6 py-5">
                           <div className="flex items-center gap-2">
-                            <select
-                              className="bg-transparent border-none p-0 text-sm font-black text-primary hover:underline cursor-pointer focus:ring-0 outline-none"
-                              value={
-                                roles.find((r) => r.name === user.role)?._id ||
-                                ""
-                              }
-                              onChange={(e) =>
-                                handleRoleChange(user._id, e.target.value)
-                              }
-                            >
-                              {roles.map((role) => (
-                                <option key={role._id} value={role._id}>
-                                  {role.name}
-                                </option>
-                              ))}
-                            </select>
+                            <CustomDropdown
+                              variant="ghost"
+                              options={roles}
+                              value={user.role}
+                              onChange={(newRoleName) => {
+                                const r = roles.find(
+                                  (r) => r.name === newRoleName,
+                                );
+                                if (r) handleRoleChange(user._id, r._id);
+                              }}
+                            />
                           </div>
                         </td>
                         <td className="px-6 py-5 text-right">

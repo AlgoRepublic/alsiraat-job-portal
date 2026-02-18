@@ -9,7 +9,7 @@ import {
   Layers,
   ArrowLeft,
   Building2,
-  Users,
+  Phone,
 } from "lucide-react";
 import { db } from "../services/database";
 import { UserRole } from "../types";
@@ -39,6 +39,27 @@ const SIGNUP_ROLES = [
 ];
 
 import { LoadingOverlay } from "../components/Loading";
+import { CustomDropdown } from "../components/CustomUI";
+
+/** Formats input as an Australian phone number (mobile or landline) */
+const formatAustralianPhone = (raw: string): string => {
+  const digits = raw.replace(/\D/g, "").slice(0, 10);
+  if (digits.startsWith("04")) {
+    const p1 = digits.slice(0, 4);
+    const p2 = digits.slice(4, 7);
+    const p3 = digits.slice(7, 10);
+    return [p1, p2, p3].filter(Boolean).join(" ");
+  } else if (digits.startsWith("0")) {
+    const area = digits.slice(0, 2);
+    const p1 = digits.slice(2, 6);
+    const p2 = digits.slice(6, 10);
+    let result = area ? `(${area}` : "";
+    if (digits.length > 2) result += `) ${p1}`;
+    if (digits.length > 6) result += ` ${p2}`;
+    return result;
+  }
+  return digits;
+};
 
 export const Signup: React.FC = () => {
   const navigate = useNavigate();
@@ -47,6 +68,8 @@ export const Signup: React.FC = () => {
   const [surname, setSurname] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [contactNumber, setContactNumber] = useState("");
+  const [role, setRole] = useState(UserRole.APPLICANT);
   const [error, setError] = useState("");
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -55,10 +78,14 @@ export const Signup: React.FC = () => {
     setError("");
     try {
       await db.signup({
-        name: `${firstName} ${surname}`.trim(),
+        firstName: firstName.trim(),
+        lastName: surname.trim(),
         email,
         password,
-        role: UserRole.APPLICANT,
+        role,
+        ...(contactNumber.trim()
+          ? { contactNumber: contactNumber.trim() }
+          : {}),
       });
       setTimeout(() => {
         window.location.reload();
@@ -114,7 +141,7 @@ export const Signup: React.FC = () => {
                 <input
                   type="text"
                   required
-                  placeholder="Name"
+                  placeholder="First Name"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
@@ -125,7 +152,7 @@ export const Signup: React.FC = () => {
                 <input
                   type="text"
                   required
-                  placeholder="Surname"
+                  placeholder="Last Name"
                   value={surname}
                   onChange={(e) => setSurname(e.target.value)}
                   className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
@@ -142,6 +169,39 @@ export const Signup: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-[#812349]/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
+              />
+            </div>
+
+            <div className="relative group">
+              <Phone className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
+              <input
+                type="tel"
+                placeholder="04XX XXX XXX (optional)"
+                value={contactNumber}
+                onChange={(e) =>
+                  setContactNumber(formatAustralianPhone(e.target.value))
+                }
+                maxLength={13}
+                className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
+              />
+            </div>
+
+            <div className="relative group">
+              <CustomDropdown
+                label="Role"
+                options={SIGNUP_ROLES.map((r) => ({
+                  name: r.label,
+                  code: r.value,
+                }))}
+                value={SIGNUP_ROLES.find((r) => r.value === role)?.label || ""}
+                onChange={(val) => {
+                  const selectedRole = SIGNUP_ROLES.find(
+                    (r) => r.label === val,
+                  );
+                  if (selectedRole) setRole(selectedRole.value as UserRole);
+                }}
+                placeholder="Select Your Role"
+                icon={<Building2 className="w-5 h-5 text-zinc-400" />}
               />
             </div>
             <div className="relative group">

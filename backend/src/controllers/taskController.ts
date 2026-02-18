@@ -259,7 +259,20 @@ export const getTasks = async (req: any, res: Response) => {
         .populate("createdBy", "name email")
         .sort({ createdAt: -1 });
 
-      return res.json(tasks);
+      // Add applicant counts for each task
+      const taskIds = tasks.map((t) => t._id);
+      const counts = await Application.aggregate([
+        { $match: { task: { $in: taskIds } } },
+        { $group: { _id: "$task", count: { $sum: 1 } } },
+      ]);
+      const countMap = new Map(counts.map((c) => [c._id.toString(), c.count]));
+
+      const tasksWithCounts = tasks.map((task) => ({
+        ...task.toObject(),
+        applicantsCount: countMap.get(task._id.toString()) || 0,
+      }));
+
+      return res.json(tasksWithCounts);
     }
 
     const { checkPermissionAsync } = await import("../middleware/rbac.js");

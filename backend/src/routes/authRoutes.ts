@@ -9,8 +9,11 @@ import {
   forgotPassword,
   resetPassword,
   updateProfile,
+  uploadResume,
+  removeResume,
 } from "../controllers/authController.js";
 import { authenticate, requirePermission } from "../middleware/rbac.js";
+import { upload } from "../middleware/upload.js";
 import { hasPermissionAsync, Permission } from "../config/permissions.js";
 import { UserRole } from "../models/User.js";
 import "../config/passport.js";
@@ -66,6 +69,13 @@ router.post("/login", (req, res, next) => {
 // Profile / Me (for SSO callback: frontend has token, needs user)
 router.get("/me", authenticate, getMe);
 router.put("/profile", authenticate, updateProfile);
+router.post(
+  "/upload-resume",
+  authenticate,
+  upload.single("resume"),
+  uploadResume,
+);
+router.delete("/resume", authenticate, removeResume);
 
 // Password Reset
 router.post("/forgot-password", forgotPassword);

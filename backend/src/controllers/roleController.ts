@@ -114,6 +114,23 @@ export const getRoles = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Public read-only endpoint for fetching roles
+ * Used for task creation forms where users need to select allowed roles
+ * No permissions required - all authenticated users can access
+ */
+export const getRolesPublic = async (req: Request, res: Response) => {
+  try {
+    // Return only essential fields for public consumption
+    const roles = await Role.find({ isActive: true })
+      .select("_id name code color description isSystem")
+      .sort({ isSystem: -1, name: 1 });
+    res.json(roles);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 export const getRole = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;

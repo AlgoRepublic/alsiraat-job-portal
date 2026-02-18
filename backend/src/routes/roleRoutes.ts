@@ -5,6 +5,7 @@ import {
   updatePermission,
   deletePermission,
   getRoles,
+  getRolesPublic,
   getRole,
   createRole,
   updateRole,
@@ -61,7 +62,10 @@ router.delete(
 // ROLE ROUTES
 // ============================================================================
 
-// Get all roles
+// Get all roles (public read-only - no permissions required)
+router.get("/public", authenticate, getRolesPublic);
+
+// Get all roles (admin only - with full details)
 router.get(
   "/",
   authenticate,

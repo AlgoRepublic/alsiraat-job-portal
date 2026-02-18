@@ -254,7 +254,8 @@ class ApiService {
 
   // --- Roles ---
   async getRoles(): Promise<any[]> {
-    return this.request<any[]>("/roles");
+    // Use public endpoint - no permissions required, read-only access
+    return this.request<any[]>("/roles/public");
   }
 
   // --- Task Creation with Files ---

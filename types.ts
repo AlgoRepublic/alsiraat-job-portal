@@ -111,9 +111,14 @@ export interface Job {
 export interface User {
   id: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
   role: UserRole;
   avatar: string;
   email: string;
+  contactNumber?: string;
+  gender?: "Male" | "Female";
+  yearLevel?: string;
   permissions?: string[];
   organization?: string;
   organisation?: string;
@@ -129,6 +134,8 @@ export interface ApplicantProfile extends User {
   about: string;
   skills: Skill[];
   experience: Job[]; // Completed tasks
+  resumeUrl?: string;
+  resumeOriginalName?: string;
 }
 
 export const Permission = {

@@ -166,6 +166,47 @@ class DatabaseService {
     return response.user;
   }
 
+  async uploadResume(
+    file: File,
+  ): Promise<{ resumeUrl: string; resumeOriginalName: string }> {
+    const token = localStorage.getItem("auth_token");
+    const formData = new FormData();
+    formData.append("resume", file);
+
+    const response = await fetch(`${API_BASE_URL}/auth/upload-resume`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.message || "Failed to upload resume");
+    }
+
+    const data = await response.json();
+    // Persist the new resume info into local user_data
+    const stored = localStorage.getItem("user_data");
+    if (stored) {
+      const user = JSON.parse(stored);
+      user.resumeUrl = data.resumeUrl;
+      user.resumeOriginalName = data.resumeOriginalName;
+      localStorage.setItem("user_data", JSON.stringify(user));
+    }
+    return data;
+  }
+
+  async removeResume(): Promise<void> {
+    await api.request<any>("/auth/resume", { method: "DELETE" });
+    const stored = localStorage.getItem("user_data");
+    if (stored) {
+      const user = JSON.parse(stored);
+      delete user.resumeUrl;
+      delete user.resumeOriginalName;
+      localStorage.setItem("user_data", JSON.stringify(user));
+    }
+  }
+
   async updateCurrentUserRole(role: UserRole): Promise<User> {
     const user = await this.getCurrentUser();
     if (!user) throw new Error("No user found");
