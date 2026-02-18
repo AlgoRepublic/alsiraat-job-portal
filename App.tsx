@@ -15,24 +15,74 @@ import { Loading } from "./components/Loading";
 import { ThemeToggle } from "./components/ThemeToggle";
 
 // Lazy loaded components
-const Layout = lazy(() => import("./components/Layout").then(module => ({ default: module.Layout })));
-const Dashboard = lazy(() => import("./pages/Dashboard").then(module => ({ default: module.Dashboard })));
-const JobWizard = lazy(() => import("./pages/JobWizard").then(module => ({ default: module.JobWizard })));
-const JobList = lazy(() => import("./pages/JobList").then(module => ({ default: module.JobList })));
-const JobDetails = lazy(() => import("./pages/JobDetails").then(module => ({ default: module.JobDetails })));
-const Profile = lazy(() => import("./pages/Profile").then(module => ({ default: module.Profile })));
-const Login = lazy(() => import("./pages/Login").then(module => ({ default: module.Login })));
-const LandingPage = lazy(() => import("./components/LandingPage").then(module => ({ default: module.LandingPage })));
-const JobApplicants = lazy(() => import("./pages/JobApplicants").then(module => ({ default: module.JobApplicants })));
-const ApplicationReview = lazy(() => import("./pages/ApplicationReview").then(module => ({ default: module.ApplicationReview })));
-const MyTasks = lazy(() => import("./pages/MyTasks").then(module => ({ default: module.MyTasks })));
-const UserManagement = lazy(() => import("./pages/UserManagement").then(module => ({ default: module.UserManagement })));
+const Layout = lazy(() =>
+  import("./components/Layout").then((module) => ({ default: module.Layout })),
+);
+const Dashboard = lazy(() =>
+  import("./pages/Dashboard").then((module) => ({ default: module.Dashboard })),
+);
+const JobWizard = lazy(() =>
+  import("./pages/JobWizard").then((module) => ({ default: module.JobWizard })),
+);
+const JobList = lazy(() =>
+  import("./pages/JobList").then((module) => ({ default: module.JobList })),
+);
+const JobDetails = lazy(() =>
+  import("./pages/JobDetails").then((module) => ({
+    default: module.JobDetails,
+  })),
+);
+const Profile = lazy(() =>
+  import("./pages/Profile").then((module) => ({ default: module.Profile })),
+);
+const Login = lazy(() =>
+  import("./pages/Login").then((module) => ({ default: module.Login })),
+);
+const LandingPage = lazy(() =>
+  import("./components/LandingPage").then((module) => ({
+    default: module.LandingPage,
+  })),
+);
+const JobApplicants = lazy(() =>
+  import("./pages/JobApplicants").then((module) => ({
+    default: module.JobApplicants,
+  })),
+);
+const ApplicationReview = lazy(() =>
+  import("./pages/ApplicationReview").then((module) => ({
+    default: module.ApplicationReview,
+  })),
+);
+const MyTasks = lazy(() =>
+  import("./pages/MyTasks").then((module) => ({ default: module.MyTasks })),
+);
+const UserManagement = lazy(() =>
+  import("./pages/UserManagement").then((module) => ({
+    default: module.UserManagement,
+  })),
+);
 const MyApplications = lazy(() => import("./pages/MyApplications"));
-const AdminSettings = lazy(() => import("./pages/AdminSettings").then(module => ({ default: module.AdminSettings })));
-const Reports = lazy(() => import("./pages/Reports").then(module => ({ default: module.Reports })));
-const Signup = lazy(() => import("./pages/Signup").then(module => ({ default: module.Signup })));
-const ForgotPassword = lazy(() => import("./pages/ForgotPassword").then(module => ({ default: module.ForgotPassword })));
-const ResetPassword = lazy(() => import("./pages/ResetPassword").then(module => ({ default: module.ResetPassword })));
+const AdminSettings = lazy(() =>
+  import("./pages/AdminSettings").then((module) => ({
+    default: module.AdminSettings,
+  })),
+);
+const Reports = lazy(() =>
+  import("./pages/Reports").then((module) => ({ default: module.Reports })),
+);
+const Signup = lazy(() =>
+  import("./pages/Signup").then((module) => ({ default: module.Signup })),
+);
+const ForgotPassword = lazy(() =>
+  import("./pages/ForgotPassword").then((module) => ({
+    default: module.ForgotPassword,
+  })),
+);
+const ResetPassword = lazy(() =>
+  import("./pages/ResetPassword").then((module) => ({
+    default: module.ResetPassword,
+  })),
+);
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -206,7 +256,10 @@ const App: React.FC = () => {
                         </>
                       )}
 
-                      <Route path="*" element={<Navigate to="/jobs" replace />} />
+                      <Route
+                        path="*"
+                        element={<Navigate to="/jobs" replace />}
+                      />
                     </Routes>
                   </Suspense>
                 </Layout>

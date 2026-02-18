@@ -258,6 +258,64 @@ class ApiService {
     return this.request<any[]>("/roles/public");
   }
 
+  // --- Groups ---
+  async getGroupsPublic(): Promise<any[]> {
+    return this.request<any[]>("/groups/public");
+  }
+
+  async getGroups(search?: string): Promise<any[]> {
+    const params = search ? `?search=${encodeURIComponent(search)}` : "";
+    return this.request<any[]>(`/groups${params}`);
+  }
+
+  async getGroup(id: string): Promise<any> {
+    return this.request<any>(`/groups/${id}`);
+  }
+
+  async createGroup(data: {
+    name: string;
+    description?: string;
+    color?: string;
+    members?: string[];
+  }): Promise<any> {
+    return this.request<any>("/groups", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateGroup(
+    id: string,
+    data: Partial<{
+      name: string;
+      description: string;
+      color: string;
+      isActive: boolean;
+    }>,
+  ): Promise<any> {
+    return this.request<any>(`/groups/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteGroup(id: string): Promise<any> {
+    return this.request<any>(`/groups/${id}`, { method: "DELETE" });
+  }
+
+  async addGroupMembers(groupId: string, userIds: string[]): Promise<any> {
+    return this.request<any>(`/groups/${groupId}/members`, {
+      method: "POST",
+      body: JSON.stringify({ userIds }),
+    });
+  }
+
+  async removeGroupMember(groupId: string, userId: string): Promise<any> {
+    return this.request<any>(`/groups/${groupId}/members/${userId}`, {
+      method: "DELETE",
+    });
+  }
+
   // --- Task Creation with Files ---
   async createTaskWithFiles(data: any, files: File[]): Promise<any> {
     const formData = new FormData();

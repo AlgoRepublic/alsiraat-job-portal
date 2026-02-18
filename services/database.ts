@@ -368,6 +368,49 @@ class DatabaseService {
   async getRoles(): Promise<any[]> {
     return api.getRoles();
   }
+
+  // --- Groups ---
+  async getGroupsPublic(): Promise<any[]> {
+    try {
+      return await api.getGroupsPublic();
+    } catch (err) {
+      console.warn("Failed to fetch groups", err);
+      return [];
+    }
+  }
+
+  async getGroups(search?: string): Promise<any[]> {
+    return api.getGroups(search);
+  }
+
+  async getGroup(id: string): Promise<any> {
+    return api.getGroup(id);
+  }
+
+  async createGroup(data: {
+    name: string;
+    description?: string;
+    color?: string;
+    members?: string[];
+  }): Promise<any> {
+    return api.createGroup(data);
+  }
+
+  async updateGroup(id: string, data: any): Promise<any> {
+    return api.updateGroup(id, data);
+  }
+
+  async deleteGroup(id: string): Promise<any> {
+    return api.deleteGroup(id);
+  }
+
+  async addGroupMembers(groupId: string, userIds: string[]): Promise<any> {
+    return api.addGroupMembers(groupId, userIds);
+  }
+
+  async removeGroupMember(groupId: string, userId: string): Promise<any> {
+    return api.removeGroupMember(groupId, userId);
+  }
 }
 
 export const db = new DatabaseService();

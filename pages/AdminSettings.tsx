@@ -19,6 +19,7 @@ import { useNavigate } from "react-router-dom";
 import { JobCategory, UserRole } from "../types";
 import { useToast } from "../components/Toast";
 import { API_BASE_URL } from "../services/api";
+import { GroupManagement } from "./GroupManagement";
 
 interface Permission {
   _id: string;
@@ -44,7 +45,7 @@ export const AdminSettings: React.FC = () => {
   const { showSuccess, showError } = useToast();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
-    "roles" | "permissions" | "categories"
+    "roles" | "permissions" | "categories" | "groups"
   >("roles");
 
   // Dynamic roles and permissions state
@@ -883,6 +884,13 @@ export const AdminSettings: React.FC = () => {
             <Layers className="w-4 h-4 mr-3" />
             Categories
           </button>
+          <button
+            onClick={() => setActiveTab("groups")}
+            className={`w-full flex items-center px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === "groups" ? "bg-[#812349] dark:bg-[#601a36] text-white shadow-xl shadow-[#812349]/20" : "text-zinc-500 hover:bg-white/50 dark:hover:bg-zinc-800"}`}
+          >
+            <Users className="w-4 h-4 mr-3" />
+            Groups
+          </button>
           <div className="pt-6 border-t border-zinc-100 dark:border-zinc-800">
             <button
               onClick={() => navigate("/admin/users")}
@@ -898,6 +906,7 @@ export const AdminSettings: React.FC = () => {
           {activeTab === "roles" && renderRoles()}
           {activeTab === "permissions" && renderPermissions()}
           {activeTab === "categories" && renderCategories()}
+          {activeTab === "groups" && <GroupManagement />}
         </div>
       </div>
     </div>

@@ -97,6 +97,7 @@ export interface Job {
   eligibility: string[]; // e.g., ['Students', 'Parents']
   visibility: Visibility;
   allowedRoles?: string[];
+  allowedGroups?: string[]; // Array of Group IDs
   attachments: Attachment[];
   status: JobStatus;
   rejectionReason?: string;
