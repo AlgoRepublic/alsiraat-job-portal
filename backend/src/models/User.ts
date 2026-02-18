@@ -14,7 +14,7 @@ export interface IUser extends Document {
   email: string;
   password?: string;
   googleId?: string;
-  samlId?: string;
+  oidcId?: string;
   role: UserRole;
   organisation?: mongoose.Types.ObjectId;
   avatar?: string;
@@ -42,7 +42,7 @@ const UserSchema: Schema = new Schema(
     email: { type: String, required: true, unique: true },
     password: { type: String },
     googleId: { type: String },
-    samlId: { type: String },
+    oidcId: { type: String },
     role: {
       type: String,
       enum: Object.values(UserRole),

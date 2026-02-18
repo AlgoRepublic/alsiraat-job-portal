@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { Mail, Lock, Shield, AlertCircle, Layers } from "lucide-react";
 import { db } from "../services/database";
 import { API_BASE_URL } from "../services/api";
@@ -11,11 +11,51 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
   onLoginSuccess,
 }) => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [isSSOLoading, setIsSSOLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+
+  // Handle SSO callback: URL has ?token=... after redirect from OIDC/Google
+  useEffect(() => {
+    const token = searchParams.get("token");
+    const errorParam = searchParams.get("error");
+    if (errorParam === "auth_failed") {
+      setError("SSO sign-in was cancelled or failed. Please try again.");
+      setSearchParams({}, { replace: true });
+      return;
+    }
+    if (!token) return;
+
+    let cancelled = false;
+    (async () => {
+      setIsSSOLoading(true);
+      setError("");
+      try {
+        const user = await db.completeSSOLogin(token);
+        if (cancelled) return;
+        setSearchParams({}, { replace: true });
+        if (onLoginSuccess) await onLoginSuccess();
+        if (user?.permissions?.includes(Permission.DASHBOARD_VIEW)) {
+          navigate("/dashboard");
+        } else {
+          navigate("/jobs");
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          setError(err.message || "SSO sign-in failed. Please try again.");
+          setSearchParams({}, { replace: true });
+        }
+      } finally {
+        if (!cancelled) setIsSSOLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,8 +85,7 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
   };
 
   const handleEntraLogin = () => {
-    // Replace /api with /auth/saml since API_BASE_URL likely ends with /api
-    const authUrl = API_BASE_URL.replace(/\/api$/, "") + "/api/auth/saml";
+    const authUrl = API_BASE_URL.replace(/\/api$/, "") + "/api/auth/oidc";
     window.location.href = authUrl;
   };
 
@@ -58,7 +97,11 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 transition-colors relative overflow-hidden bg-zinc-50 dark:bg-black">
-      {isLoading && <LoadingOverlay message="Authenticating..." />}
+      {(isLoading || isSSOLoading) && (
+        <LoadingOverlay
+          message={isSSOLoading ? "Completing sign-in..." : "Authenticating..."}
+        />
+      )}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-[100px]"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[100px]"></div>

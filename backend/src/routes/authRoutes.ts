@@ -4,6 +4,7 @@ import {
   signup,
   authCallback,
   generateToken,
+  getMe,
   impersonate,
   forgotPassword,
   resetPassword,
@@ -62,7 +63,8 @@ router.post("/login", (req, res, next) => {
   )(req, res, next);
 });
 
-// Profile
+// Profile / Me (for SSO callback: frontend has token, needs user)
+router.get("/me", authenticate, getMe);
 router.put("/profile", authenticate, updateProfile);
 
 // Password Reset
@@ -74,20 +76,42 @@ router.get(
   "/google",
   passport.authenticate("google", { scope: ["profile", "email"] }),
 );
+const frontendLoginUrl =
+  (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "") +
+  "/#/login";
+const failureRedirectUrl = `${frontendLoginUrl}?error=auth_failed`;
+
 router.get(
   "/google/callback",
   passport.authenticate("google", {
     session: false,
-    failureRedirect: "/login",
+    failureRedirect: failureRedirectUrl,
   }),
   authCallback,
 );
 
-// SAML Auth
-router.get("/saml", passport.authenticate("saml"));
-router.post(
-  "/saml/callback",
-  passport.authenticate("saml", { session: false, failureRedirect: "/login" }),
+// OpenID Connect Auth (ADFS SSO)
+router.get("/oidc", passport.authenticate("openidconnect"));
+router.get(
+  "/oidc/callback",
+  (req, res, next) => {
+    passport.authenticate(
+      "openidconnect",
+      { session: false },
+      (err: unknown, user: unknown, info: unknown) => {
+        if (err || !user) {
+          console.error("[Auth] OIDC callback failure → redirecting to login", {
+            error: err,
+            info: info ?? undefined,
+            redirectUrl: failureRedirectUrl,
+          });
+          return res.redirect(failureRedirectUrl);
+        }
+        req.user = user;
+        next();
+      },
+    )(req, res, next);
+  },
   authCallback,
 );
 

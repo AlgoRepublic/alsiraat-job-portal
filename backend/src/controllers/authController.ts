@@ -70,9 +70,41 @@ export const authCallback = (req: Request, res: Response) => {
   const user: any = req.user;
   const token = generateToken(user);
 
-  // Redirect to frontend with token or send back as JSON
-  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-  res.redirect(`${frontendUrl}/login?token=${token}`);
+  // Redirect to frontend with token (use hash path for HashRouter: #/login?token=...)
+  const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
+  res.redirect(`${frontendUrl}/#/login?token=${encodeURIComponent(token)}`);
+};
+
+/** GET /auth/me - return current user from JWT (for SSO callback: frontend has token, needs user) */
+/** GET /auth/me - return current user from JWT (for SSO callback: frontend has token, needs user) */
+export const getMe = async (req: Request, res: Response) => {
+  try {
+    const user: any = (req as any).user;
+    if (!user) return res.status(401).json({ message: "Not authenticated" });
+
+    const permissions: string[] = [];
+    for (const p of Object.values(Permission)) {
+      if (await hasPermissionAsync(user.role as UserRole, p)) {
+        permissions.push(p);
+      }
+    }
+
+    res.json({
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        skills: user.skills || [],
+        about: user.about || "",
+        avatar: user.avatar,
+        organisation: user.organisation,
+        permissions,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
 };
 
 export const impersonate = async (req: Request, res: Response) => {

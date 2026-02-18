@@ -131,6 +131,14 @@ class DatabaseService {
     await api.logout();
   }
 
+  /** Complete SSO login after redirect: store token, fetch user, store user_data. */
+  async completeSSOLogin(token: string): Promise<User> {
+    api.setToken(token);
+    const { user } = await api.getMe();
+    localStorage.setItem("user_data", JSON.stringify(user));
+    return user as User;
+  }
+
   async getCurrentUser(): Promise<User | null> {
     const stored = localStorage.getItem("user_data");
     if (stored) {

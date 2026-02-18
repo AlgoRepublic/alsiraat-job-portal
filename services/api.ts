@@ -154,6 +154,17 @@ class ApiService {
     localStorage.removeItem("user_data");
   }
 
+  /** Set token (e.g. after SSO redirect) and optionally fetch current user. */
+  setToken(token: string): void {
+    this.token = token;
+    localStorage.setItem("auth_token", token);
+  }
+
+  /** Get current user from token (for SSO callback). */
+  async getMe(): Promise<{ user: any }> {
+    return this.get<{ user: any }>("/auth/me");
+  }
+
   // --- Organizations ---
   async getOrganizations(): Promise<any[]> {
     return this.request<any[]>("/organizations");
