@@ -74,12 +74,10 @@ async function resetDatabase() {
 
     // Step 1: Clear all collections
     console.log("\n🗑️  Clearing all collections...");
-    const collections = await mongoose.connection.db
-      .listCollections()
-      .toArray();
-
     const db = mongoose.connection.db;
     if (!db) throw new Error("Database connection not established");
+
+    const collections = await db.listCollections().toArray();
 
     for (const collection of collections) {
       await db.collection(collection.name).deleteMany({});
