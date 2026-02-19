@@ -349,19 +349,6 @@ export async function canWithContextAsync(
 }
 
 /**
- * Determines if a role's tasks are auto-published (STATIC)
- * @deprecated Use canAutoPublishAsync for database-driven check
- */
-export function canAutoPublish(role: UserRole): boolean {
-  const autoPublishRoles = [
-    UserRole.GLOBAL_ADMIN,
-    UserRole.SCHOOL_ADMIN,
-    UserRole.TASK_MANAGER,
-  ];
-  return (autoPublishRoles as UserRole[]).includes(role);
-}
-
-/**
  * Determines if a role's tasks are auto-published (DYNAMIC)
  */
 export async function canAutoPublishAsync(role: UserRole): Promise<boolean> {

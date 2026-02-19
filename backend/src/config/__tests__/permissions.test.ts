@@ -1,6 +1,6 @@
 import test, { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { hasPermission, Permission, RolePermissions } from '../permissions.ts';
+import { hasPermission, canAutoPublishAsync, Permission, RolePermissions } from '../permissions.ts';
 import { UserRole } from '../../models/UserRole.ts';
 
 describe('hasPermission', () => {
@@ -41,5 +41,27 @@ describe('hasPermission', () => {
   it('should return false for unknown permission', () => {
     // @ts-expect-error Testing invalid permission
     assert.strictEqual(hasPermission(UserRole.GLOBAL_ADMIN, 'UNKNOWN_PERMISSION' as Permission), false);
+  });
+});
+
+describe('canAutoPublishAsync', () => {
+  it('should return true for GLOBAL_ADMIN', async () => {
+    assert.strictEqual(await canAutoPublishAsync(UserRole.GLOBAL_ADMIN), true);
+  });
+
+  it('should return true for SCHOOL_ADMIN', async () => {
+    assert.strictEqual(await canAutoPublishAsync(UserRole.SCHOOL_ADMIN), true);
+  });
+
+  it('should return true for TASK_MANAGER', async () => {
+    assert.strictEqual(await canAutoPublishAsync(UserRole.TASK_MANAGER), true);
+  });
+
+  it('should return false for TASK_ADVERTISER', async () => {
+    assert.strictEqual(await canAutoPublishAsync(UserRole.TASK_ADVERTISER), false);
+  });
+
+  it('should return false for APPLICANT', async () => {
+    assert.strictEqual(await canAutoPublishAsync(UserRole.APPLICANT), false);
   });
 });
