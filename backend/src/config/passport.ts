@@ -108,7 +108,7 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
               console.log("OIDC Issuer:", issuer);
               console.log("OIDC Profile:", JSON.stringify(profile, null, 2));
               console.log("OIDC Context:", JSON.stringify(context, null, 2));
-              // console.log("OIDC ID Token:", JSON.stringify(idToken, null, 2));
+              console.log("OIDC ID Token:", JSON.stringify(idToken, null, 2));
 
               // Use email from ID token only (e.g. ADFS: email claim)
               const decodedIdToken = jwt.decode(idToken as string);
