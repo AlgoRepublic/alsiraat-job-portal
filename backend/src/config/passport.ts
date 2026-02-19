@@ -110,15 +110,12 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
               console.log("OIDC Context:", JSON.stringify(context, null, 2));
               // console.log("OIDC ID Token:", JSON.stringify(idToken, null, 2));
 
-              // decode id token
+              // Use email from ID token only (e.g. ADFS: email claim)
               const decodedIdToken = jwt.decode(idToken as string);
-              console.log("OIDC Decoded ID Token:", JSON.stringify(decodedIdToken, null, 2));
-
-              // Email: ID token > profile.emails > profile.id@oidc.local
               const decoded = decodedIdToken && typeof decodedIdToken === "object" ? (decodedIdToken as Record<string, unknown>) : null;
-              const email = (typeof decoded?.email === "string" ? decoded.email : undefined) ?? profile.emails?.[0]?.value ?? (profile.id ? `${String(profile.id).replace(/[^a-zA-Z0-9._-]/g, "_")}@oidc.local` : undefined);
+              const email = typeof decoded?.email === "string" ? decoded.email : undefined;
               if (!email) {
-                return done(new Error("No email or id found in OIDC profile"));
+                return done(new Error("No email found in ID token"));
               }
 
               let user = await User.findOne({ oidcId: profile.id });
