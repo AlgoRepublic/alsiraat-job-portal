@@ -19,18 +19,29 @@ export const generateToken = (user: any) => {
 
 export const signup = async (req: Request, res: Response) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { firstName, lastName, email, password, role, contactNumber } =
+      req.body;
+
+    if (!firstName || !lastName) {
+      return res
+        .status(400)
+        .json({ message: "First name and last name are required" });
+    }
 
     let user = await User.findOne({ email });
     if (user) return res.status(400).json({ message: "User already exists" });
 
     const hashedPassword = await bcrypt.hash(password, 12);
+    const fullName = `${firstName.trim()} ${lastName.trim()}`;
 
     user = await User.create({
-      name,
+      name: fullName,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
       email,
       password: hashedPassword,
       role: role || UserRole.APPLICANT,
+      ...(contactNumber ? { contactNumber } : {}),
     });
 
     // Get current permissions for the role
@@ -47,12 +58,17 @@ export const signup = async (req: Request, res: Response) => {
       user: {
         id: user._id,
         name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
         email: user.email,
         role: user.role,
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,
         organisation: user.organisation,
+        contactNumber: user.contactNumber,
+        gender: user.gender,
+        yearLevel: user.yearLevel,
         permissions,
       },
     });
@@ -70,9 +86,41 @@ export const authCallback = (req: Request, res: Response) => {
   const user: any = req.user;
   const token = generateToken(user);
 
-  // Redirect to frontend with token or send back as JSON
-  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-  res.redirect(`${frontendUrl}/login?token=${token}`);
+  // Redirect to frontend with token (use hash path for HashRouter: #/login?token=...)
+  const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
+  res.redirect(`${frontendUrl}/#/login?token=${encodeURIComponent(token)}`);
+};
+
+/** GET /auth/me - return current user from JWT (for SSO callback: frontend has token, needs user) */
+/** GET /auth/me - return current user from JWT (for SSO callback: frontend has token, needs user) */
+export const getMe = async (req: Request, res: Response) => {
+  try {
+    const user: any = (req as any).user;
+    if (!user) return res.status(401).json({ message: "Not authenticated" });
+
+    const permissions: string[] = [];
+    for (const p of Object.values(Permission)) {
+      if (await hasPermissionAsync(user.role as UserRole, p)) {
+        permissions.push(p);
+      }
+    }
+
+    res.json({
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        skills: user.skills || [],
+        about: user.about || "",
+        avatar: user.avatar,
+        organisation: user.organisation,
+        permissions,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
 };
 
 export const impersonate = async (req: Request, res: Response) => {
@@ -195,15 +243,39 @@ export const resetPassword = async (req: Request, res: Response) => {
 export const updateProfile = async (req: Request, res: Response) => {
   try {
     const { id } = (req as any).user;
-    const { name, about, skills, avatar } = req.body;
+    const {
+      firstName,
+      lastName,
+      about,
+      skills,
+      avatar,
+      contactNumber,
+      gender,
+      yearLevel,
+    } = req.body;
 
     const user = await User.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    if (name) user.name = name;
+    if (firstName !== undefined) user.firstName = firstName.trim();
+    if (lastName !== undefined) user.lastName = lastName.trim();
+    // Keep name in sync as the derived full name
+    if (firstName !== undefined || lastName !== undefined) {
+      user.name = `${user.firstName || ""} ${user.lastName || ""}`.trim();
+    }
     if (about !== undefined) user.about = about;
     if (skills) user.skills = skills;
     if (avatar) user.avatar = avatar;
+    if (contactNumber !== undefined) user.contactNumber = contactNumber;
+    if (gender !== undefined) user.gender = gender;
+    if (yearLevel !== undefined) user.yearLevel = yearLevel;
+    // Allow explicit clearing of resume
+    if (req.body.clearResume === true) {
+      await User.updateOne(
+        { _id: id },
+        { $unset: { resumeUrl: 1, resumeOriginalName: 1 } },
+      );
+    }
 
     await user.save();
 
@@ -220,14 +292,65 @@ export const updateProfile = async (req: Request, res: Response) => {
       user: {
         id: user._id,
         name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
         email: user.email,
         role: user.role,
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,
+        contactNumber: user.contactNumber,
+        gender: user.gender,
+        yearLevel: user.yearLevel,
+        resumeUrl: user.resumeUrl,
+        resumeOriginalName: user.resumeOriginalName,
         permissions,
       },
     });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const uploadResume = async (req: Request, res: Response) => {
+  try {
+    const { id } = (req as any).user;
+    const file = (req as any).file;
+
+    if (!file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Store the relative URL path so it can be served via /uploads/
+    user.resumeUrl = `/uploads/${file.filename}`;
+    user.resumeOriginalName = file.originalname;
+    await user.save();
+
+    res.json({
+      message: "Resume uploaded successfully",
+      resumeUrl: user.resumeUrl,
+      resumeOriginalName: user.resumeOriginalName,
+    });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const removeResume = async (req: Request, res: Response) => {
+  try {
+    const { id } = (req as any).user;
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    await User.updateOne(
+      { _id: id },
+      { $unset: { resumeUrl: 1, resumeOriginalName: 1 } },
+    );
+
+    res.json({ message: "Resume removed successfully" });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }

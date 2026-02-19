@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { LoadingOverlay } from "../components/Loading";
+import { CustomDropdown, CustomDatePicker } from "../components/CustomUI";
 
 import {
   Job,
@@ -42,6 +43,7 @@ export const JobWizard: React.FC = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
+  const [groups, setGroups] = useState<any[]>([]);
 
   const [formData, setFormData] = useState<Partial<Job>>({
     title: "",
@@ -60,6 +62,7 @@ export const JobWizard: React.FC = () => {
     visibility: Visibility.INTERNAL,
     attachments: [],
     allowedRoles: [],
+    allowedGroups: [],
     status: JobStatus.DRAFT,
   });
 
@@ -68,14 +71,16 @@ export const JobWizard: React.FC = () => {
   // Fetch reward types and categories on mount
   React.useEffect(() => {
     const fetchData = async () => {
-      const [types, cats, rolesData] = await Promise.all([
+      const [types, cats, rolesData, groupsData] = await Promise.all([
         db.getRewardTypes(),
         db.getTaskCategories(),
         db.getRoles(),
+        db.getGroupsPublic(),
       ]);
       setRewardTypes(types);
       setCategories(cats);
       setRoles(rolesData);
+      setGroups(groupsData);
 
       if (id) {
         // Edit mode: fetch existing job
@@ -278,26 +283,13 @@ export const JobWizard: React.FC = () => {
                   onChange={(e) => updateField("title", e.target.value)}
                 />
               </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">
-                  Category
-                </label>
-                <select
-                  className="w-full p-4 glass rounded-2xl font-bold dark:text-white"
-                  value={formData.category}
-                  onChange={(e) => updateField("category", e.target.value)}
-                >
-                  {categories.length > 0 ? (
-                    categories.map((c) => (
-                      <option key={c.code} value={c.name}>
-                        {c.icon} {c.name}
-                      </option>
-                    ))
-                  ) : (
-                    <option>Loading...</option>
-                  )}
-                </select>
-              </div>
+              <CustomDropdown
+                label="Category"
+                options={categories}
+                value={formData.category || ""}
+                onChange={(val) => updateField("category", val)}
+                placeholder="Select Category"
+              />
             </div>
 
             <div className="space-y-2">
@@ -348,31 +340,19 @@ export const JobWizard: React.FC = () => {
               </div>
 
               {/* Start Date */}
-              <div>
-                <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-3">
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  className="w-full px-6 py-4 rounded-2xl glass-card border-2 border-zinc-200 dark:border-zinc-800 focus:border-[#812349] outline-none font-medium text-base"
-                  value={formData.startDate}
-                  onChange={(e) => updateField("startDate", e.target.value)}
-                />
-              </div>
+              <CustomDatePicker
+                label="Start Date"
+                value={formData.startDate || ""}
+                onChange={(val) => updateField("startDate", val)}
+              />
 
               {/* End Date */}
-              <div>
-                <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-3">
-                  End Date
-                </label>
-                <input
-                  type="date"
-                  className="w-full px-6 py-4 rounded-2xl glass-card border-2 border-zinc-200 dark:border-zinc-800 focus:border-[#812349] outline-none font-medium text-base"
-                  value={formData.endDate}
-                  onChange={(e) => updateField("endDate", e.target.value)}
-                  min={formData.startDate || undefined}
-                />
-              </div>
+              <CustomDatePicker
+                label="End Date"
+                value={formData.endDate || ""}
+                onChange={(val) => updateField("endDate", val)}
+                min={formData.startDate}
+              />
             </div>
           </div>
         )}
@@ -439,26 +419,13 @@ export const JobWizard: React.FC = () => {
             </div>
 
             <div className="grid md:grid-cols-2 gap-8">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">
-                  Reward Type
-                </label>
-                <select
-                  className="w-full p-4 glass rounded-2xl font-bold dark:text-white"
-                  value={formData.rewardType}
-                  onChange={(e) => updateField("rewardType", e.target.value)}
-                >
-                  {rewardTypes.length > 0 ? (
-                    rewardTypes.map((t) => (
-                      <option key={t.code} value={t.name}>
-                        {t.name}
-                      </option>
-                    ))
-                  ) : (
-                    <option>Loading...</option>
-                  )}
-                </select>
-              </div>
+              <CustomDropdown
+                label="Reward Type"
+                options={rewardTypes}
+                value={formData.rewardType || ""}
+                onChange={(val) => updateField("rewardType", val)}
+                placeholder="Select Reward"
+              />
 
               {/* Conditional Reward Value Field */}
               {(() => {
@@ -516,75 +483,95 @@ export const JobWizard: React.FC = () => {
             </div>
 
             {/* Task Visibility */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">
-                Task Visibility
-              </label>
-              <select
-                className="w-full p-4 glass rounded-2xl font-bold dark:text-white"
-                value={formData.visibility}
-                onChange={(e) => updateField("visibility", e.target.value)}
-              >
-                {Object.values(Visibility).map((v) => (
-                  <option key={v} value={v}>
-                    {v}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-zinc-400 ml-1">
-                <span className="font-bold">Internal:</span> Only your
-                organisation members can see this task.{" "}
-                <span className="font-bold">External:</span> Anyone can apply.{" "}
-                <span className="font-bold">Global:</span> Published globally
-                for all users. for all users.
-              </p>
-            </div>
+            <CustomDropdown
+              label="Task Visibility"
+              options={Object.values(Visibility).map((v) => ({ name: v }))}
+              value={formData.visibility || ""}
+              onChange={(val) => updateField("visibility", val)}
+              placeholder="Select Visibility"
+            />
+            <p className="text-xs text-zinc-400 ml-1">
+              <span className="font-bold">Internal:</span> Only your
+              organisation members can see this task.{" "}
+              <span className="font-bold">External:</span> Anyone can apply.{" "}
+              <span className="font-bold">Global:</span> Published globally for
+              all users.
+            </p>
 
-            {/* Allowed Roles Selection (Only for Internal tasks) */}
+            {/* Allowed Groups Selection (Only for Internal tasks) */}
             {formData.visibility === Visibility.INTERNAL && (
               <div className="space-y-4 animate-fade-in bg-zinc-50 dark:bg-zinc-800/30 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800">
                 <div>
                   <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">
-                    Allowed Roles (Internal Visibility)
+                    Allowed Groups (Internal Visibility)
                   </label>
                   <p className="text-xs text-zinc-500 mb-3 ml-1">
-                    Select which roles can view this task. Leave empty to allow
+                    Select which groups can view this task. Leave empty to allow
                     all internal users.
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {roles.map((role) => {
-                    const isSelected = (formData.allowedRoles || []).includes(
-                      role.name,
-                    );
-                    return (
-                      <button
-                        key={role._id}
-                        onClick={() => {
-                          const current = formData.allowedRoles || [];
-                          if (current.includes(role.name)) {
-                            updateField(
-                              "allowedRoles",
-                              current.filter((r) => r !== role.name),
-                            );
-                          } else {
-                            updateField("allowedRoles", [
-                              ...current,
-                              role.name,
-                            ]);
+                {groups.length === 0 ? (
+                  <p className="text-xs text-zinc-400 ml-1 italic">
+                    No groups configured yet. Create groups in Admin → Group
+                    Management.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {groups.map((group) => {
+                      const isSelected = (
+                        formData.allowedGroups || []
+                      ).includes(group._id);
+                      return (
+                        <button
+                          key={group._id}
+                          onClick={() => {
+                            const current = formData.allowedGroups || [];
+                            if (current.includes(group._id)) {
+                              updateField(
+                                "allowedGroups",
+                                current.filter((g) => g !== group._id),
+                              );
+                            } else {
+                              updateField("allowedGroups", [
+                                ...current,
+                                group._id,
+                              ]);
+                            }
+                          }}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border-2 flex items-center gap-2 ${
+                            isSelected
+                              ? "border-transparent text-white shadow-lg"
+                              : "bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-primary/50"
+                          }`}
+                          style={
+                            isSelected
+                              ? {
+                                  backgroundColor: group.color,
+                                  borderColor: group.color,
+                                  boxShadow: `0 4px 12px ${group.color}40`,
+                                }
+                              : {}
                           }
-                        }}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border-2 ${
-                          isSelected
-                            ? "bg-primary border-primary text-white shadow-lg shadow-primary/20"
-                            : "bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-primary/50"
-                        }`}
-                      >
-                        {role.name}
-                      </button>
-                    );
-                  })}
-                </div>
+                        >
+                          <span
+                            className="w-2 h-2 rounded-full flex-shrink-0"
+                            style={{
+                              backgroundColor: isSelected
+                                ? "rgba(255,255,255,0.7)"
+                                : group.color,
+                            }}
+                          />
+                          {group.name}
+                          <span
+                            className={`text-[10px] font-black ${isSelected ? "text-white/70" : "text-zinc-400"}`}
+                          >
+                            {group.members?.length ?? 0}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>

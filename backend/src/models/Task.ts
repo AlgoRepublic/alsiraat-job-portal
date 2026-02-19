@@ -35,6 +35,7 @@ export interface ITask extends Document {
   eligibility: string[];
   visibility: TaskVisibility;
   allowedRoles?: string[] | undefined;
+  allowedGroups?: mongoose.Types.ObjectId[] | undefined;
   status: TaskStatus;
   organisation?: mongoose.Types.ObjectId | undefined;
   createdBy: mongoose.Types.ObjectId;
@@ -74,6 +75,7 @@ const TaskSchema: Schema = new Schema(
       default: TaskVisibility.GLOBAL,
     },
     allowedRoles: [{ type: String }],
+    allowedGroups: [{ type: Schema.Types.ObjectId, ref: "Group" }],
     status: {
       type: String,
       enum: Object.values(TaskStatus),

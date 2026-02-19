@@ -1,0 +1,496 @@
+# ============================================
+# GitLab CI/CD Pipeline for Tasker
+# Multi-Environment Deployment
+# ============================================
+#
+# This pipeline supports three environments:
+#   - dev: Development environment on Node 2
+#   - test: Testing environment on Node 2  
+#   - prod: Production environment on Node 1
+#
+# Branch Strategy:
+#   - dev branch → deploys to dev environment (Node 2)
+#   - test branch → deploys to test environment (Node 2)
+#   - master branch → deploys to prod environment (Node 1)
+#
+# Required CI/CD Variables per Environment:
+#
+# DEV Environment (prefix: DEV_):
+#   - DEV_REGISTRY: Docker registry URL (e.g., node2.alsiraat.vic.edu.au:5000)
+#   - DEV_REGISTRY_USER: Registry username
+#   - DEV_REGISTRY_PASSWORD: Registry password (masked)
+#   - DEV_VPS_HOST: VPS hostname/IP
+#   - DEV_VPS_USER: SSH username
+#   - DEV_VPS_SSH_KEY: SSH private key (masked, file type)
+#   - DEV_VPS_PORT: SSH port (default: 22)
+#   - DEV_UPLOADS_STORAGE_DIR: Directory for uploads storage
+#   - DEV_MONGODB_DATA_DIR: Directory for MongoDB data persistence
+#   - DEV_MONGODB_DATABASE: MongoDB database name (URI is auto-generated)
+#   - DEV_MONGODB_USER: MongoDB username (for authentication)
+#   - DEV_MONGODB_PASSWORD: MongoDB password (masked, for authentication)
+#     ⚠ IMPORTANT: Avoid special characters @ : / in passwords, or use URL encoding
+#   - DEV_FE_VITE_API_URL: Frontend API URL
+#   - DEV_FE_VITE_GEMINI_API_KEY: Gemini API key
+#   - DEV_BE_JWT_SECRET: JWT secret
+#   - DEV_BE_GOOGLE_CLIENT_ID, DEV_BE_GOOGLE_CLIENT_SECRET, DEV_BE_GOOGLE_CALLBACK_URL
+#   - DEV_BE_OIDC_ISSUER: OIDC issuer URL (auto-discovers endpoints from .well-known/openid-configuration)
+#   - DEV_BE_OIDC_CLIENT_ID: OIDC client ID (public client, no secret required)
+#   - DEV_BE_OIDC_CALLBACK_URL: OIDC callback URL (environment-specific)
+#   - DEV_BE_FRONTEND_URL: Frontend URL
+#
+# TEST Environment (prefix: TEST_):
+#   (Same variables as DEV with TEST_ prefix)
+#
+# PROD Environment (prefix: PROD_):
+#   (Same variables as DEV with PROD_ prefix)
+#
+# Docker Network Architecture:
+#   - Each environment uses an isolated Docker network (tasker-network-{env})
+#   - MongoDB and Backend containers communicate via the Docker network
+#   - MongoDB is NOT exposed to the host (more secure)
+#   - Backend connects to MongoDB using container name (e.g., tasker-mongodb-prod)
+#   - Frontend and Backend are exposed to host via port mappings
+
+# Workflow rules - run on dev, test, or master branches
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "dev"
+      variables:
+        ENVIRONMENT: "dev"
+        FRONTEND_PORT: "6000"
+        BACKEND_PORT: "6001"
+    - if: $CI_COMMIT_BRANCH == "test"
+      variables:
+        ENVIRONMENT: "test"
+        FRONTEND_PORT: "7000"
+        BACKEND_PORT: "7001"
+    - if: $CI_COMMIT_BRANCH == "master"
+      variables:
+        ENVIRONMENT: "prod"
+        FRONTEND_PORT: "6000"
+        BACKEND_PORT: "6001"
+
+stages:
+  - build-and-push
+  - pull
+  - deploy
+
+# ============================================
+# Template: Docker build job
+# ============================================
+.docker-job:
+  image: docker:latest
+  services:
+    - docker:dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  before_script:
+    # Dynamically set registry credentials based on environment
+    - |
+      if [ "$ENVIRONMENT" = "dev" ]; then
+        export REGISTRY=$DEV_REGISTRY
+        export REGISTRY_USER=$DEV_REGISTRY_USER
+        export REGISTRY_PASSWORD=$DEV_REGISTRY_PASSWORD
+      elif [ "$ENVIRONMENT" = "test" ]; then
+        export REGISTRY=$TEST_REGISTRY
+        export REGISTRY_USER=$TEST_REGISTRY_USER
+        export REGISTRY_PASSWORD=$TEST_REGISTRY_PASSWORD
+      elif [ "$ENVIRONMENT" = "prod" ]; then
+        export REGISTRY=$PROD_REGISTRY
+        export REGISTRY_USER=$PROD_REGISTRY_USER
+        export REGISTRY_PASSWORD=$PROD_REGISTRY_PASSWORD
+      fi
+    # Strip http:// or https:// from registry URL (Docker doesn't accept protocols in image references)
+    - export REGISTRY=$(echo "$REGISTRY" | sed -e 's|^https\?://||')
+    - echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
+
+# ============================================
+# Build and push frontend
+# ============================================
+build-frontend:
+  extends: .docker-job
+  stage: build-and-push
+  script:
+    - echo "Building frontend for $ENVIRONMENT environment..."
+    - export IMAGE_NAME="tasker-frontend-${ENVIRONMENT}"
+    - >
+      docker build
+      --no-cache
+      -f frontend.Dockerfile
+      -t $IMAGE_NAME:latest
+      .
+    - echo "Tagging for registry..."
+    - docker tag $IMAGE_NAME:latest $REGISTRY/$IMAGE_NAME:latest
+    - echo "Pushing frontend image..."
+    - docker push $REGISTRY/$IMAGE_NAME:latest
+
+# ============================================
+# Build and push backend
+# ============================================
+build-backend:
+  extends: .docker-job
+  stage: build-and-push
+  script:
+    - echo "Building backend for $ENVIRONMENT environment..."
+    - export IMAGE_NAME="tasker-backend-${ENVIRONMENT}"
+    - >
+      docker build
+      -f backend/Dockerfile
+      -t $IMAGE_NAME:latest
+      ./backend
+    - echo "Tagging for registry..."
+    - docker tag $IMAGE_NAME:latest $REGISTRY/$IMAGE_NAME:latest
+    - echo "Pushing backend image..."
+    - docker push $REGISTRY/$IMAGE_NAME:latest
+
+# ============================================
+# Template: SSH to VPS
+# ============================================
+.ssh-job:
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh-client
+    - eval $(ssh-agent -s)
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    # Dynamically set VPS credentials based on environment
+    - |
+      if [ "$ENVIRONMENT" = "dev" ]; then
+        export VPS_HOST=$DEV_VPS_HOST
+        export VPS_USER=$DEV_VPS_USER
+        export VPS_SSH_KEY=$DEV_VPS_SSH_KEY
+        export VPS_PORT=$DEV_VPS_PORT
+        export REGISTRY=$DEV_REGISTRY
+        export REGISTRY_USER=$DEV_REGISTRY_USER
+        export REGISTRY_PASSWORD=$DEV_REGISTRY_PASSWORD
+      elif [ "$ENVIRONMENT" = "test" ]; then
+        export VPS_HOST=$TEST_VPS_HOST
+        export VPS_USER=$TEST_VPS_USER
+        export VPS_SSH_KEY=$TEST_VPS_SSH_KEY
+        export VPS_PORT=$TEST_VPS_PORT
+        export REGISTRY=$TEST_REGISTRY
+        export REGISTRY_USER=$TEST_REGISTRY_USER
+        export REGISTRY_PASSWORD=$TEST_REGISTRY_PASSWORD
+      elif [ "$ENVIRONMENT" = "prod" ]; then
+        export VPS_HOST=$PROD_VPS_HOST
+        export VPS_USER=$PROD_VPS_USER
+        export VPS_SSH_KEY=$PROD_VPS_SSH_KEY
+        export VPS_PORT=$PROD_VPS_PORT
+        export REGISTRY=$PROD_REGISTRY
+        export REGISTRY_USER=$PROD_REGISTRY_USER
+        export REGISTRY_PASSWORD=$PROD_REGISTRY_PASSWORD
+      fi
+    # Strip http:// or https:// from registry URL (Docker doesn't accept protocols in image references)
+    - export REGISTRY=$(echo "$REGISTRY" | sed -e 's|^https\?://||')
+    - echo "$VPS_SSH_KEY" | base64 -d > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-add ~/.ssh/id_rsa
+    - ssh-keyscan -p $VPS_PORT -H $VPS_HOST >> ~/.ssh/known_hosts
+    - echo -e "Host $VPS_HOST\n  StrictHostKeyChecking accept-new\n  BatchMode yes" >> ~/.ssh/config
+
+# ============================================
+# Pull images on VPS
+# ============================================
+pull:
+  extends: .ssh-job
+  stage: pull
+  needs:
+    - build-frontend
+    - build-backend
+  script:
+    - echo "Pulling images on VPS for $ENVIRONMENT environment..."
+    - export FRONTEND_IMAGE="tasker-frontend-${ENVIRONMENT}"
+    - export BACKEND_IMAGE="tasker-backend-${ENVIRONMENT}"
+    - |
+      ssh -p $VPS_PORT $VPS_USER@$VPS_HOST << EOF
+        echo "Logging in to registry..."
+        echo '$REGISTRY_PASSWORD' | docker login '$REGISTRY' -u '$REGISTRY_USER' --password-stdin
+        echo "Pulling frontend image..."
+        docker pull $REGISTRY/$FRONTEND_IMAGE:latest
+        echo "Pulling backend image..."
+        docker pull $REGISTRY/$BACKEND_IMAGE:latest
+        echo "Pull completed!"
+      EOF
+
+# ============================================
+# Deploy containers on VPS
+# ============================================
+deploy:
+  extends: .ssh-job
+  stage: deploy
+  needs:
+    - pull
+  script:
+    - echo "Deploying containers for $ENVIRONMENT environment..."
+    - export FRONTEND_IMAGE="tasker-frontend-${ENVIRONMENT}"
+    - export BACKEND_IMAGE="tasker-backend-${ENVIRONMENT}"
+    - export FRONTEND_CONTAINER="tasker-frontend-${ENVIRONMENT}"
+    - export BACKEND_CONTAINER="tasker-backend-${ENVIRONMENT}"
+    # Set environment-specific variables
+    - |
+      if [ "$ENVIRONMENT" = "dev" ]; then
+        export UPLOADS_STORAGE_DIR=$DEV_UPLOADS_STORAGE_DIR
+        export MONGODB_DATA_DIR=$DEV_MONGODB_DATA_DIR
+        export MONGODB_DATABASE=$DEV_MONGODB_DATABASE
+        export MONGODB_USER=$DEV_MONGODB_USER
+        export MONGODB_PASSWORD=$DEV_MONGODB_PASSWORD
+        export BE_MONGODB_URI="mongodb://$MONGODB_USER:$MONGODB_PASSWORD@tasker-mongodb-dev:27017/$MONGODB_DATABASE?authSource=admin"
+        export FE_VITE_API_URL=$DEV_FE_VITE_API_URL
+        export FE_VITE_GEMINI_API_KEY=$DEV_FE_VITE_GEMINI_API_KEY
+        export BE_JWT_SECRET=$DEV_BE_JWT_SECRET
+        export BE_GOOGLE_CLIENT_ID=$DEV_BE_GOOGLE_CLIENT_ID
+        export BE_GOOGLE_CLIENT_SECRET=$DEV_BE_GOOGLE_CLIENT_SECRET
+        export BE_GOOGLE_CALLBACK_URL=$DEV_BE_GOOGLE_CALLBACK_URL
+        export BE_OIDC_ISSUER=$DEV_BE_OIDC_ISSUER
+        export BE_OIDC_CLIENT_ID=$DEV_BE_OIDC_CLIENT_ID
+        export BE_OIDC_CALLBACK_URL=$DEV_BE_OIDC_CALLBACK_URL
+        export BE_FRONTEND_URL=$DEV_BE_FRONTEND_URL
+      elif [ "$ENVIRONMENT" = "test" ]; then
+        export UPLOADS_STORAGE_DIR=$TEST_UPLOADS_STORAGE_DIR
+        export MONGODB_DATA_DIR=$TEST_MONGODB_DATA_DIR
+        export MONGODB_DATABASE=$TEST_MONGODB_DATABASE
+        export MONGODB_USER=$TEST_MONGODB_USER
+        export MONGODB_PASSWORD=$TEST_MONGODB_PASSWORD
+        export BE_MONGODB_URI="mongodb://$MONGODB_USER:$MONGODB_PASSWORD@tasker-mongodb-test:27017/$MONGODB_DATABASE?authSource=admin"
+        export FE_VITE_API_URL=$TEST_FE_VITE_API_URL
+        export FE_VITE_GEMINI_API_KEY=$TEST_FE_VITE_GEMINI_API_KEY
+        export BE_JWT_SECRET=$TEST_BE_JWT_SECRET
+        export BE_GOOGLE_CLIENT_ID=$TEST_BE_GOOGLE_CLIENT_ID
+        export BE_GOOGLE_CLIENT_SECRET=$TEST_BE_GOOGLE_CLIENT_SECRET
+        export BE_GOOGLE_CALLBACK_URL=$TEST_BE_GOOGLE_CALLBACK_URL
+        export BE_OIDC_ISSUER=$TEST_BE_OIDC_ISSUER
+        export BE_OIDC_CLIENT_ID=$TEST_BE_OIDC_CLIENT_ID
+        export BE_OIDC_CALLBACK_URL=$TEST_BE_OIDC_CALLBACK_URL
+        export BE_FRONTEND_URL=$TEST_BE_FRONTEND_URL
+      elif [ "$ENVIRONMENT" = "prod" ]; then
+        export UPLOADS_STORAGE_DIR=$PROD_UPLOADS_STORAGE_DIR
+        export MONGODB_DATA_DIR=$PROD_MONGODB_DATA_DIR
+        export MONGODB_DATABASE=$PROD_MONGODB_DATABASE
+        export MONGODB_USER=$PROD_MONGODB_USER
+        export MONGODB_PASSWORD=$PROD_MONGODB_PASSWORD
+        export BE_MONGODB_URI="mongodb://$MONGODB_USER:$MONGODB_PASSWORD@tasker-mongodb-prod:27017/$MONGODB_DATABASE?authSource=admin"
+        export FE_VITE_API_URL=$PROD_FE_VITE_API_URL
+        export FE_VITE_GEMINI_API_KEY=$PROD_FE_VITE_GEMINI_API_KEY
+        export BE_JWT_SECRET=$PROD_BE_JWT_SECRET
+        export BE_GOOGLE_CLIENT_ID=$PROD_BE_GOOGLE_CLIENT_ID
+        export BE_GOOGLE_CLIENT_SECRET=$PROD_BE_GOOGLE_CLIENT_SECRET
+        export BE_GOOGLE_CALLBACK_URL=$PROD_BE_GOOGLE_CALLBACK_URL
+        export BE_OIDC_ISSUER=$PROD_BE_OIDC_ISSUER
+        export BE_OIDC_CLIENT_ID=$PROD_BE_OIDC_CLIENT_ID
+        export BE_OIDC_CALLBACK_URL=$PROD_BE_OIDC_CALLBACK_URL
+        export BE_FRONTEND_URL=$PROD_BE_FRONTEND_URL
+      fi
+    - |
+      ssh -p $VPS_PORT $VPS_USER@$VPS_HOST << SSHEOF
+        set -e
+        echo "============================================"
+        echo "Deploying $ENVIRONMENT environment with zero downtime..."
+        echo "============================================"
+        
+        # Create Docker network if it doesn't exist
+        echo "Creating Docker network..."
+        docker network create tasker-network-$ENVIRONMENT 2>/dev/null || true
+        
+        # Create required directories (without sudo)
+        echo "Creating required directories..."
+        mkdir -p ~/$UPLOADS_STORAGE_DIR/uploads
+        mkdir -p $MONGODB_DATA_DIR 2>/dev/null || {
+          echo "Warning: Could not create MongoDB data directory at $MONGODB_DATA_DIR"
+          echo "Please ensure this directory exists and has proper permissions"
+          exit 1
+        }
+        
+        # ============================================
+        # MongoDB Setup with Authentication
+        # ============================================
+        echo "Checking MongoDB container..."
+        if ! docker ps -q -f name=tasker-mongodb-$ENVIRONMENT | grep -q .; then
+          echo "MongoDB container not running. Starting new MongoDB with authentication..."
+          docker rm -f tasker-mongodb-$ENVIRONMENT 2>/dev/null || true
+          docker run -d \
+            --name tasker-mongodb-$ENVIRONMENT \
+            --network tasker-network-$ENVIRONMENT \
+            -e MONGO_INITDB_ROOT_USERNAME='$MONGODB_USER' \
+            -e MONGO_INITDB_ROOT_PASSWORD='$MONGODB_PASSWORD' \
+            -e MONGO_INITDB_DATABASE='$MONGODB_DATABASE' \
+            -v $MONGODB_DATA_DIR:/data/db \
+            --restart unless-stopped \
+            mongo:8
+          
+          echo "Waiting for MongoDB to initialize (30 seconds)..."
+          sleep 10
+          for i in \$(seq 1 20); do
+            if docker exec tasker-mongodb-$ENVIRONMENT mongosh --eval "db.adminCommand('ping')" --quiet > /dev/null 2>&1; then
+              echo "MongoDB is ready!"
+              break
+            fi
+            echo "Waiting for MongoDB... (\$i/20)"
+            sleep 1
+          done
+        else
+          echo "MongoDB container already running and healthy"
+        fi
+        
+        # ============================================
+        # Blue-Green Deployment Strategy
+        # ============================================
+        echo "Starting blue-green deployment..."
+        TIMESTAMP=\$(date +%s)
+        NEW_FRONTEND="$FRONTEND_CONTAINER-new-\$TIMESTAMP"
+        NEW_BACKEND="$BACKEND_CONTAINER-new-\$TIMESTAMP"
+        
+        # ============================================
+        # Test Frontend (without port mapping)
+        # ============================================
+        echo "Testing new frontend container..."
+        docker run -d \
+          --name \$NEW_FRONTEND \
+          -e VITE_API_URL='$FE_VITE_API_URL' \
+          -e VITE_GEMINI_API_KEY='$FE_VITE_GEMINI_API_KEY' \
+          $REGISTRY/$FRONTEND_IMAGE:latest
+        
+        echo "Waiting for frontend to be ready..."
+        sleep 5
+        FRONTEND_HEALTHY=false
+        for i in \$(seq 1 15); do
+          # Check if container is still running and nginx process exists
+          if docker ps --filter "name=\$NEW_FRONTEND" --filter "status=running" | grep -q \$NEW_FRONTEND && \
+             docker exec \$NEW_FRONTEND sh -c 'ps aux | grep "[n]ginx"' >/dev/null 2>&1; then
+            echo "✓ Frontend health check passed!"
+            FRONTEND_HEALTHY=true
+            break
+          fi
+          echo "  Waiting for frontend... (\$i/15)"
+          sleep 2
+        done
+        
+        if [ "\$FRONTEND_HEALTHY" = "false" ]; then
+          echo "ERROR: Frontend failed health check!"
+          docker logs --tail 30 \$NEW_FRONTEND
+          docker rm -f \$NEW_FRONTEND
+          exit 1
+        fi
+        
+        # ============================================
+        # Test Backend (without exposed port)
+        # ============================================
+        echo "Testing new backend container..."
+        docker run -d \
+          --name \$NEW_BACKEND \
+          --network tasker-network-$ENVIRONMENT \
+          -e MONGODB_URI='$BE_MONGODB_URI' \
+          -e JWT_SECRET='$BE_JWT_SECRET' \
+          -e GOOGLE_CLIENT_ID='$BE_GOOGLE_CLIENT_ID' \
+          -e GOOGLE_CLIENT_SECRET='$BE_GOOGLE_CLIENT_SECRET' \
+          -e GOOGLE_CALLBACK_URL='$BE_GOOGLE_CALLBACK_URL' \
+          -e OIDC_ISSUER='$BE_OIDC_ISSUER' \
+          -e OIDC_CLIENT_ID='$BE_OIDC_CLIENT_ID' \
+          -e OIDC_CALLBACK_URL='$BE_OIDC_CALLBACK_URL' \
+          -e FRONTEND_URL='$BE_FRONTEND_URL' \
+          -v ~/$UPLOADS_STORAGE_DIR/uploads:/app/uploads \
+          $REGISTRY/$BACKEND_IMAGE:latest
+        
+        echo "Waiting for backend to be ready..."
+        sleep 8
+        BACKEND_HEALTHY=false
+        for i in \$(seq 1 30); do
+          # Check if container is running and node process exists
+          if docker ps --filter "name=\$NEW_BACKEND" --filter "status=running" | grep -q \$NEW_BACKEND && \
+             docker exec \$NEW_BACKEND sh -c 'ps aux | grep "[n]ode"' >/dev/null 2>&1; then
+            echo "✓ Backend health check passed!"
+            BACKEND_HEALTHY=true
+            break
+          fi
+          echo "  Waiting for backend... (\$i/30)"
+          sleep 2
+        done
+        
+        if [ "\$BACKEND_HEALTHY" = "false" ]; then
+          echo "ERROR: Backend health check failed!"
+          docker logs --tail 30 \$NEW_BACKEND
+          docker rm -f \$NEW_FRONTEND \$NEW_BACKEND
+          exit 1
+        fi
+        
+        # ============================================
+        # Cutover: Stop old, start new
+        # ============================================
+        echo "Performing cutover (minimal downtime)..."
+        
+        # Stop and remove old containers
+        echo "Stopping old containers..."
+        docker stop $FRONTEND_CONTAINER $BACKEND_CONTAINER 2>/dev/null || true
+        docker rm $FRONTEND_CONTAINER $BACKEND_CONTAINER 2>/dev/null || true
+        
+        # Remove test containers
+        docker stop \$NEW_FRONTEND \$NEW_BACKEND
+        docker rm \$NEW_FRONTEND \$NEW_BACKEND
+        
+        # Start new containers with proper configuration and port mappings
+        echo "Starting new frontend with port mapping..."
+        docker run -d \
+          --name $FRONTEND_CONTAINER \
+          -e VITE_API_URL='$FE_VITE_API_URL' \
+          -e VITE_GEMINI_API_KEY='$FE_VITE_GEMINI_API_KEY' \
+          -p $FRONTEND_PORT:8080 \
+          --restart unless-stopped \
+          $REGISTRY/$FRONTEND_IMAGE:latest
+        
+        echo "Starting new backend with port mapping..."
+        docker run -d \
+          --name $BACKEND_CONTAINER \
+          --network tasker-network-$ENVIRONMENT \
+          -e MONGODB_URI='$BE_MONGODB_URI' \
+          -e JWT_SECRET='$BE_JWT_SECRET' \
+          -e GOOGLE_CLIENT_ID='$BE_GOOGLE_CLIENT_ID' \
+          -e GOOGLE_CLIENT_SECRET='$BE_GOOGLE_CLIENT_SECRET' \
+          -e GOOGLE_CALLBACK_URL='$BE_GOOGLE_CALLBACK_URL' \
+          -e OIDC_ISSUER='$BE_OIDC_ISSUER' \
+          -e OIDC_CLIENT_ID='$BE_OIDC_CLIENT_ID' \
+          -e OIDC_CALLBACK_URL='$BE_OIDC_CALLBACK_URL' \
+          -e FRONTEND_URL='$BE_FRONTEND_URL' \
+          -v ~/$UPLOADS_STORAGE_DIR/uploads:/app/uploads \
+          -p $BACKEND_PORT:8080 \
+          --restart unless-stopped \
+          $REGISTRY/$BACKEND_IMAGE:latest
+        
+        echo "✓ Cutover completed!"
+        
+        # Final health check
+        echo "Performing final health checks..."
+        sleep 3
+        if docker ps --filter name=$FRONTEND_CONTAINER --filter status=running | grep -q $FRONTEND_CONTAINER && \
+           docker ps --filter name=$BACKEND_CONTAINER --filter status=running | grep -q $BACKEND_CONTAINER; then
+          echo "✓ All containers running successfully!"
+        else
+          echo "WARNING: Some containers may not be running properly"
+          docker ps --filter name=tasker-$ENVIRONMENT
+        fi
+        
+        # ============================================
+        # Cleanup old images
+        # ============================================
+        echo "Cleaning up old Docker images..."
+        
+        # Remove dangling images
+        DANGLING_IMAGES=\$(docker images -f "dangling=true" -q)
+        if [ -n "\$DANGLING_IMAGES" ]; then
+          echo "Removing dangling images..."
+          echo "\$DANGLING_IMAGES" | xargs docker rmi 2>/dev/null || true
+        fi
+        
+        # Remove old tagged images (keep latest and current)
+        echo "Removing old tagged images for $ENVIRONMENT environment..."
+        docker images "$REGISTRY/tasker-frontend-$ENVIRONMENT" --format "{{.ID}} {{.Tag}}" | \
+          grep -v "latest" | awk '{print $1}' | \
+          xargs -r docker rmi 2>/dev/null || true
+        docker images "$REGISTRY/tasker-backend-$ENVIRONMENT" --format "{{.ID}} {{.Tag}}" | \
+          grep -v "latest" | awk '{print $1}' | \
+          xargs -r docker rmi 2>/dev/null || true
+        
+        echo "============================================"
+        echo "Deployment completed successfully for $ENVIRONMENT!"
+        echo "============================================"
+        docker ps --filter name=tasker-$ENVIRONMENT --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+      SSHEOF

@@ -122,7 +122,11 @@ export const JobApplicants: React.FC = () => {
                     <span
                       className={`px-3 py-1.5 inline-flex text-[9px] font-black rounded-xl uppercase tracking-widest border ${getStatusStyle(app.status)}`}
                     >
-                      {app.status}
+                      {app.status === "Accepted"
+                        ? "Offer Accepted"
+                        : app.status === "Declined"
+                          ? "Offer Declined"
+                          : app.status}
                     </span>
                   </td>
                   <td className="px-8 py-4 whitespace-nowrap text-right text-sm font-medium">

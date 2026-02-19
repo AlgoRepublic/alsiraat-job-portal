@@ -11,15 +11,22 @@ export interface ISkill {
 
 export interface IUser extends Document {
   name: string;
+  firstName?: string;
+  lastName?: string;
   email: string;
   password?: string;
   googleId?: string;
-  samlId?: string;
+  oidcId?: string;
   role: UserRole;
   organisation?: mongoose.Types.ObjectId;
   avatar?: string;
   about?: string;
+  contactNumber?: string;
+  gender?: "Male" | "Female";
+  yearLevel?: string;
   skills: ISkill[];
+  resumeUrl?: string;
+  resumeOriginalName?: string;
   resetPasswordToken?: string | undefined;
   resetPasswordExpires?: Date | undefined;
   createdAt: Date;
@@ -39,10 +46,12 @@ const SkillSchema = new Schema({
 const UserSchema: Schema = new Schema(
   {
     name: { type: String, required: true },
+    firstName: { type: String },
+    lastName: { type: String },
     email: { type: String, required: true, unique: true },
     password: { type: String },
     googleId: { type: String },
-    samlId: { type: String },
+    oidcId: { type: String },
     role: {
       type: String,
       enum: Object.values(UserRole),
@@ -52,6 +61,14 @@ const UserSchema: Schema = new Schema(
     organisation: { type: Schema.Types.ObjectId, ref: "Organization" },
     avatar: { type: String },
     about: { type: String },
+    contactNumber: { type: String },
+    gender: {
+      type: String,
+      enum: ["Male", "Female"],
+    },
+    yearLevel: { type: String },
+    resumeUrl: { type: String },
+    resumeOriginalName: { type: String },
     skills: [SkillSchema],
     resetPasswordToken: { type: String },
     resetPasswordExpires: { type: Date },

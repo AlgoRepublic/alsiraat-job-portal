@@ -269,14 +269,32 @@ export const confirmOffer = async (req: any, res: Response) => {
     await app.save();
 
     const task: any = app.task;
-    // Notify task owner
+    const notificationTitle = "🎉 Offer Accepted!";
+    const notificationMsg = `${req.user.name} has accepted the offer for "${task.title}".`;
+    const notificationLink = `/application/${app._id}`;
+
+    // Notify task creator (Task Manager / School Admin who issued the offer)
     await sendNotification(
       task.createdBy.toString(),
-      "Offer Accepted",
-      `${req.user.name} has accepted the offer for "${task.title}".`,
+      notificationTitle,
+      notificationMsg,
       "success",
-      `/application/${app._id}`,
+      notificationLink,
     );
+
+    // Also notify the task advertiser if they are a different person
+    if (
+      task.advertiser &&
+      task.advertiser.toString() !== task.createdBy.toString()
+    ) {
+      await sendNotification(
+        task.advertiser.toString(),
+        notificationTitle,
+        notificationMsg,
+        "success",
+        notificationLink,
+      );
+    }
 
     res.json(app);
   } catch (err: any) {

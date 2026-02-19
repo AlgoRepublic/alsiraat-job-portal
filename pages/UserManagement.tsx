@@ -5,14 +5,22 @@ import {
   Users,
   Search,
   Filter,
-  MoreVertical,
-  UserPen,
   Trash2,
   Shield,
   UserCircle,
+  Pencil,
+  X,
+  Save,
 } from "lucide-react";
 
 import { Loading } from "../components/Loading";
+import { CustomDropdown } from "../components/CustomUI";
+
+interface EditForm {
+  name: string;
+  email: string;
+  role: string;
+}
 
 export const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
@@ -20,7 +28,16 @@ export const UserManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
-  const { toast } = useToast();
+  const { showSuccess, showError } = useToast();
+
+  // Edit modal state
+  const [editingUser, setEditingUser] = useState<any | null>(null);
+  const [editForm, setEditForm] = useState<EditForm>({
+    name: "",
+    email: "",
+    role: "",
+  });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -36,30 +53,42 @@ export const UserManagement: React.FC = () => {
       setUsers(usersData);
       setRoles(rolesData);
     } catch (err) {
-      toast({
-        title: "Error",
-        description: "Failed to fetch users or roles",
-        variant: "destructive",
-      });
+      showError("Failed to fetch users or roles");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRoleChange = async (userId: string, roleId: string) => {
+  const openEditModal = (user: any) => {
+    setEditingUser(user);
+    setEditForm({
+      name: user.name || "",
+      email: user.email || "",
+      role: user.role || "",
+    });
+  };
+
+  const closeEditModal = () => {
+    setEditingUser(null);
+    setSaving(false);
+  };
+
+  const handleSaveUser = async () => {
+    if (!editingUser) return;
+    setSaving(true);
     try {
-      await db.updateUserRole(userId, roleId);
-      toast({
-        title: "Success",
-        description: "User role updated successfully",
+      await db.updateUser(editingUser._id, {
+        name: editForm.name,
+        email: editForm.email,
+        role: editForm.role,
       });
+      showSuccess("User updated successfully");
+      closeEditModal();
       fetchData();
-    } catch (err) {
-      toast({
-        title: "Error",
-        description: "Failed to update user role",
-        variant: "destructive",
-      });
+    } catch (err: any) {
+      showError(err?.data?.message || err?.message || "Failed to update user");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -73,35 +102,28 @@ export const UserManagement: React.FC = () => {
 
     try {
       await db.deleteUser(userId);
-      toast({
-        title: "Success",
-        description: "User deleted successfully",
-      });
+      showSuccess("User deleted successfully");
       fetchData();
-    } catch (err) {
-      toast({
-        title: "Error",
-        description: "Failed to delete user",
-        variant: "destructive",
-      });
+    } catch (err: any) {
+      showError(err?.data?.message || err?.message || "Failed to delete user");
     }
   };
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tighter">
+          <h2 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
             User Management
-          </h1>
-          <p className="text-zinc-500 font-medium mt-2">
-            Manage your community and assign roles
+          </h2>
+          <p className="text-zinc-500 font-medium mt-1">
+            Manage your community and assign system roles
           </p>
         </div>
       </div>
 
-      <div className="grid md:grid-cols-4 gap-6">
-        <div className="md:col-span-3 space-y-6">
+      <div className="grid grid-cols-1 gap-6">
+        <div className="space-y-6">
           {/* Controls */}
           <div className="flex flex-col sm:flex-row gap-4 bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800">
             <div className="relative flex-1">
@@ -114,20 +136,17 @@ export const UserManagement: React.FC = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <div className="relative">
-              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
-              <select
-                className="pl-10 pr-8 py-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-primary outline-none font-medium text-sm transition-all appearance-none"
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
-              >
-                <option value="">All Roles</option>
-                {roles.map((role) => (
-                  <option key={role._id} value={role.name}>
-                    {role.name}
-                  </option>
-                ))}
-              </select>
+            <div className="min-w-[200px]">
+              <CustomDropdown
+                options={[{ name: "All Roles" }, ...roles]}
+                value={roleFilter || "All Roles"}
+                onChange={(val) =>
+                  setRoleFilter(val === "All Roles" ? "" : val)
+                }
+                placeholder="All Roles"
+                variant="outline"
+                icon={<Filter className="w-4 h-4 text-zinc-400" />}
+              />
             </div>
           </div>
 
@@ -192,33 +211,27 @@ export const UserManagement: React.FC = () => {
                           {(user as any).organisation?.name || "Independent"}
                         </td>
                         <td className="px-6 py-5">
-                          <div className="flex items-center gap-2">
-                            <select
-                              className="bg-transparent border-none p-0 text-sm font-black text-primary hover:underline cursor-pointer focus:ring-0 outline-none"
-                              value={
-                                roles.find((r) => r.name === user.role)?._id ||
-                                ""
-                              }
-                              onChange={(e) =>
-                                handleRoleChange(user._id, e.target.value)
-                              }
-                            >
-                              {roles.map((role) => (
-                                <option key={role._id} value={role._id}>
-                                  {role.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
+                          <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-black rounded-lg uppercase tracking-wider">
+                            {user.role}
+                          </span>
                         </td>
                         <td className="px-6 py-5 text-right">
-                          <button
-                            onClick={() => handleDeleteUser(user._id)}
-                            className="p-2 text-zinc-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
-                            title="Delete User"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => openEditModal(user)}
+                              className="p-2 text-zinc-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
+                              title="Edit User"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteUser(user._id)}
+                              className="p-2 text-zinc-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                              title="Delete User"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -228,32 +241,110 @@ export const UserManagement: React.FC = () => {
             )}
           </div>
         </div>
+      </div>
 
-        {/* Sidebar Info */}
-        <div className="space-y-6">
-          <div className="p-8 rounded-[2rem] bg-zinc-900 text-white relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]"></div>
-            <div className="relative z-10">
-              <Shield className="w-10 h-10 text-primary mb-6" />
-              <h3 className="text-xl font-black tracking-tighter mb-2">
-                Access Control
-              </h3>
-              <p className="text-sm text-zinc-400 font-medium leading-relaxed">
-                Roles define what users can see and do. Changing a user's role
-                takes effect immediately.
-              </p>
-              <div className="mt-8 pt-6 border-t border-white/10">
-                <div className="text-3xl font-black text-white">
-                  {users.length}
+      {/* Edit User Modal */}
+      {editingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-zinc-900 w-full max-w-md rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 animate-scale-in">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-zinc-100 dark:border-zinc-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <UserCircle className="w-5 h-5 text-primary" />
                 </div>
-                <div className="text-xs font-black uppercase tracking-widest text-primary mt-1">
-                  Total Users
+                <div>
+                  <h3 className="text-lg font-black text-zinc-900 dark:text-white">
+                    Edit User
+                  </h3>
+                  <p className="text-xs text-zinc-400 font-medium">
+                    Update profile details and role
+                  </p>
                 </div>
               </div>
+              <button
+                onClick={closeEditModal}
+                className="p-2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5">
+              {/* Name */}
+              <div>
+                <label className="block text-xs font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest mb-2">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, name: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-medium text-zinc-900 dark:text-white focus:ring-2 focus:ring-primary focus:outline-none transition-all"
+                  placeholder="Full name"
+                />
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="block text-xs font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest mb-2">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, email: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-medium text-zinc-900 dark:text-white focus:ring-2 focus:ring-primary focus:outline-none transition-all"
+                  placeholder="email@example.com"
+                />
+              </div>
+
+              {/* Role */}
+              <div>
+                <label className="block text-xs font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest mb-2">
+                  System Role
+                </label>
+                <select
+                  value={editForm.role}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, role: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-medium text-zinc-900 dark:text-white focus:ring-2 focus:ring-primary focus:outline-none transition-all appearance-none"
+                >
+                  {roles.map((r) => (
+                    <option key={r._id} value={r.name}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end gap-3 p-6 border-t border-zinc-100 dark:border-zinc-800">
+              <button
+                onClick={closeEditModal}
+                className="px-5 py-2.5 text-sm font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveUser}
+                disabled={saving || !editForm.name || !editForm.email}
+                className="flex items-center px-5 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primaryHover shadow-lg shadow-primary/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Save className="w-4 h-4 mr-2" />
+                {saving ? "Saving..." : "Save Changes"}
+              </button>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

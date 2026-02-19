@@ -119,20 +119,26 @@ export const ApplicationReview: React.FC = () => {
     switch (status) {
       case "Approved":
       case "Offer Accepted":
-        return "bg-green-100 text-green-800";
+        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
       case "Rejected":
       case "Declined":
       case "Offer Declined":
-        return "bg-red-100 text-red-800";
+        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
       case "Offered":
-        return "bg-purple-100 text-purple-800";
+        return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400";
       case "Accepted":
-        return "bg-emerald-100 text-emerald-800";
+        return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400";
       case "Shortlisted":
-        return "bg-blue-100 text-blue-800";
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
       default:
-        return "bg-yellow-100 text-yellow-800";
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400";
     }
+  };
+
+  const getStatusLabel = (status: string) => {
+    if (status === "Accepted") return "Offer Accepted";
+    if (status === "Declined") return "Offer Declined";
+    return status;
   };
 
   return (
@@ -172,7 +178,7 @@ export const ApplicationReview: React.FC = () => {
           <span
             className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide mb-2 ${getStatusStyle(app.status)}`}
           >
-            {app.status}
+            {getStatusLabel(app.status)}
           </span>
           <p className="text-xs text-zinc-400">
             Applied on {new Date(app.appliedAt).toLocaleDateString()}

@@ -131,6 +131,14 @@ class DatabaseService {
     await api.logout();
   }
 
+  /** Complete SSO login after redirect: store token, fetch user, store user_data. */
+  async completeSSOLogin(token: string): Promise<User> {
+    api.setToken(token);
+    const { user } = await api.getMe();
+    localStorage.setItem("user_data", JSON.stringify(user));
+    return user as User;
+  }
+
   async getCurrentUser(): Promise<User | null> {
     const stored = localStorage.getItem("user_data");
     if (stored) {
@@ -156,6 +164,47 @@ class DatabaseService {
     });
     localStorage.setItem("user_data", JSON.stringify(response.user));
     return response.user;
+  }
+
+  async uploadResume(
+    file: File,
+  ): Promise<{ resumeUrl: string; resumeOriginalName: string }> {
+    const token = localStorage.getItem("auth_token");
+    const formData = new FormData();
+    formData.append("resume", file);
+
+    const response = await fetch(`${API_BASE_URL}/auth/upload-resume`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.message || "Failed to upload resume");
+    }
+
+    const data = await response.json();
+    // Persist the new resume info into local user_data
+    const stored = localStorage.getItem("user_data");
+    if (stored) {
+      const user = JSON.parse(stored);
+      user.resumeUrl = data.resumeUrl;
+      user.resumeOriginalName = data.resumeOriginalName;
+      localStorage.setItem("user_data", JSON.stringify(user));
+    }
+    return data;
+  }
+
+  async removeResume(): Promise<void> {
+    await api.request<any>("/auth/resume", { method: "DELETE" });
+    const stored = localStorage.getItem("user_data");
+    if (stored) {
+      const user = JSON.parse(stored);
+      delete user.resumeUrl;
+      delete user.resumeOriginalName;
+      localStorage.setItem("user_data", JSON.stringify(user));
+    }
   }
 
   async updateCurrentUserRole(role: UserRole): Promise<User> {
@@ -209,7 +258,7 @@ class DatabaseService {
 
   async approveJob(
     id: string,
-    status: "approve" | "decline" = "approve",
+    status: "approve" | "decline" | "archive" = "approve",
     rejectionReason?: string,
   ): Promise<any> {
     return await api.approveTask(id, status, rejectionReason);
@@ -312,12 +361,62 @@ class DatabaseService {
     return api.patch(`/users/${id}/role`, { roleId });
   }
 
+  async updateUser(
+    id: string,
+    data: { name?: string; email?: string; role?: string },
+  ): Promise<any> {
+    return api.put(`/users/${id}`, data);
+  }
+
   async deleteUser(id: string): Promise<any> {
     return api.delete(`/users/${id}`);
   }
 
   async getRoles(): Promise<any[]> {
     return api.getRoles();
+  }
+
+  // --- Groups ---
+  async getGroupsPublic(): Promise<any[]> {
+    try {
+      return await api.getGroupsPublic();
+    } catch (err) {
+      console.warn("Failed to fetch groups", err);
+      return [];
+    }
+  }
+
+  async getGroups(search?: string): Promise<any[]> {
+    return api.getGroups(search);
+  }
+
+  async getGroup(id: string): Promise<any> {
+    return api.getGroup(id);
+  }
+
+  async createGroup(data: {
+    name: string;
+    description?: string;
+    color?: string;
+    members?: string[];
+  }): Promise<any> {
+    return api.createGroup(data);
+  }
+
+  async updateGroup(id: string, data: any): Promise<any> {
+    return api.updateGroup(id, data);
+  }
+
+  async deleteGroup(id: string): Promise<any> {
+    return api.deleteGroup(id);
+  }
+
+  async addGroupMembers(groupId: string, userIds: string[]): Promise<any> {
+    return api.addGroupMembers(groupId, userIds);
+  }
+
+  async removeGroupMember(groupId: string, userId: string): Promise<any> {
+    return api.removeGroupMember(groupId, userId);
   }
 }
 

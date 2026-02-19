@@ -81,6 +81,7 @@ export const createTask = async (req: any, res: Response) => {
       eligibility: parseArrayField(eligibility),
       visibility: visibility || TaskVisibility.GLOBAL,
       allowedRoles: parseArrayField(req.body.allowedRoles),
+      allowedGroups: parseArrayField(req.body.allowedGroups),
       status: taskStatus,
       interviewDetails,
       createdBy: req.user._id,
@@ -218,6 +219,10 @@ export const updateTask = async (req: any, res: Response) => {
     if (rewardValue) task.rewardValue = rewardValue;
     if (eligibility) task.eligibility = parseArrayField(eligibility);
     if (visibility) task.visibility = visibility;
+    if (req.body.allowedRoles !== undefined)
+      (task as any).allowedRoles = parseArrayField(req.body.allowedRoles);
+    if (req.body.allowedGroups !== undefined)
+      (task as any).allowedGroups = parseArrayField(req.body.allowedGroups);
     if (interviewDetails) task.interviewDetails = interviewDetails;
 
     if (newAttachments.length > 0) {
@@ -259,7 +264,20 @@ export const getTasks = async (req: any, res: Response) => {
         .populate("createdBy", "name email")
         .sort({ createdAt: -1 });
 
-      return res.json(tasks);
+      // Add applicant counts for each task
+      const taskIds = tasks.map((t) => t._id);
+      const counts = await Application.aggregate([
+        { $match: { task: { $in: taskIds } } },
+        { $group: { _id: "$task", count: { $sum: 1 } } },
+      ]);
+      const countMap = new Map(counts.map((c) => [c._id.toString(), c.count]));
+
+      const tasksWithCounts = tasks.map((task) => ({
+        ...task.toObject(),
+        applicantsCount: countMap.get(task._id.toString()) || 0,
+      }));
+
+      return res.json(tasksWithCounts);
     }
 
     const { checkPermissionAsync } = await import("../middleware/rbac.js");
@@ -310,6 +328,11 @@ export const getTasks = async (req: any, res: Response) => {
       // 4. Internal tasks (if user has permission to view internal)
       // Only show from same org unless they have global read permission
       if (canViewInternal && organisation) {
+        // Fetch groups the user belongs to
+        const Group = (await import("../models/Group.js")).default;
+        const userGroups = await Group.find({ members: userId }).select("_id");
+        const userGroupIds = userGroups.map((g) => g._id);
+
         conditions.push({
           visibility: TaskVisibility.INTERNAL,
           organisation: organisation,
@@ -317,9 +340,11 @@ export const getTasks = async (req: any, res: Response) => {
             ? { $in: [TaskStatus.PUBLISHED, TaskStatus.PENDING] }
             : TaskStatus.PUBLISHED,
           $or: [
-            { allowedRoles: { $exists: false } },
-            { allowedRoles: { $size: 0 } },
-            { allowedRoles: user.role },
+            // No group restriction — visible to all internal users
+            { allowedGroups: { $exists: false } },
+            { allowedGroups: { $size: 0 } },
+            // User is in one of the allowed groups
+            { allowedGroups: { $in: userGroupIds } },
           ],
         });
       }
