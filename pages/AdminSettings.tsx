@@ -13,6 +13,7 @@ import {
   Save,
   RefreshCw,
   Lock,
+  ExternalLink,
 } from "lucide-react";
 import { Loading } from "../components/Loading";
 import { useNavigate } from "react-router-dom";
@@ -20,6 +21,8 @@ import { JobCategory, UserRole } from "../types";
 import { useToast } from "../components/Toast";
 import { API_BASE_URL } from "../services/api";
 import { GroupManagement } from "./GroupManagement";
+import { UserManagement } from "./UserManagement";
+import { ArrowLeft } from "lucide-react";
 
 interface Permission {
   _id: string;
@@ -45,8 +48,8 @@ export const AdminSettings: React.FC = () => {
   const { showSuccess, showError } = useToast();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
-    "roles" | "permissions" | "categories" | "groups"
-  >("roles");
+    "users" | "roles" | "permissions" | "categories" | "groups"
+  >("users");
 
   // Dynamic roles and permissions state
   const [roles, setRoles] = useState<Role[]>([]);
@@ -330,10 +333,15 @@ export const AdminSettings: React.FC = () => {
 
     return (
       <div className="space-y-6 animate-fade-in">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter">
-            Role Management
-          </h2>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div>
+            <h2 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
+              Role Management
+            </h2>
+            <p className="text-zinc-500 font-medium mt-1">
+              Define and configure access levels for your system
+            </p>
+          </div>
           <div className="flex gap-3">
             <button
               onClick={handleSeedDefaults}
@@ -588,19 +596,26 @@ export const AdminSettings: React.FC = () => {
 
     return (
       <div className="space-y-6 animate-fade-in">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter">
-            Permission Registry
-          </h2>
-          {!showNewPermissionForm && (
-            <button
-              onClick={() => setShowNewPermissionForm(true)}
-              className="flex items-center px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primaryHover transition-all shadow-lg shadow-primary/20"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              New Permission
-            </button>
-          )}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div>
+            <h2 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
+              Permissions
+            </h2>
+            <p className="text-zinc-500 font-medium mt-1">
+              Manage individual actions and access rights
+            </p>
+          </div>
+          <div className="flex gap-3">
+            {!showNewPermissionForm && (
+              <button
+                onClick={() => setShowNewPermissionForm(true)}
+                className="flex items-center px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primaryHover transition-all shadow-lg shadow-primary/20"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                New Permission
+              </button>
+            )}
+          </div>
         </div>
 
         {/* New Permission Form */}
@@ -804,10 +819,15 @@ export const AdminSettings: React.FC = () => {
 
   const renderCategories = () => (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter">
-          Job Categories
-        </h2>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div>
+          <h2 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
+            Category Management
+          </h2>
+          <p className="text-zinc-500 font-medium mt-1">
+            Organize and classify system categories
+          </p>
+        </div>
         <button className="flex items-center px-6 py-2.5 bg-[#812349] text-white rounded-xl text-sm font-bold hover:bg-[#6a1d3d] transition-all shadow-lg shadow-[#812349]/20">
           <Plus className="w-4 h-4 mr-2" />
           New Category
@@ -862,47 +882,72 @@ export const AdminSettings: React.FC = () => {
       </h1>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
-        <div className="space-y-3">
+        {/* Sidebar Nav */}
+        <div className="space-y-6">
           <button
-            onClick={() => setActiveTab("roles")}
-            className={`w-full flex items-center px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === "roles" ? "bg-[#812349] dark:bg-[#601a36] text-white shadow-xl shadow-[#812349]/20" : "text-zinc-500 hover:bg-white/50 dark:hover:bg-zinc-800"}`}
+            onClick={() => navigate("/dashboard")}
+            className="flex items-center text-sm font-bold text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors group mb-4"
           >
-            <Users className="w-4 h-4 mr-3" />
-            Roles
+            <ArrowLeft className="w-4 h-4 mr-2 transition-transform group-hover:-translate-x-1" />
+            Back to Dashboard
           </button>
-          <button
-            onClick={() => setActiveTab("permissions")}
-            className={`w-full flex items-center px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === "permissions" ? "bg-[#812349] dark:bg-[#601a36] text-white shadow-xl shadow-[#812349]/20" : "text-zinc-500 hover:bg-white/50 dark:hover:bg-zinc-800"}`}
-          >
-            <Shield className="w-4 h-4 mr-3" />
-            Permissions
-          </button>
-          <button
-            onClick={() => setActiveTab("categories")}
-            className={`w-full flex items-center px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === "categories" ? "bg-[#812349] dark:bg-[#601a36] text-white shadow-xl shadow-[#812349]/20" : "text-zinc-500 hover:bg-white/50 dark:hover:bg-zinc-800"}`}
-          >
-            <Layers className="w-4 h-4 mr-3" />
-            Categories
-          </button>
-          <button
-            onClick={() => setActiveTab("groups")}
-            className={`w-full flex items-center px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === "groups" ? "bg-[#812349] dark:bg-[#601a36] text-white shadow-xl shadow-[#812349]/20" : "text-zinc-500 hover:bg-white/50 dark:hover:bg-zinc-800"}`}
-          >
-            <Users className="w-4 h-4 mr-3" />
-            Groups
-          </button>
-          <div className="pt-6 border-t border-zinc-100 dark:border-zinc-800">
-            <button
-              onClick={() => navigate("/admin/users")}
-              className="w-full flex items-center px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all text-zinc-500 hover:bg-white/50 dark:hover:bg-zinc-800"
-            >
-              <Users className="w-4 h-4 mr-3" />
-              Manage Users
-            </button>
+
+          <div className="glass-card rounded-2xl border border-zinc-100 dark:border-zinc-800 overflow-hidden shadow-sm bg-white dark:bg-zinc-900/50">
+            {/* Section label */}
+            <div className="px-5 py-3 bg-zinc-50/50 dark:bg-zinc-800/30 border-b border-zinc-100 dark:border-zinc-800">
+              <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                Administration
+              </span>
+            </div>
+
+            {/* Tab items */}
+            {(
+              [
+                { key: "users", icon: Users, label: "Manage Users" },
+                { key: "roles", icon: Shield, label: "Roles" },
+                { key: "permissions", icon: Lock, label: "Permissions" },
+                { key: "categories", icon: Layers, label: "Categories" },
+                { key: "groups", icon: Users, label: "Groups" },
+              ] as const
+            ).map(({ key, icon: Icon, label }) => (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className={`w-full flex items-center justify-between px-5 py-4 text-xs font-black uppercase tracking-widest transition-all border-b border-zinc-100 dark:border-zinc-800 last:border-none relative group ${
+                  activeTab === key
+                    ? "text-primary bg-primary/5"
+                    : "text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
+                }`}
+              >
+                <div className="flex items-center relative z-10">
+                  <div
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center mr-3 transition-colors ${
+                      activeTab === key
+                        ? "bg-primary text-white"
+                        : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 group-hover:text-zinc-600"
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  {label}
+                </div>
+                {activeTab === key && (
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-full" />
+                )}
+                <ChevronRight
+                  className={`w-3.5 h-3.5 shrink-0 transition-transform ${
+                    activeTab === key
+                      ? "opacity-100 translate-x-0"
+                      : "opacity-0 -translate-x-2 group-hover:opacity-30 group-hover:translate-x-0"
+                  }`}
+                />
+              </button>
+            ))}
           </div>
         </div>
 
         <div className="md:col-span-3">
+          {activeTab === "users" && <UserManagement />}
           {activeTab === "roles" && renderRoles()}
           {activeTab === "permissions" && renderPermissions()}
           {activeTab === "categories" && renderCategories()}

@@ -239,10 +239,6 @@ const App: React.FC = () => {
                                 path="/admin/settings"
                                 element={<AdminSettings />}
                               />
-                              <Route
-                                path="/admin/users"
-                                element={<UserManagement />}
-                              />
                             </>
                           )}
                           {/* Admin and Owner routes */}

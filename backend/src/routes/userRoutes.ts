@@ -3,6 +3,7 @@ import {
   getUsers,
   getUserById,
   updateUserRole,
+  updateUser,
   deleteUser,
 } from "../controllers/userController.js";
 import {
@@ -28,6 +29,12 @@ router.get(
 );
 
 // Update/Delete require specific permissions
+router.put(
+  "/:id",
+  authenticate,
+  requirePermission(Permission.USER_MANAGE_ROLES),
+  updateUser,
+);
 router.patch(
   "/:id/role",
   authenticate,

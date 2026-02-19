@@ -197,7 +197,7 @@ class ApiService {
 
   async approveTask(
     id: string,
-    status: "approve" | "decline" = "approve",
+    status: "approve" | "decline" | "archive" = "approve",
     rejectionReason?: string,
   ): Promise<any> {
     return this.request<any>(`/tasks/${id}/approve`, {

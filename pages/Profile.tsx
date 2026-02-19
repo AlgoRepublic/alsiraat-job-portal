@@ -216,7 +216,7 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
     );
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
+    <div className="max-w-4xl mx-auto space-y-8 animate-fade-in px-4">
       {/* Hidden File Inputs */}
       <input
         type="file"
@@ -569,31 +569,32 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
               </div>
 
               {/* Actions */}
-              <div className="flex gap-2 mt-auto">
+              <div className="flex flex-col gap-2 mt-auto">
                 <a
                   href={`${import.meta.env.VITE_API_URL?.replace(/\/api$/, "") ?? "http://localhost:5001"}${profile.resumeUrl}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-primaryHover transition-all shadow-md"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-primaryHover transition-all shadow-md active:scale-[0.98]"
                 >
                   <Download className="w-3.5 h-3.5" /> View / Download
                 </a>
-                <button
-                  onClick={() =>
-                    document.getElementById("resume-upload")?.click()
-                  }
-                  className="px-4 py-2.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all"
-                  title="Replace CV"
-                >
-                  <Upload className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={handleRemoveResume}
-                  className="px-4 py-2.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-red-100 dark:hover:bg-red-900/40 transition-all"
-                  title="Remove CV"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() =>
+                      document.getElementById("resume-upload")?.click()
+                    }
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all active:scale-[0.98]"
+                  >
+                    <Upload className="w-3 h-3" /> Replace
+                  </button>
+                  <button
+                    onClick={handleRemoveResume}
+                    className="p-2.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/40 transition-all active:scale-[0.98]"
+                    title="Remove Resume"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
