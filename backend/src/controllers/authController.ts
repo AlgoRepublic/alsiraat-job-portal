@@ -82,13 +82,17 @@ export const login = async (req: Request, res: Response) => {
   // Real login is handled by passport middleware in routes
 };
 
-export const authCallback = (req: Request, res: Response) => {
+export type OAuthLoginSource = "google" | "oidc";
+
+export const authCallback = (req: Request, res: Response, source?: OAuthLoginSource) => {
   const user: any = req.user;
   const token = generateToken(user);
 
   // Redirect to frontend with token (use hash path for HashRouter: #/login?token=...)
   const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
-  res.redirect(`${frontendUrl}/#/login?token=${encodeURIComponent(token)}`);
+  const base = `${frontendUrl}/#/login?token=${encodeURIComponent(token)}`;
+  const redirectUrl = source ? `${base}&source=${source}` : base;
+  res.redirect(redirectUrl);
 };
 
 /** GET /auth/me - return current user from JWT (for SSO callback: frontend has token, needs user) */

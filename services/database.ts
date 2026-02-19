@@ -10,7 +10,7 @@ import {
   Visibility,
   FileVisibility,
 } from "../types";
-import { api, ApiError, API_BASE_URL } from "./api";
+import { api, ApiError, API_BASE_URL, LOGIN_SOURCE_KEY } from "./api";
 
 // Helper to map Backend Task to Frontend Job
 
@@ -131,11 +131,14 @@ class DatabaseService {
     await api.logout();
   }
 
-  /** Complete SSO login after redirect: store token, fetch user, store user_data. */
-  async completeSSOLogin(token: string): Promise<User> {
+  /** Complete SSO login after redirect: store token, fetch user, store user_data and optional login source. */
+  async completeSSOLogin(token: string, source?: string): Promise<User> {
     api.setToken(token);
     const { user } = await api.getMe();
     localStorage.setItem("user_data", JSON.stringify(user));
+    if (source) {
+      localStorage.setItem(LOGIN_SOURCE_KEY, source);
+    }
     return user as User;
   }
 

@@ -11,6 +11,9 @@ export const API_BASE_URL =
   (import.meta.env.VITE_API_URL as string) ||
   (import.meta.env.PROD ? "/api" : "http://localhost:5001/api");
 
+/** localStorage key for how the user signed in: "email" | "google" | "sso" */
+export const LOGIN_SOURCE_KEY = "login_source";
+
 export class ApiError extends Error {
   status: number;
   data?: any;
@@ -128,6 +131,7 @@ class ApiService {
       this.token = response.token;
       localStorage.setItem("auth_token", this.token);
       localStorage.setItem("user_data", JSON.stringify(response.user));
+      localStorage.setItem(LOGIN_SOURCE_KEY, "email");
     }
 
     return response;
@@ -143,6 +147,7 @@ class ApiService {
       this.token = response.token;
       localStorage.setItem("auth_token", this.token);
       localStorage.setItem("user_data", JSON.stringify(response.user));
+      localStorage.setItem(LOGIN_SOURCE_KEY, "email");
     }
 
     return response;
@@ -152,6 +157,7 @@ class ApiService {
     this.token = null;
     localStorage.removeItem("auth_token");
     localStorage.removeItem("user_data");
+    localStorage.removeItem(LOGIN_SOURCE_KEY);
   }
 
   /** Set token (e.g. after SSO redirect) and optionally fetch current user. */

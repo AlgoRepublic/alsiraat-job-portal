@@ -97,7 +97,7 @@ router.get(
     session: false,
     failureRedirect: failureRedirectUrl,
   }),
-  authCallback,
+  (req, res) => authCallback(req, res, "google"),
 );
 
 // OpenID Connect Auth (ADFS SSO)
@@ -122,7 +122,7 @@ router.get(
       },
     )(req, res, next);
   },
-  authCallback,
+  (req, res) => authCallback(req, res, "oidc"),
 );
 
 // Impersonation (Admin Only)

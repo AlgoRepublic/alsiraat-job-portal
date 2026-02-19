@@ -18,9 +18,10 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  // Handle SSO callback: URL has ?token=... after redirect from OIDC/Google
+  // Handle SSO callback: URL has ?token=... (and optionally ?source=google|oidc) after redirect from OIDC/Google
   useEffect(() => {
     const token = searchParams.get("token");
+    const sourceParam = searchParams.get("source");
     const errorParam = searchParams.get("error");
     if (errorParam === "auth_failed") {
       setError("SSO sign-in was cancelled or failed. Please try again.");
@@ -29,12 +30,14 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
     }
     if (!token) return;
 
+    const loginSource = sourceParam === "oidc" ? "sso" : sourceParam || undefined;
+
     let cancelled = false;
     (async () => {
       setIsSSOLoading(true);
       setError("");
       try {
-        const user = await db.completeSSOLogin(token);
+        const user = await db.completeSSOLogin(token, loginSource);
         if (cancelled) return;
         setSearchParams({}, { replace: true });
         if (onLoginSuccess) await onLoginSuccess();
