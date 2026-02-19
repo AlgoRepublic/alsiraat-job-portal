@@ -119,7 +119,22 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
               }
 
               let user = await User.findOne({ oidcId: profile.id });
-              if (!user) {
+              if (user) {
+                const name = decoded?.unique_name ? (decoded.unique_name as string) : "SSO User";
+                if (user.name !== name) {
+                  user.name = name;
+                  await user.save();
+                }
+
+                if (user.email !== email) {
+                  const existingUser = await User.findOne({ email, _id: { $ne: user._id } });
+                  if (existingUser) {
+                    return done(new Error("Email already in use by another user"));
+                  }
+                  user.email = email;
+                  await user.save();
+                }
+              } else {
                 const existingUser = await User.findOne({ email });
                 if (existingUser) {
                   existingUser.oidcId = profile.id;
@@ -132,7 +147,7 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                   );
                 } else {
                   user = await User.create({
-                    name: decoded?.unique_name ? decoded?.unique_name as string : "SSO User",
+                    name: decoded?.unique_name ? (decoded.unique_name as string) : "SSO User",
                     email,
                     oidcId: profile.id,
                     role: UserRole.APPLICANT, // Default to Applicant for OIDC users
