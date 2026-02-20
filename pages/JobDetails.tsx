@@ -11,6 +11,7 @@ import {
   Users,
   ShieldCheck,
   XCircle,
+  Archive,
   Lock,
   Edit,
 } from "lucide-react";
@@ -159,6 +160,28 @@ export const JobDetails: React.FC = () => {
         err?.message ||
         "Action failed. Please try again.";
       showError(errorMessage);
+    }
+  };
+
+  const handleDecline = async () => {
+    if (!job) return;
+    if (
+      !window.confirm(
+        "Archive this task? It will no longer be visible to applicants.",
+      )
+    )
+      return;
+    try {
+      await db.approveJob(job.id, "archive");
+      setJob({ ...job, status: JobStatus.ARCHIVED });
+      showSuccess("Task has been archived.");
+    } catch (err: any) {
+      console.error("Archive failed", err);
+      showError(
+        err?.data?.message ||
+          err?.message ||
+          "Action failed. Please try again.",
+      );
     }
   };
 
@@ -333,9 +356,15 @@ export const JobDetails: React.FC = () => {
           <div className="flex gap-3">
             <button
               onClick={() => handleManagerAction("decline")}
+              className="px-4 py-2 bg-white dark:bg-zinc-900 text-amber-600 border border-zinc-200 dark:border-zinc-700 rounded-xl font-semibold hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors flex items-center"
+            >
+              <XCircle className="w-4 h-4 mr-2" /> Reject
+            </button>
+            <button
+              onClick={handleDecline}
               className="px-4 py-2 bg-white dark:bg-zinc-900 text-red-600 border border-zinc-200 dark:border-zinc-700 rounded-xl font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center"
             >
-              <XCircle className="w-4 h-4 mr-2" /> Decline
+              <Archive className="w-4 h-4 mr-2" /> Decline
             </button>
             <button
               onClick={() => handleManagerAction("approve")}

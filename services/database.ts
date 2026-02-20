@@ -261,7 +261,7 @@ class DatabaseService {
 
   async approveJob(
     id: string,
-    status: "approve" | "decline" = "approve",
+    status: "approve" | "decline" | "archive" = "approve",
     rejectionReason?: string,
   ): Promise<any> {
     return await api.approveTask(id, status, rejectionReason);
@@ -362,6 +362,13 @@ class DatabaseService {
 
   async updateUserRole(id: string, roleId: string): Promise<any> {
     return api.patch(`/users/${id}/role`, { roleId });
+  }
+
+  async updateUser(
+    id: string,
+    data: { name?: string; email?: string; role?: string },
+  ): Promise<any> {
+    return api.put(`/users/${id}`, data);
   }
 
   async deleteUser(id: string): Promise<any> {
