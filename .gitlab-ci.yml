@@ -136,6 +136,7 @@ build-backend:
     - export IMAGE_NAME="tasker-backend-${ENVIRONMENT}"
     - >
       docker build
+      --no-cache
       -f backend/Dockerfile
       -t $IMAGE_NAME:latest
       ./backend
