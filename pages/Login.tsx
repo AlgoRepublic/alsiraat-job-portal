@@ -18,9 +18,10 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  // Handle SSO callback: URL has ?token=... (and optionally ?source=google|oidc) after redirect from OIDC/Google
+  // Handle SSO callback: URL has ?token=... (and optionally ?source=google|oidc, ?idToken=...) after redirect from OIDC/Google
   useEffect(() => {
     const token = searchParams.get("token");
+    const idTokenParam = searchParams.get("idToken");
     const sourceParam = searchParams.get("source");
     const errorParam = searchParams.get("error");
     if (errorParam === "auth_failed") {
@@ -29,6 +30,12 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
       return;
     }
     if (!token) return;
+
+    if (idTokenParam) {
+      try {
+        localStorage.setItem("id_token", idTokenParam);
+      } catch (_) {}
+    }
 
     const loginSource = sourceParam === "oidc" ? "sso" : sourceParam || undefined;
 

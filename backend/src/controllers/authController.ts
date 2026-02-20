@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import crypto from "crypto";
 import { sendNotification } from "../services/notificationService.js";
 import { hasPermissionAsync, Permission } from "../config/permissions.js";
+import { getOIDCEndSessionEndpoint, fetchOIDCConfiguration } from "../config/oidcDiscovery.js";
 
 dotenv.config();
 
@@ -87,15 +88,46 @@ export type OAuthLoginSource = "google" | "oidc";
 export const authCallback = (req: Request, res: Response, source?: OAuthLoginSource) => {
   const user: any = req.user;
   const token = generateToken(user);
+  const idToken = (req as any).idToken as string | undefined;
 
   // Redirect to frontend with token (use hash path for HashRouter: #/login?token=...)
   const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
-  const base = `${frontendUrl}/#/login?token=${encodeURIComponent(token)}`;
-  const redirectUrl = source ? `${base}&source=${source}` : base;
+  let redirectUrl = `${frontendUrl}/#/login?token=${encodeURIComponent(token)}`;
+  if (source) redirectUrl += `&source=${source}`;
+  if (idToken) redirectUrl += `&idToken=${encodeURIComponent(idToken)}`;
   res.redirect(redirectUrl);
 };
 
-/** GET /auth/me - return current user from JWT (for SSO callback: frontend has token, needs user) */
+/**
+ * POST /auth/logout/sso-url
+ * Returns the IdP end_session URL for SSO logout (RP-Initiated Logout).
+ * No auth required; frontend calls this before clearing tokens.
+ */
+export const getSsoLogoutUrl = async (req: Request, res: Response) => {
+  try {
+    let endSession = getOIDCEndSessionEndpoint();
+    // Load OIDC discovery if not yet cached (e.g. logout before any SSO login in this process)
+    if (!endSession && process.env.OIDC_ISSUER) {
+      await fetchOIDCConfiguration(process.env.OIDC_ISSUER);
+      endSession = getOIDCEndSessionEndpoint();
+    }
+    if (!endSession) {
+      return res.json({ redirectUrl: undefined });
+    }
+    const idToken = (req.body?.idToken ?? req.query?.id_token) as string | undefined;
+    const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
+    const postLogoutRedirect = (req.body?.postLogoutRedirectUri ?? req.query?.post_logout_redirect_uri) as string | undefined
+      || frontendUrl;
+    const params = new URLSearchParams();
+    if (idToken) params.set("id_token_hint", idToken);
+    params.set("post_logout_redirect_uri", postLogoutRedirect);
+    const redirectUrl = `${endSession}?${params.toString()}`;
+    return res.json({ redirectUrl });
+  } catch {
+    return res.json({ redirectUrl: undefined });
+  }
+};
+
 /** GET /auth/me - return current user from JWT (for SSO callback: frontend has token, needs user) */
 export const getMe = async (req: Request, res: Response) => {
   try {

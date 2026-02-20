@@ -93,6 +93,16 @@ const App: React.FC = () => {
     return false;
   });
 
+  // Redirect from SSO logout: base URL with ?redirect-to-login=true → #/login
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("redirect-to-login") === "true") {
+      const base = `${window.location.origin}${window.location.pathname || "/"}`;
+      window.location.replace(`${base}#/login`);
+      return;
+    }
+  }, []);
+
   useEffect(() => {
     const initUser = async () => {
       setLoading(true);

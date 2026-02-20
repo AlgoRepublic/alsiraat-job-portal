@@ -158,6 +158,41 @@ class ApiService {
     localStorage.removeItem("auth_token");
     localStorage.removeItem("user_data");
     localStorage.removeItem(LOGIN_SOURCE_KEY);
+    localStorage.removeItem("id_token");
+  }
+
+  /**
+   * Returns IdP end_session URL for SSO logout (RP-Initiated Logout).
+   * Call before logout() when login_source is SSO and id_token is present.
+   * Uses fetch so it works even if the auth token is expired.
+   */
+  async getSsoLogoutUrl(
+    idToken: string,
+    postLogoutRedirectUri?: string
+  ): Promise<{ redirectUrl?: string }> {
+      const baseUrl =
+        postLogoutRedirectUri ??
+        (`${window.location.origin}${window.location.pathname || "/"}`.replace(/\/$/, "") ||
+          `${window.location.origin}/`);
+      const separator = baseUrl.includes("?") ? "&" : "?";
+      const postLogout = `${baseUrl}${separator}redirect-to-login=true`;
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/logout/sso-url`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          idToken,
+          postLogoutRedirectUri: postLogout,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      return { redirectUrl: json.redirectUrl ?? undefined };
+    } catch {
+      return {};
+    }
   }
 
   /** Set token (e.g. after SSO redirect) and optionally fetch current user. */

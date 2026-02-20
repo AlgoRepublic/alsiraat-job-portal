@@ -9,6 +9,7 @@ interface OIDCConfiguration {
   token_endpoint: string;
   userinfo_endpoint: string;
   jwks_uri: string;
+  end_session_endpoint?: string;
 }
 
 let cachedConfig: OIDCConfiguration | null = null;
@@ -50,7 +51,9 @@ export async function fetchOIDCConfiguration(issuer: string): Promise<OIDCConfig
     console.log(`  - Authorization Endpoint: ${config.authorization_endpoint}`);
     console.log(`  - Token Endpoint: ${config.token_endpoint}`);
     console.log(`  - Userinfo Endpoint: ${config.userinfo_endpoint}`);
-    
+    if (config.end_session_endpoint) {
+      console.log(`  - End Session Endpoint: ${config.end_session_endpoint}`);
+    }
     return config;
   } catch (error) {
     console.error('[OIDC Discovery] Failed to fetch configuration:', error);
@@ -73,4 +76,12 @@ export function getOIDCConfiguration(): OIDCConfiguration {
  */
 export function clearOIDCConfigurationCache(): void {
   cachedConfig = null;
+}
+
+/**
+ * Returns the end_session_endpoint if OIDC is configured and the IdP supports RP-Initiated Logout.
+ */
+export function getOIDCEndSessionEndpoint(): string | null {
+  if (!cachedConfig?.end_session_endpoint) return null;
+  return cachedConfig.end_session_endpoint;
 }

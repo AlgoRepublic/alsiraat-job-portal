@@ -9,6 +9,7 @@ export const clearUserCache = () => {
   localStorage.removeItem("user_data");
   localStorage.removeItem("auth_token");
   localStorage.removeItem(LOGIN_SOURCE_KEY);
+  localStorage.removeItem("id_token");
   localStorage.removeItem("permissions_cache");
   localStorage.removeItem("role_cache");
 

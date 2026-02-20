@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { UserRole, User, Job, Permission } from "../types";
 import { SnowBackground } from "./SnowBackground";
-import { api, API_BASE_URL } from "../services/api";
+import { api, API_BASE_URL, LOGIN_SOURCE_KEY } from "../services/api";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -472,8 +472,23 @@ export const Layout: React.FC<LayoutProps> = ({
     return true;
   });
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const idToken = localStorage.getItem("id_token");
+    const loginSource = localStorage.getItem(LOGIN_SOURCE_KEY);
+    let redirectUrl: string | undefined;
+    if (loginSource === "sso" && idToken) {
+      try {
+        const res = await api.getSsoLogoutUrl(idToken);
+        redirectUrl = typeof res.redirectUrl === "string" && res.redirectUrl.startsWith("http") ? res.redirectUrl : undefined;
+      } catch {
+        redirectUrl = undefined;
+      }
+    }
     api.logout();
+    if (redirectUrl) {
+      window.location.replace(redirectUrl);
+      return;
+    }
     navigate("/login");
     window.location.reload();
   };

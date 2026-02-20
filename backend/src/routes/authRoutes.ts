@@ -5,6 +5,7 @@ import {
   authCallback,
   generateToken,
   getMe,
+  getSsoLogoutUrl,
   impersonate,
   forgotPassword,
   resetPassword,
@@ -66,6 +67,9 @@ router.post("/login", (req, res, next) => {
   )(req, res, next);
 });
 
+// SSO logout URL (no auth; frontend calls before clearing tokens)
+router.post("/logout/sso-url", getSsoLogoutUrl);
+
 // Profile / Me (for SSO callback: frontend has token, needs user)
 router.get("/me", authenticate, getMe);
 router.put("/profile", authenticate, updateProfile);
@@ -118,6 +122,8 @@ router.get(
           return res.redirect(failureRedirectUrl);
         }
         req.user = user;
+        const infoObj = info as { idToken?: string } | undefined;
+        if (infoObj?.idToken) (req as any).idToken = infoObj.idToken;
         next();
       },
     )(req, res, next);

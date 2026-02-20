@@ -105,10 +105,10 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
             try {
 
               // pretty print the profile
-              console.log("OIDC Issuer:", issuer);
-              console.log("OIDC Profile:", JSON.stringify(profile, null, 2));
-              console.log("OIDC Context:", JSON.stringify(context, null, 2));
-              console.log("OIDC ID Token:", JSON.stringify(idToken, null, 2));
+              // console.log("OIDC Issuer:", issuer);
+              // console.log("OIDC Profile:", JSON.stringify(profile, null, 2));
+              // console.log("OIDC Context:", JSON.stringify(context, null, 2));
+              // console.log("OIDC ID Token:", JSON.stringify(idToken, null, 2));
 
               // Use email from ID token only (e.g. ADFS: email claim)
               const decodedIdToken = jwt.decode(idToken as string);
@@ -154,7 +154,9 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                   });
                 }
               }
-              return done(null, user);
+              // Pass idToken to callback so it can be sent to frontend for localStorage
+              const idTokenStr = typeof idToken === "string" ? idToken : (idToken ? JSON.stringify(idToken) : undefined);
+              return done(null, user, idTokenStr ? { idToken: idTokenStr } : undefined);
             } catch (err) {
               console.log('[Passport] Failed to configure OIDC strategy:', err);
               return done(err as Error);
