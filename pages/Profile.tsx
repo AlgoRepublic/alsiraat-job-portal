@@ -78,6 +78,9 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
   const [completedTasks, setCompletedTasks] = useState<any[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [newSkill, setNewSkill] = useState("");
+  const [newSkillLevel, setNewSkillLevel] = useState<
+    "Beginner" | "Intermediate" | "Expert"
+  >("Beginner");
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -135,12 +138,13 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
     const skill: Skill = {
       id: Date.now().toString(),
       name: newSkill,
-      level: "Beginner",
+      level: newSkillLevel,
     };
     setProfile((prev) =>
       prev ? { ...prev, skills: [...(prev.skills || []), skill] } : null,
     );
     setNewSkill("");
+    setNewSkillLevel("Beginner");
   };
 
   const removeSkill = (id: string) => {
@@ -509,26 +513,59 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
           </div>
 
           <div className="flex flex-wrap gap-3 mb-6">
-            {(profile.skills || []).map((skill) => (
-              <div
-                key={skill.id}
-                className="flex items-center bg-white/60 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 pl-4 pr-3 py-2 rounded-xl text-sm font-semibold border border-zinc-200 dark:border-zinc-700 shadow-sm"
-              >
-                <span>{skill.name}</span>
-                <span className="mx-2 text-zinc-300 dark:text-zinc-600">|</span>
-                <span className="text-[10px] uppercase text-zinc-400 dark:text-zinc-500 tracking-wider">
-                  {skill.level}
-                </span>
-                {isEditing && (
-                  <button
-                    onClick={() => removeSkill(skill.id)}
-                    className="ml-2 p-1 text-zinc-400 hover:text-red-500 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+            {(profile.skills || []).map((skill) => {
+              let config = {
+                bg: "bg-white/60 dark:bg-zinc-800",
+                text: "text-zinc-700 dark:text-zinc-300",
+                badgeBg: "bg-zinc-200/50 dark:bg-zinc-700/50",
+                badgeText: "text-zinc-500 dark:text-zinc-400",
+              };
+
+              if (skill.level === "Intermediate") {
+                config = {
+                  bg: "bg-blue-50/80 dark:bg-blue-900/20",
+                  text: "text-blue-700 dark:text-blue-300",
+                  badgeBg: "bg-blue-100 dark:bg-blue-900/40",
+                  badgeText: "text-blue-600 dark:text-blue-400",
+                };
+              } else if (skill.level === "Expert") {
+                config = {
+                  bg: "bg-amber-50/80 dark:bg-amber-900/20",
+                  text: "text-amber-700 dark:text-amber-300",
+                  badgeBg: "bg-amber-100 dark:bg-amber-900/40",
+                  badgeText: "text-amber-600 dark:text-amber-400",
+                };
+              } else {
+                config = {
+                  bg: "bg-emerald-50/80 dark:bg-emerald-900/20",
+                  text: "text-emerald-700 dark:text-emerald-300",
+                  badgeBg: "bg-emerald-100 dark:bg-emerald-900/40",
+                  badgeText: "text-emerald-600 dark:text-emerald-400",
+                };
+              }
+
+              return (
+                <div
+                  key={skill.id}
+                  className={`flex items-center pl-4 pr-1 py-1 rounded-xl text-sm font-semibold border border-zinc-200 dark:border-zinc-700 shadow-sm transition-all ${config.bg} ${config.text}`}
+                >
+                  <span className="mr-3">{skill.name}</span>
+                  <span
+                    className={`px-2 py-1 rounded-lg text-[10px] uppercase tracking-wider font-bold ${config.badgeBg} ${config.badgeText}`}
                   >
-                    <X className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
-            ))}
+                    {skill.level}
+                  </span>
+                  {isEditing && (
+                    <button
+                      onClick={() => removeSkill(skill.id)}
+                      className="ml-2 p-1.5 text-zinc-400 hover:text-red-500 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
             {((profile.skills as any[])?.length || 0) === 0 && !isEditing && (
               <p className="text-zinc-400 dark:text-zinc-600 italic text-sm">
                 No skills listed.
@@ -540,12 +577,29 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
             <div className="flex gap-2 mt-auto">
               <input
                 type="text"
-                className="flex-1 p-3 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm bg-zinc-50 dark:bg-zinc-800 focus:bg-white dark:focus:bg-zinc-900 focus:ring-2 focus:ring-primary dark:focus:ring-primary outline-none transition-all dark:text-white"
+                className="flex-[2] p-3 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm bg-zinc-50 dark:bg-zinc-800 focus:bg-white dark:focus:bg-zinc-900 focus:ring-2 focus:ring-primary dark:focus:ring-primary outline-none transition-all dark:text-white"
                 placeholder="Add a new skill (e.g. Leadership)"
                 value={newSkill}
                 onChange={(e) => setNewSkill(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleAddSkill()}
               />
+              <div className="flex-1">
+                <CustomDropdown
+                  variant="compact"
+                  options={[
+                    { name: "Beginner", code: "Beginner" },
+                    { name: "Intermediate", code: "Intermediate" },
+                    { name: "Expert", code: "Expert" },
+                  ]}
+                  value={newSkillLevel}
+                  onChange={(val) =>
+                    setNewSkillLevel(
+                      val as "Beginner" | "Intermediate" | "Expert",
+                    )
+                  }
+                  placeholder="Level"
+                />
+              </div>
               <button
                 onClick={handleAddSkill}
                 className="px-4 bg-primary text-white rounded-xl hover:bg-primaryHover transition-colors shadow-md"

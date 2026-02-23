@@ -30,3 +30,12 @@ dist-ssr
 docs/
 archive/
 dump/
+check-users.js
+.gitignore
+final-test.js
+mongodb-seed-queries.js
+mongodb-seed-atlas.js
+.gitignore
+test-final-backend.js
+test-task-approval.js
+debug-auth.js
