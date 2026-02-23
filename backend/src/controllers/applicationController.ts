@@ -340,3 +340,174 @@ export const declineOffer = async (req: any, res: Response) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+export const requestCompletion = async (req: any, res: Response) => {
+  try {
+    const { appId } = req.params;
+    const app = await Application.findById(appId).populate("task");
+    if (!app) return res.status(404).json({ message: "Application not found" });
+
+    if (app.applicant.toString() !== req.user._id.toString()) {
+      return res
+        .status(403)
+        .json({
+          message: "You can only request completion for your own applications",
+        });
+    }
+
+    if (app.status !== ApplicationStatus.ACCEPTED) {
+      return res
+        .status(400)
+        .json({
+          message: "Job must be accepted before requesting completion.",
+        });
+    }
+
+    app.status = ApplicationStatus.COMPLETION_REQUESTED;
+    await app.save();
+
+    const task: any = app.task;
+    await sendNotification(
+      task.createdBy.toString(),
+      "Completion Verification Required",
+      `${req.user.name} has marked the task "${task.title}" as completed. Please verify.`,
+      "info",
+      `/application/${app._id}`,
+    );
+
+    res.json(app);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const acceptCompletion = async (req: any, res: Response) => {
+  try {
+    const { appId } = req.params;
+    const app = await Application.findById(appId)
+      .populate("task")
+      .populate("applicant");
+    if (!app) return res.status(404).json({ message: "Application not found" });
+
+    // Check permission - task creator or admin
+    const task: any = app.task;
+    const applicantUser: any = app.applicant;
+
+    if (
+      req.user.role !== UserRole.GLOBAL_ADMIN &&
+      req.user._id.toString() !== task.createdBy.toString()
+    ) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to accept task completion" });
+    }
+
+    if (app.status !== ApplicationStatus.COMPLETION_REQUESTED) {
+      return res
+        .status(400)
+        .json({ message: "Application must have requested completion" });
+    }
+
+    app.status = ApplicationStatus.COMPLETED;
+    await app.save();
+
+    // Update user experience and skills
+    const newExperience = {
+      taskId: task._id,
+      title: task.title,
+      organisationName: task.organisation
+        ? String(task.organisation)
+        : "Independent", // Or populated name if needed
+      rewardType: task.rewardType,
+      rewardValue: task.rewardValue,
+      completedAt: new Date(),
+    };
+
+    applicantUser.experience = applicantUser.experience || [];
+    applicantUser.experience.push(newExperience);
+
+    // Merge skills
+    if (task.requiredSkills && task.requiredSkills.length > 0) {
+      const existingUserSkillIds = new Set(
+        applicantUser.skills.map((s: any) => s.id || s.name.toLowerCase()),
+      );
+      task.requiredSkills.forEach((skillName: string) => {
+        const sid = skillName.toLowerCase();
+        if (!existingUserSkillIds.has(sid)) {
+          applicantUser.skills.push({
+            id: sid,
+            name: skillName,
+            level: "Beginner",
+          });
+          existingUserSkillIds.add(sid);
+        }
+      });
+    }
+
+    await applicantUser.save();
+
+    let rewardDetails = `Reward: ${task.rewardType}`;
+    if (task.rewardValue) rewardDetails += ` - ${task.rewardValue}`;
+
+    await sendNotification(
+      applicantUser._id.toString(),
+      "🎉 Job Completion Accepted!",
+      `Congratulations! Your completion of "${task.title}" has been verified. You have earned: ${rewardDetails}. This has been added to your profile experience and skills.`,
+      "success",
+      `/application/${app._id}`,
+    );
+
+    res.json(app);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const rejectCompletion = async (req: any, res: Response) => {
+  try {
+    const { appId } = req.params;
+    const { reason } = req.body;
+
+    if (!reason) {
+      return res
+        .status(400)
+        .json({ message: "A reason is required when rejecting completion" });
+    }
+
+    const app = await Application.findById(appId).populate("task");
+    if (!app) return res.status(404).json({ message: "Application not found" });
+
+    const task: any = app.task;
+
+    if (
+      req.user.role !== UserRole.GLOBAL_ADMIN &&
+      req.user._id.toString() !== task.createdBy.toString()
+    ) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to reject task completion" });
+    }
+
+    if (app.status !== ApplicationStatus.COMPLETION_REQUESTED) {
+      return res
+        .status(400)
+        .json({ message: "Application must have requested completion" });
+    }
+
+    app.status = ApplicationStatus.COMPLETION_REJECTED;
+    app.rejectionReason = reason;
+    await app.save();
+
+    await sendNotification(
+      app.applicant.toString(),
+      "⚠️ Completion Rejected",
+      `Your completion request for "${task.title}" was rejected. Reason: ${reason}`,
+      "error",
+      `/application/${app._id}`,
+    );
+
+    res.json(app);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};

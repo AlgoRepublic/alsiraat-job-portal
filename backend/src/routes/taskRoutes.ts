@@ -5,6 +5,8 @@ import {
   getTaskById,
   approveTask,
   updateTask,
+  repostTask,
+  markTaskCompleted,
 } from "../controllers/taskController.js";
 import {
   authenticate,
@@ -46,5 +48,18 @@ router.put(
 
 // Approve task - context-aware approval (Global Admin for all, School Admin/Task Manager for Internal)
 router.put("/:taskId/approve", authenticate, requireTaskApproval, approveTask);
+
+router.post(
+  "/:taskId/repost",
+  authenticate,
+  requirePermission(Permission.TASK_CREATE),
+  repostTask,
+);
+router.put(
+  "/:taskId/mark-completed",
+  authenticate,
+  requirePermission(Permission.TASK_UPDATE),
+  markTaskCompleted,
+);
 
 export default router;

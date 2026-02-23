@@ -25,6 +25,10 @@ export const ApplicationReview: React.FC = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
 
+  // Completion Rejection State
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
+
   useEffect(() => {
     const fetchData = async () => {
       if (appId) {
@@ -105,6 +109,37 @@ export const ApplicationReview: React.FC = () => {
     }
   };
 
+  const handleAcceptCompletion = async () => {
+    if (app) {
+      setIsUpdating(true);
+      try {
+        await db.acceptCompletion(app.id);
+        setApp({ ...app, status: "Completed" });
+        showSuccess("Task completion accepted successfully!");
+      } catch (err: any) {
+        showError(err?.message || "Failed to accept completion");
+      } finally {
+        setIsUpdating(false);
+      }
+    }
+  };
+
+  const confirmRejectCompletion = async () => {
+    if (app && rejectionReason.trim()) {
+      setIsUpdating(true);
+      setShowRejectModal(false);
+      try {
+        await db.rejectCompletion(app.id, rejectionReason);
+        setApp({ ...app, status: "Completion Rejected", rejectionReason });
+        showSuccess("Task completion rejected successfully!");
+      } catch (err: any) {
+        showError(err?.message || "Failed to reject completion");
+      } finally {
+        setIsUpdating(false);
+      }
+    }
+  };
+
   if (loading) {
     return <Loading message="Loading application..." />;
   }
@@ -127,9 +162,13 @@ export const ApplicationReview: React.FC = () => {
       case "Offered":
         return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400";
       case "Accepted":
+      case "Completed":
         return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400";
       case "Shortlisted":
+      case "Completion Requested":
         return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
+      case "Completion Rejected":
+        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
       default:
         return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400";
     }
@@ -249,6 +288,11 @@ export const ApplicationReview: React.FC = () => {
             const canApproveReject =
               hasPermission(Permission.APPLICATION_APPROVE) && isMemberOfOrg;
 
+            const isOwner =
+              job?.createdBy === currentUser.id ||
+              job?.createdBy === currentUser._id;
+            const canManageCompletion = canApproveReject || isOwner;
+
             if (canShortlist || canApproveReject) {
               return (
                 <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6">
@@ -291,6 +335,26 @@ export const ApplicationReview: React.FC = () => {
                         </button>
                       </>
                     )}
+
+                    {canManageCompletion &&
+                      app.status === "Completion Requested" && (
+                        <>
+                          <button
+                            onClick={handleAcceptCompletion}
+                            className="w-full py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 flex items-center justify-center transition-colors shadow-lg shadow-emerald-500/20"
+                          >
+                            <CheckCircle className="w-4 h-4 mr-2" /> Verify
+                            Completion
+                          </button>
+                          <button
+                            onClick={() => setShowRejectModal(true)}
+                            className="w-full py-3 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-red-600 rounded-xl font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center justify-center transition-colors"
+                          >
+                            <XCircle className="w-4 h-4 mr-2" /> Reject
+                            Completion
+                          </button>
+                        </>
+                      )}
                   </div>
                 </div>
               );
@@ -341,6 +405,43 @@ export const ApplicationReview: React.FC = () => {
           })()}
         </div>
       </div>
+
+      {/* Reject Completion Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-zinc-900 w-full max-w-md p-6 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 animate-scale-in">
+            <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-4">
+              Reject Completion
+            </h3>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
+              Please provide a reason why this task completion is being
+              rejected. The user will be notified.
+            </p>
+            <textarea
+              className="w-full p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl mb-4 focus:ring-2 focus:ring-red-500 focus:outline-none dark:text-white"
+              rows={4}
+              placeholder="Reason for rejection..."
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowRejectModal(false)}
+                className="px-4 py-2 text-zinc-600 dark:text-zinc-400 font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmRejectCompletion}
+                disabled={!rejectionReason.trim()}
+                className="px-4 py-2 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

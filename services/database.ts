@@ -81,6 +81,8 @@ const mapStatus = (status: string): JobStatus => {
       return JobStatus.CLOSED;
     case "Archived":
       return JobStatus.ARCHIVED;
+    case "Completed":
+      return JobStatus.COMPLETED;
     default:
       return JobStatus.DRAFT;
   }
@@ -267,6 +269,14 @@ class DatabaseService {
     return await api.approveTask(id, status, rejectionReason);
   }
 
+  async markJobCompleted(id: string): Promise<any> {
+    return api.put(`/tasks/${id}/mark-completed`, {});
+  }
+
+  async repostJob(id: string, endDate: string): Promise<any> {
+    return api.post(`/tasks/${id}/repost`, { endDate });
+  }
+
   // --- Applications ---
 
   async getApplications(filters: any = {}): Promise<Application[]> {
@@ -302,6 +312,18 @@ class DatabaseService {
 
   async declineOffer(id: string): Promise<any> {
     return api.put(`/applications/${id}/decline`, {});
+  }
+
+  async requestCompletion(id: string): Promise<any> {
+    return api.put(`/applications/${id}/request-completion`, {});
+  }
+
+  async acceptCompletion(id: string): Promise<any> {
+    return api.put(`/applications/${id}/accept-completion`, {});
+  }
+
+  async rejectCompletion(id: string, reason: string): Promise<any> {
+    return api.put(`/applications/${id}/reject-completion`, { reason });
   }
 
   // --- Notifications ---

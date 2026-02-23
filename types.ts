@@ -15,6 +15,7 @@ export const JobStatus = {
   PUBLISHED: "Published",
   CLOSED: "Closed",
   ARCHIVED: "Archived",
+  COMPLETED: "Completed",
 } as const;
 export type JobStatus = (typeof JobStatus)[keyof typeof JobStatus];
 

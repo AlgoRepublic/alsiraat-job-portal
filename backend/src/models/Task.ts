@@ -8,6 +8,7 @@ export const TaskStatus = {
   PUBLISHED: "Published",
   CLOSED: "Closed",
   ARCHIVED: "Archived",
+  COMPLETED: "Completed",
 } as const;
 export type TaskStatus = (typeof TaskStatus)[keyof typeof TaskStatus];
 

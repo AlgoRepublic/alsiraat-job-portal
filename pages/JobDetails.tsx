@@ -14,6 +14,8 @@ import {
   Archive,
   Lock,
   Edit,
+  RefreshCw,
+  CheckCircle2,
 } from "lucide-react";
 import { UserAvatar } from "../components/UserAvatar";
 import { Loading, LoadingOverlay } from "../components/Loading";
@@ -44,10 +46,14 @@ export const JobDetails: React.FC = () => {
   const [coverLetter, setCoverLetter] = useState("");
   const [availability, setAvailability] = useState("");
   const [agreed, setAgreed] = useState(false);
+  // Rejection Modal State
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
 
-  // Rejection Modal State
+  // Repost Modal State
+  const [showRepostModal, setShowRepostModal] = useState(false);
+  const [repostEndDate, setRepostEndDate] = useState("");
+  const [reposting, setReposting] = useState(false);
 
   useEffect(() => {
     const loadJob = async () => {
@@ -185,6 +191,33 @@ export const JobDetails: React.FC = () => {
     }
   };
 
+  const handleMarkCompleted = async () => {
+    if (!job) return;
+    try {
+      await db.markJobCompleted(job.id);
+      setJob({ ...job, status: JobStatus.COMPLETED });
+      showSuccess("Task marked as completed.");
+    } catch (err: any) {
+      showError(err?.message || "Failed to mark as completed");
+    }
+  };
+
+  const submitRepost = async () => {
+    if (!job || !repostEndDate) return;
+    setReposting(true);
+    try {
+      await db.repostJob(job.id, new Date(repostEndDate).toISOString());
+      setShowRepostModal(false);
+      showSuccess("Task reposted successfully.");
+      // optionally refresh job or redirect
+      navigate("/jobs");
+    } catch (err: any) {
+      showError(err?.message || "Failed to repost task");
+    } finally {
+      setReposting(false);
+    }
+  };
+
   if (loading) {
     return <Loading message="Loading task details..." />;
   }
@@ -251,6 +284,14 @@ export const JobDetails: React.FC = () => {
   })();
 
   const showManagerActions = canApprove && job.status === JobStatus.PENDING;
+
+  // Expired checks
+  const isExpired = job.endDate ? new Date(job.endDate) < new Date() : false;
+  const showOwnerExpiredActions =
+    isJobOwner &&
+    isExpired &&
+    job.status !== JobStatus.COMPLETED &&
+    job.status !== JobStatus.ARCHIVED;
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pb-20">
@@ -371,6 +412,34 @@ export const JobDetails: React.FC = () => {
               className="px-4 py-2 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 shadow-md transition-colors flex items-center"
             >
               <ShieldCheck className="w-4 h-4 mr-2" /> Publish
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Expired Job Actions for Owner */}
+      {showOwnerExpiredActions && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-900/50 p-6 rounded-2xl flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-bold text-blue-900 dark:text-blue-100">
+              Task Expired
+            </h3>
+            <p className="text-sm text-blue-800 dark:text-blue-200/80">
+              This task's end date has passed. What would you like to do?
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowRepostModal(true)}
+              className="px-4 py-2 bg-white dark:bg-zinc-900 text-blue-600 border border-blue-200 dark:border-blue-700/50 rounded-xl font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors flex items-center"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" /> Repost
+            </button>
+            <button
+              onClick={handleMarkCompleted}
+              className="px-4 py-2 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 shadow-md transition-colors flex items-center"
+            >
+              <CheckCircle2 className="w-4 h-4 mr-2" /> Mark Completed
             </button>
           </div>
         </div>
@@ -762,6 +831,42 @@ export const JobDetails: React.FC = () => {
                 className="px-4 py-2 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Reject Task
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Repost Modal */}
+      {showRepostModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-zinc-900 w-full max-w-md p-6 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 animate-scale-in">
+            <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-4">
+              Repost Task
+            </h3>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
+              Select a new end date for this task to repost it.
+            </p>
+            <input
+              type="date"
+              className="w-full p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl mb-4 focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
+              min={new Date().toISOString().split("T")[0]}
+              value={repostEndDate}
+              onChange={(e) => setRepostEndDate(e.target.value)}
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowRepostModal(false)}
+                className="px-4 py-2 text-zinc-600 dark:text-zinc-400 font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitRepost}
+                disabled={!repostEndDate || reposting}
+                className="px-4 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {reposting ? "Reposting..." : "Repost Task"}
               </button>
             </div>
           </div>

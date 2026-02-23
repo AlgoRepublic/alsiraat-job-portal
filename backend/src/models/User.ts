@@ -9,6 +9,15 @@ export interface ISkill {
   level: "Beginner" | "Intermediate" | "Expert";
 }
 
+export interface IExperience {
+  taskId: mongoose.Types.ObjectId;
+  title: string;
+  organisationName: string;
+  rewardType: string;
+  rewardValue?: number;
+  completedAt: Date;
+}
+
 export interface IUser extends Document {
   name: string;
   firstName?: string;
@@ -25,6 +34,7 @@ export interface IUser extends Document {
   gender?: "Male" | "Female";
   yearLevel?: string;
   skills: ISkill[];
+  experience: IExperience[];
   resumeUrl?: string;
   resumeOriginalName?: string;
   resetPasswordToken?: string | undefined;
@@ -41,6 +51,15 @@ const SkillSchema = new Schema({
     enum: ["Beginner", "Intermediate", "Expert"],
     default: "Beginner",
   },
+});
+
+const ExperienceSchema = new Schema({
+  taskId: { type: Schema.Types.ObjectId, ref: "Task" },
+  title: { type: String },
+  organisationName: { type: String },
+  rewardType: { type: String },
+  rewardValue: { type: Number },
+  completedAt: { type: Date, default: Date.now },
 });
 
 const UserSchema: Schema = new Schema(
@@ -70,6 +89,7 @@ const UserSchema: Schema = new Schema(
     resumeUrl: { type: String },
     resumeOriginalName: { type: String },
     skills: [SkillSchema],
+    experience: [ExperienceSchema],
     resetPasswordToken: { type: String },
     resetPasswordExpires: { type: Date },
   },

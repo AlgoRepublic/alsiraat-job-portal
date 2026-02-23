@@ -512,8 +512,17 @@ export const Layout: React.FC<LayoutProps> = ({
             to="/"
             className="flex items-center px-6 h-24 border-b border-white/20 dark:border-white/5"
           >
-            <div className="w-12 h-12 bg-gradient-to-tr from-primary to-primaryHover rounded-2xl flex items-center justify-center shadow-lg shadow-primary/30 relative">
-              <Layers className="text-white w-7 h-7" strokeWidth={2.5} />
+            <div className="w-12 h-12 flex items-center justify-center relative shrink-0">
+              <img
+                src={isDarkMode ? "/logo-dark.png" : "/logo-light.png"}
+                alt="Al Siraat"
+                className="w-full h-full object-contain drop-shadow-sm"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                  e.currentTarget.parentElement!.innerHTML =
+                    '<div class="w-12 h-12 bg-gradient-to-tr from-primary to-primaryHover rounded-2xl flex items-center justify-center shadow-lg shadow-primary/30"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-white w-7 h-7"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg></div>';
+                }}
+              />
             </div>
             <div className="ml-4">
               <span className="block text-2xl font-black text-zinc-900 dark:text-white tracking-tighter leading-none">

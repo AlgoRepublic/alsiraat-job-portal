@@ -119,8 +119,29 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
 
       <div className="w-full max-w-md glass-card rounded-3xl shadow-2xl shadow-zinc-200 dark:shadow-black/50 p-8 md:p-10 border border-white/20 dark:border-zinc-700 animate-slide-up relative">
         <div className="text-center mb-10">
-          <div className="w-16 h-16 bg-gradient-to-tr from-primary to-primaryHover rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-primary/20 relative">
-            <Layers className="text-white w-9 h-9" strokeWidth={2.5} />
+          <div className="w-16 h-16 flex items-center justify-center mx-auto mb-6 relative">
+            <img
+              src="/logo-light.png"
+              alt="Al Siraat"
+              className="w-full h-full object-contain dark:hidden drop-shadow-sm"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+                e.currentTarget.parentElement!.innerHTML =
+                  '<div class="w-16 h-16 bg-gradient-to-tr from-primary to-primaryHover rounded-2xl flex items-center justify-center shadow-xl shadow-primary/20"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-white w-9 h-9"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg></div>';
+              }}
+            />
+            <img
+              src="/logo-dark.png"
+              alt="Al Siraat"
+              className="w-full h-full object-contain hidden dark:block drop-shadow-sm"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+                if (!e.currentTarget.parentElement!.querySelector("svg")) {
+                  e.currentTarget.parentElement!.innerHTML =
+                    '<div class="w-16 h-16 bg-gradient-to-tr from-primary to-primaryHover rounded-2xl flex items-center justify-center shadow-xl shadow-primary/20"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-white w-9 h-9"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg></div>';
+                }
+              }}
+            />
           </div>
           <h1 className="text-3xl font-black text-zinc-900 dark:text-white mb-2 tracking-tighter">
             Tasker

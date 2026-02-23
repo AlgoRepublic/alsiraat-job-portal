@@ -625,3 +625,80 @@ export const approveTask = async (req: any, res: Response) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+export const repostTask = async (req: any, res: Response) => {
+  try {
+    const { taskId } = req.params;
+    const task = await Task.findById(taskId);
+
+    if (!task) {
+      return res.status(404).json({ message: "Task not found" });
+    }
+
+    if (
+      task.createdBy.toString() !== req.user._id.toString() &&
+      req.user.role !== UserRole.GLOBAL_ADMIN
+    ) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to repost this task" });
+    }
+
+    // Require new end date
+    const { endDate } = req.body;
+    if (!endDate) {
+      return res
+        .status(400)
+        .json({ message: "New End Date is required to repost a task" });
+    }
+
+    // Clone the task
+    const clonedTaskData: any = task.toObject();
+    delete clonedTaskData._id;
+    delete clonedTaskData.createdAt;
+    delete clonedTaskData.updatedAt;
+    delete clonedTaskData.status;
+
+    clonedTaskData.startDate = new Date();
+    clonedTaskData.endDate = new Date(endDate);
+
+    const { canAutoPublishAsync } = await import("../config/permissions.js");
+    const isAutoPublish = await canAutoPublishAsync(req.user.role);
+    clonedTaskData.status = isAutoPublish
+      ? TaskStatus.PUBLISHED
+      : TaskStatus.PENDING;
+
+    const newTask = await Task.create(clonedTaskData);
+
+    res.status(201).json(newTask);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const markTaskCompleted = async (req: any, res: Response) => {
+  try {
+    const { taskId } = req.params;
+    const task = await Task.findById(taskId);
+
+    if (!task) {
+      return res.status(404).json({ message: "Task not found" });
+    }
+
+    if (
+      task.createdBy.toString() !== req.user._id.toString() &&
+      req.user.role !== UserRole.GLOBAL_ADMIN
+    ) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to modify this task" });
+    }
+
+    task.status = TaskStatus.COMPLETED;
+    await task.save();
+
+    res.json(task);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};

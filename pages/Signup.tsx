@@ -13,33 +13,7 @@ import {
 } from "lucide-react";
 import { db } from "../services/database";
 import { UserRole } from "../types";
-
-// Roles available for signup (Admin is excluded)
-const SIGNUP_ROLES = [
-  {
-    value: UserRole.APPLICANT,
-    label: "Applicant / Student",
-    description: "Browse, apply, manage history and skills",
-  },
-  {
-    value: UserRole.TASK_ADVERTISER,
-    label: "Task Advertiser",
-    description: "Create, edit, submit tasks",
-  },
-  {
-    value: UserRole.TASK_MANAGER,
-    label: "Task Manager",
-    description: "Review, publish, shortlist, issue offers",
-  },
-  {
-    value: UserRole.SCHOOL_ADMIN,
-    label: "School Admin",
-    description: "Oversee tasks, manage roles, run reports",
-  },
-];
-
 import { LoadingOverlay } from "../components/Loading";
-import { CustomDropdown } from "../components/CustomUI";
 
 /** Formats input as an Australian phone number (mobile or landline) */
 const formatAustralianPhone = (raw: string): string => {
@@ -69,7 +43,6 @@ export const Signup: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [contactNumber, setContactNumber] = useState("");
-  const [role, setRole] = useState(UserRole.APPLICANT);
   const [error, setError] = useState("");
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -82,7 +55,7 @@ export const Signup: React.FC = () => {
         lastName: surname.trim(),
         email,
         password,
-        role,
+        role: UserRole.APPLICANT,
         ...(contactNumber.trim()
           ? { contactNumber: contactNumber.trim() }
           : {}),
@@ -113,8 +86,29 @@ export const Signup: React.FC = () => {
         </Link>
 
         <div className="text-center mb-8 mt-4">
-          <div className="w-16 h-16 bg-gradient-to-tr from-primary to-primaryHover rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-primary/20 relative">
-            <Layers className="text-white w-9 h-9" strokeWidth={2.5} />
+          <div className="w-16 h-16 flex items-center justify-center mx-auto mb-6 relative">
+            <img
+              src="/logo-light.png"
+              alt="Al Siraat"
+              className="w-full h-full object-contain dark:hidden drop-shadow-sm"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+                e.currentTarget.parentElement!.innerHTML =
+                  '<div class="w-16 h-16 bg-gradient-to-tr from-primary to-primaryHover rounded-2xl flex items-center justify-center shadow-xl shadow-primary/20"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-white w-9 h-9"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg></div>';
+              }}
+            />
+            <img
+              src="/logo-dark.png"
+              alt="Al Siraat"
+              className="w-full h-full object-contain hidden dark:block drop-shadow-sm"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+                if (!e.currentTarget.parentElement!.querySelector("svg")) {
+                  e.currentTarget.parentElement!.innerHTML =
+                    '<div class="w-16 h-16 bg-gradient-to-tr from-primary to-primaryHover rounded-2xl flex items-center justify-center shadow-xl shadow-primary/20"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-white w-9 h-9"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg></div>';
+                }
+              }}
+            />
           </div>
           <h1 className="text-3xl font-black text-zinc-900 dark:text-white mb-2 tracking-tighter">
             Create Account
@@ -186,24 +180,6 @@ export const Signup: React.FC = () => {
               />
             </div>
 
-            <div className="relative group">
-              <CustomDropdown
-                label="Role"
-                options={SIGNUP_ROLES.map((r) => ({
-                  name: r.label,
-                  code: r.value,
-                }))}
-                value={SIGNUP_ROLES.find((r) => r.value === role)?.label || ""}
-                onChange={(val) => {
-                  const selectedRole = SIGNUP_ROLES.find(
-                    (r) => r.label === val,
-                  );
-                  if (selectedRole) setRole(selectedRole.value as UserRole);
-                }}
-                placeholder="Select Your Role"
-                icon={<Building2 className="w-5 h-5 text-zinc-400" />}
-              />
-            </div>
             <div className="relative group">
               <Lock className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
               <input

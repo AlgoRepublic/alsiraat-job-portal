@@ -6,6 +6,9 @@ import {
   getApplicationById,
   confirmOffer,
   declineOffer,
+  requestCompletion,
+  acceptCompletion,
+  rejectCompletion,
 } from "../controllers/applicationController.js";
 import {
   authenticate,
@@ -45,5 +48,11 @@ router.put(
   requirePermission(Permission.APPLICATION_REJECT),
   declineOffer,
 );
+
+router.put("/:appId/request-completion", authenticate, requestCompletion);
+
+router.put("/:appId/accept-completion", authenticate, acceptCompletion);
+
+router.put("/:appId/reject-completion", authenticate, rejectCompletion);
 
 export default router;

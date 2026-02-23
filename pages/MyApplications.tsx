@@ -9,12 +9,14 @@ interface ApplicationWithJob extends Application {
 }
 
 import { Loading } from "../components/Loading";
+import { useToast } from "../components/Toast";
 
 export default function MyApplications() {
   const [applications, setApplications] = useState<ApplicationWithJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const { showSuccess, showError } = useToast();
 
   useEffect(() => {
     fetchMyApplications();
@@ -35,15 +37,31 @@ export default function MyApplications() {
   const getApplicationStatusStyle = (status: string) => {
     switch (status.toLowerCase()) {
       case "approved":
+      case "approved":
       case "offer accepted":
+      case "accepted":
+      case "completed":
         return "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800";
       case "rejected":
       case "offer declined":
+      case "completion rejected":
         return "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800";
+      case "completion requested":
+        return "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800";
       // case "shortlisted":
       //   return "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800";
       default:
         return "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800";
+    }
+  };
+
+  const handleRequestCompletion = async (appId: string) => {
+    try {
+      await api.put(`/applications/${appId}/request-completion`, {});
+      showSuccess("Completion requested successfully!");
+      fetchMyApplications();
+    } catch (err: any) {
+      showError(err.message || "Failed to request completion");
     }
   };
 
@@ -125,14 +143,24 @@ export default function MyApplications() {
                     </span>
                   </td>
                   <td className="px-10 py-8 whitespace-nowrap text-right">
-                    {app.task && (
-                      <button
-                        onClick={() => navigate(`/jobs/${app.task?._id}`)}
-                        className="px-6 py-3 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primaryHover transition-all shadow-lg shadow-primary/10 group-hover:scale-105"
-                      >
-                        View Task
-                      </button>
-                    )}
+                    <div className="flex items-center justify-end gap-2">
+                      {app.status === "Accepted" && (
+                        <button
+                          onClick={() => handleRequestCompletion(app._id)}
+                          className="px-6 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/10 group-hover:scale-105"
+                        >
+                          Mark Completed
+                        </button>
+                      )}
+                      {app.task && (
+                        <button
+                          onClick={() => navigate(`/jobs/${app.task?._id}`)}
+                          className="px-6 py-3 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primaryHover transition-all shadow-lg shadow-primary/10 group-hover:scale-105"
+                        >
+                          View Task
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
