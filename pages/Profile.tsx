@@ -90,7 +90,13 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
       try {
         const apps = await api.getApplications();
         setCompletedTasks(
-          apps.filter((app: any) => app.status === "Completed"),
+          apps.filter(
+            (app: any) =>
+              app.status === "Completed" &&
+              (app.userId === data.id ||
+                app.user === data.id ||
+                app.user?._id === data.id),
+          ),
         );
       } catch (err) {
         console.error("Failed to fetch volunteer history:", err);
