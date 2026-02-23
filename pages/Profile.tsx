@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { UserAvatar } from "../components/UserAvatar";
 import { db } from "../services/database";
+import { api } from "../services/api";
 import { CustomDropdown } from "../components/CustomUI";
 
 interface ProfileProps {
@@ -74,6 +75,7 @@ const formatAustralianPhone = (raw: string): string => {
 
 export const Profile: React.FC<ProfileProps> = ({ user }) => {
   const [profile, setProfile] = useState<ApplicantProfile | null>(null);
+  const [completedTasks, setCompletedTasks] = useState<any[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [newSkill, setNewSkill] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -82,6 +84,14 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
     const fetchProfile = async () => {
       const data = await db.getCurrentUser();
       setProfile(data);
+      try {
+        const apps = await api.getApplications();
+        setCompletedTasks(
+          apps.filter((app: any) => app.status === "Completed"),
+        );
+      } catch (err) {
+        console.error("Failed to fetch volunteer history:", err);
+      }
     };
     fetchProfile();
   }, [user]);
@@ -637,24 +647,43 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
           Volunteer History
         </h3>
         <div className="space-y-6">
-          <div className="flex gap-4 p-4 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-800">
-            <div className="mt-1">
-              <div className="p-2.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 rounded-xl shadow-sm">
-                <Star className="w-5 h-5 fill-current" />
+          {completedTasks.length > 0 ? (
+            completedTasks.map((app) => (
+              <div
+                key={app._id || app.id}
+                className="flex gap-4 p-4 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-800"
+              >
+                <div className="mt-1">
+                  <div className="p-2.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 rounded-xl shadow-sm">
+                    <Star className="w-5 h-5 fill-current" />
+                  </div>
+                </div>
+                <div>
+                  <h4 className="text-base font-bold text-zinc-900 dark:text-white">
+                    {app.task?.title || "Task Deleted"}
+                  </h4>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
+                    Completed on{" "}
+                    {new Date(
+                      app.updatedAt || app.createdAt,
+                    ).toLocaleDateString("en-GB", {
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </p>
+                  {app.task?.hoursRequired && (
+                    <div className="mt-3 inline-flex items-center px-3 py-1 rounded-lg text-xs font-bold bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300">
+                      {app.task.hoursRequired} Hours
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-            <div>
-              <h4 className="text-base font-bold text-zinc-900 dark:text-white">
-                School Library Helper
-              </h4>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
-                Verified by Mrs. Librarian • Jan 2024
-              </p>
-              <div className="mt-3 inline-flex items-center px-3 py-1 rounded-lg text-xs font-bold bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300">
-                4 Hours
-              </div>
-            </div>
-          </div>
+            ))
+          ) : (
+            <p className="text-zinc-500 dark:text-zinc-400 italic">
+              No completed tasks yet.
+            </p>
+          )}
         </div>
       </div>
     </div>
