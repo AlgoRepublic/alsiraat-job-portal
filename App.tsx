@@ -83,6 +83,16 @@ const ResetPassword = lazy(() =>
     default: module.ResetPassword,
   })),
 );
+const Privacy = lazy(() =>
+  import("./pages/Privacy").then((module) => ({
+    default: module.Privacy,
+  })),
+);
+const Terms = lazy(() =>
+  import("./pages/Terms").then((module) => ({
+    default: module.Terms,
+  })),
+);
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -199,6 +209,24 @@ const App: React.FC = () => {
                 <div className="relative">
                   <ThemeToggle isDarkMode={isDarkMode} onToggle={toggleTheme} />
                   <ResetPassword />
+                </div>
+              }
+            />
+            <Route
+              path="/privacy"
+              element={
+                <div className="relative">
+                  <ThemeToggle isDarkMode={isDarkMode} onToggle={toggleTheme} />
+                  <Privacy />
+                </div>
+              }
+            />
+            <Route
+              path="/terms"
+              element={
+                <div className="relative">
+                  <ThemeToggle isDarkMode={isDarkMode} onToggle={toggleTheme} />
+                  <Terms />
                 </div>
               }
             />

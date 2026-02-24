@@ -267,7 +267,18 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
           </p>
         </div>
 
-        <div className="mt-8 text-center text-zinc-500 font-bold uppercase tracking-widest"></div>
+        <div className="mt-8 text-center text-[10px] text-zinc-400 font-medium">
+          <p>
+            By signing in, you agree to our{" "}
+            <Link to="/terms" className="text-primary hover:underline">
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link to="/privacy" className="text-primary hover:underline">
+              Privacy Policy
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );

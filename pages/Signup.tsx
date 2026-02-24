@@ -201,11 +201,21 @@ export const Signup: React.FC = () => {
           </button>
         </form>
 
-        <div className="mt-8 text-center">
+        <div className="mt-8 text-center space-y-4">
           <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">
             Already have access?{" "}
             <Link to="/login" className="text-primary hover:underline ml-1">
               Sign In
+            </Link>
+          </p>
+          <p className="text-[10px] text-zinc-400 font-medium">
+            By creating an account, you agree to our{" "}
+            <Link to="/terms" className="text-primary hover:underline">
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link to="/privacy" className="text-primary hover:underline">
+              Privacy Policy
             </Link>
           </p>
         </div>
