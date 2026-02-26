@@ -338,6 +338,12 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
         isSystem: true,
       },
       {
+        code: "task:complete",
+        name: "Mark Task Complete",
+        category: "Tasks",
+        isSystem: true,
+      },
+      {
         code: "task:view_internal",
         name: "View Internal Tasks",
         category: "Tasks",
@@ -402,6 +408,12 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
 
       // User permissions
       {
+        code: "user:create",
+        name: "Create User",
+        category: "Users",
+        isSystem: true,
+      },
+      {
         code: "user:read",
         name: "View Users",
         category: "Users",
@@ -422,6 +434,12 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
       {
         code: "user:impersonate",
         name: "Impersonate Users",
+        category: "Users",
+        isSystem: true,
+      },
+      {
+        code: "user:import",
+        name: "Import Users CSV",
         category: "Users",
         isSystem: true,
       },
@@ -571,8 +589,10 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
           "org:read",
           "org:update",
           "org:manage_members",
+          "user:create",
           "user:read",
           "user:update",
+          "user:import",
           "user:manage_roles",
           "dashboard:view",
           "analytics:view",

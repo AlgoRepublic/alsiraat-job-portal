@@ -145,6 +145,28 @@ class DatabaseService {
   }
 
   async getCurrentUser(): Promise<User | null> {
+    const token = localStorage.getItem("auth_token");
+    if (!token) return null;
+
+    try {
+      // Fetch fresh user data to ensure roles, permissions, and status are up to date
+      const data = await api.getMe();
+      if (data && data.user) {
+        localStorage.setItem("user_data", JSON.stringify(data.user));
+        return {
+          ...data.user,
+          skills: data.user.skills || [],
+          about: data.user.about || "",
+          avatar: data.user.avatar || undefined,
+        } as User;
+      }
+    } catch (apiError) {
+      console.warn(
+        "Failed to fetch fresh user data, falling back to cached session",
+        apiError,
+      );
+    }
+
     const stored = localStorage.getItem("user_data");
     if (stored) {
       try {
@@ -216,7 +238,7 @@ class DatabaseService {
     const user = await this.getCurrentUser();
     if (!user) throw new Error("No user found");
     // For now, local switch for demo/admin purposes
-    user.role = role;
+    user.roles = [role];
     localStorage.setItem("user_data", JSON.stringify(user));
     return user;
   }
@@ -388,7 +410,7 @@ class DatabaseService {
 
   async updateUser(
     id: string,
-    data: { name?: string; email?: string; role?: string },
+    data: { name?: string; email?: string; roles?: string[] },
   ): Promise<any> {
     return api.put(`/users/${id}`, data);
   }

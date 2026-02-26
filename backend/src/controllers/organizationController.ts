@@ -21,7 +21,7 @@ export const createOrganization = async (req: Request, res: Response) => {
     // Update owner's role and organization
     // Assign owner role to user
     owner.organisation = org._id as any;
-    owner.role = UserRole.SCHOOL_ADMIN;
+    owner.roles = [UserRole.SCHOOL_ADMIN];
     await owner.save();
 
     res.status(201).json(org);
@@ -61,7 +61,7 @@ export const addMember = async (req: Request, res: Response) => {
     }
 
     user.organisation = organization._id as any;
-    user.role = role || UserRole.TASK_ADVERTISER;
+    user.roles = [role || UserRole.TASK_ADVERTISER];
 
     await user.save();
 

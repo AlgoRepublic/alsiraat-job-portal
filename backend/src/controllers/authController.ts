@@ -2,25 +2,29 @@ import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import User, { UserRole } from "../models/User.js";
+import { normalizeUserRole } from "../models/UserRole.js";
 import dotenv from "dotenv";
 import crypto from "crypto";
 import { sendNotification } from "../services/notificationService.js";
 import { hasPermissionAsync, Permission } from "../config/permissions.js";
-import { getOIDCEndSessionEndpoint, fetchOIDCConfiguration } from "../config/oidcDiscovery.js";
+import {
+  getOIDCEndSessionEndpoint,
+  fetchOIDCConfiguration,
+} from "../config/oidcDiscovery.js";
 
 dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_here";
 
 export const generateToken = (user: any) => {
-  return jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, {
+  return jwt.sign({ id: user._id, roles: user.roles }, JWT_SECRET, {
     expiresIn: "7d",
   });
 };
 
 export const signup = async (req: Request, res: Response) => {
   try {
-    const { firstName, lastName, email, password, role, contactNumber } =
+    const { firstName, lastName, email, password, roles, contactNumber } =
       req.body;
 
     if (!firstName || !lastName) {
@@ -41,15 +45,20 @@ export const signup = async (req: Request, res: Response) => {
       lastName: lastName.trim(),
       email,
       password: hashedPassword,
-      role: role || UserRole.APPLICANT,
+      roles: roles || [UserRole.APPLICANT],
       ...(contactNumber ? { contactNumber } : {}),
     });
 
-    // Get current permissions for the role
+    // Get current permissions for the roles
     const permissions: string[] = [];
+    const rolesArray = user.roles as UserRole[];
     for (const p of Object.values(Permission)) {
-      if (await hasPermissionAsync(user.role as UserRole, p)) {
-        permissions.push(p);
+      for (const r of rolesArray) {
+        if (await hasPermissionAsync(r, p)) {
+          if (!permissions.includes(p)) {
+            permissions.push(p);
+          }
+        }
       }
     }
 
@@ -62,14 +71,13 @@ export const signup = async (req: Request, res: Response) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
-        role: user.role,
+        roles: user.roles,
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,
         organisation: user.organisation,
         contactNumber: user.contactNumber,
         gender: user.gender,
-        yearLevel: user.yearLevel,
         permissions,
       },
     });
@@ -85,13 +93,19 @@ export const login = async (req: Request, res: Response) => {
 
 export type OAuthLoginSource = "google" | "oidc";
 
-export const authCallback = (req: Request, res: Response, source?: OAuthLoginSource) => {
+export const authCallback = (
+  req: Request,
+  res: Response,
+  source?: OAuthLoginSource,
+) => {
   const user: any = req.user;
   const token = generateToken(user);
   const idToken = (req as any).idToken as string | undefined;
 
   // Redirect to frontend with token (use hash path for HashRouter: #/login?token=...)
-  const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
+  const frontendUrl = (
+    process.env.FRONTEND_URL || "http://localhost:5173"
+  ).replace(/\/$/, "");
   let redirectUrl = `${frontendUrl}/#/login?token=${encodeURIComponent(token)}`;
   if (source) redirectUrl += `&source=${source}`;
   if (idToken) redirectUrl += `&idToken=${encodeURIComponent(idToken)}`;
@@ -114,10 +128,16 @@ export const getSsoLogoutUrl = async (req: Request, res: Response) => {
     if (!endSession) {
       return res.json({ redirectUrl: undefined });
     }
-    const idToken = (req.body?.idToken ?? req.query?.id_token) as string | undefined;
-    const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
-    const postLogoutRedirect = (req.body?.postLogoutRedirectUri ?? req.query?.post_logout_redirect_uri) as string | undefined
-      || frontendUrl;
+    const idToken = (req.body?.idToken ?? req.query?.id_token) as
+      | string
+      | undefined;
+    const frontendUrl = (
+      process.env.FRONTEND_URL || "http://localhost:5173"
+    ).replace(/\/$/, "");
+    const postLogoutRedirect =
+      ((req.body?.postLogoutRedirectUri ??
+        req.query?.post_logout_redirect_uri) as string | undefined) ||
+      frontendUrl;
     const params = new URLSearchParams();
     if (idToken) params.set("id_token_hint", idToken);
     params.set("post_logout_redirect_uri", postLogoutRedirect);
@@ -135,9 +155,23 @@ export const getMe = async (req: Request, res: Response) => {
     if (!user) return res.status(401).json({ message: "Not authenticated" });
 
     const permissions: string[] = [];
+    let rolesArray = user.roles as UserRole[];
+
+    if ((!rolesArray || rolesArray.length === 0) && user.role) {
+      rolesArray = [normalizeUserRole(user.role)];
+      user.roles = rolesArray;
+      try {
+        await user.save();
+      } catch (e) {}
+    }
+
     for (const p of Object.values(Permission)) {
-      if (await hasPermissionAsync(user.role as UserRole, p)) {
-        permissions.push(p);
+      for (const r of rolesArray) {
+        if (await hasPermissionAsync(r, p)) {
+          if (!permissions.includes(p)) {
+            permissions.push(p);
+          }
+        }
       }
     }
 
@@ -146,7 +180,7 @@ export const getMe = async (req: Request, res: Response) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role,
+        roles: user.roles,
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,
@@ -165,11 +199,25 @@ export const impersonate = async (req: Request, res: Response) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Get current permissions for the role
+    // Get current permissions for the roles
     const permissions: string[] = [];
+    let rolesArray = user.roles as UserRole[];
+
+    if ((!rolesArray || rolesArray.length === 0) && user.role) {
+      rolesArray = [normalizeUserRole(user.role)];
+      user.roles = rolesArray;
+      try {
+        await user.save();
+      } catch (e) {}
+    }
+
     for (const p of Object.values(Permission)) {
-      if (await hasPermissionAsync(user.role as UserRole, p)) {
-        permissions.push(p);
+      for (const r of rolesArray) {
+        if (await hasPermissionAsync(r, p)) {
+          if (!permissions.includes(p)) {
+            permissions.push(p);
+          }
+        }
       }
     }
 
@@ -180,7 +228,7 @@ export const impersonate = async (req: Request, res: Response) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role,
+        roles: user.roles,
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,
@@ -304,7 +352,6 @@ export const updateProfile = async (req: Request, res: Response) => {
     if (avatar) user.avatar = avatar;
     if (contactNumber !== undefined) user.contactNumber = contactNumber;
     if (gender !== undefined) user.gender = gender;
-    if (yearLevel !== undefined) user.yearLevel = yearLevel;
     // Allow explicit clearing of resume
     if (req.body.clearResume === true) {
       await User.updateOne(
@@ -315,11 +362,16 @@ export const updateProfile = async (req: Request, res: Response) => {
 
     await user.save();
 
-    // Get current permissions for the role
+    // Get current permissions for the roles
     const permissions: string[] = [];
+    const rolesArray = user.roles as UserRole[];
     for (const p of Object.values(Permission)) {
-      if (await hasPermissionAsync(user.role as UserRole, p)) {
-        permissions.push(p);
+      for (const r of rolesArray) {
+        if (await hasPermissionAsync(r, p)) {
+          if (!permissions.includes(p)) {
+            permissions.push(p);
+          }
+        }
       }
     }
 
@@ -331,13 +383,12 @@ export const updateProfile = async (req: Request, res: Response) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
-        role: user.role,
+        roles: user.roles,
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,
         contactNumber: user.contactNumber,
         gender: user.gender,
-        yearLevel: user.yearLevel,
         resumeUrl: user.resumeUrl,
         resumeOriginalName: user.resumeOriginalName,
         permissions,

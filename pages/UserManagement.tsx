@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { db } from "../services/database";
 import { useToast } from "../components/Toast";
-import { API_BASE_URL } from "../services/api";
+import { api, API_BASE_URL } from "../services/api";
 import {
   Users,
   Search,
@@ -28,15 +28,20 @@ import {
   ExternalLink,
   RefreshCw,
   BadgeCheck,
+  Plus,
+  Upload,
+  Loader2,
 } from "lucide-react";
 
 import { Loading } from "../components/Loading";
 import { CustomDropdown } from "../components/CustomUI";
+import { Permission, UserRole } from "../types";
 
 interface EditForm {
   name: string;
   email: string;
-  role: string;
+  password?: string;
+  roles: string[];
 }
 
 // Skill level badge colours
@@ -124,11 +129,21 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
                 {user.name}
               </h2>
               <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                <span
-                  className={`px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider ${getRoleColour(user.role)}`}
-                >
-                  {user.role}
-                </span>
+                <div className="flex flex-wrap gap-2">
+                  {user.roles?.map((r: string) => (
+                    <span
+                      key={r}
+                      className={`px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider ${getRoleColour(r)}`}
+                    >
+                      {r}
+                    </span>
+                  ))}
+                  {(!user.roles || user.roles.length === 0) && (
+                    <span className="px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider bg-zinc-100 text-zinc-400">
+                      No Role
+                    </span>
+                  )}
+                </div>
                 {user.organisation?.name && (
                   <span className="flex items-center gap-1.5 text-xs font-bold text-zinc-500 dark:text-zinc-400">
                     <Building2 className="w-3.5 h-3.5" />
@@ -166,11 +181,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
                 label="Gender"
                 value={user.gender || "—"}
               />
-              <InfoPill
-                icon={<GraduationCap className="w-4 h-4" />}
-                label="Year Level"
-                value={user.yearLevel || "—"}
-              />
+
               <InfoPill
                 icon={<Building2 className="w-4 h-4" />}
                 label="Organisation"
@@ -344,21 +355,26 @@ export const UserManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const { showSuccess, showError } = useToast();
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   // View modal
   const [viewingUser, setViewingUser] = useState<any | null>(null);
 
-  // Edit modal state
   const [editingUser, setEditingUser] = useState<any | null>(null);
   const [editForm, setEditForm] = useState<EditForm>({
     name: "",
     email: "",
-    role: "",
+    password: "",
+    roles: [],
   });
+  const [isCreating, setIsCreating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   // Expanded inline row
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sort
   const [sortBy, setSortBy] = useState<"name" | "role" | "createdAt">(
@@ -369,6 +385,14 @@ export const UserManagement: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, [searchTerm, roleFilter]);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const user = await db.getCurrentUser();
+      setCurrentUser(user);
+    };
+    fetchUser();
+  }, []);
 
   const fetchData = async () => {
     try {
@@ -391,13 +415,47 @@ export const UserManagement: React.FC = () => {
     setEditForm({
       name: user.name || "",
       email: user.email || "",
-      role: user.role || "",
+      roles: user.roles || [],
+    });
+  };
+
+  const openCreateModal = () => {
+    setIsCreating(true);
+    setEditForm({
+      name: "",
+      email: "",
+      password: "",
+      roles: ["Applicant"],
     });
   };
 
   const closeEditModal = () => {
     setEditingUser(null);
+    setIsCreating(false);
     setSaving(false);
+  };
+
+  const handleCreateUser = async () => {
+    setSaving(true);
+    try {
+      const names = editForm.name.trim().split(" ");
+      const firstName = names[0] || "New";
+      const lastName = names.slice(1).join(" ") || "User";
+      await db.signup({
+        firstName,
+        lastName,
+        email: editForm.email,
+        password: editForm.password,
+        roles: editForm.roles,
+      });
+      showSuccess("User created successfully");
+      closeEditModal();
+      fetchData();
+    } catch (err: any) {
+      showError(err?.data?.message || err?.message || "Failed to create user");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSaveUser = async () => {
@@ -407,7 +465,7 @@ export const UserManagement: React.FC = () => {
       await db.updateUser(editingUser._id, {
         name: editForm.name,
         email: editForm.email,
-        role: editForm.role,
+        roles: editForm.roles,
       });
       showSuccess("User updated successfully");
       closeEditModal();
@@ -435,6 +493,26 @@ export const UserManagement: React.FC = () => {
     }
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    try {
+      const response = await api.importUsers(file);
+      showSuccess(response.message || "Users imported successfully");
+      fetchData();
+    } catch (err: any) {
+      showError(err?.data?.message || err?.message || "Failed to import users");
+    } finally {
+      setImporting(false);
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
   const toggleSort = (col: typeof sortBy) => {
     if (sortBy === col) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -451,8 +529,8 @@ export const UserManagement: React.FC = () => {
       av = a.name?.toLowerCase() ?? "";
       bv = b.name?.toLowerCase() ?? "";
     } else if (sortBy === "role") {
-      av = a.role?.toLowerCase() ?? "";
-      bv = b.role?.toLowerCase() ?? "";
+      av = (a.roles?.[0] || "").toLowerCase();
+      bv = (b.roles?.[0] || "").toLowerCase();
     } else {
       av = a.createdAt ?? "";
       bv = b.createdAt ?? "";
@@ -488,6 +566,48 @@ export const UserManagement: React.FC = () => {
           <span className="font-black text-primary text-sm">
             {users.length} {users.length === 1 ? "User" : "Users"}
           </span>
+        </div>
+        <div className="flex items-center gap-3">
+          {(currentUser?.permissions?.includes(Permission.USER_IMPORT) ||
+            currentUser?.roles?.includes(UserRole.GLOBAL_ADMIN)) && (
+            <>
+              <input
+                type="file"
+                accept=".csv"
+                className="hidden"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={importing || saving}
+                className="flex items-center gap-2 px-5 py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 rounded-xl font-bold text-sm hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all disabled:opacity-50"
+              >
+                {importing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    Import CSV
+                  </>
+                )}
+              </button>
+            </>
+          )}
+          {(currentUser?.permissions?.includes(Permission.USER_CREATE) ||
+            currentUser?.roles?.includes(UserRole.GLOBAL_ADMIN)) && (
+            <button
+              onClick={openCreateModal}
+              disabled={saving}
+              className="flex items-center gap-2 px-5 py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primaryHover transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
+            >
+              <Plus className="w-4 h-4" />
+              Create User
+            </button>
+          )}
         </div>
       </div>
 
@@ -606,11 +726,21 @@ export const UserManagement: React.FC = () => {
 
                       {/* Role */}
                       <td className="px-6 py-5">
-                        <span
-                          className={`px-3 py-1 text-xs font-black rounded-lg uppercase tracking-wider ${getRoleColour(user.role)}`}
-                        >
-                          {user.role}
-                        </span>
+                        <div className="flex flex-wrap gap-1">
+                          {user.roles?.map((r: string) => (
+                            <span
+                              key={r}
+                              className={`px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-wider ${getRoleColour(r)}`}
+                            >
+                              {r}
+                            </span>
+                          ))}
+                          {(!user.roles || user.roles.length === 0) && (
+                            <span className="px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-wider bg-zinc-100 text-zinc-400">
+                              No Role
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Details summary */}
@@ -727,12 +857,6 @@ export const UserManagement: React.FC = () => {
                                   {user.gender || "—"}
                                 </span>
                               </p>
-                              <p className="text-sm font-medium text-zinc-700 dark:text-zinc-200">
-                                Year Level:{" "}
-                                <span className="font-bold">
-                                  {user.yearLevel || "—"}
-                                </span>
-                              </p>
                             </div>
 
                             {/* Skills */}
@@ -820,22 +944,28 @@ export const UserManagement: React.FC = () => {
         />
       )}
 
-      {/* ─── Edit User Modal ─── */}
-      {editingUser && (
+      {/* ─── Create/Edit User Modal ─── */}
+      {(editingUser || isCreating) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
           <div className="bg-white dark:bg-zinc-900 w-full max-w-md rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 animate-scale-in">
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-zinc-100 dark:border-zinc-800">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Pencil className="w-5 h-5 text-primary" />
+                  {isCreating ? (
+                    <Users className="w-5 h-5 text-primary" />
+                  ) : (
+                    <Pencil className="w-5 h-5 text-primary" />
+                  )}
                 </div>
                 <div>
                   <h3 className="text-lg font-black text-zinc-900 dark:text-white">
-                    Edit User
+                    {isCreating ? "Create New User" : "Edit User"}
                   </h3>
                   <p className="text-xs text-zinc-400 font-medium">
-                    Update profile details and role
+                    {isCreating
+                      ? "Add a new member to the system"
+                      : "Update profile details and roles"}
                   </p>
                 </div>
               </div>
@@ -848,7 +978,7 @@ export const UserManagement: React.FC = () => {
             </div>
 
             {/* Body */}
-            <div className="p-6 space-y-5">
+            <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto">
               <div>
                 <label className="block text-xs font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest mb-2">
                   Full Name
@@ -879,23 +1009,56 @@ export const UserManagement: React.FC = () => {
                 />
               </div>
 
+              {isCreating && (
+                <div>
+                  <label className="block text-xs font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest mb-2">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    value={editForm.password}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, password: e.target.value })
+                    }
+                    className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-medium text-zinc-900 dark:text-white focus:ring-2 focus:ring-primary focus:outline-none transition-all"
+                    placeholder="Set password"
+                  />
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest mb-2">
-                  System Role
+                  System Roles (Select Multiple)
                 </label>
-                <select
-                  value={editForm.role}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, role: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-medium text-zinc-900 dark:text-white focus:ring-2 focus:ring-primary focus:outline-none transition-all appearance-none"
-                >
-                  {roles.map((r) => (
-                    <option key={r._id} value={r.name}>
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="grid grid-cols-1 gap-2 p-2 bg-zinc-50 dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                  {roles.map((r) => {
+                    const isSelected = editForm.roles.includes(r.name);
+                    return (
+                      <button
+                        key={r._id}
+                        type="button"
+                        onClick={() => {
+                          const newRoles = isSelected
+                            ? editForm.roles.filter((role) => role !== r.name)
+                            : [...editForm.roles, r.name];
+                          setEditForm({ ...editForm, roles: newRoles });
+                        }}
+                        className={`flex items-center justify-between px-3 py-2.5 rounded-lg transition-all ${
+                          isSelected
+                            ? "bg-primary text-white shadow-md shadow-primary/20"
+                            : "bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        }`}
+                      >
+                        <span className="text-sm font-bold">{r.name}</span>
+                        {isSelected ? (
+                          <BadgeCheck className="w-4 h-4" />
+                        ) : (
+                          <div className="w-4 h-4 rounded-full border-2 border-zinc-200 dark:border-zinc-700" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
@@ -908,12 +1071,22 @@ export const UserManagement: React.FC = () => {
                 Cancel
               </button>
               <button
-                onClick={handleSaveUser}
-                disabled={saving || !editForm.name || !editForm.email}
+                onClick={isCreating ? handleCreateUser : handleSaveUser}
+                disabled={
+                  saving ||
+                  !editForm.name ||
+                  !editForm.email ||
+                  (isCreating && !editForm.password) ||
+                  editForm.roles.length === 0
+                }
                 className="flex items-center px-5 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primaryHover shadow-lg shadow-primary/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="w-4 h-4 mr-2" />
-                {saving ? "Saving…" : "Save Changes"}
+                {saving
+                  ? "Saving…"
+                  : isCreating
+                    ? "Create User"
+                    : "Save Changes"}
               </button>
             </div>
           </div>

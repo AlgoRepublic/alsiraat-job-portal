@@ -32,17 +32,6 @@ const GENDER_OPTIONS = [
   { name: "Female", code: "Female" },
 ];
 
-const YEAR_LEVEL_OPTIONS = [
-  { name: "Year 7", code: "Year 7" },
-  { name: "Year 8", code: "Year 8" },
-  { name: "Year 9", code: "Year 9" },
-  { name: "Year 10", code: "Year 10" },
-  { name: "Year 11", code: "Year 11" },
-  { name: "Year 12", code: "Year 12" },
-  { name: "Staff", code: "Staff" },
-  { name: "Other", code: "Other" },
-];
-
 /**
  * Formats a raw input string as an Australian phone number.
  * Mobile (04XX): "04XX XXX XXX"
@@ -117,7 +106,6 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
         avatar: profile.avatar,
         contactNumber: profile.contactNumber,
         gender: profile.gender,
-        yearLevel: profile.yearLevel,
       });
       // Sync the derived name back into local state
       if (updated) {
@@ -327,9 +315,22 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
                   <Phone className="w-4 h-4 mr-1.5" /> {profile.contactNumber}
                 </span>
               )}
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary">
-                {profile.role}
-              </span>
+              <div className="flex flex-wrap gap-2">
+                {profile.roles && profile.roles.length > 0 ? (
+                  profile.roles.map((r: string) => (
+                    <span
+                      key={r}
+                      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary"
+                    >
+                      {r}
+                    </span>
+                  ))
+                ) : (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary">
+                    {profile.role}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -455,32 +456,16 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
             )}
           </div>
 
-          {/* Year Level */}
-          <div className="space-y-1.5 md:col-span-2">
+          {/* Year Level (Read-Only) */}
+          <div className="space-y-1.5">
             <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
               Year Level
             </label>
-            {isEditing ? (
-              <CustomDropdown
-                options={YEAR_LEVEL_OPTIONS}
-                value={profile.yearLevel || ""}
-                onChange={(val) => setProfile({ ...profile, yearLevel: val })}
-                placeholder="Select year level"
-                icon={<GraduationCap className="w-4 h-4 text-zinc-400" />}
-                variant="compact"
-              />
-            ) : (
-              <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl flex items-center gap-2">
-                {profile.yearLevel ? (
-                  <>
-                    <GraduationCap className="w-4 h-4 text-zinc-400" />
-                    {profile.yearLevel}
-                  </>
-                ) : (
-                  <span className="text-zinc-400 italic">Not set</span>
-                )}
-              </p>
-            )}
+            <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl">
+              {profile.yearLevel || (
+                <span className="text-zinc-400 italic">Not set</span>
+              )}
+            </p>
           </div>
         </div>
 

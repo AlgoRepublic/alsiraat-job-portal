@@ -251,7 +251,12 @@ const App: React.FC = () => {
                         <>
                           <Route
                             path="/dashboard"
-                            element={<Dashboard role={currentUser.role} />}
+                            element={
+                              <Dashboard
+                                role={currentUser.role}
+                                roles={currentUser.roles}
+                              />
+                            }
                           />
                           <Route path="/post-job" element={<JobWizard />} />
                           <Route path="/edit-job/:id" element={<JobWizard />} />

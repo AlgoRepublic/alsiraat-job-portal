@@ -25,7 +25,8 @@ import { db } from "../services/database";
 import { useNavigate } from "react-router-dom";
 
 interface DashboardProps {
-  role: UserRole;
+  roles?: UserRole[];
+  role?: UserRole; // Keep for backward compatibility if needed temporarily
 }
 
 export const getStatusColor = (status: JobStatus) => {
@@ -59,7 +60,7 @@ interface ActionItem {
 
 import { Loading } from "../components/Loading";
 
-export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ roles, role }) => {
   const navigate = useNavigate();
   const [activeJobsCount, setActiveJobsCount] = useState(0);
   const [totalApplications, setTotalApplications] = useState(0);
@@ -149,7 +150,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
     };
 
     loadData();
-  }, [role]);
+  }, [roles, role]);
 
   const getRelativeTime = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -462,7 +463,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
                   My Tasks
                 </span>
               </button>
-              {role === UserRole.GLOBAL_ADMIN && (
+              {(roles?.includes(UserRole.GLOBAL_ADMIN) ||
+                role === UserRole.GLOBAL_ADMIN) && (
                 <button
                   onClick={() => navigate("/admin/settings")}
                   className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all group"
@@ -475,7 +477,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
                   </span>
                 </button>
               )}
-              {(role === UserRole.GLOBAL_ADMIN ||
+              {(roles?.includes(UserRole.GLOBAL_ADMIN) ||
+                roles?.includes(UserRole.SCHOOL_ADMIN) ||
+                role === UserRole.GLOBAL_ADMIN ||
                 role === UserRole.SCHOOL_ADMIN) && (
                 <button
                   onClick={() => navigate("/reports")}

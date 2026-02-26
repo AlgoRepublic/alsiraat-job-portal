@@ -20,7 +20,7 @@ export const buildApplicationQuery = async (
   taskId: string | undefined,
   permissions: { hasFullAccess: boolean; hasOwnAccess: boolean },
   deps: ApplicationQueryDeps,
-  UserRole: UserRoleEnum // Inject UserRole
+  UserRole: UserRoleEnum, // Inject UserRole
 ): Promise<any> => {
   const { hasFullAccess, hasOwnAccess } = permissions;
   let query: any = {};
@@ -35,19 +35,30 @@ export const buildApplicationQuery = async (
     // If user has full access, check if they can view this task's applications
     else if (hasFullAccess) {
       const task = await deps.TaskModel.findById(taskId);
-      if (task && user.role !== UserRole.GLOBAL_ADMIN) {
+      const isGlobalAdmin =
+        user.roles?.some(
+          (r: string) =>
+            r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
+        ) || user.role === UserRole.GLOBAL_ADMIN;
+      if (task && !isGlobalAdmin) {
         // Check if user is from the same org or is the task creator
         if (
           task.organisation?.toString() !== user.organisation?.toString() &&
           task.createdBy?.toString() !== user._id.toString()
         ) {
-          throw new Error("You don't have permission to view these applications"); // Or handle this differently
+          throw new Error(
+            "You don't have permission to view these applications",
+          ); // Or handle this differently
         }
       }
     }
   } else {
     // No specific task - filter based on permissions
-    if (user.role === UserRole.GLOBAL_ADMIN) {
+    const isGlobalAdmin =
+      user.roles?.some(
+        (r: string) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
+      ) || user.role === UserRole.GLOBAL_ADMIN;
+    if (isGlobalAdmin) {
       // Admin sees all
       query = {};
     } else if (hasFullAccess) {

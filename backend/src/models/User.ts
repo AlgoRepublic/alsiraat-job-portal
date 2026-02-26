@@ -26,7 +26,8 @@ export interface IUser extends Document {
   password?: string;
   googleId?: string;
   oidcId?: string;
-  role: UserRole;
+  role?: string; // Legacy string role access
+  roles: UserRole[];
   organisation?: mongoose.Types.ObjectId;
   avatar?: string;
   about?: string;
@@ -71,12 +72,14 @@ const UserSchema: Schema = new Schema(
     password: { type: String },
     googleId: { type: String },
     oidcId: { type: String },
-    role: {
-      type: String,
-      enum: Object.values(UserRole),
-      default: UserRole.APPLICANT,
-      set: normalizeUserRole,
-    },
+    role: { type: String }, // Legacy string role access
+    roles: [
+      {
+        type: String,
+        enum: Object.values(UserRole),
+        set: normalizeUserRole,
+      },
+    ],
     organisation: { type: Schema.Types.ObjectId, ref: "Organization" },
     avatar: { type: String },
     about: { type: String },
@@ -85,7 +88,7 @@ const UserSchema: Schema = new Schema(
       type: String,
       enum: ["Male", "Female"],
     },
-    yearLevel: { type: String },
+
     resumeUrl: { type: String },
     resumeOriginalName: { type: String },
     skills: [SkillSchema],

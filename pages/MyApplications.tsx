@@ -149,7 +149,7 @@ export default function MyApplications() {
                           onClick={() => handleRequestCompletion(app._id)}
                           className="px-6 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/10 group-hover:scale-105"
                         >
-                          Mark Completed
+                          Request Completion
                         </button>
                       )}
                       {app.task && (

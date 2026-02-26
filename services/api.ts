@@ -168,14 +168,17 @@ class ApiService {
    */
   async getSsoLogoutUrl(
     idToken: string,
-    postLogoutRedirectUri?: string
+    postLogoutRedirectUri?: string,
   ): Promise<{ redirectUrl?: string }> {
-      const baseUrl =
-        postLogoutRedirectUri ??
-        (`${window.location.origin}${window.location.pathname || "/"}`.replace(/\/$/, "") ||
-          `${window.location.origin}/`);
-      const separator = baseUrl.includes("?") ? "&" : "?";
-      const postLogout = `${baseUrl}${separator}redirect-to-login=true`;
+    const baseUrl =
+      postLogoutRedirectUri ??
+      (`${window.location.origin}${window.location.pathname || "/"}`.replace(
+        /\/$/,
+        "",
+      ) ||
+        `${window.location.origin}/`);
+    const separator = baseUrl.includes("?") ? "&" : "?";
+    const postLogout = `${baseUrl}${separator}redirect-to-login=true`;
     try {
       const res = await fetch(`${API_BASE_URL}/auth/logout/sso-url`, {
         method: "POST",
@@ -209,6 +212,33 @@ class ApiService {
   // --- Organizations ---
   async getOrganizations(): Promise<any[]> {
     return this.request<any[]>("/organizations");
+  }
+
+  // --- Users ---
+  async getUsers(filters: any = {}): Promise<any[]> {
+    const query = new URLSearchParams(filters).toString();
+    return this.request<any[]>(`/users?${query}`);
+  }
+
+  async updateUser(id: string, data: any): Promise<any> {
+    return this.request<any>(`/users/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteUser(id: string): Promise<any> {
+    return this.request<any>(`/users/${id}`, { method: "DELETE" });
+  }
+
+  async importUsers(file: File): Promise<any> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    return this.request<any>("/users/import", {
+      method: "POST",
+      body: formData,
+    });
   }
 
   async createOrganization(data: any): Promise<any> {

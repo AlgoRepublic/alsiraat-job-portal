@@ -23,6 +23,7 @@ export const Permission = {
   TASK_APPROVE: "task:approve",
   TASK_PUBLISH: "task:publish",
   TASK_ARCHIVE: "task:archive",
+  TASK_COMPLETE: "task:complete",
   TASK_VIEW_INTERNAL: "task:view_internal",
   TASK_VIEW_PENDING: "task:view_pending",
   TASK_AUTO_PUBLISH: "task:auto_publish",
@@ -37,9 +38,11 @@ export const Permission = {
   APPLICATION_CONFIRM: "application:confirm",
 
   // User Management
+  USER_CREATE: "user:create",
   USER_READ: "user:read",
   USER_UPDATE: "user:update",
   USER_DELETE: "user:delete",
+  USER_IMPORT: "user:import",
   USER_IMPERSONATE: "user:impersonate",
   USER_MANAGE_ROLES: "user:manage_roles",
 
@@ -87,6 +90,7 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.TASK_APPROVE,
     Permission.TASK_PUBLISH,
     Permission.TASK_ARCHIVE,
+    Permission.TASK_COMPLETE,
     Permission.TASK_VIEW_INTERNAL,
     Permission.TASK_VIEW_PENDING,
     Permission.TASK_AUTO_PUBLISH,
@@ -103,8 +107,10 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.ORG_MANAGE_MEMBERS,
 
     // User Management (scoped)
+    Permission.USER_CREATE,
     Permission.USER_READ,
     Permission.USER_UPDATE,
+    Permission.USER_IMPORT,
     Permission.USER_MANAGE_ROLES,
 
     // Dashboard & Analytics
@@ -205,6 +211,21 @@ export async function hasPermissionAsync(
 }
 
 /**
+ * Check if any of the roles have a specific permission (DYNAMIC - uses database)
+ */
+export async function hasPermissionMultiAsync(
+  roles: UserRole[],
+  permission: Permission,
+): Promise<boolean> {
+  for (const role of roles) {
+    if (await hasPermissionAsync(role, permission)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Check if a role has ALL of the specified permissions
  */
 export function hasAllPermissions(
@@ -233,6 +254,21 @@ export async function hasAnyPermissionAsync(
 ): Promise<boolean> {
   for (const permission of permissions) {
     if (await hasPermissionAsync(role, permission)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Check if any of the roles have any of the specified permissions (DYNAMIC - uses database)
+ */
+export async function hasAnyPermissionMultiAsync(
+  roles: UserRole[],
+  permissions: Permission[],
+): Promise<boolean> {
+  for (const role of roles) {
+    if (await hasAnyPermissionAsync(role, permissions)) {
       return true;
     }
   }
@@ -308,6 +344,10 @@ export function canWithContext(
  * Check permission with context (DYNAMIC - uses database)
  * This allows Independent users to manage their own tasks' applications
  */
+/**
+ * Check permission with context (DYNAMIC - uses database)
+ * This allows Independent users to manage their own tasks' applications
+ */
 export async function canWithContextAsync(
   role: UserRole,
   permission: Permission,
@@ -345,6 +385,22 @@ export async function canWithContextAsync(
     }
   }
 
+  return false;
+}
+
+/**
+ * Check permission with context across multiple roles (DYNAMIC - uses database)
+ */
+export async function canWithContextMultiAsync(
+  roles: UserRole[],
+  permission: Permission,
+  context: PermissionContext,
+): Promise<boolean> {
+  for (const role of roles) {
+    if (await canWithContextAsync(role, permission, context)) {
+      return true;
+    }
+  }
   return false;
 }
 

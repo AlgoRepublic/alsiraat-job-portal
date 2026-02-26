@@ -76,11 +76,16 @@ export const JobDetails: React.FC = () => {
                 const appList = await db.getApplicationsForJob(id);
 
                 // For internal users, this shows all applicants
-                const isInternal =
-                  user.role === UserRole.GLOBAL_ADMIN ||
-                  user.role === UserRole.SCHOOL_ADMIN ||
-                  user.role === UserRole.TASK_MANAGER ||
-                  user.role === UserRole.TASK_ADVERTISER;
+                const isInternal = user.roles?.some((r: string) =>
+                  (
+                    [
+                      UserRole.GLOBAL_ADMIN,
+                      UserRole.SCHOOL_ADMIN,
+                      UserRole.TASK_MANAGER,
+                      UserRole.TASK_ADVERTISER,
+                    ] as UserRole[]
+                  ).includes(r as UserRole),
+                );
 
                 if (isInternal) {
                   setApplicants(appList);
@@ -267,9 +272,10 @@ export const JobDetails: React.FC = () => {
       userOrgIdType: String(userOrgId),
       jobVisibility: job.visibility,
       userRole: currentUser.role,
+      userRoles: currentUser.roles,
     });
     // Context-aware check: Global Admin can approve any task
-    if (currentUser.role === UserRole.GLOBAL_ADMIN) {
+    if (currentUser.roles?.includes(UserRole.GLOBAL_ADMIN)) {
       return true;
     }
 
@@ -287,8 +293,11 @@ export const JobDetails: React.FC = () => {
 
   // Expired checks
   const isExpired = job.endDate ? new Date(job.endDate) < new Date() : false;
-  const showOwnerExpiredActions =
-    isJobOwner &&
+  const canMarkComplete =
+    isJobOwner || currentUser?.permissions?.includes(Permission.TASK_COMPLETE);
+
+  const showCompletionActions =
+    canMarkComplete &&
     isExpired &&
     job.status !== JobStatus.COMPLETED &&
     job.status !== JobStatus.ARCHIVED;
@@ -305,17 +314,14 @@ export const JobDetails: React.FC = () => {
             <ArrowLeft className="w-4 h-4 mr-2" /> Back
           </button>
 
-          {isJobOwner &&
-            (job.status === JobStatus.PENDING ||
-              job.status === JobStatus.CHANGES_REQUESTED ||
-              job.status === JobStatus.DRAFT) && (
-              <button
-                onClick={() => navigate(`/edit-job/${job.id}`)}
-                className="flex items-center px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white text-sm font-bold rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
-              >
-                <Edit className="w-4 h-4 mr-2" /> Edit Task
-              </button>
-            )}
+          {isJobOwner && (
+            <button
+              onClick={() => navigate(`/edit-job/${job.id}`)}
+              className="flex items-center px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white text-sm font-bold rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+            >
+              <Edit className="w-4 h-4 mr-2" /> Edit Task
+            </button>
+          )}
         </div>
 
         <div className="flex flex-col md:flex-row justify-between items-start gap-4">
@@ -417,8 +423,8 @@ export const JobDetails: React.FC = () => {
         </div>
       )}
 
-      {/* Expired Job Actions for Owner */}
-      {showOwnerExpiredActions && (
+      {/* Expired Job Actions */}
+      {showCompletionActions && (
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-900/50 p-6 rounded-2xl flex items-center justify-between">
           <div>
             <h3 className="text-lg font-bold text-blue-900 dark:text-blue-100">
@@ -429,12 +435,14 @@ export const JobDetails: React.FC = () => {
             </p>
           </div>
           <div className="flex gap-3">
-            <button
-              onClick={() => setShowRepostModal(true)}
-              className="px-4 py-2 bg-white dark:bg-zinc-900 text-blue-600 border border-blue-200 dark:border-blue-700/50 rounded-xl font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors flex items-center"
-            >
-              <RefreshCw className="w-4 h-4 mr-2" /> Repost
-            </button>
+            {isJobOwner && (
+              <button
+                onClick={() => setShowRepostModal(true)}
+                className="px-4 py-2 bg-white dark:bg-zinc-900 text-blue-600 border border-blue-200 dark:border-blue-700/50 rounded-xl font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors flex items-center"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" /> Repost
+              </button>
+            )}
             <button
               onClick={handleMarkCompleted}
               className="px-4 py-2 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 shadow-md transition-colors flex items-center"

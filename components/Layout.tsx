@@ -479,7 +479,11 @@ export const Layout: React.FC<LayoutProps> = ({
     if (loginSource === "sso" && idToken) {
       try {
         const res = await api.getSsoLogoutUrl(idToken);
-        redirectUrl = typeof res.redirectUrl === "string" && res.redirectUrl.startsWith("http") ? res.redirectUrl : undefined;
+        redirectUrl =
+          typeof res.redirectUrl === "string" &&
+          res.redirectUrl.startsWith("http")
+            ? res.redirectUrl
+            : undefined;
       } catch {
         redirectUrl = undefined;
       }
@@ -587,9 +591,22 @@ export const Layout: React.FC<LayoutProps> = ({
                   <p className="text-sm font-bold text-zinc-900 dark:text-white truncate group-hover:text-primary transition-colors">
                     {currentUser.name}
                   </p>
-                  <p className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                    {currentUser.role}
-                  </p>
+                  <div className="flex flex-wrap gap-0.5 mt-0.5">
+                    {currentUser.roles && currentUser.roles.length > 0 ? (
+                      currentUser.roles.map((r: string) => (
+                        <span
+                          key={r}
+                          className="text-[9px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-tighter border border-zinc-200 dark:border-zinc-700 px-1 rounded bg-zinc-50/50 dark:bg-white/5"
+                        >
+                          {r}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                        {currentUser.role}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <button
                   onClick={(e) => {

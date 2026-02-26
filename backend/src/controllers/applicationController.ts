@@ -88,12 +88,13 @@ export const updateApplicationStatus = async (req: any, res: Response) => {
     }
 
     // Additional business rule: Approve/Reject requires shortlisted first (except Admin)
+    const isGlobalAdmin = req.user.roles?.includes(UserRole.GLOBAL_ADMIN);
     if (
       (status === ApplicationStatus.APPROVED ||
         status === ApplicationStatus.REJECTED ||
         status === ApplicationStatus.OFFERED) &&
       app.status !== ApplicationStatus.SHORTLISTED &&
-      req.user.role !== UserRole.GLOBAL_ADMIN
+      !isGlobalAdmin
     ) {
       return res.status(400).json({
         message:
@@ -225,7 +226,8 @@ export const getApplicationById = async (req: any, res: Response) => {
     }
 
     // If user has full access but is not admin, verify they can access this application
-    if (hasFullAccess.allowed && req.user.role !== "Global Admin") {
+    const isGlobalAdmin = req.user.roles?.includes(UserRole.GLOBAL_ADMIN);
+    if (hasFullAccess.allowed && !isGlobalAdmin) {
       const task: any = app.task;
       const isOrgMember =
         task.organisation?.toString() === req.user.organisation?.toString();
@@ -348,19 +350,15 @@ export const requestCompletion = async (req: any, res: Response) => {
     if (!app) return res.status(404).json({ message: "Application not found" });
 
     if (app.applicant.toString() !== req.user._id.toString()) {
-      return res
-        .status(403)
-        .json({
-          message: "You can only request completion for your own applications",
-        });
+      return res.status(403).json({
+        message: "You can only request completion for your own applications",
+      });
     }
 
     if (app.status !== ApplicationStatus.ACCEPTED) {
-      return res
-        .status(400)
-        .json({
-          message: "Job must be accepted before requesting completion.",
-        });
+      return res.status(400).json({
+        message: "Job must be accepted before requesting completion.",
+      });
     }
 
     app.status = ApplicationStatus.COMPLETION_REQUESTED;
@@ -393,8 +391,9 @@ export const acceptCompletion = async (req: any, res: Response) => {
     const task: any = app.task;
     const applicantUser: any = app.applicant;
 
+    const isGlobalAdmin = req.user.roles?.includes(UserRole.GLOBAL_ADMIN);
     if (
-      req.user.role !== UserRole.GLOBAL_ADMIN &&
+      !isGlobalAdmin &&
       req.user._id.toString() !== task.createdBy.toString()
     ) {
       return res
@@ -479,8 +478,10 @@ export const rejectCompletion = async (req: any, res: Response) => {
 
     const task: any = app.task;
 
+    const isGlobalAdmin = req.user.roles?.includes(UserRole.GLOBAL_ADMIN);
+
     if (
-      req.user.role !== UserRole.GLOBAL_ADMIN &&
+      !isGlobalAdmin &&
       req.user._id.toString() !== task.createdBy.toString()
     ) {
       return res

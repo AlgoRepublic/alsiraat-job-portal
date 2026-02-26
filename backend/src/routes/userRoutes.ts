@@ -5,12 +5,14 @@ import {
   updateUserRole,
   updateUser,
   deleteUser,
+  importUsers,
 } from "../controllers/userController.js";
 import {
   authenticate,
   requirePermission,
   Permission,
 } from "../middleware/rbac.js";
+import { upload, handleUploadError } from "../middleware/upload.js";
 
 const router = express.Router();
 
@@ -26,6 +28,16 @@ router.get(
   authenticate,
   requirePermission(Permission.USER_READ),
   getUserById,
+);
+
+// Import requires specific permission
+router.post(
+  "/import",
+  authenticate,
+  requirePermission(Permission.USER_IMPORT),
+  upload.single("file"),
+  handleUploadError,
+  importUsers,
 );
 
 // Update/Delete require specific permissions

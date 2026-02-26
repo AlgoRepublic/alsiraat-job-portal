@@ -115,15 +115,15 @@ export interface User {
   name: string;
   firstName?: string;
   lastName?: string;
-  role: UserRole;
+  roles: UserRole[];
   avatar: string;
   email: string;
   contactNumber?: string;
   gender?: "Male" | "Female";
-  yearLevel?: string;
   permissions?: string[];
   organization?: string;
   organisation?: string;
+  yearLevel?: string;
 }
 
 export interface Skill {
@@ -150,6 +150,7 @@ export const Permission = {
   TASK_APPROVE: "task:approve",
   TASK_PUBLISH: "task:publish",
   TASK_ARCHIVE: "task:archive",
+  TASK_COMPLETE: "task:complete",
   TASK_VIEW_INTERNAL: "task:view_internal",
   TASK_VIEW_PENDING: "task:view_pending",
   TASK_AUTO_PUBLISH: "task:auto_publish",
@@ -164,9 +165,11 @@ export const Permission = {
   APPLICATION_CONFIRM: "application:confirm",
 
   // User Management
+  USER_CREATE: "user:create",
   USER_READ: "user:read",
   USER_UPDATE: "user:update",
   USER_DELETE: "user:delete",
+  USER_IMPORT: "user:import",
   USER_IMPERSONATE: "user:impersonate",
   USER_MANAGE_ROLES: "user:manage_roles",
 

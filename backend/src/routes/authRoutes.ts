@@ -17,6 +17,7 @@ import { authenticate, requirePermission } from "../middleware/rbac.js";
 import { upload } from "../middleware/upload.js";
 import { hasPermissionAsync, Permission } from "../config/permissions.js";
 import { UserRole } from "../models/User.js";
+import { normalizeUserRole } from "../models/UserRole.js";
 import "../config/passport.js";
 
 const router = express.Router();
@@ -39,12 +40,27 @@ router.post("/login", (req, res, next) => {
 
       const token = generateToken(user);
 
-      // Get current permissions for the role
+      // Get current permissions for the roles
       (async () => {
         const permissions: string[] = [];
+        let rolesArray = user.roles as UserRole[];
+
+        // Legacy role migration fallback on login
+        if ((!rolesArray || rolesArray.length === 0) && user.role) {
+          rolesArray = [normalizeUserRole(user.role)];
+          user.roles = rolesArray;
+          try {
+            await user.save();
+          } catch (e) {}
+        }
+
         for (const p of Object.values(Permission)) {
-          if (await hasPermissionAsync(user.role as UserRole, p)) {
-            permissions.push(p);
+          for (const r of rolesArray) {
+            if (await hasPermissionAsync(r, p)) {
+              if (!permissions.includes(p)) {
+                permissions.push(p);
+              }
+            }
           }
         }
 
@@ -54,7 +70,7 @@ router.post("/login", (req, res, next) => {
             id: user._id,
             name: user.name,
             email: user.email,
-            role: user.role,
+            roles: user.roles,
             skills: user.skills || [],
             about: user.about || "",
             avatar: user.avatar,

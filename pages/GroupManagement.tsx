@@ -266,9 +266,22 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
                       {user.email}
                     </p>
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded-lg flex-shrink-0">
-                    {user.role}
-                  </span>
+                  <div className="flex flex-wrap gap-1 flex-shrink-0">
+                    {user.roles && user.roles.length > 0 ? (
+                      user.roles.map((r: string) => (
+                        <span
+                          key={r}
+                          className="text-[10px] font-black uppercase tracking-widest text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded-lg"
+                        >
+                          {r}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded-lg">
+                        {user.role}
+                      </span>
+                    )}
+                  </div>
                   {isSelected && (
                     <Check className="w-4 h-4 text-primary flex-shrink-0" />
                   )}
@@ -596,9 +609,23 @@ export const GroupManagement: React.FC = () => {
                                       </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                      <span className="px-2 py-1 text-[10px] font-black uppercase tracking-widest bg-zinc-100 dark:bg-zinc-800 text-zinc-500 rounded-lg">
-                                        {member.role}
-                                      </span>
+                                      <div className="flex flex-wrap gap-1">
+                                        {member.roles &&
+                                        member.roles.length > 0 ? (
+                                          member.roles.map((r: string) => (
+                                            <span
+                                              key={r}
+                                              className="px-2 py-1 text-[10px] font-black uppercase tracking-widest bg-zinc-100 dark:bg-zinc-800 text-zinc-500 rounded-lg"
+                                            >
+                                              {r}
+                                            </span>
+                                          ))
+                                        ) : (
+                                          <span className="px-2 py-1 text-[10px] font-black uppercase tracking-widest bg-zinc-100 dark:bg-zinc-800 text-zinc-500 rounded-lg">
+                                            {member.role}
+                                          </span>
+                                        )}
+                                      </div>
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                       <button

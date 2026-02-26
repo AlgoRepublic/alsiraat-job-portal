@@ -73,17 +73,18 @@ export const requirePermission = (permission: Permission) => {
       return res.status(401).json({ message: "Authentication required" });
     }
 
-    const userRole = user.role as UserRole;
+    const userRoles = user.roles as UserRole[];
 
     // Use dynamic permission check from database
-    const { hasPermissionAsync } = await import("../config/permissions.js");
-    const hasAccess = await hasPermissionAsync(userRole, permission);
+    const { hasPermissionMultiAsync } =
+      await import("../config/permissions.js");
+    const hasAccess = await hasPermissionMultiAsync(userRoles, permission);
 
     if (!hasAccess) {
       return res.status(403).json({
         message: `Permission denied: ${permission}`,
         required: permission,
-        userRole: userRole,
+        userRoles: userRoles,
       });
     }
 
@@ -102,17 +103,18 @@ export const requireAnyPermission = (permissions: Permission[]) => {
       return res.status(401).json({ message: "Authentication required" });
     }
 
-    const userRole = user.role as UserRole;
+    const userRoles = user.roles as UserRole[];
 
     // Use dynamic permission check from database
-    const { hasAnyPermissionAsync } = await import("../config/permissions.js");
-    const hasAccess = await hasAnyPermissionAsync(userRole, permissions);
+    const { hasAnyPermissionMultiAsync } =
+      await import("../config/permissions.js");
+    const hasAccess = await hasAnyPermissionMultiAsync(userRoles, permissions);
 
     if (!hasAccess) {
       return res.status(403).json({
         message: "Permission denied",
         required: permissions,
-        userRole: userRole,
+        userRoles: userRoles,
       });
     }
 
@@ -143,7 +145,7 @@ export const requirePermissionWithContext = (
       return res.status(401).json({ message: "Authentication required" });
     }
 
-    const userRole = user.role as UserRole;
+    const userRoles = user.roles as UserRole[];
 
     try {
       const context = await getContext(req);
@@ -151,9 +153,10 @@ export const requirePermissionWithContext = (
       context.userOrganizationId = user.organisation?.toString();
 
       // Use dynamic permission check from database
-      const { canWithContextAsync } = await import("../config/permissions.js");
-      const hasAccess = await canWithContextAsync(
-        userRole,
+      const { canWithContextMultiAsync } =
+        await import("../config/permissions.js");
+      const hasAccess = await canWithContextMultiAsync(
+        userRoles,
         permission,
         context,
       );
@@ -162,7 +165,7 @@ export const requirePermissionWithContext = (
         return res.status(403).json({
           message: `Permission denied: ${permission}`,
           required: permission,
-          userRole: userRole,
+          userRoles: userRoles,
         });
       }
 
@@ -191,15 +194,19 @@ export async function checkPermissionAsync(
     };
   }
 
-  const userRole = user.role as UserRole;
-  const { hasPermissionAsync, canWithContextAsync } =
+  const userRoles = user.roles as UserRole[];
+  const { hasPermissionMultiAsync, canWithContextMultiAsync } =
     await import("../config/permissions.js");
 
   if (context) {
     context.userId = user._id.toString();
     context.userOrganizationId = user.organisation?.toString();
 
-    const hasAccess = await canWithContextAsync(userRole, permission, context);
+    const hasAccess = await canWithContextMultiAsync(
+      userRoles,
+      permission,
+      context,
+    );
     if (!hasAccess) {
       return {
         allowed: false,
@@ -210,7 +217,7 @@ export async function checkPermissionAsync(
       };
     }
   } else {
-    const hasAccess = await hasPermissionAsync(userRole, permission);
+    const hasAccess = await hasPermissionMultiAsync(userRoles, permission);
     if (!hasAccess) {
       return {
         allowed: false,
@@ -297,11 +304,11 @@ export const requireTaskApproval = async (
   );
 
   if (!allowed) {
-    // Basic role check fallback for Global tasks to ensure Global Admin can always approve
+    // Basic roles check fallback for Global tasks to ensure Global Admin can always approve
     // but the Permission.TASK_APPROVE check should have covered this if Admin has all permissions
     return res.status(403).json({
       message: "Insufficient permissions to approve this task",
-      role: req.user.role,
+      roles: req.user.roles,
     });
   }
 
@@ -313,7 +320,9 @@ export const requireTaskApproval = async (
 
   if (
     task.visibility !== "Internal" &&
-    req.user.role.toLowerCase() !== UserRole.GLOBAL_ADMIN.toLowerCase() &&
+    !req.user.roles?.some(
+      (r: string) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
+    ) &&
     organisationId !== userOrganisationId
   ) {
     // Only Global Admin (or Org Admin for their own tasks) can approve non-internal tasks

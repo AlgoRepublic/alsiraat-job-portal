@@ -55,11 +55,6 @@ router.post(
   requirePermission(Permission.TASK_CREATE),
   repostTask,
 );
-router.put(
-  "/:taskId/mark-completed",
-  authenticate,
-  requirePermission(Permission.TASK_UPDATE),
-  markTaskCompleted,
-);
+router.put("/:taskId/mark-completed", authenticate, markTaskCompleted);
 
 export default router;
