@@ -204,6 +204,14 @@ export interface Application {
   applicantName: string;
   applicantEmail: string;
   applicantAvatar: string;
+  applicantAbout?: string;
+  applicantSkills?: Skill[];
+  applicantResumeUrl?: string;
+  applicantResumeOriginalName?: string;
+  applicantContactNumber?: string;
+  applicantGender?: string;
+  applicantYearLevel?: string;
+  applicantExperience?: any[];
   status:
     | "Pending"
     | "Reviewing"
@@ -212,10 +220,14 @@ export interface Application {
     | "Rejected"
     | "Offered"
     | "Accepted"
-    | "Declined";
+    | "Declined"
+    | "Completion Requested"
+    | "Completed"
+    | "Completion Rejected";
   appliedAt: string;
   coverLetter: string;
   availability: string;
+  rejectionReason?: string;
 }
 
 export interface RoleDefinition {

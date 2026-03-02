@@ -176,7 +176,10 @@ export const getApplications = async (req: any, res: Response) => {
 
     const apps = await Application.find(query)
       .populate("task")
-      .populate("applicant", "name email avatar");
+      .populate(
+        "applicant",
+        "name email avatar about skills resumeUrl resumeOriginalName experience contactNumber gender yearLevel organisation",
+      );
     res.json(apps);
   } catch (err: any) {
     // Check if error is due to permission denied (thrown from helper)
@@ -192,7 +195,10 @@ export const getApplicationById = async (req: any, res: Response) => {
     const { appId } = req.params;
     const app = await Application.findById(appId)
       .populate("task")
-      .populate("applicant", "name email avatar");
+      .populate(
+        "applicant",
+        "name email avatar about skills resumeUrl resumeOriginalName experience contactNumber gender yearLevel organisation",
+      );
 
     if (!app) {
       return res.status(404).json({ message: "Application not found" });

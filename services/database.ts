@@ -97,10 +97,19 @@ const mapAppToFrontend = (app: any): Application => {
     applicantName: app.applicant?.name || "Unknown",
     applicantEmail: app.applicant?.email || "",
     applicantAvatar: app.applicant?.avatar || undefined,
+    applicantAbout: app.applicant?.about,
+    applicantSkills: app.applicant?.skills || [],
+    applicantResumeUrl: app.applicant?.resumeUrl,
+    applicantResumeOriginalName: app.applicant?.resumeOriginalName,
+    applicantContactNumber: app.applicant?.contactNumber,
+    applicantGender: app.applicant?.gender,
+    applicantYearLevel: app.applicant?.yearLevel,
+    applicantExperience: app.applicant?.experience || [],
     status: app.status as any,
     appliedAt: app.createdAt,
     coverLetter: app.coverLetter,
     availability: app.availability,
+    rejectionReason: app.rejectionReason,
   };
 };
 
