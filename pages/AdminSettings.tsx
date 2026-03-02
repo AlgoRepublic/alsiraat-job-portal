@@ -525,7 +525,7 @@ export const AdminSettings: React.FC = () => {
                     <div className="flex gap-2">
                       <input
                         type="text"
-                        placeholder="Add ADFS claim value (e.g. TaskUnity-Admins)"
+                        placeholder="Add ADFS role value"
                         value={oidcMappingInput}
                         onChange={(e) => setOidcMappingInput(e.target.value)}
                         onKeyDown={(e) => {
