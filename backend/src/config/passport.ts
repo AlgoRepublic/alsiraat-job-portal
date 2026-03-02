@@ -1,10 +1,12 @@
 import passport from "passport";
+import mongoose from "mongoose";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { Strategy as OpenIDConnectStrategy, Profile as OpenIDConnectProfile, VerifyCallback as OpenIDConnectVerifyCallback } from "passport-openidconnect";
 import bcrypt from "bcryptjs";
 import User, { UserRole } from "../models/User.js";
 import Role from "../models/Role.js";
+import Organization from "../models/Organization.js";
 import { fetchOIDCConfiguration } from "./oidcDiscovery.js";
 import { oidcStateStore } from "./oidcStateStore.js";
 import jwt from "jsonwebtoken";
@@ -128,7 +130,12 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                 accessToken,
                 profile as unknown as Record<string, unknown>,
               );
-              const dbRoles = await Role.find({ isActive: true }).select("name oidcMapping").lean();
+              const [dbRoles, defaultOrg] = await Promise.all([
+                Role.find({ isActive: true }).select("name oidcMapping").lean(),
+                Organization.findOne({
+                  name: process.env.OIDC_DEFAULT_ORG ?? "Al Siraat College",
+                }).select("_id").lean(),
+              ]);
               const mappedRoles = mapAdfsRolesToUserRoles(adfsRoles, dbRoles);
 
               let user = await User.findOne({ oidcId: profile.id });
@@ -156,12 +163,21 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                   dirty = true;
                 }
 
+                // Assign default org if not already set
+                if (!user.organisation && defaultOrg) {
+                  user.organisation = defaultOrg._id as mongoose.Types.ObjectId;
+                  dirty = true;
+                }
+
                 if (dirty) await user.save();
               } else {
                 const existingUser = await User.findOne({ email });
                 if (existingUser) {
                   existingUser.oidcId = profile.id;
                   if (mappedRoles.length > 0) existingUser.roles = mappedRoles;
+                  if (!existingUser.organisation && defaultOrg) {
+                    existingUser.organisation = defaultOrg._id as mongoose.Types.ObjectId;
+                  }
                   await existingUser.save();
                   user = existingUser;
 
@@ -175,6 +191,7 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                     email,
                     oidcId: profile.id,
                     roles: mappedRoles.length > 0 ? mappedRoles : [UserRole.APPLICANT],
+                    ...(defaultOrg ? { organisation: defaultOrg._id } : {}),
                   });
                 }
               }
