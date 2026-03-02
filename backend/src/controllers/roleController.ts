@@ -148,7 +148,7 @@ export const getRole = async (req: Request, res: Response) => {
 
 export const createRole = async (req: Request, res: Response) => {
   try {
-    const { name, code, description, permissions, color } = req.body;
+    const { name, code, description, permissions, color, oidcMapping } = req.body;
 
     const existing = await Role.findOne({ code: code.toLowerCase() });
     if (existing) {
@@ -161,6 +161,7 @@ export const createRole = async (req: Request, res: Response) => {
       description,
       permissions: permissions || [],
       color: color || "#6B7280",
+      oidcMapping: Array.isArray(oidcMapping) ? oidcMapping.map((v: string) => v.trim()).filter(Boolean) : [],
       isSystem: false,
       isActive: true,
     });
@@ -174,7 +175,7 @@ export const createRole = async (req: Request, res: Response) => {
 export const updateRole = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, description, permissions, color, isActive } = req.body;
+    const { name, description, permissions, color, isActive, oidcMapping } = req.body;
 
     const role = await Role.findById(id);
     if (!role) {
@@ -192,6 +193,9 @@ export const updateRole = async (req: Request, res: Response) => {
     role.description = description ?? role.description;
     role.permissions = permissions ?? role.permissions;
     role.color = color || role.color;
+    role.oidcMapping = Array.isArray(oidcMapping)
+      ? oidcMapping.map((v: string) => v.trim()).filter(Boolean)
+      : role.oidcMapping;
 
     // Cannot deactivate system roles
     if (!role.isSystem) {

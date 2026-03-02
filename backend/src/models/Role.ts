@@ -8,6 +8,7 @@ export interface IRole extends Document {
   isSystem: boolean; // System roles cannot be deleted (Admin, Owner, etc.)
   isActive: boolean;
   color: string; // For UI display
+  oidcMapping: string[]; // ADFS claim values that auto-assign this role on SSO login
   createdAt: Date;
   updatedAt: Date;
 }
@@ -47,6 +48,7 @@ const RoleSchema = new Schema<IRole>(
       type: String,
       default: "#6B7280", // Gray
     },
+    oidcMapping: [{ type: String, trim: true }],
   },
   { timestamps: true },
 );

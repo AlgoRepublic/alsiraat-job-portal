@@ -4,9 +4,11 @@ import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { Strategy as OpenIDConnectStrategy, Profile as OpenIDConnectProfile, VerifyCallback as OpenIDConnectVerifyCallback } from "passport-openidconnect";
 import bcrypt from "bcryptjs";
 import User, { UserRole } from "../models/User.js";
+import Role from "../models/Role.js";
 import { fetchOIDCConfiguration } from "./oidcDiscovery.js";
 import { oidcStateStore } from "./oidcStateStore.js";
 import jwt from "jsonwebtoken";
+import { extractRoles, mapAdfsRolesToUserRoles } from "./adfsClaims.js";
 
 // Local Strategy
 passport.use(
@@ -98,18 +100,20 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
             clientID: process.env.OIDC_CLIENT_ID!,
             clientSecret: '', // Public client - no secret required
             callbackURL: process.env.OIDC_CALLBACK_URL || "/api/auth/oidc/callback",
-            scope: ["openid", "profile", "email"],
+            scope: ["openid", "profile", "email", "allatclaims"],
             store: oidcStateStore as any, // in-memory store so state works without session cookie on IdP redirect
           },
-          async (issuer: string, profile: OpenIDConnectProfile, context: object, idToken: string | object, done: OpenIDConnectVerifyCallback) => {
+          async (
+            issuer: string,
+            profile: OpenIDConnectProfile,
+            context: object,
+            idToken: string | object,
+            accessToken: string | object,
+            _refreshToken: string,
+            _params: object,
+            done: OpenIDConnectVerifyCallback,
+          ) => {
             try {
-
-              // pretty print the profile
-              // console.log("OIDC Issuer:", issuer);
-              // console.log("OIDC Profile:", JSON.stringify(profile, null, 2));
-              // console.log("OIDC Context:", JSON.stringify(context, null, 2));
-              // console.log("OIDC ID Token:", JSON.stringify(idToken, null, 2));
-
               // Use email from ID token only (e.g. ADFS: email claim)
               const decodedIdToken = jwt.decode(idToken as string);
               const decoded = decodedIdToken && typeof decodedIdToken === "object" ? (decodedIdToken as Record<string, unknown>) : null;
@@ -118,12 +122,23 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                 return done(new Error("No email found in ID token"));
               }
 
+              // Extract role claims from ADFS tokens
+              const adfsRoles = extractRoles(
+                idToken,
+                accessToken,
+                profile as unknown as Record<string, unknown>,
+              );
+              const dbRoles = await Role.find({ isActive: true }).select("name oidcMapping").lean();
+              const mappedRoles = mapAdfsRolesToUserRoles(adfsRoles, dbRoles);
+
               let user = await User.findOne({ oidcId: profile.id });
               if (user) {
                 const name = decoded?.unique_name ? (decoded.unique_name as string) : "SSO User";
+                let dirty = false;
+
                 if (user.name !== name) {
                   user.name = name;
-                  await user.save();
+                  dirty = true;
                 }
 
                 if (user.email !== email) {
@@ -132,12 +147,21 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                     return done(new Error("Email already in use by another user"));
                   }
                   user.email = email;
-                  await user.save();
+                  dirty = true;
                 }
+
+                // Update roles from ADFS if any mapped; otherwise preserve existing DB roles
+                if (mappedRoles.length > 0) {
+                  user.roles = mappedRoles;
+                  dirty = true;
+                }
+
+                if (dirty) await user.save();
               } else {
                 const existingUser = await User.findOne({ email });
                 if (existingUser) {
                   existingUser.oidcId = profile.id;
+                  if (mappedRoles.length > 0) existingUser.roles = mappedRoles;
                   await existingUser.save();
                   user = existingUser;
 
@@ -150,7 +174,7 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                     name: decoded?.unique_name ? (decoded.unique_name as string) : "SSO User",
                     email,
                     oidcId: profile.id,
-                    role: UserRole.APPLICANT, // Default to Applicant for OIDC users
+                    roles: mappedRoles.length > 0 ? mappedRoles : [UserRole.APPLICANT],
                   });
                 }
               }

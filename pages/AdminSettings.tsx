@@ -42,6 +42,7 @@ interface Role {
   isSystem: boolean;
   isActive: boolean;
   color: string;
+  oidcMapping: string[];
 }
 
 export const AdminSettings: React.FC = () => {
@@ -61,6 +62,7 @@ export const AdminSettings: React.FC = () => {
   );
   const [showNewRoleForm, setShowNewRoleForm] = useState(false);
   const [showNewPermissionForm, setShowNewPermissionForm] = useState(false);
+  const [oidcMappingInput, setOidcMappingInput] = useState("");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(),
   );
@@ -487,6 +489,78 @@ export const AdminSettings: React.FC = () => {
                     rows={2}
                   />
 
+                  {/* OIDC / ADFS Role Mapping */}
+                  <div className="pt-4 border-t border-zinc-200 dark:border-zinc-700 space-y-3">
+                    <div>
+                      <h4 className="text-sm font-bold text-zinc-500 uppercase tracking-widest">
+                        OIDC / ADFS Role Mapping
+                      </h4>
+                      <p className="text-xs text-zinc-400 mt-0.5">
+                        ADFS claim values that automatically assign this role on SSO login. Press Enter or comma to add.
+                      </p>
+                    </div>
+                    {(editingRole.oidcMapping ?? []).length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {(editingRole.oidcMapping ?? []).map((v) => (
+                          <span
+                            key={v}
+                            className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-mono font-medium"
+                          >
+                            {v}
+                            <button
+                              onClick={() =>
+                                setEditingRole({
+                                  ...editingRole,
+                                  oidcMapping: (editingRole.oidcMapping ?? []).filter((m) => m !== v),
+                                })
+                              }
+                              className="hover:text-red-500 transition-colors"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Add ADFS claim value (e.g. TaskUnity-Admins)"
+                        value={oidcMappingInput}
+                        onChange={(e) => setOidcMappingInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === ",") {
+                            e.preventDefault();
+                            const val = oidcMappingInput.trim().replace(/,$/, "");
+                            if (val && !(editingRole.oidcMapping ?? []).includes(val)) {
+                              setEditingRole({
+                                ...editingRole,
+                                oidcMapping: [...(editingRole.oidcMapping ?? []), val],
+                              });
+                            }
+                            setOidcMappingInput("");
+                          }
+                        }}
+                        className="flex-1 p-2.5 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400"
+                      />
+                      <button
+                        onClick={() => {
+                          const val = oidcMappingInput.trim();
+                          if (val && !(editingRole.oidcMapping ?? []).includes(val)) {
+                            setEditingRole({
+                              ...editingRole,
+                              oidcMapping: [...(editingRole.oidcMapping ?? []), val],
+                            });
+                          }
+                          setOidcMappingInput("");
+                        }}
+                        className="px-4 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-sm font-bold transition-colors"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Permission Checkboxes */}
                   <div className="space-y-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">
                     <h4 className="text-sm font-bold text-zinc-500 uppercase tracking-widest">
@@ -565,10 +639,26 @@ export const AdminSettings: React.FC = () => {
                     <p className="text-xs text-zinc-400">
                       {role.permissions.length} permissions assigned
                     </p>
+                    {role.oidcMapping?.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                        <span className="text-xs text-zinc-400">OIDC:</span>
+                        {role.oidcMapping.map((v) => (
+                          <span
+                            key={v}
+                            className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs font-mono"
+                          >
+                            {v}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setEditingRole(role)}
+                      onClick={() => {
+                        setEditingRole(role);
+                        setOidcMappingInput("");
+                      }}
                       className="p-2 text-zinc-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
                     >
                       <Edit2 className="w-4 h-4" />
