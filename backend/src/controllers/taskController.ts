@@ -486,18 +486,27 @@ export const getTaskById = async (req: any, res: Response) => {
 
     // Check if current user has already applied
     let hasApplied = false;
+    let userGroupIds: string[] = [];
     if (req.user) {
       const existingApplication = await Application.findOne({
         task: id,
         applicant: req.user._id,
       });
       hasApplied = !!existingApplication;
+
+      // Fetch the groups the user belongs to (needed for group restriction UI)
+      const Group = (await import("../models/Group.js")).default;
+      const userGroups = await Group.find({ members: req.user._id }).select(
+        "_id",
+      );
+      userGroupIds = userGroups.map((g: any) => g._id.toString());
     }
 
     res.json({
       ...task.toObject(),
       applicantsCount,
       hasApplied,
+      _groupIds: userGroupIds,
     });
   } catch (err: any) {
     res.status(500).json({ message: err.message });

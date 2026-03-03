@@ -31,6 +31,10 @@ import {
   Plus,
   Upload,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 
 import { Loading } from "../components/Loading";
@@ -42,6 +46,7 @@ interface EditForm {
   email: string;
   password?: string;
   roles: string[];
+  organisationId: string | null; // null = clear, "" = no change (create only)
 }
 
 // Skill level badge colours
@@ -350,12 +355,19 @@ const InfoPill: React.FC<{
 /* ═══════════════════════════════ Main Component ════════════════════════════ */
 export const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
+  const [organisations, setOrganisations] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const { showSuccess, showError } = useToast();
   const [currentUser, setCurrentUser] = useState<any>(null);
+
+  // Pagination
+  const PAGE_SIZE = 20;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // View modal
   const [viewingUser, setViewingUser] = useState<any | null>(null);
@@ -366,6 +378,7 @@ export const UserManagement: React.FC = () => {
     email: "",
     password: "",
     roles: [],
+    organisationId: null,
   });
   const [isCreating, setIsCreating] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -383,8 +396,12 @@ export const UserManagement: React.FC = () => {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   useEffect(() => {
-    fetchData();
+    setCurrentPage(1);
   }, [searchTerm, roleFilter]);
+
+  useEffect(() => {
+    fetchData();
+  }, [searchTerm, roleFilter, currentPage]);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -397,12 +414,16 @@ export const UserManagement: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [usersData, rolesData] = await Promise.all([
-        db.getUsers(searchTerm, roleFilter),
+      const [pagedResult, rolesData, orgsData] = await Promise.all([
+        db.getUsersPaged(searchTerm, roleFilter, currentPage, PAGE_SIZE),
         db.getRoles(),
+        db.getOrganizations(),
       ]);
-      setUsers(usersData);
+      setUsers(pagedResult.users);
+      setTotalUsers(pagedResult.pagination.total);
+      setTotalPages(pagedResult.pagination.pages);
       setRoles(rolesData);
+      setOrganisations(orgsData);
     } catch (err) {
       showError("Failed to fetch users or roles");
     } finally {
@@ -416,6 +437,12 @@ export const UserManagement: React.FC = () => {
       name: user.name || "",
       email: user.email || "",
       roles: user.roles || [],
+      // pre-populate with the user's current org _id (populated object has ._id or .id)
+      organisationId:
+        user.organisation?._id ??
+        user.organisation?.id ??
+        user.organisation ??
+        null,
     });
   };
 
@@ -426,6 +453,7 @@ export const UserManagement: React.FC = () => {
       email: "",
       password: "",
       roles: ["Applicant"],
+      organisationId: null,
     });
   };
 
@@ -466,6 +494,8 @@ export const UserManagement: React.FC = () => {
         name: editForm.name,
         email: editForm.email,
         roles: editForm.roles,
+        // send null to clear, string ID to set, undefined to leave unchanged
+        organisation: editForm.organisationId,
       });
       showSuccess("User updated successfully");
       closeEditModal();
@@ -564,7 +594,7 @@ export const UserManagement: React.FC = () => {
         <div className="flex items-center gap-2 px-4 py-2.5 bg-primary/10 rounded-xl">
           <Users className="w-5 h-5 text-primary" />
           <span className="font-black text-primary text-sm">
-            {users.length} {users.length === 1 ? "User" : "Users"}
+            {totalUsers} {totalUsers === 1 ? "User" : "Users"}
           </span>
         </div>
         <div className="flex items-center gap-3">
@@ -667,12 +697,6 @@ export const UserManagement: React.FC = () => {
                   <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400 hidden md:table-cell">
                     Details
                   </th>
-                  <th
-                    className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400 hidden lg:table-cell cursor-pointer select-none hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
-                    onClick={() => toggleSort("createdAt")}
-                  >
-                    Joined <SortIcon col="createdAt" />
-                  </th>
                   <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400 text-right">
                     Actions
                   </th>
@@ -772,13 +796,6 @@ export const UserManagement: React.FC = () => {
                         </div>
                       </td>
 
-                      {/* Joined date */}
-                      <td className="px-6 py-5 hidden lg:table-cell">
-                        <span className="text-xs font-semibold text-zinc-400">
-                          {formatDate(user.createdAt)}
-                        </span>
-                      </td>
-
                       {/* Actions */}
                       <td className="px-6 py-5 text-right">
                         <div className="flex items-center justify-end gap-1">
@@ -827,7 +844,7 @@ export const UserManagement: React.FC = () => {
                     {/* ── Inline Expanded Row ── */}
                     {expandedRow === user._id && (
                       <tr className="bg-primary/5 dark:bg-primary/10 border-b border-zinc-100 dark:border-zinc-800">
-                        <td colSpan={6} className="px-6 py-5">
+                        <td colSpan={5} className="px-6 py-5">
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             {/* Contact Info */}
                             <div className="space-y-2">
@@ -919,6 +936,18 @@ export const UserManagement: React.FC = () => {
                                   {user.about}
                                 </p>
                               )}
+                              <p className="text-xs font-semibold text-zinc-400 flex items-center gap-1 pt-1">
+                                <Calendar className="w-3 h-3" />
+                                Joined{" "}
+                                {new Date(user.createdAt).toLocaleDateString(
+                                  "en-AU",
+                                  {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                  },
+                                )}
+                              </p>
                             </div>
                           </div>
                         </td>
@@ -931,6 +960,86 @@ export const UserManagement: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* ─── Pagination ─── */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between gap-4 mt-2 px-2">
+          <p className="text-xs text-zinc-400 font-medium">
+            Showing{" "}
+            <span className="font-black text-zinc-600 dark:text-zinc-300">
+              {(currentPage - 1) * PAGE_SIZE + 1}–
+              {Math.min(currentPage * PAGE_SIZE, totalUsers)}
+            </span>{" "}
+            of{" "}
+            <span className="font-black text-zinc-600 dark:text-zinc-300">
+              {totalUsers}
+            </span>{" "}
+            users
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              className="p-2 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              title="First page"
+            >
+              <ChevronsLeft className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="p-2 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              title="Previous page"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            {/* Page number pills */}
+            {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+              let page: number;
+              if (totalPages <= 7) {
+                page = i + 1;
+              } else if (currentPage <= 4) {
+                page = i + 1;
+              } else if (currentPage >= totalPages - 3) {
+                page = totalPages - 6 + i;
+              } else {
+                page = currentPage - 3 + i;
+              }
+              return (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${
+                    page === currentPage
+                      ? "bg-primary text-white shadow-md shadow-primary/30"
+                      : "text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-800 dark:hover:text-zinc-200"
+                  }`}
+                >
+                  {page}
+                </button>
+              );
+            })}
+
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="p-2 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              title="Next page"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+              className="p-2 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              title="Last page"
+            >
+              <ChevronsRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ─── Full Profile View Modal ─── */}
       {viewingUser && (
@@ -1026,6 +1135,73 @@ export const UserManagement: React.FC = () => {
                 </div>
               )}
 
+              {/* Organisation Picker */}
+              <div>
+                <label className="block text-xs font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest mb-2">
+                  Organisation
+                </label>
+                <div className="grid grid-cols-1 gap-1.5 p-2 bg-zinc-50 dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 max-h-44 overflow-y-auto">
+                  {/* None / clear option */}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditForm({ ...editForm, organisationId: null })
+                    }
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all text-sm ${
+                      editForm.organisationId === null
+                        ? "bg-primary text-white shadow-md shadow-primary/20"
+                        : "bg-white dark:bg-zinc-900 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    }`}
+                  >
+                    <span className="w-4 h-4 flex items-center justify-center">
+                      {editForm.organisationId === null ? (
+                        <BadgeCheck className="w-4 h-4" />
+                      ) : (
+                        <div className="w-3.5 h-3.5 rounded-full border-2 border-current opacity-40" />
+                      )}
+                    </span>
+                    <span className="font-bold italic">None / Independent</span>
+                  </button>
+
+                  {organisations.map((org: any) => {
+                    const orgId = org._id ?? org.id;
+                    const isSelected = editForm.organisationId === orgId;
+                    return (
+                      <button
+                        key={orgId}
+                        type="button"
+                        onClick={() =>
+                          setEditForm({ ...editForm, organisationId: orgId })
+                        }
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all ${
+                          isSelected
+                            ? "bg-primary text-white shadow-md shadow-primary/20"
+                            : "bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        }`}
+                      >
+                        <span className="w-4 h-4 flex items-center justify-center shrink-0">
+                          {isSelected ? (
+                            <BadgeCheck className="w-4 h-4" />
+                          ) : (
+                            <div className="w-3.5 h-3.5 rounded-full border-2 border-zinc-300 dark:border-zinc-600" />
+                          )}
+                        </span>
+                        <span className="text-sm font-bold truncate">
+                          {org.name}
+                        </span>
+                      </button>
+                    );
+                  })}
+
+                  {organisations.length === 0 && (
+                    <p className="text-xs text-zinc-400 px-3 py-2 italic">
+                      No organisations found
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Roles Picker */}
               <div>
                 <label className="block text-xs font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest mb-2">
                   System Roles (Select Multiple)

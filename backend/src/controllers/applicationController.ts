@@ -13,6 +13,28 @@ export const applyForTask = async (req: any, res: Response) => {
     const task = await Task.findById(taskId);
     if (!task) return res.status(404).json({ message: "Task not found" });
 
+    // ── Group restriction check ──
+    // If the task has allowedGroups, the applicant must be a member of at least one
+    const taskAllowedGroups = (task as any).allowedGroups as
+      | string[]
+      | undefined;
+    if (taskAllowedGroups && taskAllowedGroups.length > 0) {
+      const Group = (await import("../models/Group.js")).default;
+      const userGroups = await Group.find({ members: req.user._id }).select(
+        "_id",
+      );
+      const userGroupIds = userGroups.map((g: any) => g._id.toString());
+      const inGroup = taskAllowedGroups.some((gid: any) =>
+        userGroupIds.includes(gid.toString()),
+      );
+      if (!inGroup) {
+        return res.status(403).json({
+          message:
+            "This task is restricted to specific groups. You are not a member of any of the allowed groups.",
+        });
+      }
+    }
+
     const existingApp = await Application.findOne({
       task: taskId,
       applicant: req.user._id,

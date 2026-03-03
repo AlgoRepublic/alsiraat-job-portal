@@ -244,11 +244,24 @@ export const JobDetails: React.FC = () => {
     currentUser?.permissions?.includes(Permission.APPLICATION_READ) ||
     isJobOwner;
 
-  // Permission-based application capability
+  // User is a member of one of the task's allowedGroups (or task has no group restriction)
+  const userGroupIds: string[] = (currentUser as any)?._groupIds ?? [];
+  const taskAllowedGroups: string[] = (job as any).allowedGroups ?? [];
+  const passesGroupRestriction =
+    taskAllowedGroups.length === 0 ||
+    taskAllowedGroups.some((gid: string) => userGroupIds.includes(String(gid)));
+
+  // Permission-based application capability:
+  //   - Must have APPLICATION_CREATE permission
+  //   - Must not have already applied
+  //   - Must not be the job owner (owners can't apply to their own tasks)
+  //   - Must pass group restriction (if any)
   const canApply =
-    !currentUser || // Guest can see login prompt
-    (currentUser.permissions?.includes(Permission.APPLICATION_CREATE) &&
-      !hasApplied);
+    !currentUser || // Guest: show login prompt
+    (!isJobOwner &&
+      currentUser.permissions?.includes(Permission.APPLICATION_CREATE) &&
+      !hasApplied &&
+      passesGroupRestriction);
 
   // Permission-based approval check (respects role management API)
   const canApprove = (() => {
@@ -599,8 +612,8 @@ export const JobDetails: React.FC = () => {
         {/* Sidebar - Right Side */}
         <div className="lg:col-span-1">
           <div className="sticky top-24 space-y-6">
-            {canSeeApplicants ? (
-              /* Applicants List for Internal Users */
+            {/* ── Applicants Panel (for users with APPLICATION_READ or job owner) ── */}
+            {canSeeApplicants && (
               <div className="glass-card rounded-2xl shadow-sm border border-zinc-100 dark:border-zinc-800 overflow-hidden">
                 <div className="p-6 bg-primary text-white">
                   <div className="flex items-center justify-between">
@@ -614,7 +627,7 @@ export const JobDetails: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="max-h-[600px] overflow-y-auto">
+                <div className="max-h-[400px] overflow-y-auto">
                   {applicants.length === 0 ? (
                     <div className="p-8 text-center">
                       <p className="text-sm text-zinc-400 dark:text-zinc-500">
@@ -680,12 +693,15 @@ export const JobDetails: React.FC = () => {
                   </div>
                 )}
               </div>
-            ) : (
-              /* Application Form for External Users */
+            )}
+
+            {/* ── Apply Panel ── */}
+            {/* Show if: guest (login prompt), canApply (eligible), or locked/applied state */}
+            {!isJobOwner && (
               <div className="glass-card rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:shadow-none border border-zinc-100 dark:border-zinc-800 overflow-hidden">
                 <div className="p-6 bg-primary text-white">
                   <h3 className="text-lg font-bold">Apply</h3>
-                  <p className="text-red-100 text-sm mt-1">
+                  <p className="text-primary-100 text-sm mt-1 opacity-80">
                     Send us your application.
                   </p>
                 </div>
@@ -742,6 +758,33 @@ export const JobDetails: React.FC = () => {
                     >
                       Back to Tasks
                     </button>
+                  </div>
+                ) : !passesGroupRestriction ? (
+                  /* User is not in the required group for this internal task */
+                  <div className="p-8 text-center animate-fade-in">
+                    <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 text-amber-500 dark:text-amber-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Lock className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">
+                      Restricted Access
+                    </h3>
+                    <p className="text-zinc-500 dark:text-zinc-400 text-sm">
+                      This task is only open to specific groups within the
+                      organisation. Please contact your administrator if you
+                      believe you should have access.
+                    </p>
+                  </div>
+                ) : !currentUser.permissions?.includes(
+                    Permission.APPLICATION_CREATE,
+                  ) ? (
+                  /* Logged in but no permission to apply (e.g. manager-only role) */
+                  <div className="p-8 text-center animate-fade-in">
+                    <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <ShieldCheck className="w-8 h-8" />
+                    </div>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                      Your role does not permit submitting applications.
+                    </p>
                   </div>
                 ) : (
                   <form

@@ -406,7 +406,43 @@ class DatabaseService {
     const params = new URLSearchParams();
     if (search) params.append("search", search);
     if (role) params.append("role", role);
-    return api.get(`/users?${params.toString()}`);
+    params.append("limit", "9999"); // legacy: fetch all for non-paginated callers
+    const data: any = await api.get(`/users?${params.toString()}`);
+    // Handle both old (array) and new (paginated object) response shapes
+    return Array.isArray(data) ? data : (data.users ?? []);
+  }
+
+  async getUsersPaged(
+    search?: string,
+    role?: string,
+    page = 1,
+    limit = 20,
+  ): Promise<{
+    users: any[];
+    pagination: { total: number; page: number; limit: number; pages: number };
+  }> {
+    const params = new URLSearchParams();
+    if (search) params.append("search", search);
+    if (role) params.append("role", role);
+    params.append("page", String(page));
+    params.append("limit", String(limit));
+    const data: any = await api.get(`/users?${params.toString()}`);
+    if (Array.isArray(data)) {
+      // Backward compat: server returned plain array
+      return {
+        users: data,
+        pagination: {
+          total: data.length,
+          page: 1,
+          limit: data.length,
+          pages: 1,
+        },
+      };
+    }
+    return {
+      users: data.users ?? [],
+      pagination: data.pagination ?? { total: 0, page: 1, limit, pages: 0 },
+    };
   }
 
   async getUser(id: string): Promise<any> {
@@ -419,7 +455,12 @@ class DatabaseService {
 
   async updateUser(
     id: string,
-    data: { name?: string; email?: string; roles?: string[] },
+    data: {
+      name?: string;
+      email?: string;
+      roles?: string[];
+      organisation?: string | null;
+    },
   ): Promise<any> {
     return api.put(`/users/${id}`, data);
   }
