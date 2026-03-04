@@ -5,52 +5,14 @@ import {
   Briefcase,
   Users,
   Award,
-  Shield,
-  Layers,
-  Rocket,
-  Zap,
-  Target,
+  GraduationCap,
   MapPin,
   Clock,
-  PartyPopper,
-  BarChart3,
-  GraduationCap,
-  Wrench,
-  BookOpen,
-  Sparkles,
-  FolderOpen,
-  Laptop,
-  Backpack,
-  Palette,
-  CalendarDays,
-  LayoutGrid,
-  Presentation,
-  Hammer,
-  Lightbulb,
-  Waves,
-  Building2,
-  Cpu,
-  School,
-  Brush,
   UserRound,
   ShieldHalf,
 } from "lucide-react";
 import { db } from "../services/database";
 import { Job, JobStatus } from "../types";
-
-// Map category codes to Lucide icons
-const categoryIcons: Record<string, any> = {
-  events: CalendarDays,
-  programs: LayoutGrid,
-  seminar: Presentation,
-  maintenance: Hammer,
-  tutoring: Lightbulb,
-  cleaning: Waves,
-  administration: Building2,
-  technology: Cpu,
-  education: School,
-  creative: Brush,
-};
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -242,45 +204,39 @@ export const Home: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {categories.map((cat) => {
-              const IconComponent = categoryIcons[cat.code] || Briefcase;
-              return (
+            {categories.map((cat) => (
+              <div
+                key={cat.code}
+                onClick={() =>
+                  navigate(`/jobs?category=${encodeURIComponent(cat.name)}`)
+                }
+                className="group relative bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-6 hover:shadow-xl transition-all cursor-pointer hover:-translate-y-1 overflow-hidden"
+                style={{
+                  borderColor: cat.color + "20",
+                }}
+              >
                 <div
-                  key={cat.code}
-                  onClick={() =>
-                    navigate(`/jobs?category=${encodeURIComponent(cat.name)}`)
-                  }
-                  className="group relative bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-6 hover:shadow-xl transition-all cursor-pointer hover:-translate-y-1 overflow-hidden"
-                  style={{
-                    borderColor: cat.color + "20",
-                  }}
-                >
+                  className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity"
+                  style={{ backgroundColor: cat.color }}
+                />
+                <div className="relative z-10 text-center">
                   <div
-                    className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity"
-                    style={{ backgroundColor: cat.color }}
-                  />
-                  <div className="relative z-10 text-center">
-                    <div
-                      className="mb-3 mx-auto w-16 h-16 rounded-2xl flex items-center justify-center"
-                      style={{
-                        backgroundColor: cat.color + "20",
-                      }}
-                    >
-                      <IconComponent
-                        className="w-8 h-8"
-                        style={{ color: cat.color }}
-                      />
-                    </div>
-                    <h3
-                      className="font-black text-sm tracking-tight"
-                      style={{ color: cat.color }}
-                    >
-                      {cat.name}
-                    </h3>
+                    className="mb-3 mx-auto w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
+                    style={{
+                      backgroundColor: cat.color + "20",
+                    }}
+                  >
+                    {cat.icon || "📋"}
                   </div>
+                  <h3
+                    className="font-black text-sm tracking-tight"
+                    style={{ color: cat.color }}
+                  >
+                    {cat.name}
+                  </h3>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </div>
       )}
