@@ -4,10 +4,14 @@ import User, { UserRole } from "../models/User.js";
 import { Permission } from "../config/permissions.js";
 import Application from "../models/Application.js";
 import {
-  sendNotification,
+  notify,
   sendNotificationToAll,
   sendNotificationToOrganization,
 } from "../services/notificationService.js";
+import {
+  taskChangesRequestedEmail,
+  taskArchivedEmail,
+} from "../services/emailTemplates.js";
 
 const parseArrayField = (value: any): string[] => {
   if (!value) return [];
@@ -567,52 +571,37 @@ export const approveTask = async (req: any, res: Response) => {
     task.approvedBy = req.user._id;
     await task.save();
 
-    // Send notifications
+    // ── Send Notifications ──────────────────────────────────────────────────
     if (
-      (normalizedStatus === "decline" || normalizedStatus === "archive") &&
-      previousStatus !== TaskStatus.ARCHIVED &&
-      previousStatus !== TaskStatus.CHANGES_REQUESTED
-    ) {
-      const isChangesRequested = normalizedStatus === "decline";
-      const title = isChangesRequested
-        ? "⚠️ Changes Requested"
-        : "❌ Task Archived";
-      const message = isChangesRequested
-        ? `Changes have been requested for your task "${task.title}".${rejectionReason ? ` Reason: ${rejectionReason}` : ""}`
-        : `Your task "${task.title}" has been archived.${rejectionReason ? ` Reason: ${rejectionReason}` : ""}`;
-
-      // Notify the creator about rejection/changes requested
-      await sendNotification(
-        task.createdBy.toString(),
-        title,
-        message,
-        "error",
-        `/jobs/${task._id}`,
-        false, // Set to true if email notification is required and configured
-      );
-    } else if (
-      status === "approve" &&
+      normalizedStatus === "approve" &&
       previousStatus !== TaskStatus.PUBLISHED
     ) {
-      const taskVisibility = task.visibility;
+      // Task published → notify creator
+      const creatorUser = await User.findById(task.createdBy).select("name");
+      await notify({
+        recipientId: task.createdBy.toString(),
+        title: "✅ Task Published!",
+        message: `Your task "${task.title}" has been approved and is now live.`,
+        type: "success",
+        link: `/jobs/${task._id}`,
+      });
 
+      // Notify members about new task
       if (
-        taskVisibility === TaskVisibility.GLOBAL ||
-        taskVisibility === TaskVisibility.EXTERNAL
+        task.visibility === TaskVisibility.GLOBAL ||
+        task.visibility === TaskVisibility.EXTERNAL
       ) {
-        // Notify all users for public tasks
         await sendNotificationToAll(
           "📢 New Task Available!",
-          `A new task "${task.title}" has been posted in ${task.category}.`,
+          `A new task "${task.title}" has been posted.`,
           "info",
           `/jobs/${task._id}`,
-          task.createdBy.toString(), // Exclude the creator
+          task.createdBy.toString(),
         );
       } else if (
-        taskVisibility === TaskVisibility.INTERNAL &&
+        task.visibility === TaskVisibility.INTERNAL &&
         task.organisation
       ) {
-        // Notify org members for internal tasks
         await sendNotificationToOrganization(
           task.organisation.toString(),
           "📢 New Internal Task",
@@ -622,26 +611,38 @@ export const approveTask = async (req: any, res: Response) => {
           task.createdBy.toString(),
         );
       }
-    } else if (
-      (normalizedStatus === "decline" || normalizedStatus === "archive") &&
-      task.createdBy
-    ) {
-      const isChangesRequested = normalizedStatus === "decline";
-      const title = isChangesRequested
-        ? "⚠️ Changes Requested"
-        : "❌ Task Archived";
-      const message = isChangesRequested
-        ? `Changes have been requested for your task "${task.title}".${rejectionReason ? ` Reason: ${rejectionReason}` : ""}`
-        : `Your task "${task.title}" has been archived.${rejectionReason ? ` Reason: ${rejectionReason}` : ""}`;
-
-      // Notify the creator about rejection
-      await sendNotification(
-        task.createdBy.toString(),
-        title,
-        message,
-        "error",
-        `/jobs/${task._id}`,
-      );
+    } else if (normalizedStatus === "decline") {
+      // Changes requested → notify creator + email
+      const creatorUser = await User.findById(task.createdBy).select("name");
+      await notify({
+        recipientId: task.createdBy.toString(),
+        title: "⚠️ Changes Requested",
+        message: `Changes have been requested for your task "${task.title}".${rejectionReason ? ` Reason: ${rejectionReason}` : ""}`,
+        type: "warning",
+        link: `/jobs/${task._id}`,
+        emailTemplate: taskChangesRequestedEmail(
+          creatorUser?.name || "Task Creator",
+          task.title,
+          rejectionReason,
+          String(task._id),
+        ),
+      });
+    } else if (normalizedStatus === "archive") {
+      // Archived → notify creator + email
+      const creatorUser = await User.findById(task.createdBy).select("name");
+      await notify({
+        recipientId: task.createdBy.toString(),
+        title: "❌ Task Archived",
+        message: `Your task "${task.title}" has been archived.${rejectionReason ? ` Reason: ${rejectionReason}` : ""}`,
+        type: "error",
+        link: `/jobs/${task._id}`,
+        emailTemplate: taskArchivedEmail(
+          creatorUser?.name || "Task Creator",
+          task.title,
+          rejectionReason,
+          String(task._id),
+        ),
+      });
     }
 
     res.json(task);

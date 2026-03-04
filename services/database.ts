@@ -366,6 +366,11 @@ class DatabaseService {
     return await api.markNotificationRead(id);
   }
 
+  // --- Dashboard ---
+  async getDashboardStats(): Promise<any> {
+    return await api.request<any>("/dashboard/stats");
+  }
+
   // --- Organizations ---
   async getOrganizations(): Promise<any[]> {
     try {

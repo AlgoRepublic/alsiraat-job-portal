@@ -14,6 +14,8 @@ import rewardTypeRoutes from "./routes/rewardTypeRoutes.js";
 import taskCategoryRoutes from "./routes/taskCategoryRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import groupRoutes from "./routes/groupRoutes.js";
+import dashboardRoutes from "./routes/dashboardRoutes.js";
+import emailSettingsRoutes from "./routes/emailSettingsRoutes.js";
 
 // Only load dotenv in development (Cloud Run provides env vars directly)
 if (process.env.NODE_ENV !== "production") {
@@ -64,6 +66,8 @@ app.use("/api/users", userRoutes);
 app.use("/api/reward-types", rewardTypeRoutes);
 app.use("/api/task-categories", taskCategoryRoutes);
 app.use("/api/groups", groupRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/email-settings", emailSettingsRoutes);
 
 // Serve uploaded files
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));

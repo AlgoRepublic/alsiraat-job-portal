@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Lock,
   ExternalLink,
+  Mail,
 } from "lucide-react";
 import { Loading } from "../components/Loading";
 import { useNavigate } from "react-router-dom";
@@ -22,6 +23,7 @@ import { useToast } from "../components/Toast";
 import { API_BASE_URL } from "../services/api";
 import { GroupManagement } from "./GroupManagement";
 import { UserManagement } from "./UserManagement";
+import { EmailNotificationSettings } from "./EmailNotificationSettings";
 import { ArrowLeft } from "lucide-react";
 
 interface Permission {
@@ -49,7 +51,7 @@ export const AdminSettings: React.FC = () => {
   const { showSuccess, showError } = useToast();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
-    "users" | "roles" | "permissions" | "categories" | "groups"
+    "users" | "roles" | "permissions" | "categories" | "groups" | "email"
   >("users");
 
   // Dynamic roles and permissions state
@@ -1419,6 +1421,7 @@ export const AdminSettings: React.FC = () => {
                 { key: "permissions", icon: Lock, label: "Permissions" },
                 { key: "categories", icon: Layers, label: "Categories" },
                 { key: "groups", icon: Users, label: "Groups" },
+                { key: "email", icon: Mail, label: "Email & Notifications" },
               ] as const
             ).map(({ key, icon: Icon, label }) => (
               <button
@@ -1463,6 +1466,7 @@ export const AdminSettings: React.FC = () => {
           {activeTab === "permissions" && renderPermissions()}
           {activeTab === "categories" && renderCategories()}
           {activeTab === "groups" && <GroupManagement />}
+          {activeTab === "email" && <EmailNotificationSettings />}
         </div>
       </div>
     </div>
