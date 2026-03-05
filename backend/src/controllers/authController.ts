@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import User, { UserRole } from "../models/User.js";
 import { normalizeUserRole } from "../models/UserRole.js";
+import Group from "../models/Group.js";
 import dotenv from "dotenv";
 import crypto from "crypto";
 import { sendEmail } from "../services/notificationService.js";
@@ -87,6 +88,7 @@ export const signup = async (req: Request, res: Response) => {
         contactNumber: user.contactNumber,
         gender: user.gender,
         permissions,
+        _groupIds: [], // Empty initially for new signups
       },
     });
   } catch (err: any) {
@@ -183,17 +185,27 @@ export const getMe = async (req: Request, res: Response) => {
       }
     }
 
+    const groups = await Group.find({ members: user._id }).select("_id").lean();
+    const _groupIds = groups.map((g: any) => g._id.toString());
+
     res.json({
       user: {
         id: user._id,
         name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
         email: user.email,
         roles: user.roles,
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,
+        contactNumber: user.contactNumber,
+        gender: user.gender,
+        resumeUrl: user.resumeUrl,
+        resumeOriginalName: user.resumeOriginalName,
         organisation: user.organisation,
         permissions,
+        _groupIds,
       },
     });
   } catch (err: any) {
@@ -229,19 +241,29 @@ export const impersonate = async (req: Request, res: Response) => {
       }
     }
 
+    const groups = await Group.find({ members: user._id }).select("_id").lean();
+    const _groupIds = groups.map((g) => g._id.toString());
+
     const token = generateToken(user);
     res.json({
       token,
       user: {
         id: user._id,
         name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
         email: user.email,
         roles: user.roles,
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,
+        contactNumber: user.contactNumber,
+        gender: user.gender,
+        resumeUrl: user.resumeUrl,
+        resumeOriginalName: user.resumeOriginalName,
         organisation: user.organisation,
         permissions,
+        _groupIds,
       },
     });
   } catch (err: any) {
@@ -345,8 +367,10 @@ export const updateProfile = async (req: Request, res: Response) => {
     const user = await User.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    if (firstName !== undefined) user.firstName = firstName.trim();
-    if (lastName !== undefined) user.lastName = lastName.trim();
+    if (firstName !== undefined)
+      user.firstName = firstName ? String(firstName).trim() : firstName;
+    if (lastName !== undefined)
+      user.lastName = lastName ? String(lastName).trim() : lastName;
     // Keep name in sync as the derived full name
     if (firstName !== undefined || lastName !== undefined) {
       user.name = `${user.firstName || ""} ${user.lastName || ""}`.trim();
@@ -355,13 +379,20 @@ export const updateProfile = async (req: Request, res: Response) => {
     if (skills) user.skills = skills;
     if (avatar) user.avatar = avatar;
     if (contactNumber !== undefined) user.contactNumber = contactNumber;
-    if (gender !== undefined) user.gender = gender;
+
+    if (gender !== undefined) {
+      if (gender !== "" && gender !== null) {
+        user.gender = gender;
+      }
+    }
+
     // Allow explicit clearing of resume
     if (req.body.clearResume === true) {
-      await User.updateOne(
-        { _id: id },
-        { $unset: { resumeUrl: 1, resumeOriginalName: 1 } },
-      );
+      const unsetObj: any = { resumeUrl: 1, resumeOriginalName: 1 };
+      if (gender === "" || gender === null) unsetObj.gender = 1;
+      await User.updateOne({ _id: id }, { $unset: unsetObj });
+    } else if (gender === "" || gender === null) {
+      await User.updateOne({ _id: id }, { $unset: { gender: 1 } });
     }
 
     await user.save();
@@ -378,6 +409,9 @@ export const updateProfile = async (req: Request, res: Response) => {
         }
       }
     }
+
+    const groups = await Group.find({ members: user._id }).select("_id").lean();
+    const _groupIds = groups.map((g) => g._id.toString());
 
     res.json({
       message: "Profile updated successfully",
@@ -396,6 +430,7 @@ export const updateProfile = async (req: Request, res: Response) => {
         resumeUrl: user.resumeUrl,
         resumeOriginalName: user.resumeOriginalName,
         permissions,
+        _groupIds,
       },
     });
   } catch (err: any) {

@@ -1421,7 +1421,7 @@ export const AdminSettings: React.FC = () => {
                 { key: "permissions", icon: Lock, label: "Permissions" },
                 { key: "categories", icon: Layers, label: "Categories" },
                 { key: "groups", icon: Users, label: "Groups" },
-                { key: "email", icon: Mail, label: "Email & Notifications" },
+                { key: "email", icon: Mail, label: "Email Settings" },
               ] as const
             ).map(({ key, icon: Icon, label }) => (
               <button

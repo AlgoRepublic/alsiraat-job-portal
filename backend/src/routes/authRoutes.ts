@@ -18,6 +18,7 @@ import { upload } from "../middleware/upload.js";
 import { hasPermissionAsync, Permission } from "../config/permissions.js";
 import { UserRole } from "../models/User.js";
 import { normalizeUserRole } from "../models/UserRole.js";
+import Group from "../models/Group.js";
 import "../config/passport.js";
 
 const router = express.Router();
@@ -64,18 +65,30 @@ router.post("/login", (req, res, next) => {
           }
         }
 
+        const groups = await Group.find({ members: user._id })
+          .select("_id")
+          .lean();
+        const _groupIds = groups.map((g: any) => g._id.toString());
+
         res.json({
           token,
           user: {
             id: user._id,
             name: user.name,
+            firstName: user.firstName,
+            lastName: user.lastName,
             email: user.email,
             roles: user.roles,
             skills: user.skills || [],
             about: user.about || "",
             avatar: user.avatar,
+            contactNumber: user.contactNumber,
+            gender: user.gender,
+            resumeUrl: user.resumeUrl,
+            resumeOriginalName: user.resumeOriginalName,
             organisation: user.organisation,
             permissions,
+            _groupIds,
           },
         });
       })();

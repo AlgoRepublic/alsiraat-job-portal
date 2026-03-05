@@ -22,6 +22,7 @@ interface CustomDropdownProps {
   placeholder?: string;
   variant?: "default" | "outline" | "ghost" | "compact";
   icon?: React.ReactNode;
+  error?: boolean;
 }
 
 export const CustomDropdown: React.FC<CustomDropdownProps> = ({
@@ -32,6 +33,7 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
   placeholder = "Select an option",
   variant = "default",
   icon,
+  error,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -77,13 +79,13 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
   const getButtonStyles = () => {
     switch (variant) {
       case "outline":
-        return "px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-bold";
+        return `px-3 py-1.5 border ${error ? "border-red-500" : "border-zinc-200 dark:border-zinc-800"} rounded-xl text-sm font-bold`;
       case "ghost":
-        return "px-2 py-1 text-sm font-black text-primary hover:underline";
+        return `px-2 py-1 text-sm font-black ${error ? "text-red-500" : "text-primary"} hover:underline`;
       case "compact":
-        return "w-full p-3 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-semibold bg-zinc-50 dark:bg-zinc-800 dark:text-white focus:bg-white dark:focus:bg-zinc-900";
+        return `w-full p-3 border ${error ? "border-red-500 ring-1 ring-red-500" : "border-zinc-200 dark:border-zinc-700"} rounded-xl text-sm font-semibold bg-zinc-50 dark:bg-zinc-800 dark:text-white focus:bg-white dark:focus:bg-zinc-900`;
       default:
-        return "w-full p-4 glass rounded-2xl font-bold text-lg dark:text-white";
+        return `w-full p-4 glass rounded-2xl font-bold text-lg dark:text-white ${error ? "border-2 border-red-500" : ""}`;
     }
   };
 
@@ -179,6 +181,7 @@ interface CustomDatePickerProps {
   value: string;
   onChange: (value: string) => void;
   min?: string;
+  error?: boolean;
 }
 
 export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
@@ -186,6 +189,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
   value,
   onChange,
   min,
+  error,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [viewDate, setViewDate] = useState(new Date(value || new Date()));
@@ -321,7 +325,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
         ref={buttonRef}
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full p-4 glass rounded-2xl flex items-center justify-between font-bold dark:text-white transition-all hover:bg-white/40 dark:hover:bg-zinc-800/60 group"
+        className={`w-full p-4 glass rounded-2xl flex items-center justify-between font-bold dark:text-white transition-all hover:bg-white/40 dark:hover:bg-zinc-800/60 group ${error ? "border-2 border-red-500" : ""}`}
       >
         <div className="flex items-center gap-3">
           <CalendarIcon className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />

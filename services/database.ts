@@ -64,6 +64,7 @@ const mapTaskToJob = (task: any): Job => {
       typeof task.organisation === "object"
         ? task.organisation?._id
         : task.organisation,
+    allowedGroups: task.allowedGroups || [],
   };
 };
 

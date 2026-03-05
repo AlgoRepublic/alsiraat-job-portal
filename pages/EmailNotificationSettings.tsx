@@ -659,7 +659,7 @@ export const EmailNotificationSettings: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
           <h2 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
-            Email & Notifications
+            Email Settings
           </h2>
           <p className="text-zinc-500 font-medium mt-1">
             Configure SMTP settings and customise email templates for each

@@ -15,6 +15,7 @@ import {
 
 import { LoadingOverlay } from "../components/Loading";
 import { CustomDropdown, CustomDatePicker } from "../components/CustomUI";
+import { useToast } from "../components/Toast";
 
 import {
   Job,
@@ -33,10 +34,12 @@ import { api } from "../services/api";
 export const JobWizard: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { showSuccess, showError } = useToast();
   const [step, setStep] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [skillInput, setSkillInput] = useState("");
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Dynamic data from API
   const [rewardTypes, setRewardTypes] = useState<any[]>([]);
@@ -108,7 +111,7 @@ export const JobWizard: React.FC = () => {
           }
         } catch (err) {
           console.error("Failed to load task for editing", err);
-          alert("Failed to load task.");
+          showError("Failed to load task.");
           navigate("/jobs");
         }
       } else {
@@ -153,7 +156,7 @@ export const JobWizard: React.FC = () => {
 
   const handleAIHelp = async () => {
     if (!formData.title || !formData.category) {
-      alert("Enter Task Title and Category first.");
+      showError("Please enter Task Title and Category first.");
       return;
     }
     setIsGenerating(true);
@@ -171,7 +174,7 @@ export const JobWizard: React.FC = () => {
       const files = Array.from(e.target.files);
       // Limit to 5 files
       if (uploadedFiles.length + files.length > 5) {
-        alert("Maximum 5 files allowed");
+        showError("Maximum 5 files allowed");
         return;
       }
       setUploadedFiles([...uploadedFiles, ...files]);
@@ -180,6 +183,56 @@ export const JobWizard: React.FC = () => {
 
   const removeFile = (index: number) => {
     setUploadedFiles(uploadedFiles.filter((_, i) => i !== index));
+  };
+
+  const handleNext = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (step === 1) {
+      if (!formData.title?.trim()) newErrors.title = "Task Title is required";
+      if (!formData.category) newErrors.category = "Category is required";
+      if (!formData.description?.trim())
+        newErrors.description = "Task Description is required";
+      if (!formData.location?.trim())
+        newErrors.location = "Location / Room is required";
+      if (!formData.hoursRequired || formData.hoursRequired <= 0) {
+        newErrors.hoursRequired = "Estimated Duration must be greater than 0";
+      }
+      if (!formData.startDate) newErrors.startDate = "Start Date is required";
+      if (!formData.endDate) newErrors.endDate = "End Date is required";
+
+      if (formData.startDate && formData.endDate) {
+        const start = new Date(formData.startDate).getTime();
+        const end = new Date(formData.endDate).getTime();
+        if (end < start) {
+          newErrors.endDate = "End Date cannot be before Start Date";
+        }
+      }
+    }
+
+    if (step === 2) {
+      if (!formData.rewardType)
+        newErrors.rewardType = "Reward Type is required";
+      const selectedType = rewardTypes.find(
+        (rt) => rt.name === formData.rewardType,
+      );
+      if (
+        selectedType?.requiresValue &&
+        (!formData.rewardValue || formData.rewardValue <= 0)
+      ) {
+        newErrors.rewardValue = "Reward value must be greater than 0";
+      }
+      if (!formData.visibility)
+        newErrors.visibility = "Task Visibility is required";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    setErrors({});
+    setStep((s) => s + 1);
   };
 
   const handleSubmit = async () => {
@@ -199,7 +252,7 @@ export const JobWizard: React.FC = () => {
         } else {
           await db.updateJob(id, submissionData);
         }
-        alert("✅ Task updated and resubmitted for approval!");
+        showSuccess("Task updated and resubmitted for approval!");
       } else {
         // Create Mode
         // Use the new API method that handles files
@@ -208,16 +261,15 @@ export const JobWizard: React.FC = () => {
         } else {
           await db.addJob(submissionData);
         }
-
-        alert(
-          "✅ Task submitted for approval! You'll be notified when it's published.",
+        showSuccess(
+          "Task submitted for approval! You'll be notified when it's published.",
         );
       }
 
       navigate("/jobs");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Task submission failed", err);
-      alert("Failed to submit task. Please try again.");
+      showError(err.message || "Failed to submit task. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -278,18 +330,39 @@ export const JobWizard: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  className="w-full p-4 glass rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none font-bold text-lg dark:text-white"
+                  className={`w-full p-4 glass rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none font-bold text-lg dark:text-white ${errors.title ? "border-2 border-red-500" : ""}`}
                   value={formData.title}
-                  onChange={(e) => updateField("title", e.target.value)}
+                  onChange={(e) => {
+                    updateField("title", e.target.value);
+                    if (errors.title)
+                      setErrors((prev) => ({ ...prev, title: "" }));
+                  }}
                 />
+                {errors.title && (
+                  <p className="text-red-500 text-xs mt-1 font-bold ml-1">
+                    {errors.title}
+                  </p>
+                )}
               </div>
-              <CustomDropdown
-                label="Category"
-                options={categories}
-                value={formData.category || ""}
-                onChange={(val) => updateField("category", val)}
-                placeholder="Select Category"
-              />
+              <div className="space-y-2">
+                <CustomDropdown
+                  label="Category"
+                  options={categories}
+                  value={formData.category || ""}
+                  onChange={(val) => {
+                    updateField("category", val);
+                    if (errors.category)
+                      setErrors((prev) => ({ ...prev, category: "" }));
+                  }}
+                  placeholder="Select Category"
+                  error={!!errors.category}
+                />
+                {errors.category && (
+                  <p className="text-red-500 text-xs mt-1 font-bold ml-1">
+                    {errors.category}
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -307,10 +380,19 @@ export const JobWizard: React.FC = () => {
                 </button>
               </div>
               <textarea
-                className="w-full p-6 glass rounded-2xl h-64 focus:ring-4 focus:ring-primary/20 outline-none font-medium leading-relaxed dark:text-white resize-none"
+                className={`w-full p-6 glass rounded-2xl h-64 focus:ring-4 focus:ring-primary/20 outline-none font-medium leading-relaxed dark:text-white resize-none ${errors.description ? "border-2 border-red-500" : ""}`}
                 value={formData.description}
-                onChange={(e) => updateField("description", e.target.value)}
+                onChange={(e) => {
+                  updateField("description", e.target.value);
+                  if (errors.description)
+                    setErrors((prev) => ({ ...prev, description: "" }));
+                }}
               />
+              {errors.description && (
+                <p className="text-red-500 text-xs mt-1 font-bold ml-1">
+                  {errors.description}
+                </p>
+              )}
             </div>
 
             <div className="grid md:grid-cols-2 gap-8">
@@ -320,10 +402,19 @@ export const JobWizard: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  className="w-full p-4 glass rounded-2xl font-bold dark:text-white"
+                  className={`w-full p-4 glass rounded-2xl font-bold dark:text-white ${errors.location ? "border-2 border-red-500" : ""}`}
                   value={formData.location}
-                  onChange={(e) => updateField("location", e.target.value)}
+                  onChange={(e) => {
+                    updateField("location", e.target.value);
+                    if (errors.location)
+                      setErrors((prev) => ({ ...prev, location: "" }));
+                  }}
                 />
+                {errors.location && (
+                  <p className="text-red-500 text-xs mt-1 font-bold ml-1">
+                    {errors.location}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">
@@ -331,28 +422,59 @@ export const JobWizard: React.FC = () => {
                 </label>
                 <input
                   type="number"
-                  className="w-full p-4 glass rounded-2xl font-bold dark:text-white"
+                  className={`w-full p-4 glass rounded-2xl font-bold dark:text-white ${errors.hoursRequired ? "border-2 border-red-500" : ""}`}
                   value={formData.hoursRequired}
-                  onChange={(e) =>
-                    updateField("hoursRequired", Number(e.target.value))
-                  }
+                  onChange={(e) => {
+                    updateField("hoursRequired", Number(e.target.value));
+                    if (errors.hoursRequired)
+                      setErrors((prev) => ({ ...prev, hoursRequired: "" }));
+                  }}
                 />
+                {errors.hoursRequired && (
+                  <p className="text-red-500 text-xs mt-1 font-bold ml-1">
+                    {errors.hoursRequired}
+                  </p>
+                )}
               </div>
 
               {/* Start Date */}
-              <CustomDatePicker
-                label="Start Date"
-                value={formData.startDate || ""}
-                onChange={(val) => updateField("startDate", val)}
-              />
+              <div className="space-y-2">
+                <CustomDatePicker
+                  label="Start Date"
+                  value={formData.startDate || ""}
+                  onChange={(val) => {
+                    updateField("startDate", val);
+                    if (errors.startDate)
+                      setErrors((prev) => ({ ...prev, startDate: "" }));
+                  }}
+                  error={!!errors.startDate}
+                />
+                {errors.startDate && (
+                  <p className="text-red-500 text-xs mt-1 font-bold ml-1">
+                    {errors.startDate}
+                  </p>
+                )}
+              </div>
 
               {/* End Date */}
-              <CustomDatePicker
-                label="End Date"
-                value={formData.endDate || ""}
-                onChange={(val) => updateField("endDate", val)}
-                min={formData.startDate}
-              />
+              <div className="space-y-2">
+                <CustomDatePicker
+                  label="End Date"
+                  value={formData.endDate || ""}
+                  onChange={(val) => {
+                    updateField("endDate", val);
+                    if (errors.endDate)
+                      setErrors((prev) => ({ ...prev, endDate: "" }));
+                  }}
+                  min={formData.startDate}
+                  error={!!errors.endDate}
+                />
+                {errors.endDate && (
+                  <p className="text-red-500 text-xs mt-1 font-bold ml-1">
+                    {errors.endDate}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -419,13 +541,25 @@ export const JobWizard: React.FC = () => {
             </div>
 
             <div className="grid md:grid-cols-2 gap-8">
-              <CustomDropdown
-                label="Reward Type"
-                options={rewardTypes}
-                value={formData.rewardType || ""}
-                onChange={(val) => updateField("rewardType", val)}
-                placeholder="Select Reward"
-              />
+              <div className="space-y-2">
+                <CustomDropdown
+                  label="Reward Type"
+                  options={rewardTypes}
+                  value={formData.rewardType || ""}
+                  onChange={(val) => {
+                    updateField("rewardType", val);
+                    if (errors.rewardType)
+                      setErrors((prev) => ({ ...prev, rewardType: "" }));
+                  }}
+                  placeholder="Select Reward"
+                  error={!!errors.rewardType}
+                />
+                {errors.rewardType && (
+                  <p className="text-red-500 text-xs mt-1 font-bold ml-1">
+                    {errors.rewardType}
+                  </p>
+                )}
+              </div>
 
               {/* Conditional Reward Value Field */}
               {(() => {
@@ -460,11 +594,13 @@ export const JobWizard: React.FC = () => {
                         type="number"
                         className={`w-full p-4 glass rounded-2xl font-bold dark:text-white ${
                           isLumpsum || isVoucher ? "pl-8" : ""
-                        }`}
+                        } ${errors.rewardValue ? "border-2 border-red-500" : ""}`}
                         value={formData.rewardValue}
-                        onChange={(e) =>
-                          updateField("rewardValue", Number(e.target.value))
-                        }
+                        onChange={(e) => {
+                          updateField("rewardValue", Number(e.target.value));
+                          if (errors.rewardValue)
+                            setErrors((prev) => ({ ...prev, rewardValue: "" }));
+                        }}
                       />
                       {isHourly && (
                         <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-zinc-400 text-sm">
@@ -477,19 +613,36 @@ export const JobWizard: React.FC = () => {
                         </span>
                       )}
                     </div>
+                    {errors.rewardValue && (
+                      <p className="text-red-500 text-xs mt-1 font-bold ml-1">
+                        {errors.rewardValue}
+                      </p>
+                    )}
                   </div>
                 );
               })()}
             </div>
 
             {/* Task Visibility */}
-            <CustomDropdown
-              label="Task Visibility"
-              options={Object.values(Visibility).map((v) => ({ name: v }))}
-              value={formData.visibility || ""}
-              onChange={(val) => updateField("visibility", val)}
-              placeholder="Select Visibility"
-            />
+            <div className="space-y-2">
+              <CustomDropdown
+                label="Task Visibility"
+                options={Object.values(Visibility).map((v) => ({ name: v }))}
+                value={formData.visibility || ""}
+                onChange={(val) => {
+                  updateField("visibility", val);
+                  if (errors.visibility)
+                    setErrors((prev) => ({ ...prev, visibility: "" }));
+                }}
+                placeholder="Select Visibility"
+                error={!!errors.visibility}
+              />
+              {errors.visibility && (
+                <p className="text-red-500 text-xs mt-1 font-bold ml-1">
+                  {errors.visibility}
+                </p>
+              )}
+            </div>
             <p className="text-xs text-zinc-400 ml-1">
               <span className="font-bold">Internal:</span> Only your
               organisation members can see this task.{" "}
@@ -820,7 +973,7 @@ export const JobWizard: React.FC = () => {
 
         {step < 4 ? (
           <button
-            onClick={() => setStep((s) => s + 1)}
+            onClick={handleNext}
             className="px-10 py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primaryHover shadow-2xl shadow-primary/30 flex items-center transition-all hover:-translate-y-1"
           >
             Advance <ArrowRight className="w-4 h-4 ml-3" />
