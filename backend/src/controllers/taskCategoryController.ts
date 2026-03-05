@@ -4,9 +4,10 @@ import TaskCategory from "../models/TaskCategory.js";
 // Get all task categories
 export const getTaskCategories = async (req: Request, res: Response) => {
   try {
-    const categories = await TaskCategory.find({ isActive: true }).sort({
-      name: 1,
-    });
+    // `?all=true` is used by the admin panel to include inactive categories
+    const includeInactive = req.query.all === "true";
+    const filter = includeInactive ? {} : { isActive: true };
+    const categories = await TaskCategory.find(filter).sort({ name: 1 });
     res.json(categories);
   } catch (err: any) {
     res.status(500).json({ message: err.message });

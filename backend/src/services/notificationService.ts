@@ -1,81 +1,177 @@
+/**
+ * Notification Service
+ *
+ * Handles both in-app notifications (stored in MongoDB) and
+ * outbound emails (via Nodemailer / SMTP).
+ *
+ * Usage:
+ *   import { notify } from './notificationService.js';
+ *   await notify({ ... });
+ *
+ *   import { sendEmail } from './notificationService.js';
+ *   await sendEmail('user@example.com', template);
+ */
+
 import nodemailer from "nodemailer";
 import Notification from "../models/Notification.js";
 import User from "../models/User.js";
-import dotenv from "dotenv";
+import type { EmailTemplate } from "./emailTemplates.js";
 
-dotenv.config();
+// ─── SMTP Transport ───────────────────────────────────────────────────────────
 
-const transporter = nodemailer.createTransport({
-  // Configure with your email provider (e.g., Gmail, SendGrid, etc.)
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+const EMAIL_ENABLED =
+  !!(process.env.EMAIL_USER && process.env.EMAIL_PASS) &&
+  process.env.EMAIL_ENABLED !== "false";
 
+const transporter = EMAIL_ENABLED
+  ? nodemailer.createTransport({
+      host: process.env.EMAIL_HOST || "smtp.gmail.com",
+      port: parseInt(process.env.EMAIL_PORT || "465"),
+      secure: process.env.EMAIL_SECURE !== "false", // true for 465
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    })
+  : null;
+
+// ─── Primary Send-Email Helper ────────────────────────────────────────────────
+
+/**
+ * Send an HTML email using a pre-built template object.
+ * Silently fails (logs) if email is not configured.
+ */
+export const sendEmail = async (
+  toEmail: string,
+  template: EmailTemplate,
+): Promise<void> => {
+  if (!EMAIL_ENABLED || !transporter) {
+    console.log(
+      `[Email DISABLED] Would have sent "${template.subject}" to ${toEmail}`,
+    );
+    return;
+  }
+  try {
+    await transporter.sendMail({
+      from: `"${process.env.EMAIL_FROM_NAME || "Al-Siraat Tasker"}" <${process.env.EMAIL_USER}>`,
+      to: toEmail,
+      subject: template.subject,
+      text: template.text,
+      html: template.html,
+    });
+    console.log(`[Email] Sent "${template.subject}" to ${toEmail}`);
+  } catch (err) {
+    console.error(`[Email] Failed to send to ${toEmail}:`, err);
+  }
+};
+
+// ─── Notification Types ───────────────────────────────────────────────────────
+
+export type NotificationType = "info" | "success" | "warning" | "error";
+
+interface NotifyOptions {
+  /** MongoDB ObjectId (as string) of the recipient user */
+  recipientId: string;
+  title: string;
+  message: string;
+  type?: NotificationType;
+  /** Frontend relative path, e.g. "/jobs/123" */
+  link?: string;
+  /** If provided, also sends this email template to the user */
+  emailTemplate?: EmailTemplate;
+}
+
+// ─── Core Notify Function (in-app + optional email) ──────────────────────────
+
+/**
+ * Create an in-app notification and optionally send an email.
+ * Errors are caught and logged rather than thrown.
+ */
+export const notify = async (opts: NotifyOptions): Promise<void> => {
+  const {
+    recipientId,
+    title,
+    message,
+    type = "info",
+    link,
+    emailTemplate,
+  } = opts;
+  try {
+    // 1. In-app notification
+    const data: any = { recipient: recipientId, title, message, type };
+    if (link) data.link = link;
+    await Notification.create(data);
+
+    // 2. Email (if template provided and SMTP configured)
+    if (emailTemplate) {
+      const user = await User.findById(recipientId).select("email");
+      if (user?.email) {
+        await sendEmail(user.email, emailTemplate);
+      }
+    }
+  } catch (err) {
+    console.error("[notify] Error:", err);
+  }
+};
+
+// ─── Legacy Compatibility (keeps old callers working) ────────────────────────
+
+/**
+ * @deprecated Prefer using notify() which supports typed EmailTemplate objects.
+ */
 export const sendNotification = async (
   recipientId: string,
   title: string,
   message: string,
-  type: "info" | "success" | "warning" | "error" = "info",
+  type: NotificationType = "info",
   link?: string,
-  sendEmail: boolean = false,
-) => {
+  sendEmailFlag: boolean = false,
+): Promise<void> => {
   try {
-    // In-app notification
-    const notificationData: any = {
-      recipient: recipientId,
-      title,
-      message,
-      type,
-    };
-    if (link) notificationData.link = link;
+    const data: any = { recipient: recipientId, title, message, type };
+    if (link) data.link = link;
+    await Notification.create(data);
 
-    await Notification.create(notificationData);
-
-    // Email notification (optional, disabled by default for in-app only)
-    if (sendEmail) {
-      const user = await User.findById(recipientId);
-      if (user && user.email) {
-        const mailOptions = {
-          from: process.env.EMAIL_USER,
-          to: user.email,
+    if (sendEmailFlag) {
+      const user = await User.findById(recipientId).select("email name");
+      if (user?.email) {
+        // Build a simple generic email template inline
+        const genericTemplate = {
           subject: title,
-          text: message,
-          html: `<p>${message}</p>${link ? `<a href="${process.env.FRONTEND_URL}${link}">View details</a>` : ""}`,
+          html: `<p>${message}</p>${link ? `<p><a href="${process.env.FRONTEND_URL || ""}${link}">View details</a></p>` : ""}`,
+          text: `${message}${link ? `\n\nView: ${process.env.FRONTEND_URL || ""}${link}` : ""}`,
         };
-
-        await transporter.sendMail(mailOptions);
+        await sendEmail(user.email, genericTemplate);
       }
     }
   } catch (err) {
-    console.error("Notification error:", err);
+    console.error("[sendNotification] Error:", err);
   }
 };
 
+// ─── Bulk Helpers ─────────────────────────────────────────────────────────────
+
 /**
- * Send notification to all users (for public job posts, announcements, etc.)
+ * Send in-app notification to ALL users (for public task announcements, etc.)
+ * Optionally exclude a specific user (e.g., the creator).
+ * Does NOT send emails in bulk to avoid spam.
  */
 export const sendNotificationToAll = async (
   title: string,
   message: string,
-  type: "info" | "success" | "warning" | "error" = "info",
+  type: NotificationType = "info",
   link?: string,
   excludeUserId?: string,
-) => {
+): Promise<void> => {
   try {
-    // Get all users except the one who triggered the action
-    const query: any = {};
-    if (excludeUserId) {
-      query._id = { $ne: excludeUserId };
-    }
+    const query: any = { isActive: { $ne: false } };
+    if (excludeUserId) query._id = { $ne: excludeUserId };
 
     const users = await User.find(query).select("_id");
+    if (!users.length) return;
 
-    // Create notifications in bulk
-    const notifications = users.map((user) => ({
-      recipient: user._id,
+    const notifications = users.map((u) => ({
+      recipient: u._id,
       title,
       message,
       type,
@@ -83,39 +179,35 @@ export const sendNotificationToAll = async (
       read: false,
     }));
 
-    if (notifications.length > 0) {
-      await Notification.insertMany(notifications);
-    }
-
-    console.log(`Sent notification to ${notifications.length} users: ${title}`);
+    await Notification.insertMany(notifications, { ordered: false });
+    console.log(
+      `[notify] Broadcast to ${notifications.length} users: ${title}`,
+    );
   } catch (err) {
-    console.error("Bulk notification error:", err);
+    console.error("[sendNotificationToAll] Error:", err);
   }
 };
 
 /**
- * Send notification to specific role(s)
+ * Send in-app notification to users with specific roles.
  */
 export const sendNotificationToRoles = async (
   roles: string[],
   title: string,
   message: string,
-  type: "info" | "success" | "warning" | "error" = "info",
+  type: NotificationType = "info",
   link?: string,
   excludeUserId?: string,
-) => {
+): Promise<void> => {
   try {
-    const query: any = {
-      role: { $in: roles },
-    };
-    if (excludeUserId) {
-      query._id = { $ne: excludeUserId };
-    }
+    const query: any = { roles: { $in: roles }, isActive: { $ne: false } };
+    if (excludeUserId) query._id = { $ne: excludeUserId };
 
     const users = await User.find(query).select("_id");
+    if (!users.length) return;
 
-    const notifications = users.map((user) => ({
-      recipient: user._id,
+    const notifications = users.map((u) => ({
+      recipient: u._id,
       title,
       message,
       type,
@@ -123,37 +215,36 @@ export const sendNotificationToRoles = async (
       read: false,
     }));
 
-    if (notifications.length > 0) {
-      await Notification.insertMany(notifications);
-    }
+    await Notification.insertMany(notifications, { ordered: false });
   } catch (err) {
-    console.error("Role notification error:", err);
+    console.error("[sendNotificationToRoles] Error:", err);
   }
 };
 
 /**
- * Send notification to organization members
+ * Send in-app notification to all members of an organisation.
+ * Fixed: uses "organisation" field (not "organization").
  */
 export const sendNotificationToOrganization = async (
-  organizationId: string,
+  organisationId: string,
   title: string,
   message: string,
-  type: "info" | "success" | "warning" | "error" = "info",
+  type: NotificationType = "info",
   link?: string,
   excludeUserId?: string,
-) => {
+): Promise<void> => {
   try {
     const query: any = {
-      organization: organizationId,
+      organisation: organisationId,
+      isActive: { $ne: false },
     };
-    if (excludeUserId) {
-      query._id = { $ne: excludeUserId };
-    }
+    if (excludeUserId) query._id = { $ne: excludeUserId };
 
     const users = await User.find(query).select("_id");
+    if (!users.length) return;
 
-    const notifications = users.map((user) => ({
-      recipient: user._id,
+    const notifications = users.map((u) => ({
+      recipient: u._id,
       title,
       message,
       type,
@@ -161,10 +252,11 @@ export const sendNotificationToOrganization = async (
       read: false,
     }));
 
-    if (notifications.length > 0) {
-      await Notification.insertMany(notifications);
-    }
+    await Notification.insertMany(notifications, { ordered: false });
+    console.log(
+      `[notify] Sent to ${notifications.length} org members: ${title}`,
+    );
   } catch (err) {
-    console.error("Org notification error:", err);
+    console.error("[sendNotificationToOrganization] Error:", err);
   }
 };

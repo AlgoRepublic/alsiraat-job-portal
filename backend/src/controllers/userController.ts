@@ -1,14 +1,25 @@
 import { Request, Response } from "express";
 import User from "../models/User.js";
+import Organization from "../models/Organization.js";
 import Role from "../models/Role.js";
 import fs from "fs";
 import Papa from "papaparse";
 import bcrypt from "bcryptjs";
 import { UserRole, normalizeUserRole } from "../models/UserRole.js";
+import { normalizeOrgName, slugifyOrgName } from "./organizationController.js";
 
 export const getUsers = async (req: Request, res: Response) => {
   try {
     const { search, role } = req.query;
+
+    // Pagination
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(
+      200,
+      Math.max(1, parseInt(req.query.limit as string) || 20),
+    );
+    const skip = (page - 1) * limit;
+
     let query: any = {};
 
     if (search) {
@@ -22,12 +33,25 @@ export const getUsers = async (req: Request, res: Response) => {
       query.roles = role;
     }
 
-    const users = await User.find(query)
-      .populate("organisation", "name")
-      .select("-password")
-      .sort({ createdAt: -1 });
+    const [users, total] = await Promise.all([
+      User.find(query)
+        .populate("organisation", "name")
+        .select("-password")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      User.countDocuments(query),
+    ]);
 
-    res.json(users);
+    res.json({
+      users,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
+    });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -66,7 +90,7 @@ export const updateUserRole = async (req: Request, res: Response) => {
 
 export const updateUser = async (req: Request, res: Response) => {
   try {
-    const { name, email, roles } = req.body;
+    const { name, email, roles, organisation } = req.body;
     const user = await User.findById(req.params.id);
 
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -88,6 +112,17 @@ export const updateUser = async (req: Request, res: Response) => {
 
     if (name) user.name = name;
     if (roles) user.roles = roles;
+
+    // Organisation: explicit null clears it; a string ID sets it; undefined = no change
+    if (organisation === null) {
+      user.organisation = undefined as any;
+    } else if (organisation) {
+      // Validate the org exists before assigning
+      const orgExists = await Organization.findById(organisation);
+      if (!orgExists)
+        return res.status(400).json({ message: "Organisation not found" });
+      user.organisation = organisation;
+    }
 
     await user.save();
     const updated = await User.findById(user._id)
@@ -118,6 +153,70 @@ export const deleteUser = async (req: Request, res: Response) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+/**
+ * Resolve an organisation ObjectId from:
+ *   1. A column value in the CSV row (school / organisation / org / company)
+ *   2. The email domain matched against Organization.domain
+ *   3. Falling back to a configured default org name via IMPORT_DEFAULT_ORG env var
+ */
+async function resolveOrganisation(
+  row: any,
+  email: string,
+): Promise<import("mongoose").Types.ObjectId | undefined> {
+  // ── 1. Explicit column in CSV ──
+  const explicitName: string | undefined =
+    row.organisation ||
+    row.organization ||
+    row.school ||
+    row.company ||
+    row.org ||
+    undefined;
+
+  if (explicitName && explicitName.trim()) {
+    const nameSearch = normalizeOrgName(explicitName);
+    const org = await Organization.findOne({
+      name: {
+        $regex: new RegExp(
+          `^${nameSearch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+          "i",
+        ),
+      },
+    });
+    if (org) return org._id as import("mongoose").Types.ObjectId;
+
+    // Org with that name doesn't exist — create it lazily
+    const slug = slugifyOrgName(nameSearch);
+    try {
+      const newOrg = await Organization.create({ name: nameSearch, slug });
+      return newOrg._id as import("mongoose").Types.ObjectId;
+    } catch (e: any) {
+      // Duplicate slug — find existing and use it
+      const existing = await Organization.findOne({ slug });
+      if (existing) return existing._id as import("mongoose").Types.ObjectId;
+    }
+  }
+
+  // ── 2. Email domain match ──
+  const emailDomain = email.split("@")[1]?.toLowerCase();
+  if (emailDomain) {
+    const org = await Organization.findOne({
+      domain: { $regex: new RegExp(`^${emailDomain}$`, "i") },
+    });
+    if (org) return org._id as import("mongoose").Types.ObjectId;
+  }
+
+  // ── 3. Default org from env ──
+  const defaultOrgName = process.env.IMPORT_DEFAULT_ORG;
+  if (defaultOrgName) {
+    const org = await Organization.findOne({
+      name: { $regex: new RegExp(`^${defaultOrgName}$`, "i") },
+    });
+    if (org) return org._id as import("mongoose").Types.ObjectId;
+  }
+
+  return undefined;
+}
 
 export const importUsers = async (req: Request, res: Response) => {
   try {
@@ -173,6 +272,7 @@ export const importUsers = async (req: Request, res: Response) => {
     }
 
     let imported = 0;
+    let updated = 0;
     let errors = 0;
 
     console.log("Total valid rows parsed from CSV:", results.length);
@@ -205,18 +305,21 @@ export const importUsers = async (req: Request, res: Response) => {
           rolesArray = [UserRole.APPLICANT];
         }
 
+        // Resolve organisation dynamically from CSV column or email domain
+        const organisationId = await resolveOrganisation(row, email);
+
+        const mappedGender =
+          row.gender?.toUpperCase() === "M"
+            ? "Male"
+            : row.gender?.toUpperCase() === "F"
+              ? "Female"
+              : undefined;
+
         let user = await User.findOne({ email });
         if (!user) {
           const password = row.login_id || "Teacher123!"; // Default password strategy
           const salt = await bcrypt.genSalt(10);
           const hashedPassword = await bcrypt.hash(password, salt);
-
-          const mappedGender =
-            row.gender?.toUpperCase() === "M"
-              ? "Male"
-              : row.gender?.toUpperCase() === "F"
-                ? "Female"
-                : undefined;
 
           user = new User({
             name,
@@ -225,15 +328,32 @@ export const importUsers = async (req: Request, res: Response) => {
             roles: rolesArray,
             ...(mappedGender && { gender: mappedGender }),
             ...(row.year_level && { yearLevel: row.year_level }),
+            ...(organisationId && { organisation: organisationId }),
           });
           await user.save();
           imported++;
         } else {
-          // Update existing user roles if you want, or just skip
-          // user.roles = [...new Set([...user.roles, ...rolesArray])];
-          // await user.save();
-          console.log(`Skipping duplicate user: ${email}`);
-          errors++; // Consider it skipped for now
+          // Update organisation if not yet set (or if SAML org already set, respect it)
+          let dirty = false;
+
+          // Only assign organisation if:
+          //   (a) user doesn't have one, OR
+          //   (b) user is NOT an OIDC/SAML user (oidcId not set)
+          const userHasOrg = !!user.organisation;
+          const userIsSAML = !!user.oidcId;
+
+          if (organisationId && !userHasOrg && !userIsSAML) {
+            user.organisation = organisationId as any;
+            dirty = true;
+          }
+
+          if (dirty) {
+            await user.save();
+            updated++;
+          } else {
+            console.log(`Skipping duplicate user: ${email}`);
+            errors++;
+          }
         }
       } catch (e: any) {
         console.error("Error importing row:", row, e.message || e);
@@ -246,9 +366,11 @@ export const importUsers = async (req: Request, res: Response) => {
       if (err) console.error("Error deleting temp csv file:", err);
     });
 
-    res.json({
-      message: `Import complete. Added ${imported}, Skipped/Errors: ${errors}`,
-    });
+    const parts = [`Added ${imported}`];
+    if (updated > 0) parts.push(`Updated ${updated}`);
+    if (errors > 0) parts.push(`Skipped/Errors: ${errors}`);
+
+    res.json({ message: `Import complete. ${parts.join(", ")}` });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }

@@ -5,7 +5,11 @@ import User, { UserRole } from "../models/User.js";
 import { normalizeUserRole } from "../models/UserRole.js";
 import dotenv from "dotenv";
 import crypto from "crypto";
-import { sendNotification } from "../services/notificationService.js";
+import { sendEmail } from "../services/notificationService.js";
+import {
+  welcomeEmail,
+  passwordResetEmail,
+} from "../services/emailTemplates.js";
 import { hasPermissionAsync, Permission } from "../config/permissions.js";
 import {
   getOIDCEndSessionEndpoint,
@@ -63,6 +67,10 @@ export const signup = async (req: Request, res: Response) => {
     }
 
     const token = generateToken(user);
+
+    // Send welcome email asynchronously (don't await to keep signup fast)
+    sendEmail(user.email, welcomeEmail(user.name || fullName)).catch(() => {});
+
     res.status(201).json({
       token,
       user: {
@@ -260,16 +268,15 @@ export const forgotPassword = async (req: Request, res: Response) => {
 
     await user.save();
 
-    const resetUrl = `/reset-password/${resetToken}`;
-    const message = `You are receiving this email because you (or someone else) have requested the reset of a password. Please click on the link to complete the process. This link is valid for 1 hour.`;
+    const FRONTEND_URL = (
+      process.env.FRONTEND_URL || "http://localhost:5173"
+    ).replace(/\/$/, "");
+    const resetUrl = `${FRONTEND_URL}/#/reset-password/${resetToken}`;
 
-    await sendNotification(
-      user._id.toString(),
-      "Password Reset",
-      message,
-      "info",
-      resetUrl,
-      true,
+    // Send branded password reset email directly
+    await sendEmail(
+      user.email,
+      passwordResetEmail(user.name || user.email, resetUrl),
     );
 
     res.json({ message: "Password reset link sent to email" });
@@ -308,15 +315,12 @@ export const resetPassword = async (req: Request, res: Response) => {
 
     await user.save();
 
-    // Notify user that password was changed
-    await sendNotification(
-      user._id.toString(),
-      "Password Changed Successfully",
-      "Your password has been successfully reset. If you did not perform this action, please contact support immediately.",
-      "success",
-      undefined,
-      true,
-    );
+    // Send password changed confirmation email
+    await sendEmail(user.email, {
+      subject: "Your password has been changed",
+      html: `<p>Hi ${user.name},</p><p>Your password on Al-Siraat Tasker has been successfully reset. If you did not perform this action, please contact support immediately.</p>`,
+      text: `Your password has been reset. If you didn't do this, contact support immediately.`,
+    });
 
     res.json({ message: "Password reset successful" });
   } catch (err: any) {

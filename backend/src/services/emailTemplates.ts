@@ -1,0 +1,414 @@
+/**
+ * Email Templates for Al-Siraat Job Portal
+ * Each template returns { subject, html, text }
+ */
+
+const BRAND_COLOR = "#812349";
+const BRAND_NAME = "Al-Siraat Tasker";
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+
+// ─── Shared Brand Wrapper ─────────────────────────────────────────────────────
+const wrap = (bodyContent: string): string => `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>${BRAND_NAME}</title>
+  <style>
+    body { margin:0; padding:0; font-family: 'Helvetica Neue', Arial, sans-serif; background:#f4f4f5; color:#18181b; }
+    .wrapper { max-width:600px; margin:32px auto; background:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,0.08); }
+    .header { background:${BRAND_COLOR}; padding:32px 40px; text-align:center; }
+    .header h1 { color:#fff; margin:0; font-size:22px; font-weight:800; letter-spacing:-0.5px; }
+    .header p { color:rgba(255,255,255,0.75); margin:6px 0 0; font-size:13px; }
+    .body { padding:36px 40px; }
+    .body h2 { font-size:20px; font-weight:700; margin:0 0 12px; color:#18181b; }
+    .body p { font-size:15px; line-height:1.65; color:#52525b; margin:0 0 16px; }
+    .cta { display:inline-block; margin:20px 0; padding:14px 32px; background:${BRAND_COLOR}; color:#fff !important; text-decoration:none; border-radius:10px; font-weight:700; font-size:14px; letter-spacing:0.3px; }
+    .info-box { background:#f9fafb; border-left:4px solid ${BRAND_COLOR}; border-radius:6px; padding:16px 20px; margin:20px 0; }
+    .info-box p { margin:0; font-size:14px; color:#3f3f46; }
+    .info-box strong { color:#18181b; }
+    .divider { border:none; border-top:1px solid #e4e4e7; margin:28px 0; }
+    .status-badge { display:inline-block; padding:6px 14px; border-radius:20px; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; }
+    .badge-success { background:#d1fae5; color:#065f46; }
+    .badge-warning { background:#fef3c7; color:#92400e; }
+    .badge-error { background:#fee2e2; color:#991b1b; }
+    .badge-info { background:#dbeafe; color:#1e40af; }
+    .footer { background:#f4f4f5; padding:24px 40px; text-align:center; }
+    .footer p { margin:0; font-size:12px; color:#a1a1aa; line-height:1.8; }
+    .footer a { color:${BRAND_COLOR}; text-decoration:none; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>🎯 ${BRAND_NAME}</h1>
+      <p>Connecting students with opportunities</p>
+    </div>
+    <div class="body">
+      ${bodyContent}
+    </div>
+    <div class="footer">
+      <p>
+        You received this email from <a href="${FRONTEND_URL}">${BRAND_NAME}</a>.<br/>
+        If you have any questions, please contact your administrator.
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+`;
+
+// ─── Template Definitions ──────────────────────────────────────────────────────
+
+export interface EmailTemplate {
+  subject: string;
+  html: string;
+  text: string;
+}
+
+// 1. Welcome Email (on signup)
+export const welcomeEmail = (name: string): EmailTemplate => ({
+  subject: `Welcome to ${BRAND_NAME}! 🎉`,
+  html: wrap(`
+    <h2>Welcome aboard, ${name}! 👋</h2>
+    <p>Your account has been created on <strong>${BRAND_NAME}</strong>. You can now browse available tasks, apply for opportunities, and track your progress — all in one place.</p>
+    <div class="info-box">
+      <p><strong>What you can do:</strong><br/>
+      ✅ Browse and apply for tasks<br/>
+      ✅ Track your application status<br/>
+      ✅ Build your experience profile<br/>
+      ✅ Receive real-time notifications</p>
+    </div>
+    <a href="${FRONTEND_URL}/jobs" class="cta">Browse Tasks Now</a>
+    <hr class="divider"/>
+    <p style="font-size:13px;color:#a1a1aa;">If you didn't create this account, please ignore this email or contact your administrator.</p>
+  `),
+  text: `Welcome to ${BRAND_NAME}, ${name}!\n\nYour account is ready. Browse tasks at ${FRONTEND_URL}/jobs`,
+});
+
+// 2. Password Reset
+export const passwordResetEmail = (
+  name: string,
+  resetUrl: string,
+): EmailTemplate => ({
+  subject: `Reset your ${BRAND_NAME} password`,
+  html: wrap(`
+    <h2>Password Reset Request</h2>
+    <p>Hi <strong>${name}</strong>, we received a request to reset your password.</p>
+    <p>Click the button below to create a new password. This link expires in <strong>1 hour</strong>.</p>
+    <a href="${resetUrl}" class="cta">Reset My Password</a>
+    <hr class="divider"/>
+    <p style="font-size:13px;color:#a1a1aa;">If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.</p>
+  `),
+  text: `Password reset requested.\n\nReset link: ${resetUrl}\n\nThis link expires in 1 hour.`,
+});
+
+// 3. New Application Received (to task creator / manager)
+export const newApplicationEmail = (
+  recipientName: string,
+  applicantName: string,
+  taskTitle: string,
+  taskId: string,
+): EmailTemplate => ({
+  subject: `New application for "${taskTitle}"`,
+  html: wrap(`
+    <h2>📬 New Application Received</h2>
+    <p>Hi <strong>${recipientName}</strong>,</p>
+    <p>A new application has been submitted for your task.</p>
+    <div class="info-box">
+      <p><strong>Task:</strong> ${taskTitle}<br/>
+      <strong>Applicant:</strong> ${applicantName}</p>
+    </div>
+    <p>Review the application and update its status in the portal.</p>
+    <a href="${FRONTEND_URL}/jobs/${taskId}/applicants" class="cta">Review Application</a>
+  `),
+  text: `New application from ${applicantName} for "${taskTitle}".\n\nReview at: ${FRONTEND_URL}/jobs/${taskId}/applicants`,
+});
+
+// 4. Application Submitted Confirmation (to applicant)
+export const applicationSubmittedEmail = (
+  applicantName: string,
+  taskTitle: string,
+  taskId: string,
+): EmailTemplate => ({
+  subject: `Your application for "${taskTitle}" was received`,
+  html: wrap(`
+    <h2>✅ Application Submitted!</h2>
+    <p>Hi <strong>${applicantName}</strong>,</p>
+    <p>Your application has been successfully submitted. The task manager will review it and update you on next steps.</p>
+    <div class="info-box">
+      <p><strong>Task Applied For:</strong> ${taskTitle}<br/>
+      <strong>Status:</strong> <span class="status-badge badge-warning">Pending Review</span></p>
+    </div>
+    <a href="${FRONTEND_URL}/jobs/${taskId}" class="cta">View Task</a>
+    <hr class="divider"/>
+    <p>We'll notify you as soon as there's an update on your application.</p>
+  `),
+  text: `Application submitted for "${taskTitle}".\n\nWe'll be in touch soon. View your application at ${FRONTEND_URL}/jobs/${taskId}`,
+});
+
+// 5. Application Shortlisted (to applicant)
+export const applicationShortlistedEmail = (
+  applicantName: string,
+  taskTitle: string,
+  appId: string,
+): EmailTemplate => ({
+  subject: `🌟 You've been shortlisted for "${taskTitle}"`,
+  html: wrap(`
+    <h2>🌟 Congratulations! You've been Shortlisted</h2>
+    <p>Hi <strong>${applicantName}</strong>,</p>
+    <p>Great news — your application has been shortlisted for the following task:</p>
+    <div class="info-box">
+      <p><strong>Task:</strong> ${taskTitle}<br/>
+      <strong>Status:</strong> <span class="status-badge badge-info">Shortlisted</span></p>
+    </div>
+    <p>This means you've moved to the next stage. The hiring manager will be in touch with further details.</p>
+    <a href="${FRONTEND_URL}/application/${appId}" class="cta">View My Application</a>
+  `),
+  text: `You've been shortlisted for "${taskTitle}"! View your application: ${FRONTEND_URL}/application/${appId}`,
+});
+
+// 6. Job Offer Sent (to applicant)
+export const jobOfferEmail = (
+  applicantName: string,
+  taskTitle: string,
+  appId: string,
+): EmailTemplate => ({
+  subject: `🎉 You've received an offer for "${taskTitle}"!`,
+  html: wrap(`
+    <h2>🎉 You've Got an Offer!</h2>
+    <p>Hi <strong>${applicantName}</strong>,</p>
+    <p>Congratulations! You have been officially <strong>offered</strong> the following task:</p>
+    <div class="info-box">
+      <p><strong>Task:</strong> ${taskTitle}<br/>
+      <strong>Status:</strong> <span class="status-badge badge-success">Offered</span></p>
+    </div>
+    <p>Please log in to confirm or decline this offer. Your response is needed to proceed.</p>
+    <a href="${FRONTEND_URL}/application/${appId}" class="cta">Confirm or Decline Offer</a>
+    <hr class="divider"/>
+    <p style="font-size:13px;color:#a1a1aa;">If you have any questions, please contact the task manager directly through the portal.</p>
+  `),
+  text: `You've been offered "${taskTitle}"! Confirm or decline: ${FRONTEND_URL}/application/${appId}`,
+});
+
+// 7. Application Approved (to applicant)
+export const applicationApprovedEmail = (
+  applicantName: string,
+  taskTitle: string,
+  appId: string,
+): EmailTemplate => ({
+  subject: `✅ Your application for "${taskTitle}" has been approved`,
+  html: wrap(`
+    <h2>✅ Application Approved</h2>
+    <p>Hi <strong>${applicantName}</strong>,</p>
+    <p>Your application has been reviewed and <strong>approved</strong>.</p>
+    <div class="info-box">
+      <p><strong>Task:</strong> ${taskTitle}<br/>
+      <strong>Status:</strong> <span class="status-badge badge-success">Approved</span></p>
+    </div>
+    <a href="${FRONTEND_URL}/application/${appId}" class="cta">View Application</a>
+  `),
+  text: `Your application for "${taskTitle}" has been approved! View details: ${FRONTEND_URL}/application/${appId}`,
+});
+
+// 8. Application Rejected (to applicant)
+export const applicationRejectedEmail = (
+  applicantName: string,
+  taskTitle: string,
+): EmailTemplate => ({
+  subject: `Update on your application for "${taskTitle}"`,
+  html: wrap(`
+    <h2>Application Update</h2>
+    <p>Hi <strong>${applicantName}</strong>,</p>
+    <p>Thank you for your interest. After careful consideration, we're unable to move forward with your application for this task at this time.</p>
+    <div class="info-box">
+      <p><strong>Task:</strong> ${taskTitle}<br/>
+      <strong>Status:</strong> <span class="status-badge badge-error">Not Selected</span></p>
+    </div>
+    <p>We encourage you to explore other tasks that may be a great fit for your skills.</p>
+    <a href="${FRONTEND_URL}/jobs" class="cta">Browse Other Tasks</a>
+  `),
+  text: `Your application for "${taskTitle}" was not selected this time. Browse other tasks at ${FRONTEND_URL}/jobs`,
+});
+
+// 9. Offer Accepted (to task creator)
+export const offerAcceptedEmail = (
+  recipientName: string,
+  applicantName: string,
+  taskTitle: string,
+  appId: string,
+): EmailTemplate => ({
+  subject: `🎉 ${applicantName} accepted the offer for "${taskTitle}"`,
+  html: wrap(`
+    <h2>🎉 Offer Accepted!</h2>
+    <p>Hi <strong>${recipientName}</strong>,</p>
+    <p><strong>${applicantName}</strong> has accepted your offer for the task:</p>
+    <div class="info-box">
+      <p><strong>Task:</strong> ${taskTitle}<br/>
+      <strong>Applicant:</strong> ${applicantName}<br/>
+      <strong>Status:</strong> <span class="status-badge badge-success">Accepted</span></p>
+    </div>
+    <a href="${FRONTEND_URL}/application/${appId}" class="cta">View Application</a>
+  `),
+  text: `${applicantName} accepted your offer for "${taskTitle}". View: ${FRONTEND_URL}/application/${appId}`,
+});
+
+// 10. Offer Declined (to task creator)
+export const offerDeclinedEmail = (
+  recipientName: string,
+  applicantName: string,
+  taskTitle: string,
+  appId: string,
+): EmailTemplate => ({
+  subject: `${applicantName} declined the offer for "${taskTitle}"`,
+  html: wrap(`
+    <h2>Offer Declined</h2>
+    <p>Hi <strong>${recipientName}</strong>,</p>
+    <p><strong>${applicantName}</strong> has declined the offer for the task:</p>
+    <div class="info-box">
+      <p><strong>Task:</strong> ${taskTitle}<br/>
+      <strong>Applicant:</strong> ${applicantName}<br/>
+      <strong>Status:</strong> <span class="status-badge badge-warning">Declined</span></p>
+    </div>
+    <p>You may want to review other applicants for this task.</p>
+    <a href="${FRONTEND_URL}/jobs/${appId}" class="cta">Review Other Applicants</a>
+  `),
+  text: `${applicantName} declined your offer for "${taskTitle}". Review others: ${FRONTEND_URL}/application/${appId}`,
+});
+
+// 11. Completion Requested (to task creator)
+export const completionRequestedEmail = (
+  recipientName: string,
+  applicantName: string,
+  taskTitle: string,
+  appId: string,
+): EmailTemplate => ({
+  subject: `🔔 ${applicantName} marked "${taskTitle}" as complete`,
+  html: wrap(`
+    <h2>🔔 Completion Verification Required</h2>
+    <p>Hi <strong>${recipientName}</strong>,</p>
+    <p><strong>${applicantName}</strong> has marked the following task as completed and is requesting your verification:</p>
+    <div class="info-box">
+      <p><strong>Task:</strong> ${taskTitle}<br/>
+      <strong>Applicant:</strong> ${applicantName}<br/>
+      <strong>Action Required:</strong> Please verify and accept or reject the completion</p>
+    </div>
+    <a href="${FRONTEND_URL}/application/${appId}" class="cta">Verify Completion</a>
+  `),
+  text: `${applicantName} has marked "${taskTitle}" as complete. Verify: ${FRONTEND_URL}/application/${appId}`,
+});
+
+// 12. Completion Accepted (to applicant)
+export const completionAcceptedEmail = (
+  applicantName: string,
+  taskTitle: string,
+  rewardType: string,
+  rewardValue: string | undefined,
+  appId: string,
+): EmailTemplate => {
+  const rewardStr = rewardValue ? `${rewardType} — ${rewardValue}` : rewardType;
+  return {
+    subject: `🎉 Your completion of "${taskTitle}" has been verified!`,
+    html: wrap(`
+      <h2>🎉 Task Completion Verified!</h2>
+      <p>Hi <strong>${applicantName}</strong>,</p>
+      <p>Congratulations! Your completion of the following task has been officially verified:</p>
+      <div class="info-box">
+        <p><strong>Task:</strong> ${taskTitle}<br/>
+        <strong>Reward:</strong> ${rewardStr}<br/>
+        <strong>Status:</strong> <span class="status-badge badge-success">Completed</span></p>
+      </div>
+      <p>This task has been added to your <strong>experience profile</strong>, and any new skills have been added to your profile automatically.</p>
+      <a href="${FRONTEND_URL}/profile" class="cta">View My Profile</a>
+    `),
+    text: `Your completion of "${taskTitle}" has been verified! Reward: ${rewardStr}. View profile: ${FRONTEND_URL}/profile`,
+  };
+};
+
+// 13. Completion Rejected (to applicant)
+export const completionRejectedEmail = (
+  applicantName: string,
+  taskTitle: string,
+  reason: string,
+  appId: string,
+): EmailTemplate => ({
+  subject: `⚠️ Completion request for "${taskTitle}" was not accepted`,
+  html: wrap(`
+    <h2>⚠️ Completion Request Rejected</h2>
+    <p>Hi <strong>${applicantName}</strong>,</p>
+    <p>Your completion request for the following task has not been accepted:</p>
+    <div class="info-box">
+      <p><strong>Task:</strong> ${taskTitle}<br/>
+      <strong>Reason:</strong> ${reason}<br/>
+      <strong>Status:</strong> <span class="status-badge badge-error">Completion Rejected</span></p>
+    </div>
+    <p>Please review the feedback and get in touch with the task manager for next steps.</p>
+    <a href="${FRONTEND_URL}/application/${appId}" class="cta">View Application</a>
+  `),
+  text: `Completion request for "${taskTitle}" rejected. Reason: ${reason}. View: ${FRONTEND_URL}/application/${appId}`,
+});
+
+// 14. Task Published / New Task Announcement (to users)
+export const newTaskAnnouncementEmail = (
+  recipientName: string,
+  taskTitle: string,
+  taskCategory: string,
+  taskId: string,
+): EmailTemplate => ({
+  subject: `📢 New task available: "${taskTitle}"`,
+  html: wrap(`
+    <h2>📢 New Task Available!</h2>
+    <p>Hi <strong>${recipientName}</strong>,</p>
+    <p>A new task has just been posted that you might be interested in:</p>
+    <div class="info-box">
+      <p><strong>Task:</strong> ${taskTitle}<br/>
+      <strong>Category:</strong> ${taskCategory}</p>
+    </div>
+    <a href="${FRONTEND_URL}/jobs/${taskId}" class="cta">View &amp; Apply</a>
+    <hr class="divider"/>
+    <p style="font-size:13px;color:#a1a1aa;">You're receiving this because you're a member of ${BRAND_NAME}. You can manage your notification preferences in your profile settings.</p>
+  `),
+  text: `New task available: "${taskTitle}" (${taskCategory}). Apply at: ${FRONTEND_URL}/jobs/${taskId}`,
+});
+
+// 15. Task Changes Requested / Archived (to task creator)
+export const taskChangesRequestedEmail = (
+  creatorName: string,
+  taskTitle: string,
+  reason: string | undefined,
+  taskId: string,
+): EmailTemplate => ({
+  subject: `⚠️ Changes requested for your task "${taskTitle}"`,
+  html: wrap(`
+    <h2>⚠️ Changes Requested</h2>
+    <p>Hi <strong>${creatorName}</strong>,</p>
+    <p>The following task requires changes before it can be published:</p>
+    <div class="info-box">
+      <p><strong>Task:</strong> ${taskTitle}${reason ? `<br/><strong>Reason:</strong> ${reason}` : ""}</p>
+    </div>
+    <p>Please update your task and resubmit it for approval.</p>
+    <a href="${FRONTEND_URL}/jobs/${taskId}" class="cta">Edit Task</a>
+  `),
+  text: `Changes requested for "${taskTitle}".${reason ? ` Reason: ${reason}.` : ""} Edit: ${FRONTEND_URL}/jobs/${taskId}`,
+});
+
+export const taskArchivedEmail = (
+  creatorName: string,
+  taskTitle: string,
+  reason: string | undefined,
+  taskId: string,
+): EmailTemplate => ({
+  subject: `❌ Your task "${taskTitle}" has been archived`,
+  html: wrap(`
+    <h2>❌ Task Archived</h2>
+    <p>Hi <strong>${creatorName}</strong>,</p>
+    <p>Your task has been archived by an administrator:</p>
+    <div class="info-box">
+      <p><strong>Task:</strong> ${taskTitle}${reason ? `<br/><strong>Reason:</strong> ${reason}` : ""}</p>
+    </div>
+    <p>If you believe this is a mistake, please contact your administrator.</p>
+    <a href="${FRONTEND_URL}/dashboard" class="cta">Go to Dashboard</a>
+  `),
+  text: `Your task "${taskTitle}" has been archived.${reason ? ` Reason: ${reason}.` : ""} Dashboard: ${FRONTEND_URL}/dashboard`,
+});

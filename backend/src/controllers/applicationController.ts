@@ -2,7 +2,19 @@ import { Request, Response } from "express";
 import User, { UserRole } from "../models/User.js";
 import Application, { ApplicationStatus } from "../models/Application.js";
 import Task, { TaskStatus } from "../models/Task.js";
-import { sendNotification } from "../services/notificationService.js";
+import { notify } from "../services/notificationService.js";
+import {
+  newApplicationEmail,
+  applicationSubmittedEmail,
+  jobOfferEmail,
+  applicationApprovedEmail,
+  applicationRejectedEmail,
+  offerAcceptedEmail,
+  offerDeclinedEmail,
+  completionRequestedEmail,
+  completionAcceptedEmail,
+  completionRejectedEmail,
+} from "../services/emailTemplates.js";
 import { checkPermissionAsync, Permission } from "../middleware/rbac.js";
 import { buildApplicationQuery } from "./applicationQueryBuilder.js";
 
@@ -10,8 +22,32 @@ export const applyForTask = async (req: any, res: Response) => {
   try {
     const { taskId, coverLetter, availability } = req.body;
 
-    const task = await Task.findById(taskId);
+    const task = await Task.findById(taskId).populate(
+      "createdBy",
+      "name email",
+    );
     if (!task) return res.status(404).json({ message: "Task not found" });
+
+    // ── Group restriction check ──
+    const taskAllowedGroups = (task as any).allowedGroups as
+      | string[]
+      | undefined;
+    if (taskAllowedGroups && taskAllowedGroups.length > 0) {
+      const Group = (await import("../models/Group.js")).default;
+      const userGroups = await Group.find({ members: req.user._id }).select(
+        "_id",
+      );
+      const userGroupIds = userGroups.map((g: any) => g._id.toString());
+      const inGroup = taskAllowedGroups.some((gid: any) =>
+        userGroupIds.includes(gid.toString()),
+      );
+      if (!inGroup) {
+        return res.status(403).json({
+          message:
+            "This task is restricted to specific groups. You are not a member of any of the allowed groups.",
+        });
+      }
+    }
 
     const existingApp = await Application.findOne({
       task: taskId,
@@ -27,15 +63,37 @@ export const applyForTask = async (req: any, res: Response) => {
       availability,
     });
 
-    // Notify task creator
-    const creatorId = task.createdBy.toString();
-    await sendNotification(
-      creatorId,
-      "New Application",
-      `A new application has been received for "${task.title}".`,
-      "info",
-      `/jobs/${taskId}/applicants`,
-    );
+    const creator: any = task.createdBy;
+    const applicantName = req.user.name || "A student";
+
+    // Notify task creator (in-app + email)
+    await notify({
+      recipientId: creator._id?.toString() || creator.toString(),
+      title: "New Application",
+      message: `${applicantName} applied for "${task.title}".`,
+      type: "info",
+      link: `/jobs/${taskId}/applicants`,
+      emailTemplate: newApplicationEmail(
+        creator.name || "Task Manager",
+        applicantName,
+        task.title,
+        taskId,
+      ),
+    });
+
+    // Confirm to applicant (in-app + email)
+    await notify({
+      recipientId: req.user._id.toString(),
+      title: "Application Submitted",
+      message: `Your application for "${task.title}" has been submitted successfully.`,
+      type: "success",
+      link: `/jobs/${taskId}`,
+      emailTemplate: applicationSubmittedEmail(
+        applicantName,
+        task.title,
+        taskId,
+      ),
+    });
 
     res.status(201).json(app);
   } catch (err: any) {
@@ -54,6 +112,7 @@ export const updateApplicationStatus = async (req: any, res: Response) => {
     if (!app) return res.status(404).json({ message: "Application not found" });
 
     const task: any = app.task;
+    const applicant: any = app.applicant;
 
     // Build permission context
     const permissionContext = {
@@ -70,12 +129,11 @@ export const updateApplicationStatus = async (req: any, res: Response) => {
     } else if (status === ApplicationStatus.REJECTED) {
       requiredPermission = Permission.APPLICATION_REJECT;
     } else if (status === ApplicationStatus.OFFERED) {
-      requiredPermission = Permission.APPLICATION_APPROVE; // Only admins/principals can offer
+      requiredPermission = Permission.APPLICATION_APPROVE;
     } else {
       return res.status(400).json({ message: "Invalid status" });
     }
 
-    // Check permission with context (allows Independent users to manage own tasks)
     const permCheck = await checkPermissionAsync(
       req.user,
       requiredPermission,
@@ -87,7 +145,7 @@ export const updateApplicationStatus = async (req: any, res: Response) => {
         .json({ message: permCheck.error!.message });
     }
 
-    // Additional business rule: Approve/Reject requires shortlisted first (except Admin)
+    // Business rule: Approve/Reject requires shortlisted first (except Global Admin)
     const isGlobalAdmin = req.user.roles?.includes(UserRole.GLOBAL_ADMIN);
     if (
       (status === ApplicationStatus.APPROVED ||
@@ -105,32 +163,46 @@ export const updateApplicationStatus = async (req: any, res: Response) => {
     app.status = status;
     await app.save();
 
-    // Notifications - Only send to applicant for Approved/Rejected, NOT for Shortlisted
+    const applicantId = applicant._id?.toString() || applicant.toString();
+    const applicantName = applicant.name || "Applicant";
+
+    // ── Per-status notifications (in-app + email) ──
+    // NOTE: SHORTLISTED is an internal status — no notification sent to applicant.
     if (status === ApplicationStatus.OFFERED) {
-      await sendNotification(
-        app.applicant._id.toString(),
-        "🎉 Job Offer Received!",
-        `Congratulations! You have been offered the task: "${task.title}". Please confirm or decline.`,
-        "success",
-        `/application/${app._id}`,
-      );
+      await notify({
+        recipientId: applicantId,
+        title: "🎉 Job Offer Received!",
+        message: `Congratulations! You've been offered "${task.title}". Please confirm or decline.`,
+        type: "success",
+        link: `/application/${app._id}`,
+        emailTemplate: jobOfferEmail(
+          applicantName,
+          task.title,
+          String(app._id),
+        ),
+      });
     } else if (status === ApplicationStatus.APPROVED) {
-      await sendNotification(
-        app.applicant._id.toString(),
-        "Application Approved",
-        `Your application for "${task.title}" has been finalized and approved.`,
-        "success",
-        `/application/${app._id}`,
-      );
+      await notify({
+        recipientId: applicantId,
+        title: "✅ Application Approved",
+        message: `Your application for "${task.title}" has been approved.`,
+        type: "success",
+        link: `/application/${app._id}`,
+        emailTemplate: applicationApprovedEmail(
+          applicantName,
+          task.title,
+          String(app._id),
+        ),
+      });
     } else if (status === ApplicationStatus.REJECTED) {
-      await sendNotification(
-        app.applicant._id.toString(),
-        "Application Update",
-        `Your application for "${task.title}" was not selected this time.`,
-        "warning",
-      );
+      await notify({
+        recipientId: applicantId,
+        title: "Application Update",
+        message: `Your application for "${task.title}" was not selected this time.`,
+        type: "warning",
+        emailTemplate: applicationRejectedEmail(applicantName, task.title),
+      });
     }
-    // Note: Shortlisted status does NOT notify the applicant - only owner is notified on application
 
     res.json(app);
   } catch (err: any) {
@@ -142,25 +214,21 @@ export const getApplications = async (req: any, res: Response) => {
   try {
     const { taskId } = req.query;
 
-    // Check if user has permission to view applications
     const hasFullAccess = await checkPermissionAsync(
       req.user,
       Permission.APPLICATION_READ,
     );
-
     const hasOwnAccess = await checkPermissionAsync(
       req.user,
       Permission.APPLICATION_READ_OWN,
     );
 
-    // If user has neither permission, deny access
     if (!hasFullAccess.allowed && !hasOwnAccess.allowed) {
-      return res.status(403).json({
-        message: "You don't have permission to view applications",
-      });
+      return res
+        .status(403)
+        .json({ message: "You don't have permission to view applications" });
     }
 
-    // Build the query using the helper
     const query = await buildApplicationQuery(
       req.user,
       taskId,
@@ -168,18 +236,18 @@ export const getApplications = async (req: any, res: Response) => {
         hasFullAccess: hasFullAccess.allowed,
         hasOwnAccess: hasOwnAccess.allowed,
       },
-      {
-        TaskModel: Task,
-      },
+      { TaskModel: Task },
       UserRole,
     );
 
     const apps = await Application.find(query)
       .populate("task")
-      .populate("applicant", "name email avatar");
+      .populate(
+        "applicant",
+        "name email avatar about skills resumeUrl resumeOriginalName experience contactNumber gender yearLevel organisation",
+      );
     res.json(apps);
   } catch (err: any) {
-    // Check if error is due to permission denied (thrown from helper)
     if (err.message.includes("permission")) {
       return res.status(403).json({ message: err.message });
     }
@@ -192,40 +260,38 @@ export const getApplicationById = async (req: any, res: Response) => {
     const { appId } = req.params;
     const app = await Application.findById(appId)
       .populate("task")
-      .populate("applicant", "name email avatar");
+      .populate(
+        "applicant",
+        "name email avatar about skills resumeUrl resumeOriginalName experience contactNumber gender yearLevel organisation",
+      );
 
     if (!app) {
       return res.status(404).json({ message: "Application not found" });
     }
 
-    // Check permissions
     const hasFullAccess = await checkPermissionAsync(
       req.user,
       Permission.APPLICATION_READ,
     );
-
     const hasOwnAccess = await checkPermissionAsync(
       req.user,
       Permission.APPLICATION_READ_OWN,
     );
 
-    // If user has neither permission, deny access
     if (!hasFullAccess.allowed && !hasOwnAccess.allowed) {
-      return res.status(403).json({
-        message: "You don't have permission to view applications",
-      });
+      return res
+        .status(403)
+        .json({ message: "You don't have permission to view applications" });
     }
 
-    // If user only has read_own permission, verify they are the applicant
     if (!hasFullAccess.allowed && hasOwnAccess.allowed) {
       if (app.applicant._id.toString() !== req.user._id.toString()) {
-        return res.status(403).json({
-          message: "You can only view your own applications",
-        });
+        return res
+          .status(403)
+          .json({ message: "You can only view your own applications" });
       }
     }
 
-    // If user has full access but is not admin, verify they can access this application
     const isGlobalAdmin = req.user.roles?.includes(UserRole.GLOBAL_ADMIN);
     if (hasFullAccess.allowed && !isGlobalAdmin) {
       const task: any = app.task;
@@ -233,7 +299,6 @@ export const getApplicationById = async (req: any, res: Response) => {
         task.organisation?.toString() === req.user.organisation?.toString();
       const isTaskCreator =
         task.createdBy?.toString() === req.user._id.toString();
-
       if (!isOrgMember && !isTaskCreator) {
         return res.status(403).json({
           message: "You don't have permission to view this application",
@@ -254,7 +319,6 @@ export const confirmOffer = async (req: any, res: Response) => {
 
     if (!app) return res.status(404).json({ message: "Application not found" });
 
-    // Verify current user is the applicant
     if (app.applicant.toString() !== req.user._id.toString()) {
       return res
         .status(403)
@@ -271,31 +335,45 @@ export const confirmOffer = async (req: any, res: Response) => {
     await app.save();
 
     const task: any = app.task;
-    const notificationTitle = "🎉 Offer Accepted!";
-    const notificationMsg = `${req.user.name} has accepted the offer for "${task.title}".`;
-    const notificationLink = `/application/${app._id}`;
+    const applicantName = req.user.name || "The applicant";
 
-    // Notify task creator (Task Manager / School Admin who issued the offer)
-    await sendNotification(
-      task.createdBy.toString(),
-      notificationTitle,
-      notificationMsg,
-      "success",
-      notificationLink,
-    );
+    // Notify task creator
+    const creatorUser = await User.findById(task.createdBy).select("name");
+    await notify({
+      recipientId: task.createdBy.toString(),
+      title: "🎉 Offer Accepted!",
+      message: `${applicantName} accepted the offer for "${task.title}".`,
+      type: "success",
+      link: `/application/${app._id}`,
+      emailTemplate: offerAcceptedEmail(
+        creatorUser?.name || "Task Manager",
+        applicantName,
+        task.title,
+        String(app._id),
+      ),
+    });
 
-    // Also notify the task advertiser if they are a different person
+    // Also notify the advertiser if different from creator
     if (
       task.advertiser &&
       task.advertiser.toString() !== task.createdBy.toString()
     ) {
-      await sendNotification(
-        task.advertiser.toString(),
-        notificationTitle,
-        notificationMsg,
-        "success",
-        notificationLink,
+      const advertiserUser = await User.findById(task.advertiser).select(
+        "name",
       );
+      await notify({
+        recipientId: task.advertiser.toString(),
+        title: "🎉 Offer Accepted!",
+        message: `${applicantName} accepted the offer for "${task.title}".`,
+        type: "success",
+        link: `/application/${app._id}`,
+        emailTemplate: offerAcceptedEmail(
+          advertiserUser?.name || "Task Manager",
+          applicantName,
+          task.title,
+          String(app._id),
+        ),
+      });
     }
 
     res.json(app);
@@ -311,7 +389,6 @@ export const declineOffer = async (req: any, res: Response) => {
 
     if (!app) return res.status(404).json({ message: "Application not found" });
 
-    // Verify current user is the applicant
     if (app.applicant.toString() !== req.user._id.toString()) {
       return res
         .status(403)
@@ -328,14 +405,22 @@ export const declineOffer = async (req: any, res: Response) => {
     await app.save();
 
     const task: any = app.task;
-    // Notify task owner
-    await sendNotification(
-      task.createdBy.toString(),
-      "Offer Declined",
-      `${req.user.name} has declined the offer for "${task.title}".`,
-      "warning",
-      `/application/${app._id}`,
-    );
+    const applicantName = req.user.name || "The applicant";
+    const creatorUser = await User.findById(task.createdBy).select("name");
+
+    await notify({
+      recipientId: task.createdBy.toString(),
+      title: "Offer Declined",
+      message: `${applicantName} declined the offer for "${task.title}".`,
+      type: "warning",
+      link: `/application/${app._id}`,
+      emailTemplate: offerDeclinedEmail(
+        creatorUser?.name || "Task Manager",
+        applicantName,
+        task.title,
+        String(app._id),
+      ),
+    });
 
     res.json(app);
   } catch (err: any) {
@@ -365,13 +450,22 @@ export const requestCompletion = async (req: any, res: Response) => {
     await app.save();
 
     const task: any = app.task;
-    await sendNotification(
-      task.createdBy.toString(),
-      "Completion Verification Required",
-      `${req.user.name} has marked the task "${task.title}" as completed. Please verify.`,
-      "info",
-      `/application/${app._id}`,
-    );
+    const applicantName = req.user.name || "The applicant";
+    const creatorUser = await User.findById(task.createdBy).select("name");
+
+    await notify({
+      recipientId: task.createdBy.toString(),
+      title: "Completion Verification Required",
+      message: `${applicantName} marked "${task.title}" as completed. Please verify.`,
+      type: "info",
+      link: `/application/${app._id}`,
+      emailTemplate: completionRequestedEmail(
+        creatorUser?.name || "Task Manager",
+        applicantName,
+        task.title,
+        String(app._id),
+      ),
+    });
 
     res.json(app);
   } catch (err: any) {
@@ -387,7 +481,6 @@ export const acceptCompletion = async (req: any, res: Response) => {
       .populate("applicant");
     if (!app) return res.status(404).json({ message: "Application not found" });
 
-    // Check permission - task creator or admin
     const task: any = app.task;
     const applicantUser: any = app.applicant;
 
@@ -416,7 +509,7 @@ export const acceptCompletion = async (req: any, res: Response) => {
       title: task.title,
       organisationName: task.organisation
         ? String(task.organisation)
-        : "Independent", // Or populated name if needed
+        : "Independent",
       rewardType: task.rewardType,
       rewardValue: task.rewardValue,
       completedAt: new Date(),
@@ -425,7 +518,6 @@ export const acceptCompletion = async (req: any, res: Response) => {
     applicantUser.experience = applicantUser.experience || [];
     applicantUser.experience.push(newExperience);
 
-    // Merge skills
     if (task.requiredSkills && task.requiredSkills.length > 0) {
       const existingUserSkillIds = new Set(
         applicantUser.skills.map((s: any) => s.id || s.name.toLowerCase()),
@@ -445,16 +537,24 @@ export const acceptCompletion = async (req: any, res: Response) => {
 
     await applicantUser.save();
 
-    let rewardDetails = `Reward: ${task.rewardType}`;
-    if (task.rewardValue) rewardDetails += ` - ${task.rewardValue}`;
+    const rewardStr = task.rewardValue
+      ? `${task.rewardType} — ${task.rewardValue}`
+      : task.rewardType;
 
-    await sendNotification(
-      applicantUser._id.toString(),
-      "🎉 Job Completion Accepted!",
-      `Congratulations! Your completion of "${task.title}" has been verified. You have earned: ${rewardDetails}. This has been added to your profile experience and skills.`,
-      "success",
-      `/application/${app._id}`,
-    );
+    await notify({
+      recipientId: applicantUser._id.toString(),
+      title: "🎉 Task Completion Verified!",
+      message: `Your completion of "${task.title}" has been verified. Reward: ${rewardStr}.`,
+      type: "success",
+      link: `/application/${app._id}`,
+      emailTemplate: completionAcceptedEmail(
+        applicantUser.name || "Student",
+        task.title,
+        task.rewardType || "N/A",
+        task.rewardValue,
+        String(app._id),
+      ),
+    });
 
     res.json(app);
   } catch (err: any) {
@@ -477,7 +577,6 @@ export const rejectCompletion = async (req: any, res: Response) => {
     if (!app) return res.status(404).json({ message: "Application not found" });
 
     const task: any = app.task;
-
     const isGlobalAdmin = req.user.roles?.includes(UserRole.GLOBAL_ADMIN);
 
     if (
@@ -499,13 +598,19 @@ export const rejectCompletion = async (req: any, res: Response) => {
     app.rejectionReason = reason;
     await app.save();
 
-    await sendNotification(
-      app.applicant.toString(),
-      "⚠️ Completion Rejected",
-      `Your completion request for "${task.title}" was rejected. Reason: ${reason}`,
-      "error",
-      `/application/${app._id}`,
-    );
+    await notify({
+      recipientId: app.applicant.toString(),
+      title: "⚠️ Completion Rejected",
+      message: `Your completion of "${task.title}" was rejected. Reason: ${reason}`,
+      type: "error",
+      link: `/application/${app._id}`,
+      emailTemplate: completionRejectedEmail(
+        "Student", // Will be resolved by notify via recipientId
+        task.title,
+        reason,
+        String(app._id),
+      ),
+    });
 
     res.json(app);
   } catch (err: any) {

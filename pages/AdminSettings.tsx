@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Lock,
   ExternalLink,
+  Mail,
 } from "lucide-react";
 import { Loading } from "../components/Loading";
 import { useNavigate } from "react-router-dom";
@@ -22,6 +23,7 @@ import { useToast } from "../components/Toast";
 import { API_BASE_URL } from "../services/api";
 import { GroupManagement } from "./GroupManagement";
 import { UserManagement } from "./UserManagement";
+import { EmailNotificationSettings } from "./EmailNotificationSettings";
 import { ArrowLeft } from "lucide-react";
 
 interface Permission {
@@ -49,7 +51,7 @@ export const AdminSettings: React.FC = () => {
   const { showSuccess, showError } = useToast();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
-    "users" | "roles" | "permissions" | "categories" | "groups"
+    "users" | "roles" | "permissions" | "categories" | "groups" | "email"
   >("users");
 
   // Dynamic roles and permissions state
@@ -84,14 +86,41 @@ export const AdminSettings: React.FC = () => {
     category: "General",
   });
 
-  const categories = Object.values(JobCategory).map((c) => ({
-    name: c,
-    status: "Active",
-  }));
+  // Task categories state
+  const [taskCategories, setTaskCategories] = useState<any[]>([]);
+  const [catLoading, setCatLoading] = useState(false);
+  const [editingCat, setEditingCat] = useState<any | null>(null);
+  const [showNewCatForm, setShowNewCatForm] = useState(false);
+  const [newCat, setNewCat] = useState({
+    name: "",
+    code: "",
+    description: "",
+    color: "#6366F1",
+    icon: "📋",
+  });
 
   useEffect(() => {
     loadData();
+    loadCategories();
   }, []);
+
+  const loadCategories = async () => {
+    setCatLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/task-categories?all=true`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+        },
+      });
+      const data = await res.json();
+      // fetch all (including inactive) for admin — use a separate admin-all endpoint if exists, else include inactive via query
+      setTaskCategories(Array.isArray(data) ? data : []);
+    } catch {
+      showError("Failed to load categories");
+    } finally {
+      setCatLoading(false);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -496,7 +525,8 @@ export const AdminSettings: React.FC = () => {
                         OIDC / ADFS Role Mapping
                       </h4>
                       <p className="text-xs text-zinc-400 mt-0.5">
-                        ADFS claim values that automatically assign this role on SSO login. Press Enter or comma to add.
+                        ADFS claim values that automatically assign this role on
+                        SSO login. Press Enter or comma to add.
                       </p>
                     </div>
                     {(editingRole.oidcMapping ?? []).length > 0 && (
@@ -511,7 +541,9 @@ export const AdminSettings: React.FC = () => {
                               onClick={() =>
                                 setEditingRole({
                                   ...editingRole,
-                                  oidcMapping: (editingRole.oidcMapping ?? []).filter((m) => m !== v),
+                                  oidcMapping: (
+                                    editingRole.oidcMapping ?? []
+                                  ).filter((m) => m !== v),
                                 })
                               }
                               className="hover:text-red-500 transition-colors"
@@ -531,11 +563,19 @@ export const AdminSettings: React.FC = () => {
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === ",") {
                             e.preventDefault();
-                            const val = oidcMappingInput.trim().replace(/,$/, "");
-                            if (val && !(editingRole.oidcMapping ?? []).includes(val)) {
+                            const val = oidcMappingInput
+                              .trim()
+                              .replace(/,$/, "");
+                            if (
+                              val &&
+                              !(editingRole.oidcMapping ?? []).includes(val)
+                            ) {
                               setEditingRole({
                                 ...editingRole,
-                                oidcMapping: [...(editingRole.oidcMapping ?? []), val],
+                                oidcMapping: [
+                                  ...(editingRole.oidcMapping ?? []),
+                                  val,
+                                ],
                               });
                             }
                             setOidcMappingInput("");
@@ -546,10 +586,16 @@ export const AdminSettings: React.FC = () => {
                       <button
                         onClick={() => {
                           const val = oidcMappingInput.trim();
-                          if (val && !(editingRole.oidcMapping ?? []).includes(val)) {
+                          if (
+                            val &&
+                            !(editingRole.oidcMapping ?? []).includes(val)
+                          ) {
                             setEditingRole({
                               ...editingRole,
-                              oidcMapping: [...(editingRole.oidcMapping ?? []), val],
+                              oidcMapping: [
+                                ...(editingRole.oidcMapping ?? []),
+                                val,
+                              ],
                             });
                           }
                           setOidcMappingInput("");
@@ -907,61 +953,438 @@ export const AdminSettings: React.FC = () => {
     );
   };
 
+  const handleCreateCategory = async () => {
+    if (!newCat.name.trim()) return showError("Name is required");
+    try {
+      const autoCode =
+        newCat.code.trim() ||
+        newCat.name
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "_")
+          .replace(/^_|_$/g, "");
+      const res = await fetch(`${API_BASE_URL}/task-categories`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ...newCat, code: autoCode }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      showSuccess("Category created");
+      setShowNewCatForm(false);
+      setNewCat({
+        name: "",
+        code: "",
+        description: "",
+        color: "#6366F1",
+        icon: "📋",
+      });
+      loadCategories();
+    } catch (err: any) {
+      showError(err.message);
+    }
+  };
+
+  const handleUpdateCategory = async (cat: any) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/task-categories/${cat._id}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(cat),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      showSuccess("Category updated");
+      setEditingCat(null);
+      loadCategories();
+    } catch (err: any) {
+      showError(err.message);
+    }
+  };
+
+  const handleToggleCategoryActive = async (cat: any) => {
+    await handleUpdateCategory({ ...cat, isActive: !cat.isActive });
+  };
+
+  const handleDeleteCategory = async (cat: any) => {
+    if (cat.isSystem) return showError("System categories cannot be deleted");
+    if (!confirm(`Delete category "${cat.name}"?`)) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/task-categories/${cat._id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+        },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      showSuccess("Category deleted");
+      loadCategories();
+    } catch (err: any) {
+      showError(err.message);
+    }
+  };
+
+  const handleSeedCategories = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/task-categories/seed/defaults`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+        },
+      });
+      if (!res.ok) throw new Error("Seed failed");
+      showSuccess("Default categories loaded");
+      loadCategories();
+    } catch (err: any) {
+      showError(err.message);
+    }
+  };
+
   const renderCategories = () => (
     <div className="space-y-6 animate-fade-in">
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <h2 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
             Category Management
           </h2>
           <p className="text-zinc-500 font-medium mt-1">
-            Organize and classify system categories
+            Organise and classify task categories shown on the homepage
           </p>
         </div>
-        <button className="flex items-center px-6 py-2.5 bg-[#812349] text-white rounded-xl text-sm font-bold hover:bg-[#6a1d3d] transition-all shadow-lg shadow-[#812349]/20">
-          <Plus className="w-4 h-4 mr-2" />
-          New Category
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={handleSeedCategories}
+            className="flex items-center px-4 py-2 text-sm font-bold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white bg-white/50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-700 transition-all"
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Seed Defaults
+          </button>
+          {!showNewCatForm && (
+            <button
+              onClick={() => setShowNewCatForm(true)}
+              className="flex items-center px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primaryHover transition-all shadow-lg shadow-primary/20"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              New Category
+            </button>
+          )}
+        </div>
       </div>
-      <div className="glass-card rounded-[2rem] overflow-hidden border-white/10">
-        <table className="w-full">
-          <thead className="bg-white/50 dark:bg-zinc-800/50 border-b border-white/20 dark:border-white/5">
-            <tr>
-              <th className="px-8 py-4 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
-                Category Name
-              </th>
-              <th className="px-8 py-4 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
-                Status
-              </th>
-              <th className="px-8 py-4 text-right text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/20 dark:divide-white/5">
-            {categories.map((cat, i) => (
-              <tr
-                key={i}
-                className="hover:bg-white/30 dark:hover:bg-white/5 transition-all"
-              >
-                <td className="px-8 py-6 font-black text-zinc-900 dark:text-white">
-                  {cat.name}
-                </td>
-                <td className="px-8 py-6">
-                  <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-[9px] font-black rounded-full uppercase tracking-widest">
-                    {cat.status}
-                  </span>
-                </td>
-                <td className="px-8 py-6 text-right">
-                  <button className="text-zinc-400 hover:text-[#812349] transition-colors">
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                </td>
+
+      {/* Create Form */}
+      {showNewCatForm && (
+        <div className="glass-card p-6 rounded-2xl space-y-4">
+          <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
+            Create Category
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">
+                Name *
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Catering"
+                value={newCat.name}
+                onChange={(e) => setNewCat({ ...newCat, name: e.target.value })}
+                className="w-full p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">
+                Code (auto-generated)
+              </label>
+              <input
+                type="text"
+                placeholder="catering (leave blank to auto)"
+                value={newCat.code}
+                onChange={(e) =>
+                  setNewCat({
+                    ...newCat,
+                    code: e.target.value
+                      .toLowerCase()
+                      .replace(/[^a-z0-9_]/g, ""),
+                  })
+                }
+                className="w-full p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white font-mono text-sm"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">
+              Description
+            </label>
+            <input
+              type="text"
+              placeholder="Short description"
+              value={newCat.description}
+              onChange={(e) =>
+                setNewCat({ ...newCat, description: e.target.value })
+              }
+              className="w-full p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">
+                Emoji Icon
+              </label>
+              <input
+                type="text"
+                placeholder="📋"
+                value={newCat.icon}
+                onChange={(e) => setNewCat({ ...newCat, icon: e.target.value })}
+                className="w-full p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white text-2xl"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">
+                Colour
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={newCat.color}
+                  onChange={(e) =>
+                    setNewCat({ ...newCat, color: e.target.value })
+                  }
+                  className="w-12 h-12 rounded-xl cursor-pointer border-0"
+                />
+                <span className="text-sm font-mono text-zinc-500">
+                  {newCat.color}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={handleCreateCategory}
+              className="flex items-center gap-2 px-5 py-2 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 transition-all"
+            >
+              <Save className="w-4 h-4" /> Create
+            </button>
+            <button
+              onClick={() => setShowNewCatForm(false)}
+              className="px-5 py-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-white font-bold text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Category List */}
+      {catLoading ? (
+        <Loading message="Loading categories..." />
+      ) : (
+        <div className="glass-card rounded-2xl overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-100 dark:border-zinc-800">
+              <tr>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                  Category
+                </th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                  Code
+                </th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                  Status
+                </th>
+                <th className="px-6 py-4 text-right text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                  Actions
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+              {taskCategories.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={4}
+                    className="px-6 py-12 text-center text-sm text-zinc-400"
+                  >
+                    No categories yet. Click "Seed Defaults" to load the
+                    standard set.
+                  </td>
+                </tr>
+              )}
+              {taskCategories.map((cat) =>
+                editingCat?._id === cat._id ? (
+                  // ── Edit Row ──
+                  <tr key={cat._id} className="bg-primary/5">
+                    <td className="px-6 py-4" colSpan={4}>
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <input
+                            type="text"
+                            value={editingCat.name}
+                            onChange={(e) =>
+                              setEditingCat({
+                                ...editingCat,
+                                name: e.target.value,
+                              })
+                            }
+                            placeholder="Name"
+                            className="p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-900 dark:text-white"
+                          />
+                          <input
+                            type="text"
+                            value={editingCat.description ?? ""}
+                            onChange={(e) =>
+                              setEditingCat({
+                                ...editingCat,
+                                description: e.target.value,
+                              })
+                            }
+                            placeholder="Description"
+                            className="p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-900 dark:text-white"
+                          />
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs font-bold text-zinc-500">
+                              Emoji:
+                            </label>
+                            <input
+                              type="text"
+                              value={editingCat.icon ?? ""}
+                              onChange={(e) =>
+                                setEditingCat({
+                                  ...editingCat,
+                                  icon: e.target.value,
+                                })
+                              }
+                              className="w-16 p-2 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xl text-center"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs font-bold text-zinc-500">
+                              Colour:
+                            </label>
+                            <input
+                              type="color"
+                              value={editingCat.color ?? "#6B7280"}
+                              onChange={(e) =>
+                                setEditingCat({
+                                  ...editingCat,
+                                  color: e.target.value,
+                                })
+                              }
+                              className="w-10 h-10 rounded-lg cursor-pointer"
+                            />
+                          </div>
+                          <label className="flex items-center gap-2 text-xs font-bold text-zinc-500 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={editingCat.isActive}
+                              onChange={(e) =>
+                                setEditingCat({
+                                  ...editingCat,
+                                  isActive: e.target.checked,
+                                })
+                              }
+                              className="w-4 h-4 rounded accent-primary"
+                            />
+                            Active
+                          </label>
+                          <div className="flex gap-2 ml-auto">
+                            <button
+                              onClick={() => handleUpdateCategory(editingCat)}
+                              className="flex items-center gap-1.5 px-4 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold hover:bg-emerald-600 transition-all"
+                            >
+                              <Check className="w-3.5 h-3.5" /> Save
+                            </button>
+                            <button
+                              onClick={() => setEditingCat(null)}
+                              className="px-4 py-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-white rounded-xl text-xs font-bold"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  // ── View Row ──
+                  <tr
+                    key={cat._id}
+                    className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors"
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0"
+                          style={{ backgroundColor: cat.color + "20" }}
+                        >
+                          {cat.icon || "📋"}
+                        </div>
+                        <div>
+                          <p className="font-bold text-zinc-900 dark:text-white text-sm">
+                            {cat.name}
+                          </p>
+                          {cat.description && (
+                            <p className="text-xs text-zinc-400 mt-0.5 line-clamp-1">
+                              {cat.description}
+                            </p>
+                          )}
+                        </div>
+                        {cat.isSystem && (
+                          <span className="px-2 py-0.5 text-[9px] font-black uppercase bg-amber-100 text-amber-700 rounded-lg">
+                            System
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <code className="text-xs text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded">
+                        {cat.code}
+                      </code>
+                    </td>
+                    <td className="px-6 py-4">
+                      <button
+                        onClick={() => handleToggleCategoryActive(cat)}
+                        className={`px-3 py-1 text-[9px] font-black rounded-full uppercase tracking-widest transition-all ${
+                          cat.isActive
+                            ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                            : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400"
+                        }`}
+                      >
+                        {cat.isActive ? "Active" : "Inactive"}
+                      </button>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => setEditingCat({ ...cat })}
+                          className="p-2 text-zinc-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        {!cat.isSystem && (
+                          <button
+                            onClick={() => handleDeleteCategory(cat)}
+                            className="p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ),
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 
@@ -998,6 +1421,7 @@ export const AdminSettings: React.FC = () => {
                 { key: "permissions", icon: Lock, label: "Permissions" },
                 { key: "categories", icon: Layers, label: "Categories" },
                 { key: "groups", icon: Users, label: "Groups" },
+                { key: "email", icon: Mail, label: "Email & Notifications" },
               ] as const
             ).map(({ key, icon: Icon, label }) => (
               <button
@@ -1042,6 +1466,7 @@ export const AdminSettings: React.FC = () => {
           {activeTab === "permissions" && renderPermissions()}
           {activeTab === "categories" && renderCategories()}
           {activeTab === "groups" && <GroupManagement />}
+          {activeTab === "email" && <EmailNotificationSettings />}
         </div>
       </div>
     </div>
