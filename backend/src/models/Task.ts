@@ -73,7 +73,7 @@ const TaskSchema: Schema = new Schema(
     visibility: {
       type: String,
       enum: Object.values(TaskVisibility),
-      default: TaskVisibility.GLOBAL,
+      default: TaskVisibility.INTERNAL,
     },
     allowedRoles: [{ type: String }],
     allowedGroups: [{ type: Schema.Types.ObjectId, ref: "Group" }],

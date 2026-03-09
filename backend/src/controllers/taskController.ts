@@ -89,7 +89,7 @@ export const createTask = async (req: any, res: Response) => {
       rewardType,
       rewardValue,
       eligibility: parseArrayField(eligibility),
-      visibility: visibility || TaskVisibility.GLOBAL,
+      visibility: visibility || TaskVisibility.INTERNAL,
       allowedRoles: parseArrayField(req.body.allowedRoles),
       allowedGroups: parseArrayField(req.body.allowedGroups),
       status: taskStatus,
