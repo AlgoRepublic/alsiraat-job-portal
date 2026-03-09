@@ -658,7 +658,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles, role }) => {
                   <Plus className="w-4 h-4 text-emerald-600" />
                 </div>
                 <span className="font-bold text-zinc-700 dark:text-zinc-300">
-                  Post New Task
+                  Create Task
                 </span>
               </button>
 

@@ -31,7 +31,7 @@ export const SnowBackground: React.FC<{ isDarkMode: boolean }> = ({
       canvas.height = height;
 
       // Density: Reduced to ~1 flake per 15000 square pixels (fewer particles)
-      const count = Math.floor((width * height) / 15000);
+      const count = Math.floor((width * height) / 150000);
       snowflakes = [];
 
       for (let i = 0; i < count; i++) {

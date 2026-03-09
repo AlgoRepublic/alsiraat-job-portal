@@ -321,7 +321,7 @@ export const Home: React.FC = () => {
             For Staff
           </h3>
           <p className="text-zinc-500 dark:text-zinc-400 font-medium leading-relaxed">
-            Post tasks and find students to help you.
+            Create tasks and find students to help you.
           </p>
         </div>
         <div className="glass-card p-10 rounded-[2.5rem] text-center group hover:shadow-2xl transition-all">

@@ -17,7 +17,10 @@ import {
   Code,
   FileText,
   Zap,
+  Layout,
+  MonitorSmartphone,
 } from "lucide-react";
+import { DefaultEditor } from "react-simple-wysiwyg";
 import { API_BASE_URL } from "../services/api";
 import { useToast } from "../components/Toast";
 
@@ -89,7 +92,7 @@ export const EmailNotificationSettings: React.FC = () => {
   );
   const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
   const [activeTemplateTab, setActiveTemplateTab] = useState<
-    Record<string, "text" | "html">
+    Record<string, "text" | "html" | "visual">
   >({});
 
   // ── Load data on mount ──
@@ -490,20 +493,28 @@ export const EmailNotificationSettings: React.FC = () => {
               className="w-full flex items-center justify-between px-5 py-4 text-left"
             >
               <div className="flex items-center gap-3">
-                {/* Enable/disable toggle */}
-                <button
+                {/* Enable/disable toggle — div instead of button to avoid nested <button> */}
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={(e) => {
                     e.stopPropagation();
                     updateTemplate(meta.eventKey, { enabled: !tpl.enabled });
                   }}
-                  className="shrink-0"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.stopPropagation();
+                      updateTemplate(meta.eventKey, { enabled: !tpl.enabled });
+                    }
+                  }}
+                  className="shrink-0 cursor-pointer"
                 >
                   {tpl.enabled ? (
                     <ToggleRight className="w-7 h-7 text-primary" />
                   ) : (
                     <ToggleLeft className="w-7 h-7 text-zinc-400" />
                   )}
-                </button>
+                </div>
                 <div>
                   <p className="font-bold text-zinc-900 dark:text-white text-sm">
                     {meta.label}
@@ -596,6 +607,22 @@ export const EmailNotificationSettings: React.FC = () => {
                         onClick={() =>
                           setActiveTemplateTab((p) => ({
                             ...p,
+                            [meta.eventKey]: "visual",
+                          }))
+                        }
+                        className={`flex items-center gap-1 px-3 py-1.5 font-bold transition-colors ${
+                          tab === "visual"
+                            ? "bg-primary text-white"
+                            : "bg-white dark:bg-zinc-900 text-zinc-500 hover:text-zinc-700"
+                        }`}
+                      >
+                        <MonitorSmartphone className="w-3 h-3" />
+                        Visual
+                      </button>
+                      <button
+                        onClick={() =>
+                          setActiveTemplateTab((p) => ({
+                            ...p,
                             [meta.eventKey]: "html",
                           }))
                         }
@@ -611,27 +638,125 @@ export const EmailNotificationSettings: React.FC = () => {
                     </div>
                   </div>
 
-                  <textarea
-                    value={tab === "html" ? tpl.bodyHtml : tpl.bodyText}
-                    onChange={(e) =>
-                      updateTemplate(meta.eventKey, {
-                        [tab === "html" ? "bodyHtml" : "bodyText"]:
-                          e.target.value,
-                      })
-                    }
-                    rows={tab === "html" ? 10 : 6}
-                    placeholder={
-                      tab === "html"
-                        ? "<p>Hi <strong>{{name}}</strong>,</p>\n<p>Your message here...</p>"
-                        : meta.defaultBodyText
-                    }
-                    className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-mono focus:ring-2 focus:ring-primary/30 outline-none resize-y"
-                  />
+                  {tab === "visual" ? (
+                    <div className="rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700 wysiwyg-wrapper">
+                      <style>{`
+                        .wysiwyg-wrapper .rsw-editor {
+                          background: white;
+                          min-height: 220px;
+                          font-family: inherit;
+                          font-size: 14px;
+                          line-height: 1.6;
+                          color: #18181b;
+                        }
+                        .dark .wysiwyg-wrapper .rsw-editor {
+                          background: #18181b;
+                          color: #f4f4f5;
+                        }
+                        .wysiwyg-wrapper .rsw-toolbar {
+                          background: #f9fafb;
+                          border-bottom: 1px solid #e5e7eb;
+                          padding: 6px 8px;
+                          display: flex;
+                          flex-wrap: wrap;
+                          gap: 4px;
+                        }
+                        .dark .wysiwyg-wrapper .rsw-toolbar {
+                          background: #27272a;
+                          border-bottom: 1px solid #3f3f46;
+                        }
+                        .wysiwyg-wrapper .rsw-btn {
+                          background: transparent;
+                          border: 1px solid transparent;
+                          border-radius: 6px;
+                          padding: 4px 8px;
+                          cursor: pointer;
+                          font-size: 13px;
+                          color: #52525b;
+                          transition: all 0.15s;
+                          font-weight: 600;
+                        }
+                        .dark .wysiwyg-wrapper .rsw-btn {
+                          color: #a1a1aa;
+                        }
+                        .wysiwyg-wrapper .rsw-btn:hover {
+                          background: #e4e4e7;
+                          border-color: #d4d4d8;
+                          color: #18181b;
+                        }
+                        .dark .wysiwyg-wrapper .rsw-btn:hover {
+                          background: #3f3f46;
+                          border-color: #52525b;
+                          color: #f4f4f5;
+                        }
+                        .wysiwyg-wrapper .rsw-btn.rsw-btn-active,
+                        .wysiwyg-wrapper .rsw-btn[data-active="true"] {
+                          background: #dc2626;
+                          border-color: #dc2626;
+                          color: white;
+                        }
+                        .wysiwyg-wrapper .rsw-ce {
+                          padding: 12px 16px;
+                          outline: none;
+                          min-height: 220px;
+                        }
+                        .wysiwyg-wrapper .rsw-ce p {
+                          margin: 0 0 8px 0;
+                        }
+                        .wysiwyg-wrapper .rsw-ce a {
+                          color: #dc2626;
+                          text-decoration: underline;
+                        }
+                        .wysiwyg-wrapper .rsw-separator {
+                          width: 1px;
+                          height: 20px;
+                          background: #e5e7eb;
+                          margin: 0 2px;
+                          align-self: center;
+                        }
+                        .dark .wysiwyg-wrapper .rsw-separator {
+                          background: #3f3f46;
+                        }
+                      `}</style>
+                      <DefaultEditor
+                        value={tpl.bodyHtml || ""}
+                        onChange={(e) =>
+                          updateTemplate(meta.eventKey, {
+                            bodyHtml: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  ) : (
+                    <textarea
+                      value={tab === "html" ? tpl.bodyHtml : tpl.bodyText}
+                      onChange={(e) =>
+                        updateTemplate(meta.eventKey, {
+                          [tab === "html" ? "bodyHtml" : "bodyText"]:
+                            e.target.value,
+                        })
+                      }
+                      rows={tab === "html" ? 10 : 6}
+                      placeholder={
+                        tab === "html"
+                          ? "<p>Hi <strong>{{name}}</strong>,</p>\n<p>Your message here...</p>"
+                          : meta.defaultBodyText
+                      }
+                      className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-mono focus:ring-2 focus:ring-primary/30 outline-none resize-y"
+                    />
+                  )}
 
                   {tab === "html" && !tpl.bodyHtml && (
                     <p className="text-xs text-zinc-400 mt-1.5 flex items-center gap-1">
                       <AlertTriangle className="w-3 h-3 text-amber-400" />
                       Leave blank to use the system default branded template
+                    </p>
+                  )}
+                  {tab === "visual" && (
+                    <p className="text-xs text-zinc-400 mt-1.5 flex items-center gap-1">
+                      <Layout className="w-3 h-3 text-primary" />
+                      Visual editor — changes sync with the HTML tab
+                      automatically.
                     </p>
                   )}
                 </div>

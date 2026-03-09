@@ -546,7 +546,7 @@ export const Layout: React.FC<LayoutProps> = ({
                 onClick={() => setSidebarOpen(false)}
               >
                 <PlusCircle className="w-5 h-5 mr-3" />
-                <span className="font-bold text-sm">Post a Task</span>
+                <span className="font-bold text-sm">Create Task</span>
               </Link>
             )}
 

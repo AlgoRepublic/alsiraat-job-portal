@@ -110,7 +110,7 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
                 Find Tasks
               </button>
               <button className="text-gray-600 hover:text-red-600 transition-colors text-sm font-bold">
-                Post a Task
+                Create Task
               </button>
               <button className="text-gray-600 hover:text-red-600 transition-colors text-sm font-bold">
                 Categories
