@@ -13,7 +13,7 @@ export const getGroups = async (req: Request, res: Response) => {
     }
 
     const groups = await Group.find(query)
-      .populate("members", "name email avatar role")
+      .populate("members", "name email avatar role roles")
       .populate("createdBy", "name email")
       .populate("organisation", "name")
       .sort({ createdAt: -1 });
@@ -41,7 +41,7 @@ export const getGroupsPublic = async (req: Request, res: Response) => {
 export const getGroup = async (req: Request, res: Response) => {
   try {
     const group = await Group.findById(req.params.id)
-      .populate("members", "name email avatar role organisation")
+      .populate("members", "name email avatar role roles organisation")
       .populate("createdBy", "name email")
       .populate("organisation", "name");
 
@@ -82,7 +82,7 @@ export const createGroup = async (req: any, res: Response) => {
     });
 
     await group.save();
-    await group.populate("members", "name email avatar role");
+    await group.populate("members", "name email avatar role roles");
 
     res.status(201).json(group);
   } catch (err: any) {
@@ -107,7 +107,7 @@ export const updateGroup = async (req: any, res: Response) => {
     }
 
     await group.save();
-    await group.populate("members", "name email avatar role");
+    await group.populate("members", "name email avatar role roles");
 
     res.json(group);
   } catch (err: any) {
@@ -152,7 +152,7 @@ export const addMembers = async (req: Request, res: Response) => {
     group.members.push(...newIds);
 
     await group.save();
-    await group.populate("members", "name email avatar role");
+    await group.populate("members", "name email avatar role roles");
 
     res.json(group);
   } catch (err: any) {
@@ -170,7 +170,7 @@ export const removeMember = async (req: Request, res: Response) => {
 
     group.members = group.members.filter((m) => m.toString() !== userId) as any;
     await group.save();
-    await group.populate("members", "name email avatar role");
+    await group.populate("members", "name email avatar role roles");
 
     res.json(group);
   } catch (err: any) {
