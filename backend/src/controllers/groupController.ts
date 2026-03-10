@@ -55,7 +55,7 @@ export const getGroup = async (req: Request, res: Response) => {
 // POST /api/groups - create group
 export const createGroup = async (req: any, res: Response) => {
   try {
-    const { name, description, color, members } = req.body;
+    const { name, description, color, members, oidcMapping } = req.body;
 
     if (!name?.trim()) {
       return res.status(400).json({ message: "Group name is required" });
@@ -76,6 +76,7 @@ export const createGroup = async (req: any, res: Response) => {
       description: description?.trim() || "",
       color: color || "#6B7280",
       members: members || [],
+      oidcMapping: Array.isArray(oidcMapping) ? oidcMapping.map((v: string) => String(v).trim()).filter(Boolean) : [],
       organisation: req.user.organisation,
       createdBy: req.user._id,
     });
@@ -92,7 +93,7 @@ export const createGroup = async (req: any, res: Response) => {
 // PUT /api/groups/:id - update group
 export const updateGroup = async (req: any, res: Response) => {
   try {
-    const { name, description, color, isActive } = req.body;
+    const { name, description, color, isActive, oidcMapping } = req.body;
 
     const group = await Group.findById(req.params.id);
     if (!group) return res.status(404).json({ message: "Group not found" });
@@ -101,6 +102,9 @@ export const updateGroup = async (req: any, res: Response) => {
     if (description !== undefined) group.description = description.trim();
     if (color !== undefined) group.color = color;
     if (isActive !== undefined) group.isActive = isActive;
+    if (Array.isArray(oidcMapping)) {
+      group.oidcMapping = oidcMapping.map((v: string) => String(v).trim()).filter(Boolean);
+    }
 
     await group.save();
     await group.populate("members", "name email avatar role");

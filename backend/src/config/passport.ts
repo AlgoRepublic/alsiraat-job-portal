@@ -10,7 +10,8 @@ import Organization from "../models/Organization.js";
 import { fetchOIDCConfiguration } from "./oidcDiscovery.js";
 import { oidcStateStore } from "./oidcStateStore.js";
 import jwt from "jsonwebtoken";
-import { extractRoles, mapAdfsRolesToUserRoles } from "./adfsClaims.js";
+import { extractRoles, mapAdfsRolesToUserRoles, extractGroups, mapAdfsGroupsToGroupIds } from "./adfsClaims.js";
+import Group from "../models/Group.js";
 
 // Local Strategy
 passport.use(
@@ -124,19 +125,26 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                 return done(new Error("No email found in ID token"));
               }
 
-              // Extract role claims from ADFS tokens
+              // Extract role and group claims from ADFS tokens
               const adfsRoles = extractRoles(
                 idToken,
                 accessToken,
                 profile as unknown as Record<string, unknown>,
               );
-              const [dbRoles, defaultOrg] = await Promise.all([
+              const adfsGroups = extractGroups(
+                idToken,
+                accessToken,
+                profile as unknown as Record<string, unknown>,
+              );
+              const [dbRoles, dbGroups, defaultOrg] = await Promise.all([
                 Role.find({ isActive: true }).select("name oidcMapping").lean(),
+                Group.find({ isActive: true }).select("name oidcMapping").lean(),
                 Organization.findOne({
                   name: process.env.OIDC_DEFAULT_ORG ?? "Al Siraat College",
                 }).select("_id").lean(),
               ]);
               const mappedRoles = mapAdfsRolesToUserRoles(adfsRoles, dbRoles);
+              const mappedGroupIds = mapAdfsGroupsToGroupIds(adfsGroups, dbGroups as Array<{ _id: unknown; name: string; oidcMapping?: string[] }>);
 
               let user = await User.findOne({ oidcId: profile.id });
               if (user) {
@@ -193,6 +201,19 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                     roles: mappedRoles.length > 0 ? mappedRoles : [UserRole.APPLICANT],
                     ...(defaultOrg ? { organisation: defaultOrg._id } : {}),
                   });
+                }
+              }
+              // Sync SSO-mapped groups: add user to each mapped group's members if not already present
+              if (mappedGroupIds.length > 0 && user) {
+                const userId = (user as any)._id;
+                for (const gid of mappedGroupIds) {
+                  const group = await Group.findById(gid);
+                  if (!group) continue;
+                  const hasUser = group.members.some((m) => m.toString() === userId.toString());
+                  if (!hasUser) {
+                    group.members.push(userId as mongoose.Types.ObjectId);
+                    await group.save();
+                  }
                 }
               }
               // Pass idToken to callback so it can be sent to frontend for localStorage

@@ -35,6 +35,7 @@ interface Group {
   color: string;
   members: any[];
   isActive: boolean;
+  oidcMapping?: string[];
 }
 
 interface CreateGroupModalProps {
@@ -51,6 +52,8 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
   const [name, setName] = useState(initial?.name || "");
   const [description, setDescription] = useState(initial?.description || "");
   const [color, setColor] = useState(initial?.color || GROUP_COLORS[0]);
+  const [oidcMapping, setOidcMapping] = useState<string[]>(initial?.oidcMapping ?? []);
+  const [oidcMappingInput, setOidcMappingInput] = useState("");
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -61,6 +64,7 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
         name: name.trim(),
         description: description.trim(),
         color,
+        oidcMapping,
       });
       onClose();
     } finally {
@@ -108,6 +112,68 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+              SSO / ADFS group mapping
+            </label>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              ADFS claim values that auto-add users to this group on SSO login (e.g. &quot;Tasker - Group - Students&quot;).
+            </p>
+            {oidcMapping.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {oidcMapping.map((v) => (
+                  <span
+                    key={v}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-primary/10 text-primary text-xs font-bold"
+                  >
+                    {v}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOidcMapping(oidcMapping.filter((x) => x !== v))
+                      }
+                      className="p-0.5 hover:bg-primary/20 rounded"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                className="flex-1 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 text-sm text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-primary/30"
+                placeholder="e.g. Tasker - Group - Students"
+                value={oidcMappingInput}
+                onChange={(e) => setOidcMappingInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    const val = oidcMappingInput.trim();
+                    if (val && !oidcMapping.includes(val)) {
+                      setOidcMapping([...oidcMapping, val]);
+                      setOidcMappingInput("");
+                    }
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const val = oidcMappingInput.trim();
+                  if (val && !oidcMapping.includes(val)) {
+                    setOidcMapping([...oidcMapping, val]);
+                    setOidcMappingInput("");
+                  }
+                }}
+                className="px-4 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 font-bold text-xs hover:bg-zinc-200 dark:hover:bg-zinc-700"
+              >
+                Add
+              </button>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -502,6 +568,19 @@ export const GroupManagement: React.FC = () => {
                           <p className="text-sm text-zinc-400 font-medium mt-0.5 truncate">
                             {group.description}
                           </p>
+                        )}
+                        {group.oidcMapping && group.oidcMapping.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                            <span className="text-xs text-zinc-400">OIDC:</span>
+                            {group.oidcMapping.map((claim: string) => (
+                              <span
+                                key={claim}
+                                className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs font-mono"
+                              >
+                                {claim}
+                              </span>
+                            ))}
+                          </div>
                         )}
                       </div>
 

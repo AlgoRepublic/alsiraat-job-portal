@@ -7,6 +7,8 @@ export interface IGroup extends Document {
   members: mongoose.Types.ObjectId[];
   organisation?: mongoose.Types.ObjectId;
   isActive: boolean;
+  /** ADFS/OIDC claim values that auto-add users to this group on SSO login (e.g. "Tasker - Group - Students"). */
+  oidcMapping: string[];
   createdBy: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -42,6 +44,7 @@ const GroupSchema = new Schema<IGroup>(
       type: Boolean,
       default: true,
     },
+    oidcMapping: [{ type: String, trim: true }],
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: "User",

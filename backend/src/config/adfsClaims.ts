@@ -129,3 +129,110 @@ export function mapAdfsRolesToUserRoles(
   }
   return mapFromEnvVar(adfsRoles);
 }
+
+// ---------------------------------------------------------------------------
+// Group extraction and mapping (same tokens, separate claim filter)
+// ---------------------------------------------------------------------------
+
+/** Fixed prefix in role/claims that identifies a group (e.g. "Tasker - Group - "). Not configurable via env. */
+const GROUP_CLAIM_PREFIX = "Tasker - Group - ";
+
+/**
+ * Extracts group claims from the same sources as roles (ID token, access token, profile).
+ * Only values that start with the fixed prefix are treated as groups.
+ */
+export function extractGroups(
+  idToken?: string | object,
+  accessToken?: string | object,
+  profile?: Record<string, unknown>,
+): string[] {
+  const idClaims = decodeToken(idToken) ?? {};
+  const atClaims = decodeToken(accessToken) ?? {};
+
+  let profileJson: Record<string, unknown> = {};
+  if (profile) {
+    if (profile._json && typeof profile._json === "object") {
+      profileJson = profile._json as Record<string, unknown>;
+    } else if (profile._raw && typeof profile._raw === "string") {
+      try {
+        profileJson = JSON.parse(profile._raw);
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  const rawRoles = new Set<string>();
+  for (const src of [idClaims, atClaims, profileJson]) {
+    for (const key of ROLE_CLAIM_KEYS) {
+      toStringArray(src[key]).forEach((r) => rawRoles.add(r));
+    }
+  }
+
+  const groups = Array.from(rawRoles).filter((r) => r.startsWith(GROUP_CLAIM_PREFIX));
+
+  if (process.env.OIDC_DEBUG_CLAIMS === "true") {
+    console.log("[OIDC] Extracted groups:", groups);
+  }
+
+  return groups;
+}
+
+/**
+ * Maps ADFS group claim strings to Taskunity Group _ids using DB group oidcMapping.
+ */
+function mapGroupsFromDB(
+  adfsGroups: string[],
+  dbGroups: Array<{ _id: unknown; oidcMapping?: string[] }>,
+): unknown[] {
+  const result: unknown[] = [];
+  for (const dbGroup of dbGroups) {
+    if (!dbGroup.oidcMapping?.length) continue;
+    const hasMatch = adfsGroups.some((ag) => dbGroup.oidcMapping!.includes(ag));
+    if (hasMatch) result.push(dbGroup._id);
+  }
+  return result;
+}
+
+/**
+ * Maps ADFS group strings using OIDC_GROUP_MAPPING env var as fallback.
+ * Format: "AdfsValue:GroupName,AdfsValue2:GroupName2" (group names matched against DB group names).
+ */
+function mapGroupsFromEnvVar(
+  adfsGroups: string[],
+  dbGroups: Array<{ _id: unknown; name: string }>,
+): unknown[] {
+  const raw = process.env.OIDC_GROUP_MAPPING;
+  if (!raw || !dbGroups.length) return [];
+
+  const nameToId = new Map<string, unknown>();
+  for (const g of dbGroups) {
+    nameToId.set(g.name.trim().toLowerCase(), g._id);
+  }
+
+  const result: unknown[] = [];
+  for (const entry of raw.split(",")) {
+    const idx = entry.indexOf(":");
+    if (idx < 1) continue;
+    const adfsValue = entry.slice(0, idx).trim();
+    const groupName = entry.slice(idx + 1).trim();
+    if (!adfsValue || !adfsGroups.includes(adfsValue)) continue;
+    const id = nameToId.get(groupName.toLowerCase());
+    if (id) result.push(id);
+  }
+  return result;
+}
+
+/**
+ * Maps ADFS group claim strings to Taskunity Group _ids.
+ * Uses DB group oidcMapping when present; falls back to OIDC_GROUP_MAPPING (by group name).
+ */
+export function mapAdfsGroupsToGroupIds(
+  adfsGroups: string[],
+  dbGroups: Array<{ _id: unknown; name: string; oidcMapping?: string[] }>,
+): unknown[] {
+  if (adfsGroups.length === 0) return [];
+  const fromDb = mapGroupsFromDB(adfsGroups, dbGroups);
+  if (fromDb.length > 0) return fromDb;
+  return mapGroupsFromEnvVar(adfsGroups, dbGroups);
+}
