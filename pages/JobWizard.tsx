@@ -140,16 +140,14 @@ export const JobWizard: React.FC = () => {
   // Accordion open state — Step 1
   const [openS1, setOpenS1] = useState<Record<string, boolean>>({
     basic: true,
-    description: false,
-    schedule: false,
+    schedule: true,
   });
 
   // Accordion open state — Step 2
   const [openS2, setOpenS2] = useState<Record<string, boolean>>({
-    requirements: true,
-    reward: false,
+    requirements: false,
+    reward: true,
     documents: false,
-    review: false,
   });
 
   // Dynamic data from API
@@ -320,44 +318,38 @@ export const JobWizard: React.FC = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleNext = () => {
+  const handleNextStep1 = () => {
+    const step1Errors = validateStep1();
+    if (Object.keys(step1Errors).length > 0) {
+      setErrors(step1Errors);
+      if (step1Errors.title || step1Errors.category)
+        setOpenS1((p) => ({ ...p, basic: true }));
+      else if (
+        step1Errors.location ||
+        step1Errors.hoursRequired ||
+        step1Errors.startDate ||
+        step1Errors.endDate
+      )
+        setOpenS1((p) => ({ ...p, schedule: true }));
+      return;
+    }
+    setErrors({});
     goToStep(2);
   };
 
-  const handleSubmit = async () => {
-    // Validate both steps before saving
-    const step1Errors = validateStep1();
+  const handleNextStep2 = () => {
     const step2Errors = validateStep2();
-    const allErrors = { ...step1Errors, ...step2Errors };
-
-    if (Object.keys(allErrors).length > 0) {
-      setErrors(allErrors);
-
-      // If step 1 has errors, jump there and open the right accordion
-      if (Object.keys(step1Errors).length > 0) {
-        if (step1Errors.title || step1Errors.category)
-          setOpenS1((p) => ({ ...p, basic: true }));
-        else if (
-          step1Errors.location ||
-          step1Errors.hoursRequired ||
-          step1Errors.startDate ||
-          step1Errors.endDate
-        )
-          setOpenS1((p) => ({ ...p, schedule: true }));
-        goToStep(1);
-        return;
-      }
-
-      // Step 2 errors — open the relevant accordion
-      if (
-        step2Errors.rewardType ||
-        step2Errors.rewardValue ||
-        step2Errors.visibility
-      )
+    if (Object.keys(step2Errors).length > 0) {
+      setErrors(step2Errors);
+      if (step2Errors.rewardType || step2Errors.rewardValue || step2Errors.visibility)
         setOpenS2((p) => ({ ...p, reward: true }));
       return;
     }
     setErrors({});
+    goToStep(3);
+  };
+
+  const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
       const submissionData = { ...formData, status: "Pending" };
@@ -416,7 +408,8 @@ export const JobWizard: React.FC = () => {
       <div className="flex items-center gap-0">
         {[
           { num: 1, label: "Task Information" },
-          { num: 2, label: "Requirements & Publish" },
+          { num: 2, label: "Requirements" },
+          { num: 3, label: "Review & Submit" },
         ].map((s, idx) => (
           <React.Fragment key={s.num}>
             <button
@@ -443,10 +436,10 @@ export const JobWizard: React.FC = () => {
                 {s.label}
               </span>
             </button>
-            {idx < 1 && (
+            {idx < 2 && (
               <div
                 className={`flex-1 h-0.5 mx-4 rounded-full transition-all duration-500 ${
-                  step > 1 ? "bg-primary" : "bg-zinc-200 dark:bg-zinc-700"
+                  step > s.num ? "bg-primary" : "bg-zinc-200 dark:bg-zinc-700"
                 }`}
               />
             )}
@@ -651,10 +644,10 @@ export const JobWizard: React.FC = () => {
           <div className="flex justify-end pt-2">
             <button
               type="button"
-              onClick={handleNext}
+              onClick={handleNextStep1}
               className="px-10 py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primaryHover shadow-2xl shadow-primary/30 flex items-center transition-all hover:-translate-y-1"
             >
-              Next: Requirements &amp; Publish
+              Next: Requirements
               <ArrowRight className="w-4 h-4 ml-3" />
             </button>
           </div>
@@ -828,31 +821,85 @@ export const JobWizard: React.FC = () => {
                 )}
               </div>
 
-              <div className="space-y-1.5">
-                <CustomDropdown
-                  label="Task Visibility *"
-                  options={Object.values(Visibility).map((v) => ({ name: v }))}
-                  value={formData.visibility || ""}
-                  onChange={(val) => {
-                    updateField("visibility", val);
-                    if (errors.visibility)
-                      setErrors((p) => ({ ...p, visibility: "" }));
-                  }}
-                  placeholder="Select Visibility"
-                  error={!!errors.visibility}
-                />
+              {/* Visibility Radio Chips */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                  Task Visibility *
+                </label>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    {
+                      value: Visibility.INTERNAL,
+                      label: "Internal",
+                      description: "Organisation members only",
+                      icon: "🏛️",
+                    },
+                    {
+                      value: Visibility.EXTERNAL,
+                      label: "External",
+                      description: "Open to anyone",
+                      icon: "🌐",
+                    },
+                    {
+                      value: Visibility.GLOBAL,
+                      label: "Global",
+                      description: "Published globally",
+                      icon: "✨",
+                    },
+                  ].map((opt) => {
+                    const isSelected = formData.visibility === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => {
+                          updateField("visibility", opt.value);
+                          if (errors.visibility)
+                            setErrors((p) => ({ ...p, visibility: "" }));
+                        }}
+                        className={`p-3.5 rounded-xl border-2 text-left transition-all duration-200 ${
+                          isSelected
+                            ? "border-primary bg-primary/5 dark:bg-primary/10"
+                            : `bg-white dark:bg-zinc-800/40 hover:border-primary/40 ${
+                                errors.visibility
+                                  ? "border-red-400/60"
+                                  : "border-zinc-200 dark:border-zinc-700"
+                              }`
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-base">{opt.icon}</span>
+                          <div
+                            className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
+                              isSelected
+                                ? "border-primary bg-primary"
+                                : "border-zinc-300 dark:border-zinc-600"
+                            }`}
+                          >
+                            {isSelected && (
+                              <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                            )}
+                          </div>
+                        </div>
+                        <p
+                          className={`font-black text-xs tracking-tight ${
+                            isSelected
+                              ? "text-primary"
+                              : "text-zinc-800 dark:text-zinc-200"
+                          }`}
+                        >
+                          {opt.label}
+                        </p>
+                        <p className="text-[10px] text-zinc-400 mt-0.5 leading-tight">
+                          {opt.description}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
                 {errors.visibility && (
-                  <p className="text-red-500 text-xs font-bold">
-                    {errors.visibility}
-                  </p>
+                  <p className="text-red-500 text-xs font-bold">{errors.visibility}</p>
                 )}
-                <p className="text-xs text-zinc-400">
-                  <span className="font-bold">Internal:</span> Only your
-                  organisation members can see this task.{" "}
-                  <span className="font-bold">External:</span> Anyone can apply.{" "}
-                  <span className="font-bold">Global:</span> Published globally
-                  for all users.
-                </p>
               </div>
 
               {formData.visibility === Visibility.INTERNAL &&
@@ -993,31 +1040,62 @@ export const JobWizard: React.FC = () => {
             </div>
           </AccordionSection>
 
-          {/* ── Review Summary ── */}
-          <AccordionSection
-            id="review"
-            title="Review Summary"
-            subtitle="Confirm everything looks good before publishing"
-            icon={<Eye className="w-4 h-4" />}
-            isOpen={openS2.review}
-            onToggle={() => toggleS2("review")}
-          >
-            <div className="space-y-5">
-              {/* Ready banner */}
-              <div className="flex items-center gap-4 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl">
-                <CheckCircle className="w-8 h-8 text-emerald-600 flex-shrink-0" />
-                <div>
-                  <p className="font-black text-emerald-900 dark:text-emerald-400 text-sm tracking-tight">
-                    Ready to Publish
-                  </p>
-                  <p className="text-xs text-emerald-700 dark:text-emerald-500 mt-0.5">
-                    Task will be submitted for approval. You'll be notified once
-                    it's live.
-                  </p>
-                </div>
-              </div>
+          {/* ── Nav Buttons ── */}
+          <div className="flex justify-between items-center pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setStep(1);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              className="px-6 py-3.5 rounded-2xl text-zinc-500 dark:text-zinc-400 font-black uppercase tracking-widest text-xs hover:bg-white/60 dark:hover:bg-zinc-800/60 transition-all flex items-center border border-zinc-200 dark:border-zinc-700"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </button>
 
-              {/* Summary grid */}
+            <button
+              type="button"
+              onClick={handleNextStep2}
+              className="px-10 py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primaryHover shadow-2xl shadow-primary/30 flex items-center transition-all hover:-translate-y-1"
+            >
+              Next: Review & Submit
+              <ArrowRight className="w-4 h-4 ml-3" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* STEP 3 — Review & Submit                                    */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {step === 3 && (
+        <div className="space-y-6 animate-fade-in">
+          {/* Ready banner */}
+          <div className="flex items-center gap-4 p-5 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl">
+            <CheckCircle className="w-10 h-10 text-emerald-600 flex-shrink-0" />
+            <div>
+              <p className="font-black text-emerald-900 dark:text-emerald-400 tracking-tight">
+                Ready to Publish
+              </p>
+              <p className="text-xs text-emerald-700 dark:text-emerald-500 mt-0.5">
+                Review all details below. Once you're happy, hit Submit for Approval.
+              </p>
+            </div>
+          </div>
+
+          {/* Summary grid */}
+          <div className="rounded-2xl border-2 border-zinc-200 dark:border-zinc-700/60 bg-white dark:bg-zinc-900/50 overflow-hidden">
+            <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center">
+                <Eye className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="font-black text-zinc-900 dark:text-white text-sm tracking-tight">Task Overview</p>
+                <p className="text-xs text-zinc-400 mt-0.5">Core details from Step 1</p>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 {[
                   { label: "Title", value: formData.title || "—" },
@@ -1025,9 +1103,7 @@ export const JobWizard: React.FC = () => {
                   { label: "Location", value: formData.location || "—" },
                   {
                     label: "Duration",
-                    value: formData.hoursRequired
-                      ? `${formData.hoursRequired}h`
-                      : "—",
+                    value: formData.hoursRequired ? `${formData.hoursRequired}h` : "—",
                   },
                   { label: "Start Date", value: formData.startDate || "ASAP" },
                   { label: "End Date", value: formData.endDate || "—" },
@@ -1037,10 +1113,7 @@ export const JobWizard: React.FC = () => {
                   },
                   { label: "Visibility", value: formData.visibility || "—" },
                 ].map((item) => (
-                  <div
-                    key={item.label}
-                    className="bg-zinc-50 dark:bg-zinc-800/40 rounded-xl p-3"
-                  >
+                  <div key={item.label} className="bg-zinc-50 dark:bg-zinc-800/40 rounded-xl p-3">
                     <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">
                       {item.label}
                     </p>
@@ -1053,62 +1126,77 @@ export const JobWizard: React.FC = () => {
 
               {formData.description && (
                 <div className="bg-zinc-50 dark:bg-zinc-800/40 rounded-xl p-4">
-                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">
-                    Description
-                  </p>
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">Description</p>
                   <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed line-clamp-4 whitespace-pre-wrap">
                     {formData.description}
                   </p>
                 </div>
               )}
+            </div>
+          </div>
 
-              {(formData.requiredSkills || []).length > 0 && (
+          {/* Requirements summary */}
+          <div className="rounded-2xl border-2 border-zinc-200 dark:border-zinc-700/60 bg-white dark:bg-zinc-900/50 overflow-hidden">
+            <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center">
+                <Layers className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="font-black text-zinc-900 dark:text-white text-sm tracking-tight">Requirements & Files</p>
+                <p className="text-xs text-zinc-400 mt-0.5">Details from Step 2</p>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
+              {(formData.requiredSkills || []).length > 0 ? (
                 <div>
-                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">
-                    Required Skills
-                  </p>
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">Required Skills</p>
                   <div className="flex flex-wrap gap-2">
                     {(formData.requiredSkills || []).map((skill) => (
-                      <span
-                        key={skill}
-                        className="px-3 py-1 text-[10px] font-black uppercase tracking-widest bg-primary/10 text-primary rounded-lg"
-                      >
+                      <span key={skill} className="px-3 py-1 text-[10px] font-black uppercase tracking-widest bg-primary/10 text-primary rounded-lg">
                         {skill}
                       </span>
                     ))}
                   </div>
                 </div>
+              ) : (
+                <p className="text-sm text-zinc-400 italic">No specific skills required.</p>
               )}
 
               {uploadedFiles.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">
-                    Attachments ({uploadedFiles.length})
-                  </p>
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">Attachments ({uploadedFiles.length})</p>
                   <div className="flex flex-wrap gap-2">
                     {uploadedFiles.map((f, i) => (
-                      <span
-                        key={i}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-lg text-xs font-bold text-zinc-600 dark:text-zinc-300"
-                      >
-                        <Layers className="w-3 h-3" />
+                      <span key={i} className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-lg text-xs font-bold text-zinc-600 dark:text-zinc-300">
+                        <FileText className="w-3 h-3" />
                         {f.name}
                       </span>
                     ))}
                   </div>
                 </div>
               )}
-            </div>
-          </AccordionSection>
 
-          {/* ── Nav Buttons ── */}
+              {formData.selectionCriteria && (
+                <div className="bg-zinc-50 dark:bg-zinc-800/40 rounded-xl p-4">
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">Success Criteria</p>
+                  <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{formData.selectionCriteria}</p>
+                </div>
+              )}
+
+              {formData.interviewDetails && (
+                <div className="bg-zinc-50 dark:bg-zinc-800/40 rounded-xl p-4">
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">Interview Process</p>
+                  <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{formData.interviewDetails}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Nav Buttons */}
           <div className="flex justify-between items-center pt-2">
             <button
               type="button"
-              onClick={() => {
-                setStep(1);
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
+              onClick={() => goToStep(2)}
               className="px-6 py-3.5 rounded-2xl text-zinc-500 dark:text-zinc-400 font-black uppercase tracking-widest text-xs hover:bg-white/60 dark:hover:bg-zinc-800/60 transition-all flex items-center border border-zinc-200 dark:border-zinc-700"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />

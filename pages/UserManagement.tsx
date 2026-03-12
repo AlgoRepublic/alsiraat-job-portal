@@ -39,6 +39,7 @@ import {
 
 import { Loading } from "../components/Loading";
 import { CustomDropdown } from "../components/CustomUI";
+import { UserProfileDrawer } from "../components/UserProfileDrawer";
 import { Permission, UserRole } from "../types";
 
 interface EditForm {
@@ -1041,9 +1042,9 @@ export const UserManagement: React.FC = () => {
         </div>
       )}
 
-      {/* ─── Full Profile View Modal ─── */}
+      {/* ─── Full Profile Drawer ─── */}
       {viewingUser && (
-        <UserDetailModal
+        <UserProfileDrawer
           user={viewingUser}
           onClose={() => setViewingUser(null)}
           onEdit={(u) => {

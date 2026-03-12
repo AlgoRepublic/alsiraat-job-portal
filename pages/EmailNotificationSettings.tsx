@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Mail,
   Server,
@@ -19,10 +19,122 @@ import {
   Zap,
   Layout,
   MonitorSmartphone,
+  ImagePlus,
+  Loader2,
+  Link2,
 } from "lucide-react";
 import { DefaultEditor } from "react-simple-wysiwyg";
 import { API_BASE_URL } from "../services/api";
 import { useToast } from "../components/Toast";
+
+/* ─── Image Upload Button ─────────────────────────────────────────────────────
+ * Converts a selected image/icon file to a base64 data-URL and inserts an
+ * <img> tag into the current HTML body.                                      */
+interface ImageUploadBtnProps {
+  onInsert: (html: string) => void;
+}
+
+const ImageUploadBtn: React.FC<ImageUploadBtnProps> = ({ onInsert }) => {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [urlValue, setUrlValue] = useState("");
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowed = ["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"];
+    if (!allowed.includes(file.type)) {
+      alert("Unsupported image type. Use PNG, JPG, GIF, WebP, or SVG.");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Image must be under 2 MB.");
+      return;
+    }
+
+    setUploading(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const src = reader.result as string;
+      // For SVGs embed as img; for raster images also use img tag
+      const isIcon = file.type === "image/svg+xml" || file.size < 10 * 1024;
+      const width = isIcon ? " width=\"32\" height=\"32\"" : " width=\"100%\" style=\"max-width:600px;display:block;margin:8px 0;\"";
+      onInsert(`<img src="${src}"${width} alt="${file.name}" />`);
+      setUploading(false);
+    };
+    reader.onerror = () => setUploading(false);
+    reader.readAsDataURL(file);
+    // reset so same file can be re-selected
+    e.target.value = "";
+  };
+
+  const handleUrlInsert = () => {
+    if (!urlValue.trim()) return;
+    onInsert(`<img src="${urlValue.trim()}" width="100%" style="max-width:600px;display:block;margin:8px 0;" alt="image" />`);
+    setUrlValue("");
+    setShowUrlInput(false);
+  };
+
+  return (
+    <div className="flex items-center gap-1">
+      {/* Upload from disk */}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
+        className="hidden"
+        onChange={handleFile}
+      />
+      <button
+        type="button"
+        title="Insert image / icon"
+        onClick={() => fileRef.current?.click()}
+        disabled={uploading}
+        className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 rounded-lg transition-all disabled:opacity-50"
+      >
+        {uploading ? (
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        ) : (
+          <ImagePlus className="w-3.5 h-3.5" />
+        )}
+        Image
+      </button>
+
+      {/* Insert by URL */}
+      <button
+        type="button"
+        title="Insert image by URL"
+        onClick={() => setShowUrlInput((p) => !p)}
+        className="flex items-center gap-1 px-2 py-1 text-xs font-bold text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-800/60 hover:bg-zinc-100 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 rounded-lg transition-all"
+      >
+        <Link2 className="w-3.5 h-3.5" />
+        URL
+      </button>
+
+      {showUrlInput && (
+        <div className="flex items-center gap-1">
+          <input
+            type="url"
+            value={urlValue}
+            onChange={(e) => setUrlValue(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleUrlInsert()}
+            placeholder="https://example.com/image.png"
+            className="w-56 px-2.5 py-1 text-xs border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-900 outline-none focus:ring-1 focus:ring-primary"
+          />
+          <button
+            type="button"
+            onClick={handleUrlInsert}
+            className="px-2 py-1 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primaryHover transition-colors"
+          >
+            Insert
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface TemplateMeta {
@@ -640,6 +752,17 @@ export const EmailNotificationSettings: React.FC = () => {
 
                   {tab === "visual" ? (
                     <div className="rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700 wysiwyg-wrapper">
+                      {/* Custom toolbar row above the WYSIWYG editor */}
+                      <div className="flex items-center gap-2 flex-wrap px-3 py-2 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-800/50">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Insert:</span>
+                        <ImageUploadBtn
+                          onInsert={(html) =>
+                            updateTemplate(meta.eventKey, {
+                              bodyHtml: (tpl.bodyHtml || "") + html,
+                            })
+                          }
+                        />
+                      </div>
                       <style>{`
                         .wysiwyg-wrapper .rsw-editor {
                           background: white;

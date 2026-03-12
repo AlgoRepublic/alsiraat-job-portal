@@ -85,7 +85,7 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
       case "compact":
         return `w-full p-3 border ${error ? "border-red-500 ring-1 ring-red-500" : "border-zinc-200 dark:border-zinc-700"} rounded-xl text-sm font-semibold bg-zinc-50 dark:bg-zinc-800 dark:text-white focus:bg-white dark:focus:bg-zinc-900`;
       default:
-        return `w-full p-4 glass rounded-2xl font-bold text-lg dark:text-white ${error ? "border-2 border-red-500" : ""}`;
+        return `w-full p-3.5 glass rounded-xl font-bold text-sm dark:text-white ${error ? "border-2 border-red-500" : ""}`;  
     }
   };
 
@@ -325,7 +325,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
         ref={buttonRef}
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full p-4 glass rounded-2xl flex items-center justify-between font-bold dark:text-white transition-all hover:bg-white/40 dark:hover:bg-zinc-800/60 group ${error ? "border-2 border-red-500" : ""}`}
+        className={`w-full p-3.5 glass rounded-xl flex items-center justify-between font-bold text-sm dark:text-white transition-all hover:bg-white/40 dark:hover:bg-zinc-800/60 group ${error ? "border-2 border-red-500" : ""}`}
       >
         <div className="flex items-center gap-3">
           <CalendarIcon className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
