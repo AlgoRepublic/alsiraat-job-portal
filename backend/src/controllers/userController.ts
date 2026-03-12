@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import mongoose from "mongoose";
 import User from "../models/User.js";
 import Organization from "../models/Organization.js";
 import Role from "../models/Role.js";
@@ -7,6 +8,8 @@ import Papa from "papaparse";
 import bcrypt from "bcryptjs";
 import { UserRole, normalizeUserRole } from "../models/UserRole.js";
 import { normalizeOrgName, slugifyOrgName } from "./organizationController.js";
+import Task from "../models/Task.js";
+import Application from "../models/Application.js";
 
 export const getUsers = async (req: Request, res: Response) => {
   try {
@@ -130,6 +133,54 @@ export const updateUser = async (req: Request, res: Response) => {
       .select("-password");
 
     res.json({ message: "User updated successfully", user: updated });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/**
+ * Admin: get all tasks created by a specific user (bypasses visibility rules).
+ */
+export const getUserTasks = async (req: Request, res: Response) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(String(req.params.id));
+    const tasks = await Task.find({ createdBy: userId })
+      .populate("category", "name code icon")
+      .populate("rewardType", "name code")
+      .populate("organisation", "name slug")
+      .populate("createdBy", "name email")
+      .sort({ createdAt: -1 });
+
+    // Applicant counts
+    const taskIds = tasks.map((t) => t._id);
+    const counts = await Application.aggregate([
+      { $match: { task: { $in: taskIds } } },
+      { $group: { _id: "$task", count: { $sum: 1 } } },
+    ]);
+    const countMap = new Map(counts.map((c) => [c._id.toString(), c.count]));
+
+    const result = tasks.map((t) => ({
+      ...t.toObject(),
+      applicantsCount: countMap.get(t._id.toString()) || 0,
+    }));
+
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/**
+ * Admin: get all applications submitted by a specific user (bypasses own-only rules).
+ */
+export const getUserApplications = async (req: Request, res: Response) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(String(req.params.id));
+    const apps = await Application.find({ applicant: userId })
+      .populate("task", "title status category organisation startDate endDate")
+      .populate("applicant", "name email")
+      .sort({ createdAt: -1 });
+    res.json(apps);
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }

@@ -39,3 +39,4 @@ mongodb-seed-atlas.js
 test-final-backend.js
 test-task-approval.js
 debug-auth.js
+yarn.lock

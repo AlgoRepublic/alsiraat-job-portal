@@ -220,6 +220,16 @@ class ApiService {
     return this.request<any[]>(`/users?${query}`);
   }
 
+  /** Admin: tasks created by a specific user (bypasses visibility rules). */
+  async getUserTasks(userId: string): Promise<any[]> {
+    return this.request<any[]>(`/users/${userId}/tasks`);
+  }
+
+  /** Admin: applications submitted by a specific user. */
+  async getUserApplications(userId: string): Promise<any[]> {
+    return this.request<any[]>(`/users/${userId}/applications`);
+  }
+
   async updateUser(id: string, data: any): Promise<any> {
     return this.request<any>(`/users/${id}`, {
       method: "PUT",

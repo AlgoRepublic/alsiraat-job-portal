@@ -2,6 +2,8 @@ import express from "express";
 import {
   getUsers,
   getUserById,
+  getUserTasks,
+  getUserApplications,
   updateUserRole,
   updateUser,
   deleteUser,
@@ -28,6 +30,22 @@ router.get(
   authenticate,
   requirePermission(Permission.USER_READ),
   getUserById,
+);
+
+// Admin-only: tasks created by a specific user
+router.get(
+  "/:id/tasks",
+  authenticate,
+  requirePermission(Permission.USER_READ),
+  getUserTasks,
+);
+
+// Admin-only: applications submitted by a specific user
+router.get(
+  "/:id/applications",
+  authenticate,
+  requirePermission(Permission.USER_READ),
+  getUserApplications,
 );
 
 // Import requires specific permission

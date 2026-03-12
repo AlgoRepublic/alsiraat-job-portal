@@ -171,7 +171,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
   const fetchTasks = useCallback(async () => {
     setLoadingTasks(true);
     try {
-      const data = await api.getTasks({ createdBy: user._id });
+      const data = await api.getUserTasks(user._id);
       setTasks(Array.isArray(data) ? data : []);
     } catch {
       setTasks([]);
@@ -183,7 +183,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
   const fetchApplications = useCallback(async () => {
     setLoadingApps(true);
     try {
-      const data = await api.getApplications({ userId: user._id });
+      const data = await api.getUserApplications(user._id);
       setApplications(Array.isArray(data) ? data : []);
     } catch {
       setApplications([]);
