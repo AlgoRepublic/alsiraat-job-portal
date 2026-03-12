@@ -305,6 +305,14 @@ class ApiService {
     });
   }
 
+  /** Manager/Advertiser: directly assign a task to a user, bypassing the normal apply flow. */
+  async assignTask(taskId: string, applicantId: string, note?: string): Promise<any> {
+    return this.request<any>("/applications/assign", {
+      method: "POST",
+      body: JSON.stringify({ taskId, applicantId, note }),
+    });
+  }
+
   async updateApplicationStatus(id: string, status: string): Promise<any> {
     return this.request<any>(`/applications/${id}/status`, {
       method: "PUT",

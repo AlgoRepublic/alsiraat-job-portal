@@ -32,6 +32,7 @@ export const Permission = {
   APPLICATION_CREATE: "application:create", // Apply for a task
   APPLICATION_READ: "application:read", // View applications
   APPLICATION_READ_OWN: "application:read_own", // View own applications only
+  APPLICATION_ASSIGN_DIRECT: "application:assign_direct", // Directly assign a task to a user
   APPLICATION_SHORTLIST: "application:shortlist",
   APPLICATION_APPROVE: "application:approve",
   APPLICATION_REJECT: "application:reject",
@@ -100,6 +101,7 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.APPLICATION_SHORTLIST,
     Permission.APPLICATION_APPROVE,
     Permission.APPLICATION_REJECT,
+    Permission.APPLICATION_ASSIGN_DIRECT,
 
     // Organization
     Permission.ORG_READ,
@@ -133,6 +135,7 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     // Manages applications
     Permission.APPLICATION_READ,
     Permission.APPLICATION_SHORTLIST,
+    Permission.APPLICATION_ASSIGN_DIRECT,
 
     // Dashboard
     Permission.DASHBOARD_VIEW,
@@ -147,6 +150,7 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
 
     // View own applications
     Permission.APPLICATION_READ_OWN,
+    Permission.APPLICATION_ASSIGN_DIRECT, // Can assign to applicants for their own tasks
   ],
 
   [UserRole.APPLICANT]: [

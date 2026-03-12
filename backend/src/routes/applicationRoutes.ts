@@ -1,6 +1,7 @@
 import express from "express";
 import {
   applyForTask,
+  assignTask,
   updateApplicationStatus,
   getApplications,
   getApplicationById,
@@ -17,6 +18,14 @@ import {
 } from "../middleware/rbac.js";
 
 const router = express.Router();
+
+// Direct assignment by manager/advertiser - requires APPLICATION_ASSIGN_DIRECT
+router.post(
+  "/assign",
+  authenticate,
+  requirePermission(Permission.APPLICATION_ASSIGN_DIRECT),
+  assignTask,
+);
 
 // Apply for a task - requires APPLICATION_CREATE permission
 router.post(

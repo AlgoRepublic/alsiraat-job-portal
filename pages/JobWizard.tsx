@@ -833,18 +833,21 @@ export const JobWizard: React.FC = () => {
                       label: "Internal",
                       description: "Organisation members only",
                       icon: "🏛️",
+                      disabled: false,
                     },
                     {
                       value: Visibility.EXTERNAL,
                       label: "External",
                       description: "Open to anyone",
                       icon: "🌐",
+                      disabled: true,
                     },
                     {
                       value: Visibility.GLOBAL,
                       label: "Global",
                       description: "Published globally",
                       icon: "✨",
+                      disabled: true,
                     },
                   ].map((opt) => {
                     const isSelected = formData.visibility === opt.value;
@@ -852,21 +855,30 @@ export const JobWizard: React.FC = () => {
                       <button
                         key={opt.value}
                         type="button"
+                        disabled={opt.disabled}
                         onClick={() => {
+                          if (opt.disabled) return;
                           updateField("visibility", opt.value);
                           if (errors.visibility)
                             setErrors((p) => ({ ...p, visibility: "" }));
                         }}
-                        className={`p-3.5 rounded-xl border-2 text-left transition-all duration-200 ${
-                          isSelected
-                            ? "border-primary bg-primary/5 dark:bg-primary/10"
-                            : `bg-white dark:bg-zinc-800/40 hover:border-primary/40 ${
-                                errors.visibility
-                                  ? "border-red-400/60"
-                                  : "border-zinc-200 dark:border-zinc-700"
-                              }`
+                        className={`p-3.5 rounded-xl border-2 text-left transition-all duration-200 relative ${
+                          opt.disabled
+                            ? "opacity-40 cursor-not-allowed bg-zinc-100 dark:bg-zinc-800/20 border-zinc-200 dark:border-zinc-700"
+                            : isSelected
+                              ? "border-primary bg-primary/5 dark:bg-primary/10"
+                              : `bg-white dark:bg-zinc-800/40 hover:border-primary/40 ${
+                                  errors.visibility
+                                    ? "border-red-400/60"
+                                    : "border-zinc-200 dark:border-zinc-700"
+                                }`
                         }`}
                       >
+                        {opt.disabled && (
+                          <span className="absolute top-1.5 right-1.5 text-[8px] font-black uppercase tracking-widest bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400 px-1.5 py-0.5 rounded-full">
+                            Soon
+                          </span>
+                        )}
                         <div className="flex items-center justify-between mb-1.5">
                           <span className="text-base">{opt.icon}</span>
                           <div
@@ -896,6 +908,7 @@ export const JobWizard: React.FC = () => {
                       </button>
                     );
                   })}
+
                 </div>
                 {errors.visibility && (
                   <p className="text-red-500 text-xs font-bold">{errors.visibility}</p>

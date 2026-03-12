@@ -18,6 +18,115 @@ import {
 import { checkPermissionAsync, Permission } from "../middleware/rbac.js";
 import { buildApplicationQuery } from "./applicationQueryBuilder.js";
 
+/**
+ * Directly assign a task to a user, creating an application in OFFERED status.
+ * Requires APPLICATION_ASSIGN_DIRECT permission.
+ * Task Advertisers can only assign their own tasks.
+ * Task Managers / School Admins can assign any task in their org.
+ * Global Admins have no restriction.
+ */
+export const assignTask = async (req: any, res: Response) => {
+  try {
+    const { taskId, applicantId, note } = req.body;
+
+    if (!taskId || !applicantId) {
+      return res
+        .status(400)
+        .json({ message: "taskId and applicantId are required" });
+    }
+
+    // Verify task exists
+    const task = await Task.findById(taskId).populate("createdBy", "name");
+    if (!task) return res.status(404).json({ message: "Task not found" });
+    if (task.status === TaskStatus.ARCHIVED) {
+      return res
+        .status(400)
+        .json({ message: "Cannot assign an archived task" });
+    }
+
+    // Verify target user exists
+    const targetUser = await User.findById(applicantId).select("-password");
+    if (!targetUser) return res.status(404).json({ message: "User not found" });
+
+    // Permission scope check
+    const isGlobalAdmin = req.user.roles?.some(
+      (r: string) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
+    );
+    const isAdvertiser = req.user.roles?.some(
+      (r: string) =>
+        r.toLowerCase() === UserRole.TASK_ADVERTISER.toLowerCase(),
+    );
+
+    if (!isGlobalAdmin && isAdvertiser) {
+      // Advertisers can only assign tasks they created
+      if (task.createdBy.toString() !== req.user._id.toString()) {
+        return res.status(403).json({
+          message: "You can only directly assign tasks that you created",
+        });
+      }
+    } else if (!isGlobalAdmin) {
+      // Task Managers / School Admins: must be same org
+      const taskOrg = task.organisation?.toString();
+      const userOrg = req.user.organisation?.toString();
+      if (taskOrg && userOrg && taskOrg !== userOrg) {
+        return res.status(403).json({
+          message: "You can only assign tasks within your organisation",
+        });
+      }
+    }
+
+    // Check if application already exists
+    let app = await Application.findOne({
+      task: taskId,
+      applicant: applicantId,
+    });
+
+    if (app) {
+      // Already applied — bump to OFFERED if not already in a terminal state
+      const terminalStatuses: ApplicationStatus[] = [
+        ApplicationStatus.ACCEPTED,
+        ApplicationStatus.COMPLETED,
+      ];
+      if (!terminalStatuses.includes(app.status)) {
+        app.status = ApplicationStatus.OFFERED;
+        if (note) (app as any).coverLetter = note;
+        await app.save();
+      }
+    } else {
+      // Create fresh application directly in OFFERED status
+      app = await Application.create({
+        task: taskId,
+        applicant: applicantId,
+        status: ApplicationStatus.OFFERED,
+        coverLetter: note || `Direct assignment by ${req.user.name || "manager"}.`,
+      });
+    }
+
+    // Notify the assigned user
+    await notify({
+      recipientId: applicantId,
+      title: "🎉 Task Assigned to You!",
+      message: `You've been directly assigned to "${task.title}" by ${req.user.name || "a manager"}. Please confirm or decline.`,
+      type: "success",
+      link: `/application/${app._id}`,
+      emailTemplate: jobOfferEmail(
+        targetUser.name || "User",
+        task.title,
+        String(app._id),
+      ),
+    });
+
+    const populated = await Application.findById(app._id)
+      .populate("task", "title status")
+      .populate("applicant", "name email");
+
+    res.status(201).json(populated);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+
 export const applyForTask = async (req: any, res: Response) => {
   try {
     const { taskId, coverLetter, availability } = req.body;
