@@ -203,9 +203,13 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                   });
                 }
               }
-              // Sync SSO-mapped groups: add user to each mapped group's members if not already present
-              if (mappedGroupIds.length > 0 && user) {
+              // Sync SSO-mapped groups: remove user from all groups, then add only to incoming SSO-mapped groups
+              if (user) {
                 const userId = (user as any)._id;
+                await Group.updateMany(
+                  { members: userId },
+                  { $pull: { members: userId } },
+                );
                 for (const gid of mappedGroupIds) {
                   const group = await Group.findById(gid);
                   if (!group) continue;
