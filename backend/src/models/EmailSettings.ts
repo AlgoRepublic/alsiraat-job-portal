@@ -9,11 +9,17 @@ export interface IEmailTemplateConfig {
   bodyText: string; // Plain text fallback
 }
 
+export type EmailProvider = "smtp" | "azure";
+
 export interface IEmailSettings extends Document {
   /** null = global (system-level) settings; ObjectId = org-scoped settings */
   organisation: mongoose.Types.ObjectId | null;
 
-  // SMTP / Transport
+  // Provider selection (per-org)
+  emailProvider: EmailProvider;
+  emailEnabled: boolean;
+
+  // SMTP (when emailProvider === "smtp")
   smtpEnabled: boolean;
   smtpHost: string;
   smtpPort: number;
@@ -23,6 +29,10 @@ export interface IEmailSettings extends Document {
   fromName: string;
   fromEmail: string;
   replyToEmail: string;
+
+  // Azure Communication Services (when emailProvider === "azure")
+  azureConnectionString: string;
+  azureFromEmail: string;
 
   // Per-event template overrides
   templates: IEmailTemplateConfig[];
@@ -49,6 +59,8 @@ const EmailSettingsSchema = new Schema<IEmailSettings>(
       ref: "Organisation",
       default: null,
     },
+    emailProvider: { type: String, enum: ["smtp", "azure"], default: "smtp" },
+    emailEnabled: { type: Boolean, default: true },
     smtpEnabled: { type: Boolean, default: false },
     smtpHost: { type: String, default: "smtp.gmail.com" },
     smtpPort: { type: Number, default: 465 },
@@ -58,6 +70,8 @@ const EmailSettingsSchema = new Schema<IEmailSettings>(
     fromName: { type: String, default: "Al-Siraat Tasker" },
     fromEmail: { type: String, default: "" },
     replyToEmail: { type: String, default: "" },
+    azureConnectionString: { type: String, default: "" },
+    azureFromEmail: { type: String, default: "" },
     templates: { type: [EmailTemplateConfigSchema], default: [] },
   },
   { timestamps: true },

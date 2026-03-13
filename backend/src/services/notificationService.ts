@@ -2,70 +2,165 @@
  * Notification Service
  *
  * Handles both in-app notifications (stored in MongoDB) and
- * outbound emails (via Nodemailer / SMTP).
+ * outbound emails (via SMTP or Azure Communication Services Email).
+ * Email config is per-organisation and stored in EmailSettings (DB).
  *
  * Usage:
  *   import { notify } from './notificationService.js';
  *   await notify({ ... });
  *
  *   import { sendEmail } from './notificationService.js';
- *   await sendEmail('user@example.com', template);
+ *   await sendEmail('user@example.com', template, { organisationId });
  */
 
 import nodemailer from "nodemailer";
+import { EmailClient, KnownEmailSendStatus } from "@azure/communication-email";
 import Notification from "../models/Notification.js";
 import User from "../models/User.js";
+import EmailSettings from "../models/EmailSettings.js";
+import type { IEmailSettings } from "../models/EmailSettings.js";
 import type { EmailTemplate } from "./emailTemplates.js";
+import { normalizeAzureConnectionString } from "../utils/azureConnectionString.js";
 
-// ─── SMTP Transport ───────────────────────────────────────────────────────────
+// ─── Send via SMTP (from EmailSettings only) ──────────────────────────────────
 
-const EMAIL_ENABLED =
-  !!(process.env.EMAIL_USER && process.env.EMAIL_PASS) &&
-  process.env.EMAIL_ENABLED !== "false";
+async function sendViaSmtp(
+  toEmail: string,
+  template: EmailTemplate,
+  settings: IEmailSettings,
+): Promise<void> {
+  if (!settings.smtpUser || !settings.smtpPass) {
+    throw new Error("SMTP not configured (missing user or password in EmailSettings)");
+  }
+  const transporter = nodemailer.createTransport({
+    host: settings.smtpHost || "smtp.gmail.com",
+    port: settings.smtpPort || 465,
+    secure: settings.smtpSecure !== false,
+    auth: { user: settings.smtpUser, pass: settings.smtpPass },
+  });
+  const fromAddr = settings.fromEmail || settings.smtpUser;
+  await transporter.sendMail({
+    from: `"${settings.fromName || "Al-Siraat Tasker"}" <${fromAddr}>`,
+    to: toEmail,
+    subject: template.subject,
+    text: template.text,
+    html: template.html,
+  });
+}
 
-const transporter = EMAIL_ENABLED
-  ? nodemailer.createTransport({
-      host: process.env.EMAIL_HOST || "smtp.gmail.com",
-      port: parseInt(process.env.EMAIL_PORT || "465"),
-      secure: process.env.EMAIL_SECURE !== "false", // true for 465
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    })
-  : null;
+// ─── Send via Azure Communication Services Email ─────────────────────────────
 
-// ─── Primary Send-Email Helper ────────────────────────────────────────────────
+const AZURE_POLL_INTERVAL_MS = 2000;
+const AZURE_POLL_TIMEOUT_MS = 60000;
+
+async function sendViaAzure(
+  toEmail: string,
+  template: EmailTemplate,
+  settings: IEmailSettings,
+): Promise<void> {
+  const rawConn = settings.azureConnectionString?.trim();
+  const fromEmail = settings.azureFromEmail?.trim();
+  if (!rawConn || !fromEmail) {
+    throw new Error("Azure email not configured (missing connection string or from address)");
+  }
+  const conn = normalizeAzureConnectionString(rawConn);
+  const client = new EmailClient(conn);
+  const message = {
+    senderAddress: fromEmail,
+    content: {
+      subject: template.subject,
+      plainText: template.text || "",
+      html: template.html,
+    },
+    recipients: {
+      to: [{ address: toEmail }],
+    },
+  };
+  const poller = await client.beginSend(message);
+  const start = Date.now();
+  while (!poller.isDone() && Date.now() - start < AZURE_POLL_TIMEOUT_MS) {
+    await poller.poll();
+    await new Promise((r) => setTimeout(r, AZURE_POLL_INTERVAL_MS));
+  }
+  if (!poller.isDone()) {
+    throw new Error("Azure email send timed out");
+  }
+  const result = poller.getResult();
+  if (result?.status !== KnownEmailSendStatus.Succeeded) {
+    const err = result?.error;
+    throw new Error(err?.message || `Azure email failed: ${result?.status ?? "unknown"}`);
+  }
+}
+
+// ─── Primary Send-Email Helper ──────────────────────────────────────────────
+
+export interface SendEmailOptions {
+  /** Organisation ID for the recipient (or null for global settings). Used to load EmailSettings. */
+  organisationId?: string | null;
+}
 
 /**
  * Send an HTML email using a pre-built template object.
- * Silently fails (logs) if email is not configured.
+ * Loads EmailSettings for the given organisation (or global). Uses SMTP or Azure per settings.
+ * All config comes from EmailSettings (DB); no env-based email config. Silently fails (logs) if not configured.
  */
 export const sendEmail = async (
   toEmail: string,
   template: EmailTemplate,
+  options?: SendEmailOptions,
 ): Promise<void> => {
-  if (!EMAIL_ENABLED || !transporter) {
+  const organisationId = options?.organisationId ?? null;
+  const orgForQuery =
+    organisationId && organisationId.length > 0 ? organisationId : null;
+
+  let settings: IEmailSettings | null = null;
+  try {
+    settings = await EmailSettings.findOne({
+      organisation: orgForQuery,
+    }).exec();
+  } catch (err) {
+    console.error("[Email] Failed to load EmailSettings:", err);
+    return;
+  }
+
+  if (!settings) {
     console.log(
-      `[Email DISABLED] Would have sent "${template.subject}" to ${toEmail}`,
+      `[Email DISABLED] No EmailSettings for org. Would have sent "${template.subject}" to ${toEmail}`,
     );
     return;
   }
+
+  if (settings.emailEnabled === false) {
+    console.log(
+      `[Email DISABLED] Org email disabled. Would have sent "${template.subject}" to ${toEmail}`,
+    );
+    return;
+  }
+
+  const provider = settings.emailProvider || "smtp";
+  if (provider === "azure") {
+    if (settings.azureConnectionString?.trim() && settings.azureFromEmail?.trim()) {
+      try {
+        await sendViaAzure(toEmail, template, settings);
+        console.log(`[Email] Sent via Azure "${template.subject}" to ${toEmail}`);
+        return;
+      } catch (err) {
+        console.error(`[Email] Azure failed to ${toEmail}:`, err);
+        return;
+      }
+    }
+  }
+
+  // SMTP path (from EmailSettings only)
   try {
-    await transporter.sendMail({
-      from: `"${process.env.EMAIL_FROM_NAME || "Al-Siraat Tasker"}" <${process.env.EMAIL_USER}>`,
-      to: toEmail,
-      subject: template.subject,
-      text: template.text,
-      html: template.html,
-    });
+    await sendViaSmtp(toEmail, template, settings);
     console.log(`[Email] Sent "${template.subject}" to ${toEmail}`);
   } catch (err) {
     console.error(`[Email] Failed to send to ${toEmail}:`, err);
   }
 };
 
-// ─── Notification Types ───────────────────────────────────────────────────────
+// ─── Notification Types ─────────────────────────────────────────────────────
 
 export type NotificationType = "info" | "success" | "warning" | "error";
 
@@ -85,6 +180,7 @@ interface NotifyOptions {
 
 /**
  * Create an in-app notification and optionally send an email.
+ * Uses the recipient's organisation to load EmailSettings for sending.
  * Errors are caught and logged rather than thrown.
  */
 export const notify = async (opts: NotifyOptions): Promise<void> => {
@@ -102,11 +198,12 @@ export const notify = async (opts: NotifyOptions): Promise<void> => {
     if (link) data.link = link;
     await Notification.create(data);
 
-    // 2. Email (if template provided and SMTP configured)
+    // 2. Email (if template provided); use recipient's org for email config
     if (emailTemplate) {
-      const user = await User.findById(recipientId).select("email");
+      const user = await User.findById(recipientId).select("email organisation");
       if (user?.email) {
-        await sendEmail(user.email, emailTemplate);
+        const organisationId = user.organisation?.toString() ?? null;
+        await sendEmail(user.email, emailTemplate, { organisationId });
       }
     }
   } catch (err) {
@@ -133,15 +230,15 @@ export const sendNotification = async (
     await Notification.create(data);
 
     if (sendEmailFlag) {
-      const user = await User.findById(recipientId).select("email name");
+      const user = await User.findById(recipientId).select("email name organisation");
       if (user?.email) {
-        // Build a simple generic email template inline
         const genericTemplate = {
           subject: title,
           html: `<p>${message}</p>${link ? `<p><a href="${process.env.FRONTEND_URL || ""}${link}">View details</a></p>` : ""}`,
           text: `${message}${link ? `\n\nView: ${process.env.FRONTEND_URL || ""}${link}` : ""}`,
         };
-        await sendEmail(user.email, genericTemplate);
+        const organisationId = user.organisation?.toString() ?? null;
+        await sendEmail(user.email, genericTemplate, { organisationId });
       }
     }
   } catch (err) {

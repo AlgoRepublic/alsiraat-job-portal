@@ -1,7 +1,13 @@
 import { Request, Response } from "express";
 import nodemailer from "nodemailer";
+import { EmailClient, KnownEmailSendStatus } from "@azure/communication-email";
 import EmailSettings from "../models/EmailSettings.js";
 import { checkPermissionAsync, Permission } from "../middleware/rbac.js";
+import { normalizeAzureConnectionString } from "../utils/azureConnectionString.js";
+
+const MASKED_PLACEHOLDER = "••••••••";
+const AZURE_POLL_INTERVAL_MS = 2000;
+const AZURE_POLL_TIMEOUT_MS = 60000;
 
 // ─── Default template configs ─────────────────────────────────────────────────
 // These are the "factory defaults" shown when no override is stored.
@@ -181,9 +187,16 @@ export const getEmailSettings = async (req: any, res: Response) => {
 
     let settings = await EmailSettings.findOne({ organisation: orgId });
 
-    // Return defaults merged with stored values
+    // Mask sensitive fields in response (client can still save; only update when new value provided)
+    let settingsPayload: any = settings
+      ? settings.toObject()
+      : null;
+    if (settingsPayload?.azureConnectionString) {
+      settingsPayload.azureConnectionString = MASKED_PLACEHOLDER;
+    }
+
     res.json({
-      settings: settings || null,
+      settings: settingsPayload,
       defaultTemplates: DEFAULT_TEMPLATES,
       isGlobal: isGlobalAdmin,
     });
@@ -209,6 +222,8 @@ export const saveEmailSettings = async (req: any, res: Response) => {
       : req.user.organisation?.toString() || null;
 
     const {
+      emailProvider,
+      emailEnabled,
       smtpEnabled,
       smtpHost,
       smtpPort,
@@ -218,11 +233,13 @@ export const saveEmailSettings = async (req: any, res: Response) => {
       fromName,
       fromEmail,
       replyToEmail,
+      azureConnectionString,
+      azureFromEmail,
       templates,
     } = req.body;
 
     const update: any = {
-      smtpEnabled: !!smtpEnabled,
+      smtpEnabled: smtpEnabled !== undefined ? !!smtpEnabled : undefined,
       smtpHost: smtpHost || "smtp.gmail.com",
       smtpPort: parseInt(smtpPort) || 465,
       smtpSecure: smtpSecure !== false,
@@ -230,10 +247,20 @@ export const saveEmailSettings = async (req: any, res: Response) => {
       fromEmail: fromEmail || "",
       replyToEmail: replyToEmail || "",
     };
+    if (emailProvider !== undefined)
+      update.emailProvider = emailProvider === "azure" ? "azure" : "smtp";
+    if (emailEnabled !== undefined) update.emailEnabled = !!emailEnabled;
     if (smtpUser !== undefined) update.smtpUser = smtpUser;
-    // Only update password if a new one was provided (not the masked placeholder)
-    if (smtpPass && smtpPass !== "••••••••") update.smtpPass = smtpPass;
+    if (smtpPass && smtpPass !== MASKED_PLACEHOLDER) update.smtpPass = smtpPass;
+    if (azureFromEmail !== undefined) update.azureFromEmail = azureFromEmail || "";
+    if (azureConnectionString !== undefined && azureConnectionString !== MASKED_PLACEHOLDER)
+      update.azureConnectionString = azureConnectionString;
     if (templates) update.templates = templates;
+
+    // Remove undefined keys so we don't overwrite with undefined
+    Object.keys(update).forEach((k) =>
+      update[k] === undefined ? delete update[k] : {},
+    );
 
     const settings = await EmailSettings.findOneAndUpdate(
       { organisation: orgId },
@@ -247,6 +274,16 @@ export const saveEmailSettings = async (req: any, res: Response) => {
   }
 };
 
+const TEST_EMAIL_HTML = `
+  <div style="font-family:Arial,sans-serif;max-width:500px;margin:40px auto;padding:32px;background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+    <h2 style="color:#812349;margin:0 0 16px;">✅ Email Test Successful</h2>
+    <p style="color:#52525b;">Your email configuration is working correctly. You can now enable email notifications for your Al-Siraat Tasker instance.</p>
+    <p style="color:#a1a1aa;font-size:12px;margin-top:24px;">Sent from Al-Siraat Tasker Admin Settings</p>
+  </div>
+`;
+const TEST_EMAIL_TEXT =
+  "This is a test email to verify your email configuration is working correctly.";
+
 // ─── POST /api/email-settings/test ────────────────────────────────────────────
 export const testSmtpConnection = async (req: any, res: Response) => {
   try {
@@ -256,7 +293,16 @@ export const testSmtpConnection = async (req: any, res: Response) => {
     );
     if (!allowed) return res.status(403).json({ message: "Permission denied" });
 
+    const isGlobalAdmin = req.user.roles?.some(
+      (r: string) => r.toLowerCase() === "global admin",
+    );
+    const orgId = isGlobalAdmin
+      ? null
+      : req.user.organisation?.toString() || null;
+
     const {
+      provider: requestedProvider,
+      testRecipient,
       smtpHost,
       smtpPort,
       smtpSecure,
@@ -264,44 +310,93 @@ export const testSmtpConnection = async (req: any, res: Response) => {
       smtpPass,
       fromName,
       fromEmail,
-      testRecipient,
     } = req.body;
 
-    if (!smtpHost || !smtpUser || !smtpPass || !testRecipient) {
-      return res
-        .status(400)
-        .json({
+    if (!testRecipient) {
+      return res.status(400).json({ message: "testRecipient is required" });
+    }
+
+    const settings = await EmailSettings.findOne({ organisation: orgId });
+    const provider =
+      (requestedProvider || settings?.emailProvider || "smtp") === "azure"
+        ? "azure"
+        : "smtp";
+
+    if (provider === "azure") {
+      const rawConn = settings?.azureConnectionString?.trim();
+      const fromAddr = settings?.azureFromEmail?.trim();
+      if (!rawConn || !fromAddr) {
+        return res.status(400).json({
           message:
-            "smtpHost, smtpUser, smtpPass and testRecipient are required",
+            "Azure email not configured. Save Azure connection string and from address first.",
         });
+      }
+      const conn = normalizeAzureConnectionString(rawConn);
+      const client = new EmailClient(conn);
+      const message = {
+        senderAddress: fromAddr,
+        content: {
+          subject: "✅ Email Test — Al-Siraat Tasker",
+          plainText: TEST_EMAIL_TEXT,
+          html: TEST_EMAIL_HTML,
+        },
+        recipients: { to: [{ address: testRecipient }] },
+      };
+      const poller = await client.beginSend(message);
+      const start = Date.now();
+      while (!poller.isDone() && Date.now() - start < AZURE_POLL_TIMEOUT_MS) {
+        await poller.poll();
+        await new Promise((r) => setTimeout(r, AZURE_POLL_INTERVAL_MS));
+      }
+      if (!poller.isDone()) {
+        return res.status(400).json({ message: "Azure email send timed out" });
+      }
+      const result = poller.getResult();
+      if (result?.status !== KnownEmailSendStatus.Succeeded) {
+        const err = result?.error;
+        return res.status(400).json({
+          message: err?.message || `Azure email failed: ${result?.status ?? "unknown"}`,
+        });
+      }
+      return res.json({ message: `Test email sent to ${testRecipient}` });
+    }
+
+    // SMTP path: use stored settings or body params
+    const host = settings?.smtpHost || smtpHost || "smtp.gmail.com";
+    const port = settings?.smtpPort ?? smtpPort ?? 465;
+    const secure = settings?.smtpSecure ?? smtpSecure !== false;
+    const user = settings?.smtpUser || smtpUser;
+    const pass = settings?.smtpPass || smtpPass;
+    const fromNameVal = settings?.fromName || fromName || "Al-Siraat Tasker";
+    const fromEmailVal = settings?.fromEmail || fromEmail || user;
+
+    if (!user || !pass) {
+      return res.status(400).json({
+        message:
+          "smtpUser and smtpPass are required (save SMTP settings or provide in body)",
+      });
     }
 
     const transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: parseInt(smtpPort) || 465,
-      secure: smtpSecure !== false,
-      auth: { user: smtpUser, pass: smtpPass },
+      host,
+      port: parseInt(String(port)) || 465,
+      secure,
+      auth: { user, pass },
     });
 
     await transporter.verify();
 
     await transporter.sendMail({
-      from: `"${fromName || "Al-Siraat Tasker"}" <${fromEmail || smtpUser}>`,
+      from: `"${fromNameVal}" <${fromEmailVal}>`,
       to: testRecipient,
       subject: "✅ SMTP Test — Al-Siraat Tasker",
-      text: "This is a test email to verify your SMTP configuration is working correctly.",
-      html: `
-        <div style="font-family:Arial,sans-serif;max-width:500px;margin:40px auto;padding:32px;background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
-          <h2 style="color:#812349;margin:0 0 16px;">✅ SMTP Test Successful</h2>
-          <p style="color:#52525b;">Your email configuration is working correctly. You can now enable email notifications for your Al-Siraat Tasker instance.</p>
-          <p style="color:#a1a1aa;font-size:12px;margin-top:24px;">Sent from Al-Siraat Tasker Admin Settings</p>
-        </div>
-      `,
+      text: TEST_EMAIL_TEXT,
+      html: TEST_EMAIL_HTML,
     });
 
     res.json({ message: `Test email sent to ${testRecipient}` });
   } catch (err: any) {
-    res.status(400).json({ message: `SMTP test failed: ${err.message}` });
+    res.status(400).json({ message: `Email test failed: ${err.message}` });
   }
 };
 

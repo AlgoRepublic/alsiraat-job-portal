@@ -70,7 +70,10 @@ export const signup = async (req: Request, res: Response) => {
     const token = generateToken(user);
 
     // Send welcome email asynchronously (don't await to keep signup fast)
-    sendEmail(user.email, welcomeEmail(user.name || fullName)).catch(() => {});
+    const organisationId = user.organisation?.toString() ?? null;
+    sendEmail(user.email, welcomeEmail(user.name || fullName), {
+      organisationId,
+    }).catch(() => {});
 
     res.status(201).json({
       token,
@@ -296,9 +299,11 @@ export const forgotPassword = async (req: Request, res: Response) => {
     const resetUrl = `${FRONTEND_URL}/#/reset-password/${resetToken}`;
 
     // Send branded password reset email directly
+    const organisationId = user.organisation?.toString() ?? null;
     await sendEmail(
       user.email,
       passwordResetEmail(user.name || user.email, resetUrl),
+      { organisationId },
     );
 
     res.json({ message: "Password reset link sent to email" });
@@ -338,11 +343,16 @@ export const resetPassword = async (req: Request, res: Response) => {
     await user.save();
 
     // Send password changed confirmation email
-    await sendEmail(user.email, {
-      subject: "Your password has been changed",
-      html: `<p>Hi ${user.name},</p><p>Your password on Al-Siraat Tasker has been successfully reset. If you did not perform this action, please contact support immediately.</p>`,
-      text: `Your password has been reset. If you didn't do this, contact support immediately.`,
-    });
+    const organisationId = user.organisation?.toString() ?? null;
+    await sendEmail(
+      user.email,
+      {
+        subject: "Your password has been changed",
+        html: `<p>Hi ${user.name},</p><p>Your password on Al-Siraat Tasker has been successfully reset. If you did not perform this action, please contact support immediately.</p>`,
+        text: `Your password has been reset. If you didn't do this, contact support immediately.`,
+      },
+      { organisationId },
+    );
 
     res.json({ message: "Password reset successful" });
   } catch (err: any) {

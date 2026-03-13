@@ -14,6 +14,7 @@
     "test": "node --experimental-strip-types --import ./test/test-runner.js --test \"src/**/*.test.ts\""
   },
   "dependencies": {
+    "@azure/communication-email": "^1.0.0",
     "@types/multer": "^2.0.0",
     "@types/papaparse": "^5.5.2",
     "bcryptjs": "^3.0.3",

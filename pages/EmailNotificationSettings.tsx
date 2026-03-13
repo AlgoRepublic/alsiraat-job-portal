@@ -154,6 +154,8 @@ interface TemplateConfig {
   bodyText: string;
 }
 
+type EmailProviderType = "smtp" | "azure";
+
 interface SmtpConfig {
   smtpEnabled: boolean;
   smtpHost: string;
@@ -166,6 +168,11 @@ interface SmtpConfig {
   replyToEmail: string;
 }
 
+interface AzureConfig {
+  azureConnectionString: string;
+  azureFromEmail: string;
+}
+
 const authHeaders = () => ({
   "Content-Type": "application/json",
   Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
@@ -174,6 +181,10 @@ const authHeaders = () => ({
 // ─── Main Component ───────────────────────────────────────────────────────────
 export const EmailNotificationSettings: React.FC = () => {
   const { showSuccess, showError } = useToast();
+
+  // Provider and master switch
+  const [emailProvider, setEmailProvider] = useState<EmailProviderType>("smtp");
+  const [emailEnabled, setEmailEnabled] = useState(true);
 
   // SMTP state
   const [smtp, setSmtp] = useState<SmtpConfig>({
@@ -186,6 +197,10 @@ export const EmailNotificationSettings: React.FC = () => {
     fromName: "Al-Siraat Tasker",
     fromEmail: "",
     replyToEmail: "",
+  });
+  const [azure, setAzure] = useState<AzureConfig>({
+    azureConnectionString: "",
+    azureFromEmail: "",
   });
   const [showPass, setShowPass] = useState(false);
   const [testEmail, setTestEmail] = useState("");
@@ -229,6 +244,10 @@ export const EmailNotificationSettings: React.FC = () => {
 
       if (settingsData.settings) {
         const s = settingsData.settings;
+        setEmailProvider(
+          s.emailProvider === "azure" ? "azure" : "smtp",
+        );
+        setEmailEnabled(s.emailEnabled !== false);
         setSmtp({
           smtpEnabled: s.smtpEnabled ?? false,
           smtpHost: s.smtpHost || "smtp.gmail.com",
@@ -239,6 +258,10 @@ export const EmailNotificationSettings: React.FC = () => {
           fromName: s.fromName || "Al-Siraat Tasker",
           fromEmail: s.fromEmail || "",
           replyToEmail: s.replyToEmail || "",
+        });
+        setAzure({
+          azureConnectionString: s.azureConnectionString || "",
+          azureFromEmail: s.azureFromEmail || "",
         });
 
         // Convert stored array to keyed record
@@ -288,9 +311,16 @@ export const EmailNotificationSettings: React.FC = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const bodyPayload = {
+      const bodyPayload: Record<string, unknown> = {
+        emailProvider,
+        emailEnabled,
         ...smtp,
         smtpPass: smtp.smtpPass === "••••••••" ? undefined : smtp.smtpPass,
+        azureConnectionString:
+          azure.azureConnectionString === "••••••••"
+            ? undefined
+            : azure.azureConnectionString,
+        azureFromEmail: azure.azureFromEmail,
         templates: Object.values(templates),
       };
 
@@ -309,7 +339,7 @@ export const EmailNotificationSettings: React.FC = () => {
     }
   };
 
-  // ── Test SMTP ──
+  // ── Test (uses saved config for selected provider) ──
   const handleTest = async () => {
     if (!testEmail) {
       showError("Enter a test recipient email");
@@ -322,9 +352,11 @@ export const EmailNotificationSettings: React.FC = () => {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify({
+          provider: emailProvider,
+          testRecipient: testEmail,
+          // Include SMTP fields for backward compat when no saved settings
           ...smtp,
           smtpPass: smtp.smtpPass === "••••••••" ? undefined : smtp.smtpPass,
-          testRecipient: testEmail,
         }),
       });
       const data = await res.json();
@@ -339,28 +371,25 @@ export const EmailNotificationSettings: React.FC = () => {
     }
   };
 
-  // ─── SMTP Panel ───────────────────────────────────────────────────────────
+  // ─── Provider selector + Enable ─────────────────────────────────────────────
 
-  const renderSmtpPanel = () => (
+  const renderProviderAndEnable = () => (
     <div className="space-y-6">
-      {/* Enable toggle */}
       <div className="flex items-center justify-between p-5 bg-zinc-50 dark:bg-zinc-800/60 rounded-2xl border border-zinc-200 dark:border-zinc-700">
         <div>
           <p className="font-bold text-zinc-900 dark:text-white text-sm">
             Enable Email Notifications
           </p>
           <p className="text-xs text-zinc-500 mt-0.5">
-            When enabled, emails will be sent for configured events via your
-            SMTP server
+            When enabled, emails will be sent for configured events using the
+            selected provider below
           </p>
         </div>
         <button
-          onClick={() =>
-            setSmtp((p) => ({ ...p, smtpEnabled: !p.smtpEnabled }))
-          }
+          onClick={() => setEmailEnabled((p) => !p)}
           className="shrink-0"
         >
-          {smtp.smtpEnabled ? (
+          {emailEnabled ? (
             <ToggleRight className="w-10 h-10 text-primary" />
           ) : (
             <ToggleLeft className="w-10 h-10 text-zinc-400" />
@@ -368,8 +397,46 @@ export const EmailNotificationSettings: React.FC = () => {
         </button>
       </div>
 
+      <div>
+        <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">
+          Email Provider
+        </label>
+        <div className="flex rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700 p-1 bg-zinc-100 dark:bg-zinc-800/60">
+          <button
+            type="button"
+            onClick={() => setEmailProvider("smtp")}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-bold transition-colors ${
+              emailProvider === "smtp"
+                ? "bg-white dark:bg-zinc-900 text-primary shadow-sm"
+                : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+            }`}
+          >
+            <Server className="w-4 h-4" />
+            SMTP
+          </button>
+          <button
+            type="button"
+            onClick={() => setEmailProvider("azure")}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-bold transition-colors ${
+              emailProvider === "azure"
+                ? "bg-white dark:bg-zinc-900 text-primary shadow-sm"
+                : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+            }`}
+          >
+            <Zap className="w-4 h-4" />
+            Azure Communication Services
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ─── SMTP Panel ───────────────────────────────────────────────────────────
+
+  const renderSmtpPanel = () => (
+    <div className="space-y-6">
       <div
-        className={`space-y-5 transition-opacity ${smtp.smtpEnabled ? "opacity-100" : "opacity-40 pointer-events-none"}`}
+        className={`space-y-5 transition-opacity ${emailEnabled ? "opacity-100" : "opacity-40 pointer-events-none"}`}
       >
         {/* Server settings */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -574,6 +641,109 @@ export const EmailNotificationSettings: React.FC = () => {
             (not your account password). Go to Google Account → Security →
             2-Step Verification → App Passwords.
           </span>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ─── Azure Panel ───────────────────────────────────────────────────────────
+
+  const renderAzurePanel = () => (
+    <div className="space-y-6">
+      <div
+        className={`space-y-5 transition-opacity ${emailEnabled ? "opacity-100" : "opacity-40 pointer-events-none"}`}
+      >
+        <div className="grid grid-cols-1 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
+              Connection String
+            </label>
+            <input
+              type="password"
+              autoComplete="off"
+              value={azure.azureConnectionString}
+              onChange={(e) =>
+                setAzure((p) => ({
+                  ...p,
+                  azureConnectionString: e.target.value,
+                }))
+              }
+              placeholder={
+                azure.azureConnectionString === "••••••••"
+                  ? "Stored in database — enter new value to replace"
+                  : "endpoint=https://...;accesskey=..."
+              }
+              className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-primary/30 outline-none font-mono"
+            />
+            <p className="text-xs text-zinc-500 mt-1">
+              {azure.azureConnectionString === "••••••••"
+                ? "Connection string is stored. Leave as is to keep it, or enter a new value to replace."
+                : "From Azure Portal: Communication Services → Keys. Use the full connection string (endpoint + accesskey)."}
+            </p>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
+              From Email (Sender Address)
+            </label>
+            <input
+              type="email"
+              value={azure.azureFromEmail}
+              onChange={(e) =>
+                setAzure((p) => ({ ...p, azureFromEmail: e.target.value }))
+              }
+              placeholder="no-reply@taskerapp.au"
+              className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-primary/30 outline-none"
+            />
+            <p className="text-xs text-zinc-500 mt-1">
+              Must be an allowable sender address in your Azure Email
+              Communication Service (verified domain).
+            </p>
+          </div>
+        </div>
+
+        {/* Test connection */}
+        <div className="border border-dashed border-zinc-200 dark:border-zinc-700 rounded-2xl p-5 space-y-3">
+          <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
+            Test Connection
+          </p>
+          <div className="flex gap-3">
+            <input
+              type="email"
+              value={testEmail}
+              onChange={(e) => setTestEmail(e.target.value)}
+              placeholder="Send test email to..."
+              className="flex-1 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-primary/30 outline-none"
+            />
+            <button
+              onClick={handleTest}
+              disabled={testing}
+              className="flex items-center gap-2 px-5 py-2.5 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-xl text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              {testing ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+              {testing ? "Sending…" : "Send Test"}
+            </button>
+          </div>
+
+          {testResult && (
+            <div
+              className={`flex items-start gap-3 p-3 rounded-xl text-sm ${
+                testResult === "success"
+                  ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400"
+                  : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400"
+              }`}
+            >
+              {testResult === "success" ? (
+                <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+              ) : (
+                <XCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              )}
+              <span>{testMsg}</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -928,33 +1098,44 @@ export const EmailNotificationSettings: React.FC = () => {
         </button>
       </div>
 
-      {/* ── SMTP Section ── */}
+      {/* ── Email Provider Section ── */}
       <div className="bg-white dark:bg-zinc-900/50 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm overflow-hidden">
         <div className="flex items-center gap-3 px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/40">
           <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Server className="w-4 h-4 text-primary" />
+            {emailProvider === "azure" ? (
+              <Zap className="w-4 h-4 text-primary" />
+            ) : (
+              <Server className="w-4 h-4 text-primary" />
+            )}
           </div>
           <div>
             <h3 className="font-black text-zinc-900 dark:text-white text-sm">
-              SMTP Configuration
+              {emailProvider === "azure"
+                ? "Azure Communication Services"
+                : "SMTP Configuration"}
             </h3>
             <p className="text-xs text-zinc-500">
-              Outgoing mail server settings
+              {emailProvider === "azure"
+                ? "Send email via Azure Email Communication Service"
+                : "Outgoing mail server settings"}
             </p>
           </div>
           <div className="ml-auto">
             <span
               className={`text-xs font-bold px-3 py-1 rounded-full ${
-                smtp.smtpEnabled
+                emailEnabled
                   ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                   : "bg-zinc-100 text-zinc-400 dark:bg-zinc-800"
               }`}
             >
-              {smtp.smtpEnabled ? "● Enabled" : "○ Disabled"}
+              {emailEnabled ? "● Enabled" : "○ Disabled"}
             </span>
           </div>
         </div>
-        <div className="p-6">{renderSmtpPanel()}</div>
+        <div className="p-6 space-y-6">
+          {renderProviderAndEnable()}
+          {emailProvider === "smtp" ? renderSmtpPanel() : renderAzurePanel()}
+        </div>
       </div>
 
       {/* ── Email Templates Section ── */}
