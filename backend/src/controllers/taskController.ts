@@ -271,6 +271,23 @@ export const getTasks = async (req: any, res: Response) => {
         status: { $ne: TaskStatus.ARCHIVED },
       };
 
+      // Apply search filter if provided
+      if (search && typeof search === "string" && search.trim().length > 0) {
+        const searchRegex = new RegExp(search.trim(), "i");
+        query.$and = [
+          { createdBy: userId },
+          { status: { $ne: TaskStatus.ARCHIVED } },
+          {
+            $or: [
+              { title: searchRegex },
+              { description: searchRegex },
+            ]
+          }
+        ];
+        delete query.createdBy; // Handled in $and
+        delete query.status;    // Handled in $and
+      }
+
       const tasks = await Task.find(query)
         .populate("category", "name code icon")
         .populate("rewardType", "name code")

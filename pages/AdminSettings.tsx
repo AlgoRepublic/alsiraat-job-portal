@@ -15,6 +15,7 @@ import {
   Lock,
   ExternalLink,
   Mail,
+  Sparkles,
 } from "lucide-react";
 import { Loading } from "../components/Loading";
 import { useNavigate } from "react-router-dom";
@@ -47,11 +48,137 @@ interface Role {
   oidcMapping: string[];
 }
 
+const AiSettingsPanel: React.FC = () => {
+  const { showSuccess, showError } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [settings, setSettings] = useState({ provider: "gemini", apiKey: "" });
+  const [hasKey, setHasKey] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/ai`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem("auth_token")}` },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        setSettings({ provider: data.provider || "gemini", apiKey: "" });
+        setHasKey(data.hasApiKey);
+      })
+      .catch(() => showError("Failed to load AI settings"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const payload: any = { provider: settings.provider };
+      if (settings.apiKey) payload.apiKey = settings.apiKey;
+      
+      const res = await fetch(`${API_BASE_URL}/ai`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("Failed to save settings");
+      showSuccess("AI Settings saved");
+      if (settings.apiKey) setHasKey(true);
+      setSettings((s) => ({ ...s, apiKey: "" }));
+    } catch {
+      showError("Failed to save AI settings");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <Loading message="Loading AI settings..." />;
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div>
+        <h2 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
+          AI Settings
+        </h2>
+        <p className="text-zinc-500 font-medium mt-1">
+          Configure the AI provider and API keys used for generation features.
+        </p>
+      </div>
+
+      <div className="glass-card rounded-2xl p-6 sm:p-8 space-y-8">
+        <div className="space-y-4">
+          <label className="text-sm font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">
+            AI Provider
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[
+              { id: "gemini", label: "Google Gemini" },
+              { id: "chatgpt", label: "OpenAI ChatGPT" },
+              { id: "anthropic", label: "Anthropic Claude" },
+            ].map((p) => (
+              <label
+                key={p.id}
+                className={`flex flex-col p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                  settings.provider === p.id
+                    ? "border-primary bg-primary/5"
+                    : "border-zinc-200 dark:border-zinc-700 hover:border-primary/50"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <input
+                    type="radio"
+                    name="provider"
+                    value={p.id}
+                    checked={settings.provider === p.id}
+                    onChange={() => setSettings({ ...settings, provider: p.id })}
+                    className="w-4 h-4 accent-primary"
+                  />
+                  <span className="font-bold text-zinc-900 dark:text-white">
+                    {p.label}
+                  </span>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">
+            API Key
+          </label>
+          <p className="text-xs text-zinc-500 mb-2">
+            Leave blank to keep the existing key. {hasKey && <span className="text-emerald-500 font-bold ml-1">An API key is currently saved.</span>}
+          </p>
+          <input
+            type="password"
+            placeholder="sk-..."
+            value={settings.apiKey}
+            onChange={(e) => setSettings({ ...settings, apiKey: e.target.value })}
+            className="w-full p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-2 border-zinc-200 dark:border-zinc-700 focus:border-primary outline-none text-zinc-900 dark:text-white font-mono"
+          />
+        </div>
+
+        <div className="flex justify-end pt-4">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-6 py-3 bg-primary text-white font-black text-sm rounded-xl hover:bg-primaryHover transition-colors flex items-center gap-2"
+          >
+            {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
+            Save Settings
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const AdminSettings: React.FC = () => {
   const { showSuccess, showError } = useToast();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
-    "users" | "roles" | "permissions" | "categories" | "groups" | "email"
+    "users" | "roles" | "permissions" | "categories" | "groups" | "email" | "ai"
   >("users");
 
   // Dynamic roles and permissions state
@@ -1422,6 +1549,7 @@ export const AdminSettings: React.FC = () => {
                 { key: "categories", icon: Layers, label: "Categories" },
                 { key: "groups", icon: Users, label: "Groups" },
                 { key: "email", icon: Mail, label: "Email Settings" },
+                { key: "ai", icon: Sparkles, label: "AI Settings" },
               ] as const
             ).map(({ key, icon: Icon, label }) => (
               <button
@@ -1467,6 +1595,7 @@ export const AdminSettings: React.FC = () => {
           {activeTab === "categories" && renderCategories()}
           {activeTab === "groups" && <GroupManagement />}
           {activeTab === "email" && <EmailNotificationSettings />}
+          {activeTab === "ai" && <AiSettingsPanel />}
         </div>
       </div>
     </div>

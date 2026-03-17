@@ -437,19 +437,6 @@ export const Layout: React.FC<LayoutProps> = ({
       protected: true,
     },
     {
-      icon: Clock,
-      label: "Pending Approvals",
-      path: "/jobs?status=Pending",
-      protected: true,
-      permission: Permission.TASK_APPROVE,
-    },
-    {
-      icon: CheckCircle,
-      label: "My Tasks",
-      path: "/my-tasks",
-      protected: true,
-    },
-    {
       icon: UserCircle,
       label: "My Profile",
       path: "/profile",

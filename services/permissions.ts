@@ -29,6 +29,8 @@ export const Permission = {
   APPLICATION_SHORTLIST: "application:shortlist",
   APPLICATION_APPROVE: "application:approve",
   APPLICATION_REJECT: "application:reject",
+  APPLICATION_CONFIRM: "application:confirm",
+  APPLICATION_DECLINE: "application:decline",
 
   // User Management
   USER_READ: "user:read",
@@ -114,6 +116,8 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.TASK_READ,
     Permission.APPLICATION_CREATE,
     Permission.APPLICATION_READ_OWN,
+    Permission.APPLICATION_CONFIRM,
+    Permission.APPLICATION_DECLINE,
   ],
 };
 

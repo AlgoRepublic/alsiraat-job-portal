@@ -91,7 +91,7 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
 
   return (
     <div
-      className={`${variant === "default" && label ? "space-y-2" : ""} relative ${isOpen ? "z-[9999]" : "z-0"}`}
+      className={`${variant === "default" && label ? "space-y-2" : ""} relative ${isOpen ? "z-[99999]" : "z-0"}`}
       ref={dropdownRef}
     >
       {label && (
@@ -121,7 +121,7 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
 
       {isOpen && (
         <div
-          className={`absolute z-[9999] w-full min-w-[200px] glass-card rounded-2xl overflow-hidden animate-slide-up shadow-2xl border border-zinc-200 dark:border-zinc-800 backdrop-blur-2xl ${
+          className={`absolute z-[99999] w-full min-w-[200px] glass-card rounded-2xl overflow-hidden animate-slide-up shadow-2xl border border-zinc-200 dark:border-zinc-800 backdrop-blur-2xl ${
             showAbove ? "bottom-full mb-2" : "top-full mt-2"
           }`}
         >
@@ -315,7 +315,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
 
   return (
     <div
-      className={`space-y-2 relative ${isOpen ? "z-[9999]" : "z-0"}`}
+      className={`space-y-2 relative ${isOpen ? "z-[99999]" : "z-0"}`}
       ref={pickerRef}
     >
       <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">
@@ -348,7 +348,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
 
       {isOpen && (
         <div
-          className={`absolute z-[9999] w-full sm:w-[320px] glass-card rounded-[2rem] p-6 animate-slide-up shadow-2xl border border-zinc-200 dark:border-zinc-800 backdrop-blur-2xl ${
+          className={`absolute z-[99999] w-full sm:w-[320px] glass-card rounded-[2rem] p-6 animate-slide-up shadow-2xl border border-zinc-200 dark:border-zinc-800 backdrop-blur-2xl ${
             showAbove ? "bottom-full mb-2" : "top-full mt-2"
           }`}
         >

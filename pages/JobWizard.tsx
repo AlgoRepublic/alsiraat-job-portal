@@ -60,13 +60,13 @@ const AccordionSection: React.FC<AccordionProps> = ({
   badge,
 }) => (
   <div
-    className={`rounded-2xl border-2 transition-all duration-300 overflow-hidden ${
+    className={`glass-card rounded-2xl border transition-all duration-300 ${
       isOpen
-        ? "border-primary/40 shadow-lg shadow-primary/5"
+        ? "border-primary/30 shadow-md shadow-primary/5 overflow-visible"
         : hasError
-          ? "border-red-400/60"
-          : "border-zinc-200 dark:border-zinc-700/60"
-    } bg-white dark:bg-zinc-900/50`}
+          ? "border-red-400/50 overflow-hidden"
+          : "border-white/20 dark:border-white/5 overflow-hidden"
+    }`}
   >
     <button
       type="button"
@@ -165,7 +165,6 @@ export const JobWizard: React.FC = () => {
     startDate: "",
     endDate: "",
     selectionCriteria: "",
-    interviewDetails: "",
     requiredSkills: [],
     rewardType: RewardType.VOLUNTEER,
     rewardValue: 0,
@@ -203,7 +202,6 @@ export const JobWizard: React.FC = () => {
               startDate: job.startDate,
               endDate: job.endDate,
               selectionCriteria: job.selectionCriteria,
-              interviewDetails: job.interviewDetails,
               requiredSkills: job.requiredSkills,
               rewardType: job.rewardType,
               rewardValue: job.rewardValue,
@@ -418,11 +416,11 @@ export const JobWizard: React.FC = () => {
               className="flex items-center gap-3 group"
             >
               <div
-                className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm transition-all duration-300 shadow-lg group-hover:scale-110 ${
+                className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm transition-all duration-300 shadow-primary/10 group-hover:scale-110 ${
                   step === s.num
-                    ? "bg-primary text-white scale-105 ring-4 ring-primary/20"
+                    ? "bg-primary text-white scale-105 shadow-lg ring-4 ring-primary/30"
                     : step > s.num
-                      ? "bg-primary/80 text-white"
+                      ? "bg-primary/80 text-white shadow-md"
                       : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700"
                 }`}
               >
@@ -663,7 +661,7 @@ export const JobWizard: React.FC = () => {
           <AccordionSection
             id="requirements"
             title="Requirements"
-            subtitle="Skills, criteria, and interview process"
+            subtitle="Skills and criteria"
             icon={<Target className="w-4 h-4" />}
             isOpen={openS2.requirements}
             onToggle={() => toggleS2("requirements")}
@@ -712,20 +710,6 @@ export const JobWizard: React.FC = () => {
                   value={formData.selectionCriteria}
                   onChange={(e) =>
                     updateField("selectionCriteria", e.target.value)
-                  }
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                  Interview Process
-                </label>
-                <textarea
-                  className="w-full p-4 glass rounded-xl h-24 font-medium dark:text-white resize-vertical"
-                  placeholder="e.g. 15min Zoom call, technical review…"
-                  value={formData.interviewDetails}
-                  onChange={(e) =>
-                    updateField("interviewDetails", e.target.value)
                   }
                 />
               </div>

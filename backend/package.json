@@ -15,6 +15,8 @@
   },
   "dependencies": {
     "@azure/communication-email": "^1.0.0",
+    "@anthropic-ai/sdk": "^0.78.0",
+    "@google/genai": "^1.45.0",
     "@types/multer": "^2.0.0",
     "@types/papaparse": "^5.5.2",
     "bcryptjs": "^3.0.3",
@@ -26,6 +28,7 @@
     "mongoose": "^9.2.1",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.13",
+    "openai": "^6.29.0",
     "papaparse": "^5.5.3",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
