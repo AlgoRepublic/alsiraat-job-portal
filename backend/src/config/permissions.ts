@@ -32,7 +32,8 @@ export const Permission = {
   APPLICATION_CREATE: "application:create", // Apply for a task
   APPLICATION_READ: "application:read", // View applications
   APPLICATION_READ_OWN: "application:read_own", // View own applications only
-  APPLICATION_ASSIGN_DIRECT: "application:assign_direct", // Directly assign a task to a user
+  APPLICATION_ASSIGN_DIRECT: "application:assign", // Directly assign a task to a user
+  TASK_ASSIGN: "task:assign", // Fallback for direct assign if user configured this instead
   APPLICATION_SHORTLIST: "application:shortlist",
   APPLICATION_APPROVE: "application:approve",
   APPLICATION_REJECT: "application:reject",

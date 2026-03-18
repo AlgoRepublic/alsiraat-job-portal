@@ -59,7 +59,9 @@ export const assignTask = async (req: any, res: Response) => {
 
     if (!isGlobalAdmin && isAdvertiser) {
       // Advertisers can only assign tasks they created
-      if (task.createdBy.toString() !== req.user._id.toString()) {
+      const creatorId =
+        (task.createdBy as any)._id?.toString() || task.createdBy.toString();
+      if (creatorId !== req.user._id.toString()) {
         return res.status(403).json({
           message: "You can only directly assign tasks that you created",
         });

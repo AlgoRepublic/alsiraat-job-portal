@@ -47,7 +47,6 @@ export const createTask = async (req: any, res: Response) => {
       rewardValue,
       eligibility,
       visibility,
-      interviewDetails,
     } = req.body;
 
     // All tasks start as PENDING and require explicit approval
@@ -93,7 +92,6 @@ export const createTask = async (req: any, res: Response) => {
       allowedRoles: parseArrayField(req.body.allowedRoles),
       allowedGroups: parseArrayField(req.body.allowedGroups),
       status: taskStatus,
-      interviewDetails,
       createdBy: req.user._id,
       attachments,
     };
@@ -166,7 +164,6 @@ export const updateTask = async (req: any, res: Response) => {
       rewardValue,
       eligibility,
       visibility,
-      interviewDetails,
     } = req.body;
 
     const task = await Task.findById(id);
@@ -235,7 +232,7 @@ export const updateTask = async (req: any, res: Response) => {
       (task as any).allowedRoles = parseArrayField(req.body.allowedRoles);
     if (req.body.allowedGroups !== undefined)
       (task as any).allowedGroups = parseArrayField(req.body.allowedGroups);
-    if (interviewDetails) task.interviewDetails = interviewDetails;
+
 
     if (newAttachments.length > 0) {
       task.attachments = [...task.attachments, ...newAttachments];

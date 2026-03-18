@@ -546,16 +546,7 @@ export const JobDetails: React.FC = () => {
               </div>
             )}
 
-            {job.interviewDetails && (
-              <div className="mt-8">
-                <h4 className="text-base font-bold text-zinc-900 dark:text-white mb-3">
-                  Interview Process
-                </h4>
-                <div className="text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800">
-                  {job.interviewDetails}
-                </div>
-              </div>
-            )}
+
 
             {(job.requiredSkills || []).length > 0 && (
               <div className="mt-8">

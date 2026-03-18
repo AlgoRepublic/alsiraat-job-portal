@@ -12,7 +12,7 @@ import { api } from "../services/api";
 import { Job, JobStatus, User } from "../types";
 import { Loading } from "../components/Loading";
 import { AssignTaskModal } from "../components/AssignTaskModal";
-import { Permission, hasPermission } from "../services/permissions";
+import { Permission, hasAnyPermission } from "../services/permissions";
 import { UserRole } from "../types";
 
 export const MyTasks: React.FC = () => {
@@ -60,7 +60,7 @@ export const MyTasks: React.FC = () => {
   // ── Permission check ──────────────────────────────────────────────────────
   const canAssign =
     currentUser?.roles?.some((r: string) =>
-      hasPermission(r as UserRole, Permission.APPLICATION_ASSIGN_DIRECT),
+      hasAnyPermission(r as UserRole, [Permission.APPLICATION_ASSIGN_DIRECT, Permission.TASK_ASSIGN]),
     ) ?? false;
 
   // ── Helpers ───────────────────────────────────────────────────────────────

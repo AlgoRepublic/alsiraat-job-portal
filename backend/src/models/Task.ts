@@ -29,7 +29,6 @@ export interface ITask extends Document {
   startDate?: Date | undefined;
   endDate?: Date | undefined;
   selectionCriteria?: string | undefined;
-  interviewDetails?: string | undefined;
   requiredSkills?: string[] | undefined;
   rewardType: string;
   rewardValue?: number | undefined;
@@ -65,7 +64,6 @@ const TaskSchema: Schema = new Schema(
     startDate: { type: Date },
     endDate: { type: Date },
     selectionCriteria: { type: String },
-    interviewDetails: { type: String },
     requiredSkills: [{ type: String }],
     rewardType: { type: String, required: true },
     rewardValue: { type: Number },

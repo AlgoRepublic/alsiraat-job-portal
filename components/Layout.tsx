@@ -424,12 +424,12 @@ export const Layout: React.FC<LayoutProps> = ({
     },
     { icon: Briefcase, label: "Browse Tasks", path: "/jobs" },
     {
-      icon: Plus,
-      label: "Create Task",
-      path: "/post-job",
+      icon: CheckCircle,
+      label: "My Tasks",
+      path: "/my-tasks",
       protected: true,
-      permission: Permission.TASK_CREATE,
     },
+
     {
       icon: FileText,
       label: "My Applications",

@@ -12,7 +12,7 @@ import {
   RotateCcw,
   ClipboardList,
 } from "lucide-react";
-import { JobCategory, JobStatus, RewardType, Job, User, UserRole } from "../types";
+import { JobCategory, JobStatus, RewardType, Job } from "../types";
 import { db } from "../services/database";
 import { getStatusColor } from "./Dashboard";
 
@@ -28,25 +28,12 @@ export const JobList: React.FC = () => {
   // Data State
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    const stored = localStorage.getItem("user_data");
-    if (stored) {
-      try {
-        setCurrentUser(JSON.parse(stored));
-      } catch {
-        /* ignore */
-      }
-    }
-  }, []);
 
   // Derived Filter State from URL
   const searchTerm = searchParams.get("q") || "";
   const filterCategory = searchParams.get("category") || "All";
   const filterStatus = searchParams.get("status") || "All";
   const filterReward = searchParams.get("reward") || "All";
-  const filterOwnTasks = searchParams.get("own") === "true";
   const dateFrom = searchParams.get("dateFrom") || "";
   const dateTo = searchParams.get("dateTo") || "";
 
@@ -69,7 +56,6 @@ export const JobList: React.FC = () => {
     filterCategory !== "All" ||
     filterStatus !== "All" ||
     filterReward !== "All" ||
-    filterOwnTasks ||
     dateFrom !== "" ||
     dateTo !== "";
 
@@ -104,7 +90,6 @@ export const JobList: React.FC = () => {
     const matchesStatus = filterStatus === "All" || job.status === filterStatus;
     const matchesReward =
       filterReward === "All" || job.rewardType === filterReward;
-    const matchesOwn = !filterOwnTasks || (currentUser && job.createdBy === currentUser.id);
 
     let matchesDate = true;
     if (dateFrom || dateTo) {
@@ -122,7 +107,6 @@ export const JobList: React.FC = () => {
       matchesCategory &&
       matchesStatus &&
       matchesReward &&
-      matchesOwn &&
       matchesDate
     );
   });
@@ -249,24 +233,7 @@ export const JobList: React.FC = () => {
                 </select>
               </div>
 
-              {currentUser && (
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-white/60 dark:text-zinc-500 uppercase tracking-widest ml-1">
-                    Ownership
-                  </label>
-                  <label className="flex items-center space-x-3 px-5 py-3 rounded-xl bg-white/90 dark:bg-zinc-900 border-0 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="w-5 h-5 rounded text-[#812349] focus:ring-[#812349]"
-                      checked={filterOwnTasks}
-                      onChange={(e) => updateParam("own", e.target.checked ? "true" : "")}
-                    />
-                    <span className="font-bold text-sm text-zinc-900 dark:text-white">
-                      My Tasks Only
-                    </span>
-                  </label>
-                </div>
-              )}
+
 
               <div className="md:col-span-2 lg:col-span-4 space-y-2">
                 <label className="text-[10px] font-black text-white/60 dark:text-zinc-500 uppercase tracking-widest ml-1">
@@ -329,15 +296,7 @@ export const JobList: React.FC = () => {
                 />
               </span>
             )}
-            {filterOwnTasks && (
-              <span className="px-3 py-1.5 glass-card rounded-xl text-[10px] font-black uppercase text-zinc-600 dark:text-zinc-400 flex items-center">
-                My Tasks{" "}
-                <X
-                  className="w-3 h-3 ml-2 cursor-pointer"
-                  onClick={() => updateParam("own", "")}
-                />
-              </span>
-            )}
+
           </div>
         )}
       </div>
@@ -390,18 +349,7 @@ export const JobList: React.FC = () => {
                   )}
                 </div>
               </div>
-              <div className="hidden md:flex flex-col items-center justify-center pl-10 border-l border-white/20 dark:border-white/5 h-full min-h-[140px] space-y-3">
-                {currentUser && job.createdBy === currentUser.id && [JobStatus.PENDING, JobStatus.CHANGES_REQUESTED, JobStatus.DRAFT].includes(job.status as any) && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/edit-job/${job.id}`);
-                    }}
-                    className="w-14 h-14 rounded-[1.25rem] bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center justify-center hover:bg-amber-200 transition-all duration-500 shadow-xl shadow-black/5"
-                  >
-                    <span className="text-xs font-bold uppercase">Edit</span>
-                  </button>
-                )}
+              <div className="hidden md:flex flex-col items-center justify-center pl-10 border-l border-white/20 dark:border-white/5 h-full min-h-[140px]">
                 <div className="w-14 h-14 rounded-[1.25rem] bg-zinc-100 dark:bg-white/5 flex items-center justify-center text-zinc-400 group-hover:bg-primary group-hover:text-white transition-all duration-500 shadow-xl shadow-black/5">
                   <ArrowRight className="w-6 h-6" />
                 </div>

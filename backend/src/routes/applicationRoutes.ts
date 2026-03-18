@@ -14,6 +14,7 @@ import {
 import {
   authenticate,
   requirePermission,
+  requireAnyPermission,
   Permission,
 } from "../middleware/rbac.js";
 
@@ -23,7 +24,7 @@ const router = express.Router();
 router.post(
   "/assign",
   authenticate,
-  requirePermission(Permission.APPLICATION_ASSIGN_DIRECT),
+  requireAnyPermission([Permission.APPLICATION_ASSIGN_DIRECT, Permission.TASK_ASSIGN]),
   assignTask,
 );
 

@@ -91,7 +91,7 @@ export interface Job {
   startDate?: string;
   endDate?: string;
   selectionCriteria?: string;
-  interviewDetails?: string;
+
   requiredSkills?: string[];
   rewardType: string;
   rewardValue?: number;

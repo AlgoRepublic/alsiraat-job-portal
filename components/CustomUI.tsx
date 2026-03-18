@@ -210,21 +210,10 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Detect available space and adjust calendar position
+  // Commented out the showAbove logic so the calendar always opens downwards
+  // so the user can scroll to see it, preventing it from cutting off at the top.
   useEffect(() => {
-    if (isOpen && buttonRef.current) {
-      const buttonRect = buttonRef.current.getBoundingClientRect();
-      const calendarHeight = 400; // Approximate height of calendar popup
-      const spaceBelow = window.innerHeight - buttonRect.bottom;
-      const spaceAbove = buttonRect.top;
-
-      // Show above if there's not enough space below but enough space above
-      if (spaceBelow < calendarHeight && spaceAbove > calendarHeight) {
-        setShowAbove(true);
-      } else {
-        setShowAbove(false);
-      }
-    }
+    setShowAbove(false);
   }, [isOpen]);
 
   const daysInMonth = (year: number, month: number) =>

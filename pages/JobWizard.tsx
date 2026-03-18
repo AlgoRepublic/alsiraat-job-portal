@@ -60,12 +60,12 @@ const AccordionSection: React.FC<AccordionProps> = ({
   badge,
 }) => (
   <div
-    className={`glass-card rounded-2xl border transition-all duration-300 ${
+    className={`glass-card rounded-[2rem] transition-all duration-300 ${
       isOpen
-        ? "border-primary/30 shadow-md shadow-primary/5 overflow-visible"
+        ? "ring-2 ring-primary/30 shadow-md shadow-primary/5 overflow-visible"
         : hasError
-          ? "border-red-400/50 overflow-hidden"
-          : "border-white/20 dark:border-white/5 overflow-hidden"
+          ? "ring-2 ring-red-400/50 overflow-hidden"
+          : "overflow-hidden"
     }`}
   >
     <button
@@ -418,10 +418,10 @@ export const JobWizard: React.FC = () => {
               <div
                 className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm transition-all duration-300 shadow-primary/10 group-hover:scale-110 ${
                   step === s.num
-                    ? "bg-primary text-white scale-105 shadow-lg ring-4 ring-primary/30"
+                    ? "bg-primary text-white scale-105 shadow-lg shadow-primary/30"
                     : step > s.num
-                      ? "bg-primary/80 text-white shadow-md"
-                      : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                      ? "bg-primary/20 text-primary shadow-md"
+                      : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 transition-colors"
                 }`}
               >
                 {step > s.num ? <CheckCircle className="w-5 h-5" /> : s.num}
@@ -1082,7 +1082,7 @@ export const JobWizard: React.FC = () => {
           </div>
 
           {/* Summary grid */}
-          <div className="rounded-2xl border-2 border-zinc-200 dark:border-zinc-700/60 bg-white dark:bg-zinc-900/50 overflow-hidden">
+          <div className="rounded-[2rem] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden shadow-xl shadow-black/5">
             <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center">
                 <Eye className="w-4 h-4" />
@@ -1133,7 +1133,7 @@ export const JobWizard: React.FC = () => {
           </div>
 
           {/* Requirements summary */}
-          <div className="rounded-2xl border-2 border-zinc-200 dark:border-zinc-700/60 bg-white dark:bg-zinc-900/50 overflow-hidden">
+          <div className="rounded-[2rem] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden shadow-xl shadow-black/5">
             <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center">
                 <Layers className="w-4 h-4" />
@@ -1177,13 +1177,6 @@ export const JobWizard: React.FC = () => {
                 <div className="bg-zinc-50 dark:bg-zinc-800/40 rounded-xl p-4">
                   <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">Success Criteria</p>
                   <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{formData.selectionCriteria}</p>
-                </div>
-              )}
-
-              {formData.interviewDetails && (
-                <div className="bg-zinc-50 dark:bg-zinc-800/40 rounded-xl p-4">
-                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">Interview Process</p>
-                  <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{formData.interviewDetails}</p>
                 </div>
               )}
             </div>
