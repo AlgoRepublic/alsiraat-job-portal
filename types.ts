@@ -228,6 +228,8 @@ export interface Application {
   coverLetter: string;
   availability: string;
   rejectionReason?: string;
+  rating?: number;
+  reviewText?: string;
 }
 
 export interface RoleDefinition {

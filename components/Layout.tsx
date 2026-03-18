@@ -9,7 +9,6 @@ import {
   X,
   LogOut,
   PlusCircle,
-  Plus,
   Search,
   Moon,
   Sun,
@@ -18,11 +17,12 @@ import {
   Palette,
   Check,
   CheckCircle,
-  Layers,
   FileText,
   Clock,
   CheckCheck,
-  Trash2,
+  Megaphone,
+  ClipboardList,
+  ClipboardCheck,
 } from "lucide-react";
 import { UserRole, User, Job, Permission } from "../types";
 import { SnowBackground } from "./SnowBackground";
@@ -414,6 +414,8 @@ export const Layout: React.FC<LayoutProps> = ({
     path: string;
     protected?: boolean;
     permission?: Permission;
+    /** If set, item is only shown when user has ANY of these permissions */
+    anyPermission?: Permission[];
   }[] = [
     {
       icon: LayoutDashboard,
@@ -423,19 +425,52 @@ export const Layout: React.FC<LayoutProps> = ({
       permission: Permission.DASHBOARD_VIEW,
     },
     { icon: Briefcase, label: "Browse Tasks", path: "/jobs" },
+
+    // ── Applicant menu ──────────────────────────────────────────────────────
     {
-      icon: CheckCircle,
+      icon: FileText,
+      label: "My Application",
+      path: "/my-applications",
+      protected: true,
+      anyPermission: [
+        Permission.APPLICATION_CREATE,
+        Permission.APPLICATION_READ_OWN,
+      ],
+    },
+    {
+      icon: ClipboardCheck,
       label: "My Tasks",
       path: "/my-tasks",
       protected: true,
+      anyPermission: [
+        Permission.APPLICATION_CREATE,
+        Permission.APPLICATION_READ_OWN,
+      ],
     },
 
+    // ── Task creator / manager menu ─────────────────────────────────────────
     {
-      icon: FileText,
-      label: "My Applications",
-      path: "/my-applications",
+      icon: Megaphone,
+      label: "My Ads",
+      path: "/my-ads",
       protected: true,
+      permission: Permission.TASK_CREATE,
     },
+
+    // ── Manager / admin: pending tasks ─────────────────────────────────────
+    {
+      icon: ClipboardList,
+      label: "Pending Tasks",
+      path: "/dashboard",
+      protected: true,
+      anyPermission: [
+        Permission.TASK_APPROVE,
+        Permission.TASK_PUBLISH,
+        Permission.APPLICATION_APPROVE,
+      ],
+    },
+
+    // ── Common ──────────────────────────────────────────────────────────────
     {
       icon: UserCircle,
       label: "My Profile",
@@ -453,8 +488,16 @@ export const Layout: React.FC<LayoutProps> = ({
 
   const filteredNav = navItems.filter((item) => {
     if (item.protected && !currentUser) return false;
+    // Single permission guard
     if (item.permission && currentUser) {
       if (!currentUser.permissions?.includes(item.permission)) return false;
+    }
+    // Any-of permission guard
+    if (item.anyPermission && currentUser) {
+      const hasAny = item.anyPermission.some((p) =>
+        currentUser.permissions?.includes(p),
+      );
+      if (!hasAny) return false;
     }
     return true;
   });
@@ -639,15 +682,21 @@ export const Layout: React.FC<LayoutProps> = ({
                         ? "Administration"
                         : location.pathname.startsWith("/reports")
                           ? "Reports"
-                          : location.pathname
-                              .substring(1)
-                              .split("/")[0]
-                              .charAt(0)
-                              .toUpperCase() +
-                            location.pathname
-                              .substring(1)
-                              .split("/")[0]
-                              .slice(1)}
+                          : location.pathname === "/my-ads"
+                            ? "My Ads"
+                            : location.pathname === "/my-tasks"
+                              ? "My Tasks"
+                              : location.pathname === "/my-applications"
+                                ? "My Application"
+                                : location.pathname
+                                    .substring(1)
+                                    .split("/")[0]
+                                    .charAt(0)
+                                    .toUpperCase() +
+                                  location.pathname
+                                    .substring(1)
+                                    .split("/")[0]
+                                    .slice(1)}
               </h1>
             </div>
 

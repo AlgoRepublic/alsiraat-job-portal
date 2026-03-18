@@ -53,8 +53,13 @@ const ApplicationReview = lazy(() =>
     default: module.ApplicationReview,
   })),
 );
-const MyTasks = lazy(() =>
-  import("./pages/MyTasks").then((module) => ({ default: module.MyTasks })),
+const MyAds = lazy(() =>
+  import("./pages/MyTasks").then((module) => ({ default: module.MyAds })),
+);
+const MyAssignedTasks = lazy(() =>
+  import("./pages/MyAssignedTasks").then((module) => ({
+    default: module.MyAssignedTasks,
+  })),
 );
 const UserManagement = lazy(() =>
   import("./pages/UserManagement").then((module) => ({
@@ -264,7 +269,8 @@ const App: React.FC = () => {
                             path="/jobs/:id/applicants"
                             element={<JobApplicants />}
                           />
-                          <Route path="/my-tasks" element={<MyTasks />} />
+                          <Route path="/my-ads" element={<MyAds />} />
+                          <Route path="/my-tasks" element={<MyAssignedTasks />} />
                           <Route
                             path="/my-applications"
                             element={<MyApplications />}

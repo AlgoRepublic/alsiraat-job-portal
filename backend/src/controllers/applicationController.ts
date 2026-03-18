@@ -728,3 +728,52 @@ export const rejectCompletion = async (req: any, res: Response) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+export const submitReview = async (req: any, res: Response) => {
+  try {
+    const { appId } = req.params;
+    const { rating, reviewText } = req.body;
+
+    if (rating === undefined || rating < 1 || rating > 5) {
+      return res.status(400).json({ message: "Rating must be between 1 and 5" });
+    }
+
+    const app = await Application.findById(appId).populate("task");
+    if (!app) return res.status(404).json({ message: "Application not found" });
+
+    const task: any = app.task;
+    const isGlobalAdmin = req.user.roles?.includes(UserRole.GLOBAL_ADMIN);
+
+    if (
+      !isGlobalAdmin &&
+      req.user._id.toString() !== task.createdBy.toString()
+    ) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to review this application" });
+    }
+
+    if (app.status !== ApplicationStatus.COMPLETED) {
+      return res.status(400).json({ message: "Application must be completed before reviewing" });
+    }
+
+    app.rating = rating;
+    app.reviewText = reviewText;
+    await app.save();
+
+    // Sync to user.experience
+    const userExperienceUpdate = await User.findOneAndUpdate(
+      { _id: app.applicant, "experience.taskId": task._id },
+      {
+        $set: {
+          "experience.$.rating": rating,
+          "experience.$.reviewText": reviewText,
+        },
+      },
+    );
+
+    res.json({ message: "Review submitted successfully", app });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};

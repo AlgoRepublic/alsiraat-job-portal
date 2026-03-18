@@ -16,6 +16,8 @@ export interface IExperience {
   rewardType: string;
   rewardValue?: number;
   completedAt: Date;
+  rating?: number;
+  reviewText?: string;
 }
 
 export interface IUser extends Document {
@@ -40,6 +42,8 @@ export interface IUser extends Document {
   resumeOriginalName?: string;
   resetPasswordToken?: string | undefined;
   resetPasswordExpires?: Date | undefined;
+  otpToken?: string | undefined;
+  otpExpires?: Date | undefined;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -61,6 +65,8 @@ const ExperienceSchema = new Schema({
   rewardType: { type: String },
   rewardValue: { type: Number },
   completedAt: { type: Date, default: Date.now },
+  rating: { type: Number },
+  reviewText: { type: String },
 });
 
 const UserSchema: Schema = new Schema(
@@ -95,6 +101,8 @@ const UserSchema: Schema = new Schema(
     experience: [ExperienceSchema],
     resetPasswordToken: { type: String },
     resetPasswordExpires: { type: Date },
+    otpToken: { type: String },
+    otpExpires: { type: Date },
   },
   { timestamps: true },
 );

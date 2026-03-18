@@ -38,24 +38,44 @@ const formatAustralianPhone = (raw: string): string => {
 export const Signup: React.FC = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  const [step, setStep] = useState<"FORM" | "OTP">("FORM");
   const [firstName, setFirstName] = useState("");
   const [surname, setSurname] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [otp, setOtp] = useState("");
   const [contactNumber, setContactNumber] = useState("");
   const [error, setError] = useState("");
+
+  const handleRequestOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
+    try {
+      await db.sendOtp({
+        firstName: firstName.trim(),
+        lastName: surname.trim(),
+        email: email.trim(),
+      });
+      setStep("OTP");
+    } catch (err: any) {
+      setError(err.message || "Failed to send verification code.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
     try {
-      await db.signup({
+      await db.verifyOtp({
         firstName: firstName.trim(),
         lastName: surname.trim(),
-        email,
+        email: email.trim(),
         password,
-        role: UserRole.APPLICANT,
+        otp: otp.trim(),
         ...(contactNumber.trim()
           ? { contactNumber: contactNumber.trim() }
           : {}),
@@ -71,7 +91,13 @@ export const Signup: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 transition-colors relative overflow-hidden bg-zinc-50 dark:bg-black">
-      {isLoading && <LoadingOverlay message="Creating Account..." />}
+      {isLoading && (
+        <LoadingOverlay
+          message={
+            step === "FORM" ? "Sending Verification..." : "Verifying Account..."
+          }
+        />
+      )}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-red-500/10 rounded-full blur-[100px]"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[100px]"></div>
@@ -111,10 +137,12 @@ export const Signup: React.FC = () => {
             />
           </div>
           <h1 className="text-3xl font-black text-zinc-900 dark:text-white mb-2 tracking-tighter">
-            Create Account
+            {step === "FORM" ? "Create Account" : "Verify Email"}
           </h1>
           <p className="text-zinc-500 dark:text-zinc-400 text-sm font-bold uppercase tracking-widest text-[10px]">
-            Join Tasker
+            {step === "FORM"
+              ? "Join Tasker"
+              : `Code sent to ${email.toLowerCase()}`}
           </p>
         </div>
 
@@ -127,78 +155,121 @@ export const Signup: React.FC = () => {
           </div>
         )}
 
-        <form onSubmit={handleSignup} className="space-y-5">
+        <form
+          onSubmit={step === "FORM" ? handleRequestOtp : handleSignup}
+          className="space-y-5"
+        >
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="relative group">
-                <UserIcon className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
-                <input
-                  type="text"
-                  required
-                  placeholder="First Name"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
-                />
-              </div>
-              <div className="relative group">
-                <UserIcon className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
-                <input
-                  type="text"
-                  required
-                  placeholder="Last Name"
-                  value={surname}
-                  onChange={(e) => setSurname(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
-                />
-              </div>
-            </div>
+            {step === "FORM" ? (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="relative group">
+                    <UserIcon className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="First Name"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
+                    />
+                  </div>
+                  <div className="relative group">
+                    <UserIcon className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="Last Name"
+                      value={surname}
+                      onChange={(e) => setSurname(e.target.value)}
+                      className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
+                    />
+                  </div>
+                </div>
 
-            <div className="relative group">
-              <Mail className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
-              <input
-                type="email"
-                required
-                placeholder="Email Address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-[#812349]/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
-              />
-            </div>
+                <div className="relative group">
+                  <Mail className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
+                  <input
+                    type="email"
+                    required
+                    placeholder="Email Address"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-[#812349]/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="relative group">
+                  <Shield className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="Verification Code (6-digits)"
+                    value={otp}
+                    onChange={(e) =>
+                      setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                    }
+                    className="w-full pl-12 pr-4 py-4 bg-primary/10 dark:bg-primary/20 border-2 border-primary/30 dark:border-primary/40 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-xl font-black tracking-[0.5em] text-center dark:text-white transition-all backdrop-blur-md"
+                  />
+                  <p className="text-[10px] text-zinc-400 font-bold mt-2 text-center uppercase tracking-widest">
+                    Enter the code sent to your email
+                  </p>
+                </div>
 
-            <div className="relative group">
-              <Phone className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
-              <input
-                type="tel"
-                placeholder="04XX XXX XXX (optional)"
-                value={contactNumber}
-                onChange={(e) =>
-                  setContactNumber(formatAustralianPhone(e.target.value))
-                }
-                maxLength={13}
-                className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
-              />
-            </div>
+                <div className="relative group">
+                  <Phone className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
+                  <input
+                    type="tel"
+                    placeholder="04XX XXX XXX (optional)"
+                    value={contactNumber}
+                    onChange={(e) =>
+                      setContactNumber(formatAustralianPhone(e.target.value))
+                    }
+                    maxLength={13}
+                    className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
+                  />
+                </div>
 
-            <div className="relative group">
-              <Lock className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
-              <input
-                type="password"
-                required
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-[#812349]/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
-              />
-            </div>
+                <div className="relative group">
+                  <Lock className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
+                  <input
+                    type="password"
+                    required
+                    placeholder="Create Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-[#812349]/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
+                  />
+                </div>
+              </>
+            )}
           </div>
 
           <button
             disabled={isLoading}
             className="w-full py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primaryHover shadow-xl shadow-primary/30 transition-all hover:-translate-y-1 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
           >
-            Create Account
+            {step === "FORM" ? (
+              <>
+                Send Verification Code
+                <Mail className="w-4 h-4 ml-2" />
+              </>
+            ) : (
+              "Complete Registration"
+            )}
           </button>
+
+          {step === "OTP" && (
+            <button
+              type="button"
+              onClick={() => setStep("FORM")}
+              className="w-full py-2 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-primary transition-colors"
+            >
+              Change Email Address
+            </button>
+          )}
         </form>
 
         <div className="mt-8 text-center space-y-4">

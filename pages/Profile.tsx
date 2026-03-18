@@ -689,7 +689,7 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
       {/* Volunteer History */}
       <div className="glass-card rounded-2xl shadow-lg shadow-zinc-200 dark:shadow-none p-8 border border-zinc-50 dark:border-zinc-800">
         <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-6">
-          Volunteer History
+          Task Performance &amp; History
         </h3>
         <div className="space-y-6">
           {completedTasks.length > 0 ? (
@@ -707,15 +707,36 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
                   <h4 className="text-base font-bold text-zinc-900 dark:text-white">
                     {app.task?.title || "Task Deleted"}
                   </h4>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
-                    Completed on{" "}
-                    {new Date(
-                      app.updatedAt || app.createdAt,
-                    ).toLocaleDateString("en-GB", {
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </p>
+                  <div className="flex items-center gap-4 mt-0.5">
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                      Completed on{" "}
+                      {new Date(
+                        app.updatedAt || app.createdAt,
+                      ).toLocaleDateString("en-GB", {
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </p>
+                    {app.rating && (
+                      <div className="flex items-center gap-0.5">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Star
+                            key={s}
+                            className={`w-3 h-3 ${s <= app.rating ? "fill-yellow-500 text-yellow-500" : "text-zinc-200 dark:text-zinc-800"}`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {app.reviewText && (
+                    <div className="mt-3 p-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-xl border border-zinc-100 dark:border-zinc-800/50">
+                      <p className="text-xs text-zinc-600 dark:text-zinc-400 italic leading-relaxed">
+                        "{app.reviewText}"
+                      </p>
+                    </div>
+                  )}
+
                   {app.task?.hoursRequired && (
                     <div className="mt-3 inline-flex items-center px-3 py-1 rounded-lg text-xs font-bold bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300">
                       {app.task.hoursRequired} Hours

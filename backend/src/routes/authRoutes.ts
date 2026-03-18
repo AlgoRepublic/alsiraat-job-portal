@@ -12,6 +12,9 @@ import {
   updateProfile,
   uploadResume,
   removeResume,
+  sendOtp,
+  verifyOtp,
+  exportUsersCsv,
 } from "../controllers/authController.js";
 import { authenticate, requirePermission } from "../middleware/rbac.js";
 import { upload } from "../middleware/upload.js";
@@ -24,7 +27,9 @@ import "../config/passport.js";
 const router = express.Router();
 
 // Local Auth
-router.post("/signup", signup);
+router.post("/send-otp", sendOtp);       // Step 1: request OTP
+router.post("/verify-otp", verifyOtp);   // Step 2: verify OTP + complete signup
+router.post("/signup", signup);           // Internal / admin-created users (no OTP)
 router.post("/login", (req, res, next) => {
   passport.authenticate(
     "local",
@@ -109,6 +114,14 @@ router.post(
   uploadResume,
 );
 router.delete("/resume", authenticate, removeResume);
+
+// Export users as CSV (admin only)
+router.get(
+  "/users/export-csv",
+  authenticate,
+  requirePermission(Permission.USER_READ),
+  exportUsersCsv,
+);
 
 // Password Reset
 router.post("/forgot-password", forgotPassword);

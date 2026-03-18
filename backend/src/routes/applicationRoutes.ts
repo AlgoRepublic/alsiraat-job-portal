@@ -10,6 +10,7 @@ import {
   requestCompletion,
   acceptCompletion,
   rejectCompletion,
+  submitReview,
 } from "../controllers/applicationController.js";
 import {
   authenticate,
@@ -64,5 +65,7 @@ router.put("/:appId/request-completion", authenticate, requestCompletion);
 router.put("/:appId/accept-completion", authenticate, acceptCompletion);
 
 router.put("/:appId/reject-completion", authenticate, rejectCompletion);
+
+router.post("/:appId/review", authenticate, submitReview);
 
 export default router;

@@ -10,6 +10,7 @@ import { sendEmail } from "../services/notificationService.js";
 import {
   welcomeEmail,
   passwordResetEmail,
+  otpVerificationEmail,
 } from "../services/emailTemplates.js";
 import { hasPermissionAsync, Permission } from "../config/permissions.js";
 import {
@@ -25,6 +26,151 @@ export const generateToken = (user: any) => {
   return jwt.sign({ id: user._id, roles: user.roles }, JWT_SECRET, {
     expiresIn: "7d",
   });
+};
+
+/**
+ * POST /auth/send-otp
+ * Generates a 6-digit OTP, stores hashed version on the (possibly temp) user record,
+ * and emails it. If the user already exists and is verified, reject.
+ */
+export const sendOtp = async (req: Request, res: Response) => {
+  try {
+    const { firstName, lastName, email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+    if (!firstName || !lastName) {
+      return res
+        .status(400)
+        .json({ message: "First name and last name are required" });
+    }
+
+    // Check if a fully registered user already exists
+    const existing = await User.findOne({ email });
+    if (existing && !existing.otpToken) {
+      // User exists and is already verified/registered
+      return res.status(400).json({ message: "User already exists" });
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
+    const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    if (existing) {
+      // Update OTP on pending record
+      existing.otpToken = hashedOtp;
+      existing.otpExpires = expires;
+      await existing.save();
+    } else {
+      // Create a temporary placeholder user (no password, pending OTP)
+      await User.create({
+        name: `${firstName.trim()} ${lastName.trim()}`,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email,
+        roles: [],
+        otpToken: hashedOtp,
+        otpExpires: expires,
+      });
+    }
+
+    const fullName = `${firstName.trim()} ${lastName.trim()}`;
+    await sendEmail(email, otpVerificationEmail(fullName, otp), {});
+
+    res.json({ message: "Verification code sent. Please check your email." });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/**
+ * POST /auth/verify-otp
+ * Verifies OTP then completes account creation.
+ */
+export const verifyOtp = async (req: Request, res: Response) => {
+  try {
+    const { firstName, lastName, email, password, otp, contactNumber } =
+      req.body;
+
+    if (!otp || !email || !password) {
+      return res
+        .status(400)
+        .json({ message: "Email, OTP and password are required" });
+    }
+
+    const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
+    const user = await User.findOne({
+      email,
+      otpToken: hashedOtp,
+      otpExpires: { $gt: new Date() },
+    });
+
+    if (!user) {
+      return res
+        .status(400)
+        .json({ message: "Invalid or expired verification code" });
+    }
+
+    // OTP valid — finalise the account
+    const hashedPassword = await bcrypt.hash(password, 12);
+    const name =
+      `${firstName?.trim() ?? user.firstName ?? ""} ${
+        lastName?.trim() ?? user.lastName ?? ""
+      }`.trim();
+
+    user.name = name;
+    user.firstName = firstName?.trim() ?? user.firstName;
+    user.lastName = lastName?.trim() ?? user.lastName;
+    user.password = hashedPassword;
+    user.roles = [UserRole.APPLICANT];
+    if (contactNumber) user.contactNumber = contactNumber;
+    // Clear OTP
+    user.otpToken = undefined;
+    user.otpExpires = undefined;
+    await user.save();
+
+    // Build permissions
+    const permissions: string[] = [];
+    const rolesArray = user.roles as UserRole[];
+    for (const p of Object.values(Permission)) {
+      for (const r of rolesArray) {
+        if (await hasPermissionAsync(r, p)) {
+          if (!permissions.includes(p)) permissions.push(p);
+        }
+      }
+    }
+
+    const token = generateToken(user);
+
+    // Send welcome email async
+    const organisationId = user.organisation?.toString() ?? null;
+    sendEmail(user.email, welcomeEmail(name), { organisationId }).catch(
+      () => {},
+    );
+
+    res.status(201).json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        roles: user.roles,
+        skills: user.skills || [],
+        about: user.about || "",
+        avatar: user.avatar,
+        organisation: user.organisation,
+        contactNumber: user.contactNumber,
+        gender: user.gender,
+        permissions,
+        _groupIds: [],
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
 };
 
 export const signup = async (req: Request, res: Response) => {
@@ -487,6 +633,77 @@ export const removeResume = async (req: Request, res: Response) => {
     );
 
     res.json({ message: "Resume removed successfully" });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/**
+ * GET /auth/users/export-csv
+ * Admin: Export all users as a downloadable CSV file.
+ */
+export const exportUsersCsv = async (req: Request, res: Response) => {
+  try {
+    const users = await User.find(
+      { roles: { $exists: true, $not: { $size: 0 } } }, // skip OTP-pending temp users
+    )
+      .select(
+        "name firstName lastName email roles contactNumber gender organisation createdAt",
+      )
+      .populate("organisation", "name")
+      .lean();
+
+    const escape = (val: any): string => {
+      if (val === undefined || val === null) return "";
+      const str = String(val);
+      if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const headers = [
+      "Full Name",
+      "First Name",
+      "Last Name",
+      "Email",
+      "Roles",
+      "Phone",
+      "Gender",
+      "Organisation",
+      "Joined",
+    ];
+
+    const rows = users.map((u: any) => [
+      escape(u.name),
+      escape(u.firstName),
+      escape(u.lastName),
+      escape(u.email),
+      escape((u.roles || []).join("; ")),
+      escape(u.contactNumber),
+      escape(u.gender),
+      escape(u.organisation?.name),
+      escape(
+        u.createdAt
+          ? new Date(u.createdAt).toLocaleDateString("en-AU", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            })
+          : "",
+      ),
+    ]);
+
+    const csv =
+      [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+
+    const date = new Date().toISOString().slice(0, 10);
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="users_${date}.csv"`,
+    );
+    res.send(csv);
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }

@@ -87,6 +87,29 @@ export const welcomeEmail = (name: string): EmailTemplate => ({
   text: `Welcome to ${BRAND_NAME}, ${name}!\n\nYour account is ready. Browse tasks at ${FRONTEND_URL}/jobs`,
 });
 
+// 1b. OTP Verification Email (before signup)
+export const otpVerificationEmail = (
+  name: string,
+  otp: string,
+): EmailTemplate => ({
+  subject: `Your ${BRAND_NAME} verification code: ${otp}`,
+  html: wrap(`
+    <h2>Email Verification</h2>
+    <p>Hi <strong>${name}</strong>,</p>
+    <p>Use the one-time verification code below to complete your registration. This code is valid for <strong>10 minutes</strong>.</p>
+    <div style="text-align:center;margin:32px 0;">
+      <div style="display:inline-block;background:#f4f4f5;border:2px dashed #d4d4d8;border-radius:16px;padding:24px 40px;">
+        <p style="margin:0 0 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.15em;color:#71717a;">Verification Code</p>
+        <p style="margin:0;font-size:44px;font-weight:900;letter-spacing:0.3em;color:#18181b;font-family:monospace;">${otp}</p>
+      </div>
+    </div>
+    <hr class="divider"/>
+    <p style="font-size:13px;color:#a1a1aa;">If you did not request this code, please ignore this email. Do not share this code with anyone.</p>
+  `),
+  text: `Your ${BRAND_NAME} verification code is: ${otp}\n\nThis code expires in 10 minutes.`,
+});
+
+
 // 2. Password Reset
 export const passwordResetEmail = (
   name: string,

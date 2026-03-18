@@ -22,6 +22,7 @@ import {
   ChevronRight,
   AlertTriangle,
   Users,
+  Star,
 } from "lucide-react";
 
 import { Loading, LoadingOverlay } from "../components/Loading";
@@ -61,6 +62,10 @@ export const ApplicationReview: React.FC = () => {
   // Completion Rejection State
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
+  // Rating State
+  const [rating, setRating] = useState(5);
+  const [reviewText, setReviewText] = useState("");
+  const [showReviewForm, setShowReviewForm] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -166,6 +171,22 @@ export const ApplicationReview: React.FC = () => {
         showSuccess("Task completion rejected successfully!");
       } catch (err: any) {
         showError(err?.message || "Failed to reject completion");
+      } finally {
+        setIsUpdating(false);
+      }
+    }
+  };
+
+  const handleSubmitReview = async () => {
+    if (app && rating >= 1 && rating <= 5) {
+      setIsUpdating(true);
+      try {
+        await db.submitReview(app.id, rating, reviewText);
+        setApp({ ...app, rating, reviewText });
+        setShowReviewForm(false);
+        showSuccess("Review submitted successfully!");
+      } catch (err: any) {
+        showError(err?.message || "Failed to submit review");
       } finally {
         setIsUpdating(false);
       }
@@ -630,6 +651,41 @@ export const ApplicationReview: React.FC = () => {
                           </div>
                         </>
                       )}
+
+                    {/* Review Section */}
+                    {app.status === "Completed" && (
+                      <div className="border-t border-zinc-100 dark:border-zinc-800 pt-4 mt-2">
+                        {app.rating ? (
+                          <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/50 rounded-xl p-4">
+                            <h4 className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                              <CheckCircle className="w-3 h-3" />
+                              Review Submitted
+                            </h4>
+                            <div className="flex items-center gap-1 mb-2">
+                              {[1, 2, 3, 4, 5].map((s) => (
+                                <Star
+                                  key={s}
+                                  className={`w-3.5 h-3.5 ${s <= (app.rating || 0) ? "fill-emerald-500 text-emerald-500" : "text-zinc-300 dark:text-zinc-700"}`}
+                                />
+                              ))}
+                            </div>
+                            {app.reviewText && (
+                              <p className="text-xs text-emerald-800 dark:text-emerald-300 italic line-clamp-3">
+                                "{app.reviewText}"
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setShowReviewForm(true)}
+                            className="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/90 flex items-center justify-center gap-2 transition-colors shadow-md shadow-primary/20"
+                          >
+                            <Star className="w-4 h-4" />
+                            Rate Applicant
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -741,6 +797,65 @@ export const ApplicationReview: React.FC = () => {
                 className="px-5 py-2.5 bg-red-600 text-white font-bold text-sm rounded-xl hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Reject Completion
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+        </div>
+      )}
+
+      {/* ── Review Submission Modal ──────────────────────────── */}
+      {showReviewForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-zinc-900 w-full max-w-sm p-6 rounded-3xl shadow-2xl border border-zinc-200 dark:border-zinc-800 animate-scale-in">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center">
+                <Star className="w-5 h-5 text-primary" />
+              </div>
+              <h3 className="text-lg font-black text-zinc-900 dark:text-white">
+                Rate Performance
+              </h3>
+            </div>
+            
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-6 leading-relaxed">
+              How would you rate {app.applicantName.split(" ")[0]}'s contribution to this task? Your feedback helps build their reputation.
+            </p>
+
+            <div className="flex justify-center gap-2 mb-8">
+              {[1, 2, 3, 4, 5].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setRating(s)}
+                  className="p-1 transition-all hover:scale-125 focus:outline-none"
+                >
+                  <Star
+                    className={`w-9 h-9 ${s <= rating ? "fill-primary text-primary" : "text-zinc-200 dark:text-zinc-800"}`}
+                  />
+                </button>
+              ))}
+            </div>
+
+            <textarea
+              className="w-full p-4 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl mb-4 focus:ring-2 focus:ring-primary focus:outline-none dark:text-white text-xs resize-none placeholder:text-zinc-400"
+              rows={3}
+              placeholder="Write a private review... (optional)"
+              value={reviewText}
+              onChange={(e) => setReviewText(e.target.value)}
+            />
+
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleSubmitReview}
+                className="w-full py-3 bg-primary text-white font-bold text-sm rounded-2xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/30"
+              >
+                Submit Feedback
+              </button>
+              <button
+                onClick={() => setShowReviewForm(false)}
+                className="w-full py-3 text-zinc-500 font-bold text-xs hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
+              >
+                Maybe Later
               </button>
             </div>
           </div>

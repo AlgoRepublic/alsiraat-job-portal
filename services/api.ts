@@ -153,6 +153,29 @@ class ApiService {
     return response;
   }
 
+  async sendOtp(data: { firstName: string; lastName: string; email: string }): Promise<any> {
+    return this.request<any>("/auth/send-otp", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async verifyOtp(data: any): Promise<AuthResponse> {
+    const response = await this.request<AuthResponse>("/auth/verify-otp", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+
+    if (response.token) {
+      this.token = response.token;
+      localStorage.setItem("auth_token", this.token);
+      localStorage.setItem("user_data", JSON.stringify(response.user));
+      localStorage.setItem(LOGIN_SOURCE_KEY, "email");
+    }
+
+    return response;
+  }
+
   async logout(): Promise<void> {
     this.token = null;
     localStorage.removeItem("auth_token");
@@ -251,6 +274,33 @@ class ApiService {
     });
   }
 
+  /** Admin: Download all users as CSV file. */
+  async downloadUsersCsv(): Promise<void> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/users/export-csv`, {
+        headers: {
+          ...this.getHeaders(),
+        },
+      });
+
+      if (!response.ok) throw new Error("Failed to download CSV");
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const date = new Date().toISOString().slice(0, 10);
+      a.download = `users_${date}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error("Download failed:", error);
+      throw error;
+    }
+  }
+
   async createOrganization(data: any): Promise<any> {
     return this.request<any>("/organizations", {
       method: "POST",
@@ -317,6 +367,13 @@ class ApiService {
     return this.request<any>(`/applications/${id}/status`, {
       method: "PUT",
       body: JSON.stringify({ status }),
+    });
+  }
+
+  async submitReview(id: string, rating: number, reviewText: string): Promise<any> {
+    return this.request<any>(`/applications/${id}/review`, {
+      method: "POST",
+      body: JSON.stringify({ rating, reviewText }),
     });
   }
 

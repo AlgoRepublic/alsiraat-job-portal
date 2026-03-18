@@ -125,6 +125,14 @@ class DatabaseService {
     return await api.signup(userData);
   }
 
+  async sendOtp(data: { firstName: string; lastName: string; email: string }) {
+    return await api.sendOtp(data);
+  }
+
+  async verifyOtp(data: any) {
+    return await api.verifyOtp(data);
+  }
+
   async forgotPassword(email: string) {
     return await api.request<any>("/auth/forgot-password", {
       method: "POST",

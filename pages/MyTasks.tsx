@@ -15,7 +15,7 @@ import { AssignTaskModal } from "../components/AssignTaskModal";
 import { Permission, hasAnyPermission } from "../services/permissions";
 import { UserRole } from "../types";
 
-export const MyTasks: React.FC = () => {
+export const MyAds: React.FC = () => {
   const navigate = useNavigate();
   const [tasks, setTasks] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,7 +47,7 @@ export const MyTasks: React.FC = () => {
       const myTasks = await api.getTasks({ createdByMe: "true" });
       setTasks(myTasks);
     } catch (err: any) {
-      setError(err.message || "Failed to load tasks");
+      setError(err.message || "Failed to load ads");
     } finally {
       setLoading(false);
     }
@@ -104,10 +104,10 @@ export const MyTasks: React.FC = () => {
         <div className="glass-card p-10 rounded-[2.5rem] flex items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
-              My Tasks
+              My Ads
             </h1>
             <p className="text-zinc-500 dark:text-zinc-400 font-medium mt-2">
-              Manage tasks you've created.
+              All task ads you've posted and published.
             </p>
           </div>
 
@@ -258,12 +258,12 @@ export const MyTasks: React.FC = () => {
                       colSpan={5}
                       className="px-10 py-24 text-center text-zinc-500 italic"
                     >
-                      You haven't created any tasks yet.{" "}
+                      You haven't posted any ads yet.{" "}
                       <button
                         onClick={() => navigate("/post-job")}
                         className="text-primary font-black hover:underline ml-2"
                       >
-                        Create Your First Task
+                        Create Your First Ad
                       </button>
                     </td>
                   </tr>

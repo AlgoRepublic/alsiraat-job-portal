@@ -384,6 +384,7 @@ export const UserManagement: React.FC = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Expanded inline row
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
@@ -544,6 +545,18 @@ export const UserManagement: React.FC = () => {
     }
   };
 
+  const handleDownloadCsv = async () => {
+    setExporting(true);
+    try {
+      await api.downloadUsersCsv();
+      showSuccess("User CSV downloaded successfully");
+    } catch (err: any) {
+      showError(err?.message || "Failed to download user CSV");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const toggleSort = (col: typeof sortBy) => {
     if (sortBy === col) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -623,6 +636,24 @@ export const UserManagement: React.FC = () => {
                   <>
                     <Upload className="w-4 h-4" />
                     Import CSV
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={handleDownloadCsv}
+                disabled={exporting || saving}
+                className="flex items-center gap-2 px-5 py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 rounded-xl font-bold text-sm hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all disabled:opacity-50"
+              >
+                {exporting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-4 h-4" />
+                    Download CSV
                   </>
                 )}
               </button>
