@@ -37,7 +37,6 @@ export default function MyApplications() {
   const getApplicationStatusStyle = (status: string) => {
     switch (status.toLowerCase()) {
       case "approved":
-      case "approved":
       case "offer accepted":
       case "accepted":
       case "completed":

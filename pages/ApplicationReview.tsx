@@ -802,8 +802,6 @@ export const ApplicationReview: React.FC = () => {
           </div>
         </div>
       )}
-        </div>
-      )}
 
       {/* ── Review Submission Modal ──────────────────────────── */}
       {showReviewForm && (
