@@ -10,8 +10,13 @@ import {
   ClipboardCheck,
 } from "lucide-react";
 import { api } from "../services/api";
+import { db } from "../services/database";
 import { Loading } from "../components/Loading";
 import { useToast } from "../components/Toast";
+import { Pagination } from "../components/Pagination";
+import { Application, Job } from "../types";
+
+const PAGE_SIZE = 10;
 
 // Status groups that qualify as "My Tasks"
 const MY_TASK_STATUSES = [
@@ -22,23 +27,6 @@ const MY_TASK_STATUSES = [
   "Completion Rejected",
   "Completed",
 ];
-
-interface TaskApplication {
-  _id: string;
-  createdAt: string;
-  status: string;
-  coverLetter?: string;
-  task?: {
-    _id: string;
-    title: string;
-    category: string;
-    rewardType?: string;
-    rewardValue?: number;
-    status: string;
-    location?: string;
-    hoursRequired?: number;
-  };
-}
 
 const getStatusConfig = (status: string) => {
   switch (status.toLowerCase()) {
@@ -97,19 +85,25 @@ const getStatusConfig = (status: string) => {
 export const MyAssignedTasks: React.FC = () => {
   const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
-  const [applications, setApplications] = useState<TaskApplication[]>([]);
+  const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
-  const fetchAssignedTasks = async () => {
+  const fetchAssignedTasks = async (page = 1) => {
     try {
       setLoading(true);
-      const all = await api.getApplications();
-      // Filter only statuses that indicate an active/assigned/completed task
-      const assigned = all.filter((app: TaskApplication) =>
-        MY_TASK_STATUSES.includes(app.status),
+      const data = await db.getApplicationsPaged(
+        { status: MY_TASK_STATUSES },
+        page,
+        PAGE_SIZE,
       );
-      setApplications(assigned);
+      setApplications(data.applications);
+      setTotalItems(data.pagination.total);
+      setTotalPages(data.pagination.pages);
+      setCurrentPage(data.pagination.page);
     } catch (err: any) {
       setError(err.message || "Failed to load your tasks");
     } finally {
@@ -118,8 +112,13 @@ export const MyAssignedTasks: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchAssignedTasks();
-  }, []);
+    fetchAssignedTasks(currentPage);
+  }, [currentPage]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const handleRequestCompletion = async (appId: string) => {
     try {
@@ -154,18 +153,14 @@ export const MyAssignedTasks: React.FC = () => {
   if (loading) return <Loading message="Loading your tasks..." />;
 
   // Group by active vs completed
-  const activeTasks = applications.filter(
-    (a) => a.status !== "Completed",
-  );
-  const completedTasks = applications.filter(
-    (a) => a.status === "Completed",
-  );
+  const activeTasks = applications.filter((a) => a.status !== "Completed");
+  const completedTasks = applications.filter((a) => a.status === "Completed");
 
-  const renderRow = (app: TaskApplication) => {
+  const renderRow = (app: Application) => {
     const { style, icon, label } = getStatusConfig(app.status);
     const task = (app as any).task;
-    const taskId = task?._id;
-    const appId = (app as any)._id;
+    const taskId = task?.id || task?._id;
+    const appId = app.id;
 
     return (
       <tr
@@ -210,7 +205,7 @@ export const MyAssignedTasks: React.FC = () => {
         </td>
 
         {/* Reward */}
-        <td className="px-8 py-8 whitespace-nowrap text-sm font-bold text-zinc-700 dark:text-zinc-300">
+        {/* <td className="px-8 py-8 whitespace-nowrap text-sm font-bold text-zinc-700 dark:text-zinc-300">
           {task?.rewardType ? (
             <span>
               {task.rewardType}
@@ -219,7 +214,7 @@ export const MyAssignedTasks: React.FC = () => {
           ) : (
             <span className="text-zinc-400">—</span>
           )}
-        </td>
+        </td> */}
 
         {/* Actions */}
         <td className="px-10 py-8 whitespace-nowrap text-right">
@@ -312,9 +307,9 @@ export const MyAssignedTasks: React.FC = () => {
                   <th className="px-8 py-6 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
                     Status
                   </th>
-                  <th className="px-8 py-6 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
+                  {/* <th className="px-8 py-6 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
                     Reward
-                  </th>
+                  </th> */}
                   <th className="px-10 py-6 text-right text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
                     Actions
                   </th>
@@ -349,9 +344,9 @@ export const MyAssignedTasks: React.FC = () => {
                   <th className="px-8 py-6 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
                     Status
                   </th>
-                  <th className="px-8 py-6 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
+                  {/* <th className="px-8 py-6 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
                     Reward
-                  </th>
+                  </th> */}
                   <th className="px-10 py-6 text-right text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
                     Actions
                   </th>
@@ -384,6 +379,14 @@ export const MyAssignedTasks: React.FC = () => {
           </button>
         </div>
       )}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        itemsPerPage={PAGE_SIZE}
+        onPageChange={handlePageChange}
+        label="tasks"
+      />
     </div>
   );
 };

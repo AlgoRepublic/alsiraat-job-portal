@@ -9,17 +9,24 @@ import {
   UserCheck,
 } from "lucide-react";
 import { api } from "../services/api";
+import { db } from "../services/database";
 import { Job, JobStatus, User } from "../types";
 import { Loading } from "../components/Loading";
 import { AssignTaskModal } from "../components/AssignTaskModal";
 import { Permission, hasAnyPermission } from "../services/permissions";
 import { UserRole } from "../types";
+import { Pagination } from "../components/Pagination";
+
+const PAGE_SIZE = 10;
 
 export const MyAds: React.FC = () => {
   const navigate = useNavigate();
   const [tasks, setTasks] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Current user (for permission check)
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -41,11 +48,14 @@ export const MyAds: React.FC = () => {
   }, []);
 
   // ── Fetch tasks ───────────────────────────────────────────────────────────
-  const fetchMyTasks = useCallback(async () => {
+  const fetchMyTasks = useCallback(async (page = 1) => {
     try {
       setLoading(true);
-      const myTasks = await api.getTasks({ createdByMe: "true" });
-      setTasks(myTasks);
+      const data = await db.getJobsPaged({ createdByMe: "true" }, page, PAGE_SIZE);
+      setTasks(data.jobs);
+      setTotalItems(data.pagination.total);
+      setTotalPages(data.pagination.pages);
+      setCurrentPage(data.pagination.page);
     } catch (err: any) {
       setError(err.message || "Failed to load ads");
     } finally {
@@ -54,8 +64,13 @@ export const MyAds: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchMyTasks();
-  }, [fetchMyTasks]);
+    fetchMyTasks(currentPage);
+  }, [fetchMyTasks, currentPage]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   // ── Permission check ──────────────────────────────────────────────────────
   const canAssign =
@@ -272,6 +287,14 @@ export const MyAds: React.FC = () => {
             </table>
           </div>
         </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={PAGE_SIZE}
+          onPageChange={handlePageChange}
+          label="ads"
+        />
       </div>
 
       {/* Assign Task Modal */}

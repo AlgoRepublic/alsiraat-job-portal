@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { User, Skill, ApplicantProfile, UserRole } from "../types";
+import { User, Skill, ApplicantProfile, UserRole, Application } from "../types";
 import {
   Camera,
   Upload,
@@ -77,16 +77,18 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
       const data = await db.getCurrentUser();
       setProfile(data);
       try {
-        const apps = await api.getApplications();
-        setCompletedTasks(
-          apps.filter(
-            (app: any) =>
-              app.status === "Completed" &&
-              (app.userId === data.id ||
-                app.user === data.id ||
-                app.user?._id === data.id),
-          ),
-        );
+        if (data) {
+          const apps = await db.getApplications({
+            status: "Completed",
+            limit: 100,
+          });
+          setCompletedTasks(
+            apps.filter(
+              (app: Application) =>
+                app.userId === data.id || app.userId === (data as any)._id,
+            ),
+          );
+        }
       } catch (err) {
         console.error("Failed to fetch volunteer history:", err);
       }
@@ -695,7 +697,7 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
           {completedTasks.length > 0 ? (
             completedTasks.map((app) => (
               <div
-                key={app._id || app.id}
+                key={app.id}
                 className="flex gap-4 p-4 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-800"
               >
                 <div className="mt-1">
@@ -705,13 +707,13 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
                 </div>
                 <div>
                   <h4 className="text-base font-bold text-zinc-900 dark:text-white">
-                    {app.task?.title || "Task Deleted"}
+                    {app.jobTitle || "Task Deleted"}
                   </h4>
                   <div className="flex items-center gap-4 mt-0.5">
                     <p className="text-sm text-zinc-500 dark:text-zinc-400">
                       Completed on{" "}
                       {new Date(
-                        app.updatedAt || app.createdAt,
+                        app.appliedAt,
                       ).toLocaleDateString("en-GB", {
                         month: "short",
                         year: "numeric",
@@ -737,9 +739,9 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
                     </div>
                   )}
 
-                  {app.task?.hoursRequired && (
+                  {app.jobHoursRequired && (
                     <div className="mt-3 inline-flex items-center px-3 py-1 rounded-lg text-xs font-bold bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300">
-                      {app.task.hoursRequired} Hours
+                      {app.jobHoursRequired} Hours
                     </div>
                   )}
                 </div>

@@ -432,6 +432,31 @@ export const taskArchivedEmail = (
     </div>
     <p>If you believe this is a mistake, please contact your administrator.</p>
     <a href="${FRONTEND_URL}/dashboard" class="cta">Go to Dashboard</a>
+    <hr class="divider"/>
+    <p style="font-size:13px;color:#a1a1aa;">If you have any questions, please contact your administrator.</p>
   `),
   text: `Your task "${taskTitle}" has been archived.${reason ? ` Reason: ${reason}.` : ""} Dashboard: ${FRONTEND_URL}/dashboard`,
+});
+
+// 16. Onboarding Invitation (to new user)
+export const onboardingInvitationEmail = (
+  inviterName: string,
+  organisationName: string,
+  invitationUrl: string,
+): EmailTemplate => ({
+  subject: `You've been invited to join ${organisationName} on ${BRAND_NAME}! 🚀`,
+  html: wrap(`
+    <h2>You're Invited! 👋</h2>
+    <p>Hi there,</p>
+    <p><strong>${inviterName}</strong> has invited you to join <strong>${organisationName}</strong> on <strong>${BRAND_NAME}</strong>.</p>
+    <div class="info-box">
+      <p><strong>Organisation:</strong> ${organisationName}<br/>
+      <strong>Invited By:</strong> ${inviterName}</p>
+    </div>
+    <p>Click the button below to accept the invitation and set up your account. This link expires in <strong>48 hours</strong>.</p>
+    <a href="${invitationUrl}" class="cta">Accept Invitation & Signup</a>
+    <hr class="divider"/>
+    <p style="font-size:13px;color:#a1a1aa;">If you weren't expecting this invitation, you can safely ignore this email.</p>
+  `),
+  text: `You've been invited to join ${organisationName} on ${BRAND_NAME} by ${inviterName}!\n\nSignup link: ${invitationUrl}\n\nThis link expires in 48 hours.`,
 });

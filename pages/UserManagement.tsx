@@ -413,6 +413,9 @@ export const UserManagement: React.FC = () => {
     fetchUser();
   }, []);
 
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [isInviting, setIsInviting] = useState(false);
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -582,6 +585,23 @@ export const UserManagement: React.FC = () => {
     return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
   });
 
+  const handleInviteUser = async (email: string) => {
+    setIsInviting(true);
+    try {
+      const orgId =
+        currentUser?.organisation?._id ||
+        currentUser?.organisation?.id ||
+        currentUser?.organisation;
+      const response = await db.inviteUser(email, orgId);
+      showSuccess(response.message);
+      setIsInviteModalOpen(false);
+    } catch (err: any) {
+      showError(err?.data?.message || err?.message || "Failed to invite user");
+    } finally {
+      setIsInviting(false);
+    }
+  };
+
   const SortIcon = ({ col }: { col: typeof sortBy }) =>
     sortBy === col ? (
       sortDir === "asc" ? (
@@ -613,6 +633,7 @@ export const UserManagement: React.FC = () => {
         </div>
         <div className="flex items-center gap-3">
           {(currentUser?.permissions?.includes(Permission.USER_IMPORT) ||
+            currentUser?.permissions?.includes(Permission.USER_CREATE) ||
             currentUser?.roles?.includes(UserRole.GLOBAL_ADMIN)) && (
             <>
               <input
@@ -638,6 +659,15 @@ export const UserManagement: React.FC = () => {
                     Import CSV
                   </>
                 )}
+              </button>
+
+              <button
+                onClick={() => setIsInviteModalOpen(true)}
+                disabled={saving}
+                className="flex items-center gap-2 px-5 py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primaryHover transition-all shadow-lg shadow-primary/20 hover:-translate-y-0.5 active:translate-y-0"
+              >
+                <Mail className="w-4 h-4" />
+                Invite User
               </button>
 
               <button
@@ -1300,6 +1330,87 @@ export const UserManagement: React.FC = () => {
           </div>
         </div>
       )}
+
+      {isInviteModalOpen && (
+        <InviteUserModal
+          isOpen={isInviteModalOpen}
+          onClose={() => setIsInviteModalOpen(false)}
+          onInvite={handleInviteUser}
+          isInviting={isInviting}
+        />
+      )}
+    </div>
+  );
+};
+
+/* ─────────────────────────────── Invite User Modal ─────────────────────────── */
+const InviteUserModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onInvite: (email: string) => Promise<void>;
+  isInviting: boolean;
+}> = ({ isOpen, onClose, onInvite, isInviting }) => {
+  const [email, setEmail] = useState("");
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onInvite(email);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in overflow-y-auto">
+      <div className="relative w-full max-w-md bg-white dark:bg-zinc-900 rounded-[2.5rem] shadow-2xl border border-white/20 dark:border-zinc-800 p-8 md:p-10 animate-scale-in transition-all">
+        <button
+          onClick={onClose}
+          className="absolute top-6 right-6 p-2 text-zinc-400 hover:text-primary transition-colors"
+        >
+          <X className="w-6 h-6" />
+        </button>
+
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <Mail className="w-8 h-8 text-primary" />
+          </div>
+          <h2 className="text-2xl font-black text-zinc-900 dark:text-white mb-2 tracking-tight">
+            Invite New User
+          </h2>
+          <p className="text-sm text-zinc-500 font-medium text-[10px] font-black uppercase tracking-widest text-center">
+            Send an onboarding link via email
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-4">
+            <div className="relative group">
+              <Mail className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
+              <input
+                type="email"
+                required
+                placeholder="User Email Address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full pl-12 pr-4 py-4 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-sm font-bold dark:text-white transition-all shadow-sm"
+              />
+            </div>
+          </div>
+
+          <button
+            disabled={isInviting || !email}
+            className="w-full py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primaryHover shadow-xl shadow-primary/30 transition-all hover:-translate-y-1 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
+          >
+            {isInviting ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Sending Invitation...
+              </>
+            ) : (
+              "Send Invitation Link"
+            )}
+          </button>
+        </form>
+      </div>
     </div>
   );
 };

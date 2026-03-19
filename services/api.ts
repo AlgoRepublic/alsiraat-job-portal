@@ -153,11 +153,34 @@ class ApiService {
     return response;
   }
 
-  async sendOtp(data: { firstName: string; lastName: string; email: string }): Promise<any> {
+  async sendOtp(data: {
+    firstName: string;
+    lastName: string;
+    email: string;
+  }): Promise<any> {
     return this.request<any>("/auth/send-otp", {
       method: "POST",
       body: JSON.stringify(data),
     });
+  }
+
+  async inviteUser(
+    email: string,
+    organisationId?: string,
+  ): Promise<{ message: string }> {
+    return this.post<{ message: string }>("/auth/invite", {
+      email,
+      organisationId,
+    });
+  }
+
+  async getInvitationDetails(
+    token: string,
+  ): Promise<{ email: string; organisation: { _id: string; name: string } }> {
+    return this.get<{
+      email: string;
+      organisation: { _id: string; name: string };
+    }>(`/auth/invitation/${token}`);
   }
 
   async verifyOtp(data: any): Promise<AuthResponse> {
@@ -310,9 +333,9 @@ class ApiService {
 
   // --- Tasks (Jobs) ---
 
-  async getTasks(filters: any = {}): Promise<any[]> {
+  async getTasks(filters: any = {}): Promise<any> {
     const query = new URLSearchParams(filters).toString();
-    return this.request<any[]>(`/tasks?${query}`);
+    return this.request<any>(`/tasks?${query}`);
   }
 
   async getTask(id: string): Promise<any> {
@@ -339,9 +362,9 @@ class ApiService {
 
   // --- Applications ---
 
-  async getApplications(filters: any = {}): Promise<any[]> {
+  async getApplications(filters: any = {}): Promise<any> {
     const query = new URLSearchParams(filters).toString();
-    return this.request<any[]>(`/applications?${query}`);
+    return this.request<any>(`/applications?${query}`);
   }
 
   async getApplication(id: string): Promise<any> {

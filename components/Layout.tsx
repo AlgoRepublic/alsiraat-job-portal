@@ -461,7 +461,7 @@ export const Layout: React.FC<LayoutProps> = ({
     {
       icon: ClipboardList,
       label: "Pending Tasks",
-      path: "/dashboard",
+      path: "/jobs?status=Pending",
       protected: true,
       anyPermission: [
         Permission.TASK_APPROVE,
@@ -588,7 +588,7 @@ export const Layout: React.FC<LayoutProps> = ({
                     location.pathname.startsWith(item.path));
                 return (
                   <Link
-                    key={item.path}
+                    key={item.label}
                     to={item.path}
                     onClick={() => setSidebarOpen(false)}
                     className={`flex items-center px-5 py-4 rounded-2xl transition-all duration-300 relative group ${isActive ? "bg-white/60 dark:bg-white/10 text-primary font-bold shadow-sm" : "text-zinc-500 dark:text-zinc-400 hover:bg-white/30 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white"}`}

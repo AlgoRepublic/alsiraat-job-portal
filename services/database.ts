@@ -18,6 +18,7 @@ import { api, ApiError, API_BASE_URL, LOGIN_SOURCE_KEY } from "./api";
 const mapTaskToJob = (task: any): Job => {
   return {
     id: task._id,
+    _id: task._id,
     title: task.title,
     category:
       typeof task.category === "object"
@@ -92,6 +93,7 @@ const mapStatus = (status: string): JobStatus => {
 const mapAppToFrontend = (app: any): Application => {
   return {
     id: app._id,
+    _id: app._id,
     jobId: app.task?._id || app.task,
     jobTitle: app.task?.title || "Task",
     userId: app.applicant?._id || app.applicant,
@@ -111,6 +113,9 @@ const mapAppToFrontend = (app: any): Application => {
     coverLetter: app.coverLetter,
     availability: app.availability,
     rejectionReason: app.rejectionReason,
+    rating: app.rating,
+    reviewText: app.reviewText,
+    jobHoursRequired: app.task?.hoursRequired,
   };
 };
 
@@ -271,11 +276,48 @@ class DatabaseService {
     return response.user;
   }
 
+  async inviteUser(
+    email: string,
+    organisationId?: string,
+  ): Promise<{ message: string }> {
+    return await api.inviteUser(email, organisationId);
+  }
+
+  async getInvitationDetails(
+    token: string,
+  ): Promise<{ email: string; organisation: { _id: string; name: string } }> {
+    return await api.getInvitationDetails(token);
+  }
+
   // --- Jobs (Tasks) ---
 
   async getJobs(): Promise<Job[]> {
-    const tasks = await api.getTasks();
+    const data = await api.getTasks();
+    const tasks = Array.isArray(data) ? data : (data.tasks ?? []);
     return tasks.map(mapTaskToJob);
+  }
+
+  async getJobsPaged(
+    filters: any = {},
+    page = 1,
+    limit = 10,
+  ): Promise<{
+    jobs: Job[];
+    pagination: { total: number; page: number; limit: number; pages: number };
+  }> {
+    const data = await api.getTasks({ ...filters, page, limit });
+
+    if (Array.isArray(data)) {
+      return {
+        jobs: data.map(mapTaskToJob),
+        pagination: { total: data.length, page: 1, limit: data.length, pages: 1 },
+      };
+    }
+
+    return {
+      jobs: (data.tasks || []).map(mapTaskToJob),
+      pagination: data.pagination || { total: 0, page, limit, pages: 0 },
+    };
   }
 
   async getJob(id: string): Promise<Job | undefined> {
@@ -317,11 +359,33 @@ class DatabaseService {
     return api.post(`/tasks/${id}/repost`, { endDate });
   }
 
-  // --- Applications ---
-
   async getApplications(filters: any = {}): Promise<Application[]> {
-    const apps = await api.getApplications(filters);
+    const data = await api.getApplications(filters);
+    const apps = Array.isArray(data) ? data : (data.applications ?? []);
     return apps.map(mapAppToFrontend);
+  }
+
+  async getApplicationsPaged(
+    filters: any = {},
+    page = 1,
+    limit = 10,
+  ): Promise<{
+    applications: Application[];
+    pagination: { total: number; page: number; limit: number; pages: number };
+  }> {
+    const data = await api.getApplications({ ...filters, page, limit });
+
+    if (Array.isArray(data)) {
+      return {
+        applications: data.map(mapAppToFrontend),
+        pagination: { total: data.length, page: 1, limit: data.length, pages: 1 },
+      };
+    }
+
+    return {
+      applications: (data.applications || []).map(mapAppToFrontend),
+      pagination: data.pagination || { total: 0, page, limit, pages: 0 },
+    };
   }
 
   async getApplicationsForJob(jobId: string): Promise<Application[]> {
@@ -366,6 +430,10 @@ class DatabaseService {
     return api.put(`/applications/${id}/reject-completion`, { reason });
   }
 
+  async submitReview(id: string, rating: number, reviewText: string): Promise<any> {
+    return api.submitReview(id, rating, reviewText);
+  }
+
   // --- Notifications ---
   async getNotifications(): Promise<any[]> {
     return await api.getNotifications();
@@ -386,6 +454,7 @@ class DatabaseService {
       const orgs = await api.getOrganizations();
       return orgs.map((org: any) => ({
         id: org._id,
+        _id: org._id,
         name: org.name,
         slug: org.slug,
         type: org.type,

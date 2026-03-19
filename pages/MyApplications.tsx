@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Briefcase } from "lucide-react";
 import { api } from "../services/api";
+import { db } from "../services/database";
 import { Application, Job } from "../types";
 
 interface ApplicationWithJob extends Application {
@@ -10,28 +11,42 @@ interface ApplicationWithJob extends Application {
 
 import { Loading } from "../components/Loading";
 import { useToast } from "../components/Toast";
+import { Pagination } from "../components/Pagination";
+
+const PAGE_SIZE = 10;
 
 export default function MyApplications() {
-  const [applications, setApplications] = useState<ApplicationWithJob[]>([]);
+  const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
 
   useEffect(() => {
-    fetchMyApplications();
-  }, []);
+    fetchMyApplications(currentPage);
+  }, [currentPage]);
 
-  const fetchMyApplications = async () => {
+  const fetchMyApplications = async (page = 1) => {
     try {
       setLoading(true);
-      const applications = await api.getApplications();
-      setApplications(applications);
+      const data = await db.getApplicationsPaged({}, page, PAGE_SIZE);
+      setApplications(data.applications);
+      setTotalItems(data.pagination.total);
+      setTotalPages(data.pagination.pages);
+      setCurrentPage(data.pagination.page);
     } catch (err: any) {
       setError(err.message || "Failed to load applications");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const getApplicationStatusStyle = (status: string) => {
@@ -109,21 +124,21 @@ export default function MyApplications() {
             <tbody className="divide-y divide-white/20 dark:divide-white/5">
               {applications.map((app) => (
                 <tr
-                  key={app._id}
-                  className="hover:bg-white/40 dark:hover:bg-white/5 transition-all group"
-                >
-                  <td className="px-10 py-8">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-                        <Briefcase className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <p className="text-lg font-black text-zinc-900 dark:text-white group-hover:text-primary transition-colors">
-                          {app.task?.title || "Task Deleted"}
-                        </p>
-                        <p className="text-xs text-zinc-500 font-medium uppercase tracking-widest mt-1">
-                          Ref: #{app._id?.slice(-6).toUpperCase()}
-                        </p>
+                    key={app.id}
+                    className="hover:bg-white/40 dark:hover:bg-white/5 transition-all group"
+                  >
+                    <td className="px-10 py-8">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                          <Briefcase className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <p className="text-lg font-black text-zinc-900 dark:text-white group-hover:text-primary transition-colors">
+                            {app.jobTitle || app.task?.title || "Task Deleted"}
+                          </p>
+                          <p className="text-xs text-zinc-500 font-medium uppercase tracking-widest mt-1">
+                            Ref: #{app.id?.slice(-6).toUpperCase()}
+                          </p>
                       </div>
                     </div>
                   </td>
@@ -145,15 +160,15 @@ export default function MyApplications() {
                     <div className="flex items-center justify-end gap-2">
                       {app.status === "Accepted" && (
                         <button
-                          onClick={() => handleRequestCompletion(app._id)}
+                          onClick={() => handleRequestCompletion(app.id)}
                           className="px-6 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/10 group-hover:scale-105"
                         >
                           Request Completion
                         </button>
                       )}
-                      {app.task && (
+                      {(app.jobId || app.task) && (
                         <button
-                          onClick={() => navigate(`/jobs/${app.task?._id}`)}
+                          onClick={() => navigate(`/jobs/${app.jobId || (app.task as any)?.id || (app.task as any)?._id}`)}
                           className="px-6 py-3 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primaryHover transition-all shadow-lg shadow-primary/10 group-hover:scale-105"
                         >
                           View Task
@@ -183,6 +198,14 @@ export default function MyApplications() {
           </table>
         </div>
       </div>
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        itemsPerPage={PAGE_SIZE}
+        onPageChange={handlePageChange}
+        label="applications"
+      />
     </div>
   );
 }

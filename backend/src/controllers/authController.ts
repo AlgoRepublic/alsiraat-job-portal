@@ -11,7 +11,10 @@ import {
   welcomeEmail,
   passwordResetEmail,
   otpVerificationEmail,
+  onboardingInvitationEmail,
 } from "../services/emailTemplates.js";
+import Invitation from "../models/Invitation.js";
+import Organization from "../models/Organization.js";
 import { hasPermissionAsync, Permission } from "../config/permissions.js";
 import {
   getOIDCEndSessionEndpoint,
@@ -90,8 +93,15 @@ export const sendOtp = async (req: Request, res: Response) => {
  */
 export const verifyOtp = async (req: Request, res: Response) => {
   try {
-    const { firstName, lastName, email, password, otp, contactNumber } =
-      req.body;
+    const {
+      firstName,
+      lastName,
+      email,
+      password,
+      otp,
+      contactNumber,
+      invitationToken,
+    } = req.body;
 
     if (!otp || !email || !password) {
       return res
@@ -114,10 +124,9 @@ export const verifyOtp = async (req: Request, res: Response) => {
 
     // OTP valid — finalise the account
     const hashedPassword = await bcrypt.hash(password, 12);
-    const name =
-      `${firstName?.trim() ?? user.firstName ?? ""} ${
-        lastName?.trim() ?? user.lastName ?? ""
-      }`.trim();
+    const name = `${firstName?.trim() ?? user.firstName ?? ""} ${
+      lastName?.trim() ?? user.lastName ?? ""
+    }`.trim();
 
     user.name = name;
     user.firstName = firstName?.trim() ?? user.firstName;
@@ -125,6 +134,22 @@ export const verifyOtp = async (req: Request, res: Response) => {
     user.password = hashedPassword;
     user.roles = [UserRole.APPLICANT];
     if (contactNumber) user.contactNumber = contactNumber;
+
+    // Handle invitation if present
+    if (invitationToken) {
+      const invitation = await Invitation.findOne({
+        token: invitationToken,
+        email: email,
+        status: "Pending",
+        expiresAt: { $gt: new Date() },
+      });
+      if (invitation) {
+        user.organisation = invitation.organisation;
+        invitation.status = "Accepted";
+        await invitation.save();
+      }
+    }
+
     // Clear OTP
     user.otpToken = undefined;
     user.otpExpires = undefined;
@@ -704,6 +729,111 @@ export const exportUsersCsv = async (req: Request, res: Response) => {
       `attachment; filename="users_${date}.csv"`,
     );
     res.send(csv);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/**
+ * Admin: Invite a user to join an organisation.
+ * Generates a unique token and sends an onboarding link.
+ */
+export const inviteUser = async (req: any, res: Response) => {
+  try {
+    const { email, organisationId } = req.body;
+
+    if (!email) return res.status(400).json({ message: "Email is required" });
+
+    // Validate permission
+    const isGlobalAdmin = req.user.roles.includes(UserRole.GLOBAL_ADMIN);
+    const targetOrgId = organisationId || req.user.organisation;
+
+    if (!targetOrgId) {
+      return res.status(400).json({
+        message: "Organisation ID is required for invitation",
+      });
+    }
+
+    if (
+      !isGlobalAdmin &&
+      req.user.organisation?.toString() !== targetOrgId.toString()
+    ) {
+      return res.status(403).json({
+        message: "Not authorized to invite to this organisation",
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser)
+      return res
+        .status(400)
+        .json({ message: "User with this email already exists" });
+
+    // Generate secure token
+    const token = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
+
+    // Find organisation for email
+    const org = await Organization.findById(targetOrgId);
+    if (!org)
+      return res.status(404).json({ message: "Organisation not found" });
+
+    // Create or update invitation for this email
+    await Invitation.findOneAndUpdate(
+      { email },
+      {
+        email,
+        organisation: targetOrgId,
+        token,
+        invitedBy: req.user._id,
+        expiresAt,
+        status: "Pending",
+      },
+      { upsert: true }
+    );
+
+    // Send email
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    const invitationUrl = `${frontendUrl}/signup?token=${token}`;
+    await sendEmail(
+      email,
+      onboardingInvitationEmail(
+        req.user.name || "Administrator",
+        org.name,
+        invitationUrl
+      ),
+      {}
+    );
+
+    res.json({ message: `Invitation sent to ${email}` });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/**
+ * GET /auth/invitation/:token
+ */
+export const getInvitationDetails = async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+    const invitation = await Invitation.findOne({
+      token,
+      status: "Pending",
+      expiresAt: { $gt: new Date() },
+    }).populate("organisation", "name");
+
+    if (!invitation) {
+      return res
+        .status(404)
+        .json({ message: "Invalid or expired invitation link" });
+    }
+
+    res.json({
+      email: invitation.email,
+      organisation: (invitation as any).organisation,
+    });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }

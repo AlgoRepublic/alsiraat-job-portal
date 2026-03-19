@@ -17,6 +17,9 @@ import { db } from "../services/database";
 import { getStatusColor } from "./Dashboard";
 
 import { Loading } from "../components/Loading";
+import { Pagination } from "../components/Pagination";
+
+const PAGE_SIZE = 12;
 
 export const JobList: React.FC = () => {
   const navigate = useNavigate();
@@ -28,6 +31,9 @@ export const JobList: React.FC = () => {
   // Data State
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Derived Filter State from URL
   const searchTerm = searchParams.get("q") || "";
@@ -45,11 +51,13 @@ export const JobList: React.FC = () => {
     } else {
       newParams.delete(key);
     }
+    newParams.set("page", "1"); // Reset to page 1 on filter change
     setSearchParams(newParams, { replace: true });
   };
 
   const clearFilters = () => {
     setSearchParams({}, { replace: true });
+    setCurrentPage(1);
   };
 
   const hasActiveFilters =
@@ -61,75 +69,50 @@ export const JobList: React.FC = () => {
 
   useEffect(() => {
     const fetchJobs = async () => {
-      const data = await db.getJobs();
-      console.log("\n📋 All Jobs (BEFORE filters):", {
-        count: data.length,
-        jobs: data.map((j) => ({
-          id: j.id,
-          title: j.title,
-          status: j.status,
-          visibility: j.visibility,
-          organisation: j.organisation,
-          organization: j.organization,
-        })),
+      setLoading(true);
+      const filters: any = {
+        search: searchTerm,
+      };
+      if (filterCategory !== "All") filters.category = filterCategory;
+      if (filterStatus !== "All") filters.status = filterStatus;
+      if (filterReward !== "All") filters.reward = filterReward;
+      if (dateFrom) filters.dateFrom = dateFrom;
+      if (dateTo) filters.dateTo = dateTo;
+
+      const page = parseInt(searchParams.get("page") || "1");
+      setCurrentPage(page);
+
+      const data = await db.getJobsPaged(filters, page, PAGE_SIZE);
+
+      console.log("\n📋 Jobs Paged:", {
+        count: data.jobs.length,
+        total: data.pagination.total,
+        page: data.pagination.page,
+        filters,
       });
-      setJobs(data);
+
+      setJobs(data.jobs);
+      setTotalItems(data.pagination.total);
+      setTotalPages(data.pagination.pages);
       setLoading(false);
     };
     fetchJobs();
-  }, []);
+  }, [
+    searchTerm,
+    filterCategory,
+    filterStatus,
+    filterReward,
+    dateFrom,
+    dateTo,
+    searchParams.get("page"),
+  ]);
 
-  const filteredJobs = jobs.filter((job) => {
-    const matchesSearch =
-      job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      job.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      job.location.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesCategory =
-      filterCategory === "All" || job.category === filterCategory;
-    const matchesStatus = filterStatus === "All" || job.status === filterStatus;
-    const matchesReward =
-      filterReward === "All" || job.rewardType === filterReward;
-
-    let matchesDate = true;
-    if (dateFrom || dateTo) {
-      if (!job.startDate) {
-        matchesDate = false;
-      } else {
-        const start = new Date(job.startDate);
-        if (dateFrom && start < new Date(dateFrom)) matchesDate = false;
-        if (dateTo && start > new Date(dateTo)) matchesDate = false;
-      }
-    }
-
-    return (
-      matchesSearch &&
-      matchesCategory &&
-      matchesStatus &&
-      matchesReward &&
-      matchesDate
-    );
-  });
-
-  // Log filtered results
-  console.log("\n🔍 Filtered Jobs (AFTER filters):", {
-    count: filteredJobs.length,
-    activeFilters: {
-      searchTerm,
-      filterCategory,
-      filterStatus,
-      filterReward,
-      dateFrom,
-      dateTo,
-    },
-    jobs: filteredJobs.map((j) => ({
-      id: j.id,
-      title: j.title,
-      status: j.status,
-      visibility: j.visibility,
-      organisation: j.organisation,
-    })),
-  });
+  const handlePageChange = (page: number) => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set("page", String(page));
+    setSearchParams(newParams);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   if (loading) {
     return <Loading message="Fetching tasks..." />;
@@ -273,7 +256,7 @@ export const JobList: React.FC = () => {
         <p className="text-sm font-bold text-zinc-400">
           Active Board:{" "}
           <span className="text-zinc-900 dark:text-white">
-            {filteredJobs.length} tasks
+            {totalItems} tasks
           </span>
         </p>
         {hasActiveFilters && (
@@ -302,7 +285,7 @@ export const JobList: React.FC = () => {
       </div>
 
       <div className="grid gap-6">
-        {filteredJobs.map((job) => (
+        {jobs.map((job) => (
           <div
             key={job.id}
             onClick={() => navigate(`/jobs/${job.id}`)}
@@ -358,7 +341,7 @@ export const JobList: React.FC = () => {
           </div>
         ))}
 
-        {filteredJobs.length === 0 && (
+        {jobs.length === 0 && (
           <div className="text-center py-24 glass-card rounded-[3rem] border-dashed border-2 border-zinc-200 dark:border-zinc-800">
             <ClipboardList className="w-16 h-16 text-zinc-300 dark:text-zinc-700 mx-auto mb-6" />
             <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter">
@@ -376,6 +359,15 @@ export const JobList: React.FC = () => {
           </div>
         )}
       </div>
+
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        itemsPerPage={PAGE_SIZE}
+        onPageChange={handlePageChange}
+        label="tasks"
+      />
     </div>
   );
 };

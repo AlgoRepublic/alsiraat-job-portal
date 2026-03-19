@@ -285,12 +285,19 @@ export const getTasks = async (req: any, res: Response) => {
         delete query.status;    // Handled in $and
       }
 
+      const total = await Task.countDocuments(query);
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const skip = (page - 1) * limit;
+
       const tasks = await Task.find(query)
         .populate("category", "name code icon")
         .populate("rewardType", "name code")
         .populate("organisation", "name slug")
         .populate("createdBy", "name email")
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
 
       // Add applicant counts for each task
       const taskIds = tasks.map((t) => t._id);
@@ -300,12 +307,25 @@ export const getTasks = async (req: any, res: Response) => {
       ]);
       const countMap = new Map(counts.map((c) => [c._id.toString(), c.count]));
 
-      const tasksWithCounts = tasks.map((task) => ({
+      const tasksMapped = tasks.map((task) => ({
         ...task.toObject(),
         applicantsCount: countMap.get(task._id.toString()) || 0,
       }));
 
-      return res.json(tasksWithCounts);
+      // If no page/limit provided, return plain array for backward compatibility
+      if (!req.query.page && !req.query.limit) {
+        return res.json(tasksMapped);
+      }
+
+      return res.json({
+        tasks: tasksMapped,
+        pagination: {
+          total,
+          page,
+          limit,
+          pages: Math.ceil(total / limit),
+        },
+      });
     }
 
     const { checkPermissionAsync } = await import("../middleware/rbac.js");
@@ -412,21 +432,37 @@ export const getTasks = async (req: any, res: Response) => {
       }
     }
 
-    // Add search filter if provided
+    // Collect all top-level logical filters
+    const additionalFilters: any[] = [];
+
+    // Search filter
     if (search && typeof search === "string" && search.trim().length > 0) {
       const searchRegex = new RegExp(search.trim(), "i");
-      query = {
-        $and: [
-          query,
-          {
-            $or: [
-              { title: searchRegex },
-              { description: searchRegex },
-              { category: searchRegex },
-            ],
-          },
+      additionalFilters.push({
+        $or: [
+          { title: searchRegex },
+          { description: searchRegex },
+          { category: searchRegex },
         ],
-      };
+      });
+    }
+
+    // Specific field filters
+    if (req.query.category)
+      additionalFilters.push({ category: req.query.category });
+    if (req.query.status) additionalFilters.push({ status: req.query.status });
+    if (req.query.reward)
+      additionalFilters.push({ rewardType: req.query.reward });
+
+    // Apply all filters joined by $AND
+    if (additionalFilters.length > 0) {
+      if (Object.keys(query).length > 0) {
+        query = { $and: [query, ...additionalFilters] };
+      } else if (additionalFilters.length > 1) {
+        query = { $and: additionalFilters };
+      } else {
+        query = additionalFilters[0];
+      }
     }
 
     // Filter out expired tasks by default (unless admin requests includeExpired)
@@ -451,10 +487,18 @@ export const getTasks = async (req: any, res: Response) => {
       }
     }
 
+    // --- Pagination ---
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await Task.countDocuments(query);
     const tasks = await Task.find(query)
       .populate("organisation", "name")
       .populate("createdBy", "name")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
     // Get application counts for each task
     const taskIds = tasks.map((t) => t._id);
@@ -476,13 +520,26 @@ export const getTasks = async (req: any, res: Response) => {
       );
     }
 
-    const tasksWithCounts = tasks.map((task) => ({
+    const tasksMapped = tasks.map((task) => ({
       ...task.toObject(),
       applicantsCount: countMap.get(task._id.toString()) || 0,
       hasApplied: appliedTaskIds.has(task._id.toString()),
     }));
 
-    res.json(tasksWithCounts);
+    // If no page/limit were provided, return plain array for backward compatibility
+    if (!req.query.page && !req.query.limit) {
+      return res.json(tasksMapped);
+    }
+
+    res.json({
+      tasks: tasksMapped,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
+    });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }

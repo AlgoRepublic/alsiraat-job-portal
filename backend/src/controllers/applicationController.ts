@@ -351,13 +351,45 @@ export const getApplications = async (req: any, res: Response) => {
       UserRole,
     );
 
+    // Apply additional filters
+    const status = req.query.status as string;
+    if (status) {
+      if (status.includes(",")) {
+        query.status = { $in: status.split(",") };
+      } else {
+        query.status = status;
+      }
+    }
+
+    const total = await Application.countDocuments(query);
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
+
     const apps = await Application.find(query)
       .populate("task")
       .populate(
         "applicant",
         "name email avatar about skills resumeUrl resumeOriginalName experience contactNumber gender yearLevel organisation",
-      );
-    res.json(apps);
+      )
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    // If no page/limit provided, return plain array for backward compatibility
+    if (!req.query.page && !req.query.limit) {
+      return res.json(apps);
+    }
+
+    res.json({
+      applications: apps,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
+    });
   } catch (err: any) {
     if (err.message.includes("permission")) {
       return res.status(403).json({ message: err.message });

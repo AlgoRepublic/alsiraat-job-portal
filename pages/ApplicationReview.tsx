@@ -815,9 +815,11 @@ export const ApplicationReview: React.FC = () => {
                 Rate Performance
               </h3>
             </div>
-            
+
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-6 leading-relaxed">
-              How would you rate {app.applicantName.split(" ")[0]}'s contribution to this task? Your feedback helps build their reputation.
+              How would you rate {app.applicantName.split(" ")[0]}'s
+              contribution to this task? Your feedback helps build their
+              reputation.
             </p>
 
             <div className="flex justify-center gap-2 mb-8">

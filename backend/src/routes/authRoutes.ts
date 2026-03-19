@@ -15,6 +15,8 @@ import {
   sendOtp,
   verifyOtp,
   exportUsersCsv,
+  inviteUser,
+  getInvitationDetails,
 } from "../controllers/authController.js";
 import { authenticate, requirePermission } from "../middleware/rbac.js";
 import { upload } from "../middleware/upload.js";
@@ -180,5 +182,14 @@ router.post(
   requirePermission(Permission.USER_IMPERSONATE),
   impersonate,
 );
+
+// Invitation System
+router.post(
+  "/invite",
+  authenticate,
+  requirePermission(Permission.USER_CREATE),
+  inviteUser,
+);
+router.get("/invitation/:token", getInvitationDetails);
 
 export default router;

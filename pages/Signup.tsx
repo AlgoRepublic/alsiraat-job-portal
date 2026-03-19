@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import {
   Mail,
   Lock,
@@ -37,6 +36,9 @@ const formatAustralianPhone = (raw: string): string => {
 
 export const Signup: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const invitationToken = searchParams.get("token");
+
   const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState<"FORM" | "OTP">("FORM");
   const [firstName, setFirstName] = useState("");
@@ -46,6 +48,27 @@ export const Signup: React.FC = () => {
   const [otp, setOtp] = useState("");
   const [contactNumber, setContactNumber] = useState("");
   const [error, setError] = useState("");
+  const [invitationOrg, setInvitationOrg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (invitationToken) {
+      const fetchInvitation = async () => {
+        setIsLoading(true);
+        try {
+          const details = await db.getInvitationDetails(invitationToken);
+          setEmail(details.email);
+          setInvitationOrg(details.organisation.name);
+        } catch (err: any) {
+          setError(
+            err.message || "This invitation link is invalid or has expired."
+          );
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchInvitation();
+    }
+  }, [invitationToken]);
 
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,6 +99,7 @@ export const Signup: React.FC = () => {
         email: email.trim(),
         password,
         otp: otp.trim(),
+        invitationToken,
         ...(contactNumber.trim()
           ? { contactNumber: contactNumber.trim() }
           : {}),
@@ -137,13 +161,26 @@ export const Signup: React.FC = () => {
             />
           </div>
           <h1 className="text-3xl font-black text-zinc-900 dark:text-white mb-2 tracking-tighter">
-            {step === "FORM" ? "Create Account" : "Verify Email"}
-          </h1>
-          <p className="text-zinc-500 dark:text-zinc-400 text-sm font-bold uppercase tracking-widest text-[10px]">
             {step === "FORM"
-              ? "Join Tasker"
-              : `Code sent to ${email.toLowerCase()}`}
-          </p>
+              ? invitationToken
+                ? "Complete Your Onboarding"
+                : "Create Account"
+              : "Verify Email"}
+          </h1>
+          {invitationOrg ? (
+            <div className="flex items-center justify-center gap-2 mb-2 p-2 bg-primary/10 rounded-xl border border-primary/20 animate-pulse">
+              <Building2 className="w-4 h-4 text-primary" />
+              <span className="text-[10px] font-black uppercase tracking-wider text-primary">
+                Joining {invitationOrg}
+              </span>
+            </div>
+          ) : (
+            <p className="text-zinc-500 dark:text-zinc-400 text-sm font-bold uppercase tracking-widest text-[10px]">
+              {step === "FORM"
+                ? "Join Tasker"
+                : `Code sent to ${email.toLowerCase()}`}
+            </p>
+          )}
         </div>
 
         {error && (
@@ -195,7 +232,10 @@ export const Signup: React.FC = () => {
                     placeholder="Email Address"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-[#812349]/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
+                    disabled={!!invitationToken}
+                    className={`w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-[#812349]/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md ${
+                      invitationToken ? "opacity-70 cursor-not-allowed" : ""
+                    }`}
                   />
                 </div>
               </>

@@ -83,6 +83,7 @@ export interface ITask {
 
 export interface Job {
   id: string;
+  _id?: string;
   title: string;
   category: JobCategory;
   description: string;
@@ -198,6 +199,7 @@ export type Permission = (typeof Permission)[keyof typeof Permission];
 
 export interface Application {
   id: string;
+  _id?: string;
   jobId: string;
   jobTitle?: string;
   userId: string;
@@ -230,6 +232,7 @@ export interface Application {
   rejectionReason?: string;
   rating?: number;
   reviewText?: string;
+  jobHoursRequired?: number;
 }
 
 export interface RoleDefinition {
