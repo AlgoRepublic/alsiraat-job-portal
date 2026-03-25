@@ -36,7 +36,9 @@ type Tab = "profile" | "tasks" | "applications" | "activity";
 /* ─── Helpers ─────────────────────────────────────────────────────────────────── */
 const fmt = (d?: string | Date) => {
   if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-AU", {
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString("en-AU", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -779,11 +781,11 @@ const TaskRow: React.FC<{ task: any }> = ({ task }) => (
       </p>
       <p className="text-xs text-zinc-400 mt-0.5">
         {task.category?.name || task.category || "General"} ·{" "}
-        {new Date(task.createdAt).toLocaleDateString("en-AU", {
+        {task.createdAt && !isNaN(new Date(task.createdAt).getTime()) ? new Date(task.createdAt).toLocaleDateString("en-AU", {
           day: "numeric",
           month: "short",
           year: "numeric",
-        })}
+        }) : "—"}
       </p>
     </div>
     <div className="flex items-center gap-2 shrink-0">
@@ -813,11 +815,11 @@ const ApplicationRow: React.FC<{ app: any }> = ({ app }) => (
       </p>
       <p className="text-xs text-zinc-400 mt-0.5">
         Applied{" "}
-        {new Date(app.createdAt).toLocaleDateString("en-AU", {
+        {app.createdAt && !isNaN(new Date(app.createdAt).getTime()) ? new Date(app.createdAt).toLocaleDateString("en-AU", {
           day: "numeric",
           month: "short",
           year: "numeric",
-        })}
+        }) : "—"}
       </p>
     </div>
     <span

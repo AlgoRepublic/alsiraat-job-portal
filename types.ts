@@ -233,6 +233,8 @@ export interface Application {
   rating?: number;
   reviewText?: string;
   jobHoursRequired?: number;
+  task?: any;
+  createdAt?: string;
 }
 
 export interface RoleDefinition {

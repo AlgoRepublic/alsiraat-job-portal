@@ -116,6 +116,8 @@ const mapAppToFrontend = (app: any): Application => {
     rating: app.rating,
     reviewText: app.reviewText,
     jobHoursRequired: app.task?.hoursRequired,
+    // Preserve the full task object so pages can access task.title, task.category, etc.
+    task: typeof app.task === "object" && app.task !== null ? app.task : undefined,
   };
 };
 

@@ -712,12 +712,12 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
                   <div className="flex items-center gap-4 mt-0.5">
                     <p className="text-sm text-zinc-500 dark:text-zinc-400">
                       Completed on{" "}
-                      {new Date(
+                      {app.appliedAt && !isNaN(new Date(app.appliedAt).getTime()) ? new Date(
                         app.appliedAt,
                       ).toLocaleDateString("en-GB", {
                         month: "short",
                         year: "numeric",
-                      })}
+                      }) : "—"}
                     </p>
                     {app.rating && (
                       <div className="flex items-center gap-0.5">

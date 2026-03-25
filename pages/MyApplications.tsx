@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Briefcase } from "lucide-react";
+import { Briefcase, ChevronUp, ChevronDown } from "lucide-react";
 import { api } from "../services/api";
 import { db } from "../services/database";
 import { Application, Job } from "../types";
@@ -24,6 +24,8 @@ export default function MyApplications() {
   const [totalPages, setTotalPages] = useState(1);
   const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc"); // newest first
+  const toggleSort = () => setSortDir((d) => (d === "desc" ? "asc" : "desc"));
 
   useEffect(() => {
     fetchMyApplications(currentPage);
@@ -83,6 +85,12 @@ export default function MyApplications() {
     return <Loading message="Loading..." />;
   }
 
+  const sorted = [...applications].sort((a, b) => {
+    const da = new Date(a.appliedAt || 0).getTime();
+    const db2 = new Date(b.appliedAt || 0).getTime();
+    return sortDir === "desc" ? db2 - da : da - db2;
+  });
+
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-fade-in">
       <div className="glass-card p-10 rounded-[2.5rem]">
@@ -110,8 +118,14 @@ export default function MyApplications() {
                 <th className="px-10 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
                   Task Information
                 </th>
-                <th className="px-8 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
-                  Applied Date
+                <th
+                  className="px-8 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] cursor-pointer select-none hover:text-primary transition-colors"
+                  onClick={toggleSort}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    Applied Date
+                    {sortDir === "desc" ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+                  </span>
                 </th>
                 <th className="px-8 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
                   Status
@@ -122,7 +136,7 @@ export default function MyApplications() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/20 dark:divide-white/5">
-              {applications.map((app) => (
+              {sorted.map((app) => (
                 <tr
                     key={app.id}
                     className="hover:bg-white/40 dark:hover:bg-white/5 transition-all group"
@@ -143,11 +157,11 @@ export default function MyApplications() {
                     </div>
                   </td>
                   <td className="px-8 py-8 whitespace-nowrap text-sm font-semibold text-zinc-500 dark:text-zinc-400">
-                    {new Date(app.createdAt).toLocaleDateString("en-GB", {
+                    {app.appliedAt && !isNaN(new Date(app.appliedAt).getTime()) ? new Date(app.appliedAt).toLocaleDateString("en-GB", {
                       day: "numeric",
                       month: "short",
                       year: "numeric",
-                    })}
+                    }) : "—"}
                   </td>
                   <td className="px-8 py-8 whitespace-nowrap">
                     <span
@@ -189,7 +203,7 @@ export default function MyApplications() {
                       onClick={() => navigate("/jobs")}
                       className="text-primary font-black hover:underline ml-2"
                     >
-                      Browse Tasks
+                      Search Tasks
                     </button>
                   </td>
                 </tr>

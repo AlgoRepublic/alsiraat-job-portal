@@ -69,7 +69,9 @@ const getApplicationStatusColor = (status: string) => {
 };
 
 const getRelativeTime = (dateStr: string) => {
+  if (!dateStr) return "—";
   const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return "—";
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
@@ -224,7 +226,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles, role }) => {
             className="flex items-center gap-2 px-5 py-3 bg-white/50 dark:bg-zinc-800/50 text-zinc-700 dark:text-zinc-300 rounded-xl font-bold text-sm border border-zinc-200 dark:border-zinc-700 hover:bg-white dark:hover:bg-zinc-800 transition-all"
           >
             <Briefcase className="w-4 h-4" />
-            Browse Tasks
+            Search Tasks
           </button>
         </div>
       </div>
@@ -581,13 +583,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles, role }) => {
                   No applications yet
                 </p>
                 <p className="text-sm text-zinc-500 mt-1 mb-6">
-                  Browse available tasks and apply for one that interests you
+                  Search available tasks and apply for one that interests you
                 </p>
                 <button
                   onClick={() => navigate("/jobs")}
                   className="px-6 py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primaryHover transition-all"
                 >
-                  Browse Tasks
+                  Search Tasks
                 </button>
               </div>
             ) : (
@@ -627,7 +629,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles, role }) => {
                 onClick={() => navigate("/jobs?status=Pending")}
                 className="w-full py-2 text-xs font-black uppercase tracking-widest text-primary hover:bg-primary/5 rounded-lg transition-colors"
               >
-                View All Pending Tasks
+                View All Pending Approvals
               </button>
             </div>
           ) : myRecentApps.length > 0 ? (
@@ -670,7 +672,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles, role }) => {
                   <Eye className="w-4 h-4 text-blue-600" />
                 </div>
                 <span className="font-bold text-zinc-700 dark:text-zinc-300">
-                  Browse Tasks
+                  Search Tasks
                 </span>
               </button>
 
@@ -747,7 +749,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles, role }) => {
               {(canSeeOrgStats ? myRecentTasks : []).length === 0 &&
               !canSeeOrgStats ? (
                 <p className="text-sm text-zinc-400 text-center py-4">
-                  Browse tasks to get started
+                  Search tasks to get started
                 </p>
               ) : (
                 myRecentTasks.slice(0, 4).map((task) => (

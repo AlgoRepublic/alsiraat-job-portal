@@ -724,7 +724,7 @@ export const JobDetails: React.FC = () => {
                       onClick={() => navigate("/jobs")}
                       className="w-full py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded-xl font-semibold hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all"
                     >
-                      Browse Other Tasks
+                      Search Other Tasks
                     </button>
                   </div>
                 ) : applicationStep === "success" ||

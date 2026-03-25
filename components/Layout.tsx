@@ -349,7 +349,9 @@ export const Layout: React.FC<LayoutProps> = ({
   };
 
   const getRelativeTime = (dateStr: string) => {
+    if (!dateStr) return "—";
     const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return "—";
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
@@ -460,7 +462,7 @@ export const Layout: React.FC<LayoutProps> = ({
     // ── Manager / admin: pending tasks ─────────────────────────────────────
     {
       icon: ClipboardList,
-      label: "Pending Tasks",
+      label: "Pending Approvals",
       path: "/jobs?status=Pending",
       protected: true,
       anyPermission: [

@@ -8,6 +8,8 @@ import {
   ArrowRight,
   Trophy,
   ClipboardCheck,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import { api } from "../services/api";
 import { db } from "../services/database";
@@ -91,6 +93,8 @@ export const MyAssignedTasks: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [activeTab, setActiveTab] = useState<"active" | "completed">("active");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc"); // newest first
 
   const fetchAssignedTasks = async (page = 1) => {
     try {
@@ -152,9 +156,19 @@ export const MyAssignedTasks: React.FC = () => {
 
   if (loading) return <Loading message="Loading your tasks..." />;
 
-  // Group by active vs completed
-  const activeTasks = applications.filter((a) => a.status !== "Completed");
-  const completedTasks = applications.filter((a) => a.status === "Completed");
+  // Sort by appliedAt
+  const sorted = [...applications].sort((a, b) => {
+    const da = new Date(a.appliedAt || 0).getTime();
+    const db2 = new Date(b.appliedAt || 0).getTime();
+    return sortDir === "desc" ? db2 - da : da - db2;
+  });
+
+  // Tab filter
+  const activeTasks = sorted.filter((a) => a.status !== "Completed");
+  const completedTasks = sorted.filter((a) => a.status === "Completed");
+  const displayedTasks = activeTab === "active" ? activeTasks : completedTasks;
+
+  const toggleSort = () => setSortDir((d) => (d === "desc" ? "asc" : "desc"));
 
   const renderRow = (app: Application) => {
     const { style, icon, label } = getStatusConfig(app.status);
@@ -187,11 +201,13 @@ export const MyAssignedTasks: React.FC = () => {
 
         {/* Assigned / Applied date */}
         <td className="px-8 py-8 whitespace-nowrap text-sm font-semibold text-zinc-500 dark:text-zinc-400">
-          {new Date((app as any).createdAt).toLocaleDateString("en-GB", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-          })}
+          {app.appliedAt && !isNaN(new Date(app.appliedAt).getTime())
+            ? new Date(app.appliedAt).toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })
+            : "—"}
         </td>
 
         {/* Status */}
@@ -280,104 +296,101 @@ export const MyAssignedTasks: React.FC = () => {
 
       {error && (
         <div className="glass-card p-6 rounded-[2.5rem] bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-          <p className="text-red-700 dark:text-red-300 font-semibold">
-            {error}
-          </p>
+          <p className="text-red-700 dark:text-red-300 font-semibold">{error}</p>
         </div>
       )}
 
-      {/* Active tasks */}
-      {activeTasks.length > 0 && (
+      {/* Tabs */}
+      <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-2xl w-fit">
+        {(["active", "completed"] as const).map((tab) => {
+          const count = tab === "active" ? activeTasks.length : completedTasks.length;
+          return (
+            <button
+              key={tab}
+              onClick={() => { setActiveTab(tab); setCurrentPage(1); }}
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest transition-all ${
+                activeTab === tab
+                  ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm"
+                  : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+              }`}
+            >
+              {tab === "active" ? (
+                <Clock className="w-3.5 h-3.5" />
+              ) : (
+                <Trophy className="w-3.5 h-3.5" />
+              )}
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              <span className={`ml-1 px-2 py-0.5 rounded-full text-[10px] font-black ${
+                activeTab === tab
+                  ? "bg-primary/10 text-primary"
+                  : "bg-zinc-200 dark:bg-zinc-700 text-zinc-500"
+              }`}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Task table */}
+      {displayedTasks.length > 0 ? (
         <div className="glass-card rounded-[2.5rem] overflow-hidden shadow-2xl">
-          <div className="px-10 py-6 border-b border-white/20 dark:border-white/5 bg-white/30 dark:bg-white/5">
-            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
-              Active · {activeTasks.length}
-            </p>
-          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-white/50 dark:bg-zinc-800/50 border-b border-white/20 dark:border-white/5">
                 <tr>
-                  <th className="px-10 py-6 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
-                    Task
+                  <th className="px-10 py-6 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Task</th>
+                  <th
+                    className="px-8 py-6 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] cursor-pointer select-none hover:text-primary transition-colors"
+                    onClick={toggleSort}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      Date
+                      {sortDir === "desc" ? (
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      )}
+                    </span>
                   </th>
-                  <th className="px-8 py-6 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
-                    Date
-                  </th>
-                  <th className="px-8 py-6 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
-                    Status
-                  </th>
-                  {/* <th className="px-8 py-6 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
-                    Reward
-                  </th> */}
-                  <th className="px-10 py-6 text-right text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
-                    Actions
-                  </th>
+                  <th className="px-8 py-6 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Status</th>
+                  <th className="px-10 py-6 text-right text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/20 dark:divide-white/5">
-                {activeTasks.map(renderRow)}
+                {displayedTasks.map(renderRow)}
               </tbody>
             </table>
           </div>
         </div>
-      )}
-
-      {/* Completed tasks */}
-      {completedTasks.length > 0 && (
-        <div className="glass-card rounded-[2.5rem] overflow-hidden shadow-lg opacity-80">
-          <div className="px-10 py-6 border-b border-white/20 dark:border-white/5 bg-white/30 dark:bg-white/5">
-            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
-              Completed · {completedTasks.length}
+      ) : (
+        applications.length > 0 ? (
+          <div className="text-center py-16 glass-card rounded-[3rem] border-dashed border-2 border-zinc-200 dark:border-zinc-800">
+            <Trophy className="w-12 h-12 text-zinc-300 dark:text-zinc-700 mx-auto mb-4" />
+            <h3 className="text-xl font-black text-zinc-900 dark:text-white tracking-tighter">
+              No {activeTab} tasks
+            </h3>
+            <p className="text-zinc-500 dark:text-zinc-400 mt-1 font-medium text-sm">
+              {activeTab === "active" ? "All your tasks are completed!" : "No completed tasks yet."}
             </p>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-white/50 dark:bg-zinc-800/50 border-b border-white/20 dark:border-white/5">
-                <tr>
-                  <th className="px-10 py-6 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
-                    Task
-                  </th>
-                  <th className="px-8 py-6 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
-                    Date
-                  </th>
-                  <th className="px-8 py-6 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
-                    Status
-                  </th>
-                  {/* <th className="px-8 py-6 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
-                    Reward
-                  </th> */}
-                  <th className="px-10 py-6 text-right text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/20 dark:divide-white/5">
-                {completedTasks.map(renderRow)}
-              </tbody>
-            </table>
+        ) : (
+          <div className="text-center py-24 glass-card rounded-[3rem] border-dashed border-2 border-zinc-200 dark:border-zinc-800">
+            <Briefcase className="w-16 h-16 text-zinc-300 dark:text-zinc-700 mx-auto mb-6" />
+            <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter">
+              No assigned tasks yet
+            </h3>
+            <p className="text-zinc-500 dark:text-zinc-400 mt-2 font-medium">
+              Tasks assigned to you directly or via approved applications will appear here.
+            </p>
+            <button
+              onClick={() => navigate("/jobs")}
+              className="mt-10 px-8 py-3.5 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primaryHover transition-all"
+            >
+              Search Tasks
+            </button>
           </div>
-        </div>
-      )}
-
-      {/* Empty state */}
-      {applications.length === 0 && (
-        <div className="text-center py-24 glass-card rounded-[3rem] border-dashed border-2 border-zinc-200 dark:border-zinc-800">
-          <Briefcase className="w-16 h-16 text-zinc-300 dark:text-zinc-700 mx-auto mb-6" />
-          <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter">
-            No assigned tasks yet
-          </h3>
-          <p className="text-zinc-500 dark:text-zinc-400 mt-2 font-medium">
-            Tasks assigned to you directly or via approved applications will
-            appear here.
-          </p>
-          <button
-            onClick={() => navigate("/jobs")}
-            className="mt-10 px-8 py-3.5 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primaryHover transition-all"
-          >
-            Browse Tasks
-          </button>
-        </div>
+        )
       )}
       <Pagination
         currentPage={currentPage}

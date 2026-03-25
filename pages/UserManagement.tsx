@@ -78,7 +78,9 @@ const getRoleColour = (role: string) =>
 
 const formatDate = (d?: string | Date) => {
   if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-AU", {
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString("en-AU", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -756,9 +758,6 @@ export const UserManagement: React.FC = () => {
                   >
                     Role <SortIcon col="role" />
                   </th>
-                  <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400 hidden md:table-cell">
-                    Details
-                  </th>
                   <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400 text-right">
                     Actions
                   </th>
@@ -829,35 +828,6 @@ export const UserManagement: React.FC = () => {
                         </div>
                       </td>
 
-                      {/* Details summary */}
-                      <td className="px-6 py-5 hidden md:table-cell">
-                        <div className="flex flex-wrap gap-2">
-                          {user.skills?.length > 0 && (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-300 text-[10px] font-black rounded-lg">
-                              <Star className="w-3 h-3" />
-                              {user.skills.length} skills
-                            </span>
-                          )}
-                          {user.resumeUrl && (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-300 text-[10px] font-black rounded-lg">
-                              <FileText className="w-3 h-3" />
-                              CV uploaded
-                            </span>
-                          )}
-                          {user.contactNumber && (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-sky-50 dark:bg-sky-900/20 text-sky-600 dark:text-sky-300 text-[10px] font-black rounded-lg">
-                              <Phone className="w-3 h-3" />
-                              Phone
-                            </span>
-                          )}
-                          {user.googleId && (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-50 dark:bg-red-900/20 text-red-500 dark:text-red-400 text-[10px] font-black rounded-lg">
-                              Google
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
                       {/* Actions */}
                       <td className="px-6 py-5 text-right">
                         <div className="flex items-center justify-end gap-1">
@@ -906,7 +876,7 @@ export const UserManagement: React.FC = () => {
                     {/* ── Inline Expanded Row ── */}
                     {expandedRow === user._id && (
                       <tr className="bg-primary/5 dark:bg-primary/10 border-b border-zinc-100 dark:border-zinc-800">
-                        <td colSpan={5} className="px-6 py-5">
+                        <td colSpan={4} className="px-6 py-5">
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             {/* Contact Info */}
                             <div className="space-y-2">
@@ -1001,14 +971,7 @@ export const UserManagement: React.FC = () => {
                               <p className="text-xs font-semibold text-zinc-400 flex items-center gap-1 pt-1">
                                 <Calendar className="w-3 h-3" />
                                 Joined{" "}
-                                {new Date(user.createdAt).toLocaleDateString(
-                                  "en-AU",
-                                  {
-                                    day: "numeric",
-                                    month: "short",
-                                    year: "numeric",
-                                  },
-                                )}
+                                {formatDate(user.createdAt)}
                               </p>
                             </div>
                           </div>

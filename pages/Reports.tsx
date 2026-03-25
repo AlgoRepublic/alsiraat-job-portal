@@ -149,7 +149,8 @@ export const Reports: React.FC = () => {
     csv += "RECENT TASKS\n";
     csv += "Title,Status,Applications,Category,Created\n";
     recentTasks.forEach((task) => {
-      csv += `"${task.title}",${task.status},${task.applicationsCount || 0},${task.category},${new Date(task.createdAt).toLocaleDateString()}\n`;
+      const dateStr = task.createdAt && !isNaN(new Date(task.createdAt).getTime()) ? new Date(task.createdAt).toLocaleDateString() : "—";
+      csv += `"${task.title}",${task.status},${task.applicationsCount || 0},${task.category},${dateStr}\n`;
     });
 
     return csv;
@@ -490,7 +491,7 @@ export const Reports: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-sm text-zinc-500">
-                        {new Date(task.createdAt).toLocaleDateString()}
+                        {task.createdAt && !isNaN(new Date(task.createdAt).getTime()) ? new Date(task.createdAt).toLocaleDateString() : "—"}
                       </span>
                     </td>
                   </tr>

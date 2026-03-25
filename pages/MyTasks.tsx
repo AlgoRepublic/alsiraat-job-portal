@@ -208,11 +208,11 @@ export const MyAds: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-8 py-8 whitespace-nowrap text-sm font-semibold text-zinc-500 dark:text-zinc-400">
-                      {new Date(task.createdAt).toLocaleDateString("en-GB", {
+                      {task.createdAt && !isNaN(new Date(task.createdAt).getTime()) ? new Date(task.createdAt).toLocaleDateString("en-GB", {
                         day: "numeric",
                         month: "short",
                         year: "numeric",
-                      })}
+                      }) : "—"}
                     </td>
                     <td className="px-8 py-8 whitespace-nowrap">
                       <span

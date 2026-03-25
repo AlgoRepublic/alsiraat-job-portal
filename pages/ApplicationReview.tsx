@@ -334,11 +334,11 @@ export const ApplicationReview: React.FC = () => {
             <div className="flex items-center gap-1.5 text-xs text-zinc-400">
               <Clock className="w-3.5 h-3.5" />
               Applied{" "}
-              {new Date(app.appliedAt).toLocaleDateString("en-GB", {
+              {app.appliedAt && !isNaN(new Date(app.appliedAt).getTime()) ? new Date(app.appliedAt).toLocaleDateString("en-GB", {
                 day: "numeric",
                 month: "short",
                 year: "numeric",
-              })}
+              }) : "—"}
             </div>
           </div>
         </div>
@@ -456,10 +456,10 @@ export const ApplicationReview: React.FC = () => {
                     </div>
                     {exp.completedAt && (
                       <p className="text-[11px] text-zinc-400 whitespace-nowrap shrink-0">
-                        {new Date(exp.completedAt).toLocaleDateString("en-GB", {
+                        {exp.completedAt && !isNaN(new Date(exp.completedAt).getTime()) ? new Date(exp.completedAt).toLocaleDateString("en-GB", {
                           month: "short",
                           year: "numeric",
-                        })}
+                        }) : "—"}
                       </p>
                     )}
                   </div>
