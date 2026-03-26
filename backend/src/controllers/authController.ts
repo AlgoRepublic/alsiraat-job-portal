@@ -818,6 +818,9 @@ export const inviteUser = async (req: any, res: Response) => {
 export const getInvitationDetails = async (req: Request, res: Response) => {
   try {
     const { token } = req.params;
+    if (!token || typeof token !== "string") {
+      return res.status(400).json({ message: "Token is required" });
+    }
     const invitation = await Invitation.findOne({
       token,
       status: "Pending",
