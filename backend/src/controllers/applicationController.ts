@@ -360,6 +360,16 @@ export const getApplications = async (req: any, res: Response) => {
         query.status = status;
       }
     }
+    
+    // Explicit applicant filtering (for "My Tasks" / "My Profile History")
+    const applicantFilter = req.query.applicant as string;
+    if (applicantFilter) {
+      if (applicantFilter === "me") {
+        query.applicant = req.user._id;
+      } else {
+        query.applicant = applicantFilter;
+      }
+    }
 
     const total = await Application.countDocuments(query);
     const page = parseInt(req.query.page as string) || 1;
@@ -462,16 +472,24 @@ export const confirmOffer = async (req: any, res: Response) => {
 
     if (!app) return res.status(404).json({ message: "Application not found" });
 
-    if (app.applicant.toString() !== req.user._id.toString()) {
-      return res
-        .status(403)
-        .json({ message: "You can only confirm your own offers" });
+    // Use Mongoose .equals() for safe ObjectId comparison
+    const isOwner = (app.applicant as any).equals
+      ? (app.applicant as any).equals(req.user._id)
+      : app.applicant.toString() === req.user._id.toString();
+
+    if (!isOwner) {
+      return res.status(403).json({
+        message: "You can only confirm offers for your own applications",
+        debug: { applicant: app.applicant.toString(), user: req.user._id.toString() },
+      });
     }
 
-    if (app.status !== ApplicationStatus.OFFERED) {
-      return res
-        .status(400)
-        .json({ message: "This application has not been offered yet" });
+    // Both OFFERED and APPROVED statuses can be confirmed (OFFERED = direct assign, APPROVED = manager approved application)
+    const confirmableStatuses = [ApplicationStatus.OFFERED, ApplicationStatus.APPROVED];
+    if (!confirmableStatuses.includes(app.status as any)) {
+      return res.status(400).json({
+        message: `Cannot confirm — current status is "${app.status}". Only Offered or Approved applications can be confirmed.`,
+      });
     }
 
     app.status = ApplicationStatus.ACCEPTED;
@@ -532,16 +550,24 @@ export const declineOffer = async (req: any, res: Response) => {
 
     if (!app) return res.status(404).json({ message: "Application not found" });
 
-    if (app.applicant.toString() !== req.user._id.toString()) {
-      return res
-        .status(403)
-        .json({ message: "You can only decline your own offers" });
+    // Use Mongoose .equals() for safe ObjectId comparison
+    const isOwner = (app.applicant as any).equals
+      ? (app.applicant as any).equals(req.user._id)
+      : app.applicant.toString() === req.user._id.toString();
+
+    if (!isOwner) {
+      return res.status(403).json({
+        message: "You can only decline offers for your own applications",
+        debug: { applicant: app.applicant.toString(), user: req.user._id.toString() },
+      });
     }
 
-    if (app.status !== ApplicationStatus.OFFERED) {
-      return res
-        .status(400)
-        .json({ message: "This application has not been offered yet" });
+    // Both OFFERED and APPROVED statuses can be declined
+    const declinableStatuses = [ApplicationStatus.OFFERED, ApplicationStatus.APPROVED];
+    if (!declinableStatuses.includes(app.status as any)) {
+      return res.status(400).json({
+        message: `Cannot decline — current status is "${app.status}". Only Offered or Approved applications can be declined.`,
+      });
     }
 
     app.status = ApplicationStatus.DECLINED;

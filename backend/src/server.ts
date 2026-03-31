@@ -58,7 +58,8 @@ app.get("/health", (req, res) => {
 
 // API Routes - Define these BEFORE static file serving
 app.use("/api/auth", authRoutes);
-app.use("/api/organizations", organizationRoutes);
+app.use("/api/organizations", organizationRoutes);  // American spelling
+app.use("/api/organisations", organizationRoutes);  // British spelling (used by frontend)
 app.use("/api/tasks", taskRoutes);
 app.use("/api/applications", applicationRoutes);
 app.use("/api/notifications", notificationRoutes);

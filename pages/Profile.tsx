@@ -81,6 +81,7 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
           const apps = await db.getApplications({
             status: "Completed",
             limit: 100,
+            applicant: "me"
           });
           setCompletedTasks(
             apps.filter(

@@ -25,6 +25,7 @@ import { API_BASE_URL } from "../services/api";
 import { GroupManagement } from "./GroupManagement";
 import { UserManagement } from "./UserManagement";
 import { EmailNotificationSettings } from "./EmailNotificationSettings";
+import { OrganisationManagement } from "./OrganisationManagement";
 import { ArrowLeft } from "lucide-react";
 
 interface Permission {
@@ -178,7 +179,7 @@ export const AdminSettings: React.FC = () => {
   const { showSuccess, showError } = useToast();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
-    "users" | "roles" | "permissions" | "categories" | "groups" | "email" | "ai"
+    "users" | "roles" | "permissions" | "categories" | "groups" | "email" | "ai" | "organisations"
   >("users");
 
   // Dynamic roles and permissions state
@@ -1543,6 +1544,7 @@ export const AdminSettings: React.FC = () => {
             {/* Tab items */}
             {(
               [
+                { key: "organisations", icon: ExternalLink, label: "Organisations" },
                 { key: "users", icon: Users, label: "Manage Users" },
                 { key: "roles", icon: Shield, label: "Roles" },
                 { key: "permissions", icon: Lock, label: "Permissions" },
@@ -1589,6 +1591,7 @@ export const AdminSettings: React.FC = () => {
         </div>
 
         <div className="md:col-span-3">
+          {activeTab === "organisations" && <OrganisationManagement />}
           {activeTab === "users" && <UserManagement />}
           {activeTab === "roles" && renderRoles()}
           {activeTab === "permissions" && renderPermissions()}

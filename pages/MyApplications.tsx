@@ -15,6 +15,15 @@ import { Pagination } from "../components/Pagination";
 
 const PAGE_SIZE = 10;
 
+// Only show application-phase statuses — tasks that become assigned move to "My Tasks"
+const APPLICATION_PHASE_STATUSES = [
+  "Pending",
+  "Reviewing",
+  "Shortlisted",
+  "Rejected",
+  "Declined",
+].join(",");
+
 export default function MyApplications() {
   const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,7 +43,11 @@ export default function MyApplications() {
   const fetchMyApplications = async (page = 1) => {
     try {
       setLoading(true);
-      const data = await db.getApplicationsPaged({}, page, PAGE_SIZE);
+      const data = await db.getApplicationsPaged(
+        { status: APPLICATION_PHASE_STATUSES, applicant: "me" },
+        page,
+        PAGE_SIZE,
+      );
       setApplications(data.applications);
       setTotalItems(data.pagination.total);
       setTotalPages(data.pagination.pages);
@@ -205,6 +218,11 @@ export default function MyApplications() {
                     >
                       Search Tasks
                     </button>
+                    <br />
+                    <span className="text-xs text-zinc-400 block mt-1">
+                      Tasks you've been offered or assigned appear under{" "}
+                      <button onClick={() => navigate("/my-tasks")} className="text-primary font-black hover:underline">My Tasks</button>.
+                    </span>
                   </td>
                 </tr>
               )}

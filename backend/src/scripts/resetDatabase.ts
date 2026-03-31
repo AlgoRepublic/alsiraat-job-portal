@@ -13,43 +13,10 @@ import RewardType from "../models/RewardType.js";
 import Task from "../models/Task.js";
 import Application from "../models/Application.js";
 
-// Enums
-const UserRole = {
-  GLOBAL_ADMIN: "Global Admin",
-  SCHOOL_ADMIN: "School Admin",
-  TASK_MANAGER: "Task Manager",
-  TASK_ADVERTISER: "Task Advertiser",
-  APPLICANT: "Applicant",
-};
+import PermissionModel from "../models/Permission.js";
+import { Permission, RolePermissions } from "../config/permissions.js";
 
-const Permission = {
-  // Task permissions
-  TASK_CREATE: "task:create",
-  VIEW_ALL_TASKS: "view_all_tasks",
-  VIEW_ORG_TASKS: "view_org_tasks",
-  EDIT_TASK: "edit_task",
-  DELETE_TASK: "delete_task",
-  APPROVE_TASK: "approve_task",
-  PUBLISH_TASK: "publish_task",
-
-  // Application permissions
-  APPLICATION_CREATE: "application:create",
-  APPLICATION_READ: "application:read",
-  APPLICATION_READ_OWN: "application:read_own",
-  VIEW_APPLICATIONS: "view_applications",
-  REVIEW_APPLICATIONS: "review_applications",
-
-  // User management
-  MANAGE_USERS: "manage_users",
-  VIEW_USERS: "view_users",
-
-  // Organisation management
-  MANAGE_ORGANISATION: "manage_organisation",
-
-  // Role management
-  MANAGE_ROLES: "manage_roles",
-  MANAGE_PERMISSIONS: "manage_permissions",
-};
+import { UserRole } from "../models/UserRole.js";
 
 const TaskStatus = {
   PENDING: "Pending",
@@ -85,7 +52,19 @@ async function resetDatabase() {
     }
     console.log("✅ All collections cleared");
 
-    // Step 2: Create Organisation
+    // Step 2: Seed Permissions
+    console.log("\n🔑 Seeding permissions...");
+    const permDocs = Object.entries(Permission).map(([key, value]) => ({
+      code: value,
+      name: key.replace(/_/g, " "),
+      description: `Allows user to: ${key.replace(/_/g, " ").toLowerCase()}`,
+      category: key.split("_")[0],
+      isSystem: true,
+    }));
+    await PermissionModel.insertMany(permDocs);
+    console.log(`✅ Seeded ${permDocs.length} permissions`);
+
+    // Step 3: Create Organisation
     console.log("\n🏫 Creating organisation...");
     const organization = (await Organization.create({
       name: "Al Siraat College",
@@ -108,7 +87,7 @@ async function resetDatabase() {
     } as any)) as any;
     console.log(`✅ Created organisation: ${systemOrganization.name}`);
 
-    // Step 3: Seed Roles with Permissions
+    // Step 4: Seed Roles with Permissions
     console.log("\n👥 Seeding roles with permissions...");
 
     const rolesData = [
@@ -117,113 +96,35 @@ async function resetDatabase() {
         code: "global_admin",
         description: "Super administrator with full system access",
         isSystem: true,
-        permissions: [
-          "task:create",
-          "task:read",
-          "task:update",
-          "task:delete",
-          "task:submit",
-          "task:approve",
-          "task:publish",
-          "task:archive",
-          "application:create",
-          "application:read",
-          "application:read_own",
-          "application:shortlist",
-          "application:approve",
-          "application:reject",
-          "user:read",
-          "user:update",
-          "user:delete",
-          "user:impersonate",
-          "user:manage_roles",
-          "org:create",
-          "org:read",
-          "org:update",
-          "org:delete",
-          "org:manage_members",
-          "dashboard:view",
-          "analytics:view",
-          "reports:view",
-          "reports:export",
-          "reports:create",
-          "admin:settings",
-          "admin:audit_log",
-          "application:confirm",
-          "application:reject",
-        ],
+        permissions: RolePermissions[UserRole.GLOBAL_ADMIN],
       },
       {
         name: UserRole.SCHOOL_ADMIN,
         code: "school_admin",
         description: "School administrator managing organisation tasks",
         isSystem: true,
-        permissions: [
-          "task:create",
-          "task:read",
-          "task:update",
-          "task:delete",
-          "task:submit",
-          "task:approve",
-          "task:publish",
-          "task:archive",
-          "application:read",
-          "application:shortlist",
-          "application:approve",
-          "application:reject",
-          "org:read",
-          "org:update",
-          "org:manage_members",
-          "user:read",
-          "user:update",
-          "user:manage_roles",
-          "dashboard:view",
-          "analytics:view",
-          "reports:view",
-          "admin:settings",
-        ],
+        permissions: RolePermissions[UserRole.SCHOOL_ADMIN],
       },
       {
         name: UserRole.TASK_MANAGER,
         code: "task_manager",
         description: "Manages and coordinates tasks within organisation",
         isSystem: true,
-        permissions: [
-          "task:read",
-          "task:approve",
-          "task:publish",
-          "application:read",
-          "application:shortlist",
-          "application:approve",
-          "application:reject",
-          "dashboard:view",
-        ],
+        permissions: RolePermissions[UserRole.TASK_MANAGER],
       },
       {
         name: UserRole.TASK_ADVERTISER,
         code: "task_advertiser",
         description: "Creates and advertises tasks",
         isSystem: true,
-        permissions: [
-          "task:create",
-          "task:read",
-          "task:update",
-          "task:submit",
-          "application:read_own",
-        ],
+        permissions: RolePermissions[UserRole.TASK_ADVERTISER],
       },
       {
         name: UserRole.APPLICANT,
         code: "applicant",
         description: "Applies to available tasks",
         isSystem: true,
-        permissions: [
-          "task:read",
-          "application:create",
-          "application:read_own",
-          "application:confirm",
-          "application:reject",
-        ],
+        permissions: RolePermissions[UserRole.APPLICANT],
       },
     ];
 
@@ -288,6 +189,64 @@ async function resetDatabase() {
       organisation: organization._id,
     } as any)) as any;
     console.log(`   Created user: student@alsiraat.edu.au (Applicant)`);
+
+    // Add Crescent High School
+    const crescentOrg = (await Organization.create({
+      name: "Crescent High School",
+      slug: "crescent-high-school",
+      description: "A wonderful high school",
+      contactEmail: "info@crescent.edu.au",
+      contactPhone: "+61 3 9999 0000",
+      isPublic: true,
+    } as any)) as any;
+    console.log(`✅ Created organisation: ${crescentOrg.name}`);
+
+    const crescentAdmin = (await User.create({
+      name: "Sarah Principal",
+      email: "admin@crescent.edu.au",
+      password: hashedPassword,
+      role: UserRole.SCHOOL_ADMIN,
+      organisation: crescentOrg._id,
+    } as any)) as any;
+    console.log(`   Created user: admin@crescent.edu.au (School Admin - Crescent)`);
+
+    const crescentStudent = (await User.create({
+      name: "Omar Student",
+      email: "omar@crescent.edu.au",
+      password: hashedPassword,
+      role: UserRole.APPLICANT,
+      organisation: crescentOrg._id,
+    } as any)) as any;
+    console.log(`   Created user: omar@crescent.edu.au (Applicant - Crescent)`);
+
+    // Add Minaret College
+    const minaretOrg = (await Organization.create({
+      name: "Minaret College",
+      slug: "minaret-college",
+      description: "Excellence in education",
+      contactEmail: "info@minaret.edu.au",
+      contactPhone: "+61 3 8888 1111",
+      isPublic: true,
+    } as any)) as any;
+    console.log(`✅ Created organisation: ${minaretOrg.name}`);
+
+    const minaretManager = (await User.create({
+      name: "Ali Coordinator",
+      email: "coordinator@minaret.edu.au",
+      password: hashedPassword,
+      role: UserRole.TASK_MANAGER,
+      organisation: minaretOrg._id,
+    } as any)) as any;
+    console.log(`   Created user: coordinator@minaret.edu.au (Task Manager - Minaret)`);
+
+    const minaretTeacher = (await User.create({
+      name: "Fatima Teacher",
+      email: "fatima@minaret.edu.au",
+      password: hashedPassword,
+      role: UserRole.TASK_ADVERTISER,
+      organisation: minaretOrg._id,
+    } as any)) as any;
+    console.log(`   Created user: fatima@minaret.edu.au (Task Advertiser - Minaret)`);
 
     console.log("✅ All test users created");
     console.log(`   Password for all users: ${password}`);
@@ -562,10 +521,17 @@ async function resetDatabase() {
     console.log("   • Change password immediately after first login");
     console.log("   • DO NOT use these credentials in production");
     console.log("\n🧪 Additional Test User Credentials:");
+    console.log("   [Al Siraat College]");
     console.log("   - principal@alsiraat.edu.au (School Admin)");
     console.log("   - coordinator@alsiraat.edu.au (Task Manager)");
     console.log("   - teacher@alsiraat.edu.au (Task Advertiser)");
     console.log("   - student@alsiraat.edu.au (Applicant)");
+    console.log("   [Crescent High School]");
+    console.log("   - admin@crescent.edu.au (School Admin)");
+    console.log("   - omar@crescent.edu.au (Applicant)");
+    console.log("   [Minaret College]");
+    console.log("   - coordinator@minaret.edu.au (Task Manager)");
+    console.log("   - fatima@minaret.edu.au (Task Advertiser)");
     console.log(`   Password for all users: ${password}`);
 
     console.log("\n📝 Sample Tasks Created:");

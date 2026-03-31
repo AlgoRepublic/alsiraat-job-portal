@@ -50,7 +50,7 @@ export const Terms: React.FC = () => {
               </p>
               <ul className="list-disc pl-6 text-zinc-700 dark:text-zinc-300 space-y-2">
                 <li>Organizations to post tasks and opportunities</li>
-                <li>Students to browse and apply for opportunities</li>
+                <li>Students to search tasks and apply for opportunities</li>
                 <li>
                   Task management, application tracking, and communication between
                   parties
@@ -97,7 +97,7 @@ export const Terms: React.FC = () => {
               </p>
               <ul className="list-disc pl-6 text-zinc-700 dark:text-zinc-300 space-y-2">
                 <li>
-                  <strong>Applicants:</strong> Can browse tasks, submit
+                  <strong>Applicants:</strong> Can search tasks, submit
                   applications, and manage their profile
                 </li>
                 <li>

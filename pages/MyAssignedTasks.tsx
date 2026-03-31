@@ -100,7 +100,7 @@ export const MyAssignedTasks: React.FC = () => {
     try {
       setLoading(true);
       const data = await db.getApplicationsPaged(
-        { status: MY_TASK_STATUSES },
+        { status: MY_TASK_STATUSES, applicant: "me" },
         page,
         PAGE_SIZE,
       );

@@ -34,6 +34,19 @@ export interface IEmailSettings extends Document {
   azureConnectionString: string;
   azureFromEmail: string;
 
+  // ── Email branding (per-org white-labelling) ──────────────────────────────
+  /** Display name shown in the email header (defaults to global brand name) */
+  brandName: string;
+  /** Hex colour used for the email header and CTA buttons, e.g. "#812349" */
+  brandColor: string;
+  /**
+   * Logo URL or base64 data-URL shown in the email header.
+   * Keep under ~150px height for best results.
+   */
+  brandLogo: string;
+  /** Short tagline shown below the logo in the header */
+  brandTagline: string;
+
   // Per-event template overrides
   templates: IEmailTemplateConfig[];
 
@@ -72,6 +85,11 @@ const EmailSettingsSchema = new Schema<IEmailSettings>(
     replyToEmail: { type: String, default: "" },
     azureConnectionString: { type: String, default: "" },
     azureFromEmail: { type: String, default: "" },
+    // Branding
+    brandName: { type: String, default: "" },
+    brandColor: { type: String, default: "" },
+    brandLogo: { type: String, default: "" },
+    brandTagline: { type: String, default: "" },
     templates: { type: [EmailTemplateConfigSchema], default: [] },
   },
   { timestamps: true },

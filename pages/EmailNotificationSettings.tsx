@@ -22,6 +22,9 @@ import {
   ImagePlus,
   Loader2,
   Link2,
+  Palette,
+  Type,
+  X,
 } from "lucide-react";
 import { DefaultEditor } from "react-simple-wysiwyg";
 import { API_BASE_URL } from "../services/api";
@@ -222,6 +225,16 @@ export const EmailNotificationSettings: React.FC = () => {
     Record<string, "text" | "html" | "visual">
   >({});
 
+  // Brand state
+  const [brand, setBrand] = useState({
+    brandName: "",
+    brandColor: "#812349",
+    brandLogo: "",
+    brandTagline: "",
+  });
+  const brandLogoRef = useRef<HTMLInputElement>(null);
+  const [brandLogoUploading, setBrandLogoUploading] = useState(false);
+
   // ── Load data on mount ──
   useEffect(() => {
     loadSettings();
@@ -262,6 +275,14 @@ export const EmailNotificationSettings: React.FC = () => {
         setAzure({
           azureConnectionString: s.azureConnectionString || "",
           azureFromEmail: s.azureFromEmail || "",
+        });
+
+        // Brand
+        setBrand({
+          brandName: s.brandName || "",
+          brandColor: s.brandColor || "#812349",
+          brandLogo: s.brandLogo || "",
+          brandTagline: s.brandTagline || "",
         });
 
         // Convert stored array to keyed record
@@ -321,6 +342,11 @@ export const EmailNotificationSettings: React.FC = () => {
             ? undefined
             : azure.azureConnectionString,
         azureFromEmail: azure.azureFromEmail,
+        // Branding
+        brandName: brand.brandName,
+        brandColor: brand.brandColor,
+        brandLogo: brand.brandLogo,
+        brandTagline: brand.brandTagline,
         templates: Object.values(templates),
       };
 
@@ -370,6 +396,211 @@ export const EmailNotificationSettings: React.FC = () => {
       setTesting(false);
     }
   };
+
+  // ─── Brand Panel ────────────────────────────────────────────────────────────
+
+  const handleBrandLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const allowed = ["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"];
+    if (!allowed.includes(file.type)) {
+      alert("Unsupported type. Use PNG, JPG, GIF, WebP or SVG.");
+      return;
+    }
+    if (file.size > 500 * 1024) {
+      alert("Logo must be under 500 KB for email compatibility.");
+      return;
+    }
+    setBrandLogoUploading(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setBrand((p) => ({ ...p, brandLogo: reader.result as string }));
+      setBrandLogoUploading(false);
+    };
+    reader.onerror = () => setBrandLogoUploading(false);
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const renderBrandPanel = () => (
+    <div className="space-y-6">
+      <p className="text-sm text-zinc-500">
+        These values appear in the <strong>header of every email</strong> sent from this organisation.
+        Leave a field blank to use the platform default.
+      </p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Brand Name */}
+        <div className="space-y-1.5">
+          <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+            Organisation Name in Emails
+          </label>
+          <div className="relative">
+            <Type className="absolute left-3 top-3 w-4 h-4 text-zinc-400" />
+            <input
+              type="text"
+              value={brand.brandName}
+              onChange={(e) => setBrand((p) => ({ ...p, brandName: e.target.value }))}
+              placeholder="Al-Siraat College (default)"
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-primary/30 outline-none"
+            />
+          </div>
+          <p className="text-xs text-zinc-400">Shown in the email header and footer links.</p>
+        </div>
+
+        {/* Brand Tagline */}
+        <div className="space-y-1.5">
+          <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+            Tagline
+          </label>
+          <input
+            type="text"
+            value={brand.brandTagline}
+            onChange={(e) => setBrand((p) => ({ ...p, brandTagline: e.target.value }))}
+            placeholder="Connecting students with opportunities (default)"
+            className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-primary/30 outline-none"
+          />
+          <p className="text-xs text-zinc-400">Short subtitle shown below the logo in the header.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Brand Colour */}
+        <div className="space-y-1.5">
+          <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+            Brand Colour
+          </label>
+          <div className="flex items-center gap-3">
+            <div
+              className="w-10 h-10 rounded-xl border-2 border-white shadow-md cursor-pointer shrink-0"
+              style={{ background: brand.brandColor || "#812349" }}
+              onClick={() => document.getElementById("brand-color-picker")?.click()}
+            />
+            <input
+              id="brand-color-picker"
+              type="color"
+              value={brand.brandColor || "#812349"}
+              onChange={(e) => setBrand((p) => ({ ...p, brandColor: e.target.value }))}
+              className="sr-only"
+            />
+            <input
+              type="text"
+              value={brand.brandColor}
+              onChange={(e) => setBrand((p) => ({ ...p, brandColor: e.target.value }))}
+              placeholder="#812349"
+              className="flex-1 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-mono focus:ring-2 focus:ring-primary/30 outline-none"
+            />
+          </div>
+          <p className="text-xs text-zinc-400">Used for the header background and CTA button colour.</p>
+        </div>
+
+        {/* Logo */}
+        <div className="space-y-1.5">
+          <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+            Logo
+          </label>
+          <input
+            ref={brandLogoRef}
+            type="file"
+            accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
+            className="hidden"
+            onChange={handleBrandLogoUpload}
+          />
+          <div className="flex items-center gap-3">
+            {brand.brandLogo ? (
+              <div className="relative shrink-0">
+                <img
+                  src={brand.brandLogo}
+                  alt="Brand logo"
+                  className="h-10 w-auto max-w-[120px] object-contain rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 p-1"
+                />
+                <button
+                  type="button"
+                  onClick={() => setBrand((p) => ({ ...p, brandLogo: "" }))}
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center"
+                  title="Remove logo"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => brandLogoRef.current?.click()}
+              disabled={brandLogoUploading}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-zinc-300 dark:border-zinc-600 text-sm font-bold text-zinc-500 hover:text-primary hover:border-primary transition-colors disabled:opacity-50"
+            >
+              {brandLogoUploading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <ImagePlus className="w-4 h-4" />
+              )}
+              {brand.brandLogo ? "Replace Logo" : "Upload Logo"}
+            </button>
+          </div>
+          <p className="text-xs text-zinc-400">PNG/SVG under 500 KB. Displayed above the org name in emails.</p>
+          {/* URL input */}
+          <div className="flex gap-2 mt-2">
+            <input
+              type="url"
+              placeholder="Or paste a logo URL…"
+              className="flex-1 px-3 py-2 text-xs rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 outline-none focus:ring-1 focus:ring-primary"
+              onBlur={(e) => {
+                if (e.target.value.trim()) {
+                  setBrand((p) => ({ ...p, brandLogo: e.target.value.trim() }));
+                  e.target.value = "";
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  const val = (e.target as HTMLInputElement).value.trim();
+                  if (val) {
+                    setBrand((p) => ({ ...p, brandLogo: val }));
+                    (e.target as HTMLInputElement).value = "";
+                  }
+                }
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Live preview */}
+      <div className="space-y-2">
+        <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Live Email Header Preview</p>
+        <div
+          className="rounded-2xl overflow-hidden shadow-md max-w-sm"
+          style={{ background: brand.brandColor || "#812349" }}
+        >
+          <div className="px-8 py-7 text-center">
+            {brand.brandLogo && (
+              <img
+                src={brand.brandLogo}
+                alt=""
+                className="h-12 max-w-[160px] object-contain mx-auto mb-3"
+              />
+            )}
+            {!brand.brandLogo && (
+              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center mx-auto mb-3">
+                <span className="text-2xl">🎯</span>
+              </div>
+            )}
+            <p className="text-white font-extrabold text-lg tracking-tight">
+              {brand.brandName || "Al-Siraat Tasker"}
+            </p>
+            <p className="text-white/75 text-xs mt-1">
+              {brand.brandTagline || "Connecting students with opportunities"}
+            </p>
+          </div>
+        </div>
+
+        <p className="text-[11px] text-zinc-400">
+          This preview shows how the email header will look to recipients.
+          Click "Save All Settings" to apply.
+        </p>
+      </div>
+    </div>
+  );
 
   // ─── Provider selector + Enable ─────────────────────────────────────────────
 
@@ -1096,6 +1327,29 @@ export const EmailNotificationSettings: React.FC = () => {
           )}
           {saving ? "Saving…" : "Save All Settings"}
         </button>
+      </div>
+
+      {/* ── Brand Settings Section ── */}
+      <div className="bg-white dark:bg-zinc-900/50 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm overflow-hidden">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/40">
+          <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+            <Palette className="w-4 h-4 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-black text-zinc-900 dark:text-white text-sm">
+              Email Branding
+            </h3>
+            <p className="text-xs text-zinc-500">
+              Logo, name, colour and tagline shown in the header of every email sent by this organisation
+            </p>
+          </div>
+          {brand.brandLogo && (
+            <div className="ml-auto">
+              <img src={brand.brandLogo} alt="" className="h-7 w-auto max-w-[80px] object-contain opacity-80" />
+            </div>
+          )}
+        </div>
+        <div className="p-6 space-y-6">{renderBrandPanel()}</div>
       </div>
 
       {/* ── Email Provider Section ── */}

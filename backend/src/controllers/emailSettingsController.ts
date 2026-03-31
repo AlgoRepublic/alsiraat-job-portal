@@ -19,7 +19,7 @@ export const DEFAULT_TEMPLATES = [
     variables: ["{{name}}"],
     defaultSubject: "Welcome to Al-Siraat Tasker! 🎉",
     defaultBodyText:
-      "Hi {{name}},\n\nWelcome to Al-Siraat Tasker! Your account is ready.\n\nBrowse tasks at {{frontendUrl}}/jobs",
+      "Hi {{name}},\n\nWelcome to Al-Siraat Tasker! Your account is ready.\n\nSearch tasks at {{frontendUrl}}/jobs",
   },
   {
     eventKey: "password_reset",
@@ -235,6 +235,11 @@ export const saveEmailSettings = async (req: any, res: Response) => {
       replyToEmail,
       azureConnectionString,
       azureFromEmail,
+      // Branding
+      brandName,
+      brandColor,
+      brandLogo,
+      brandTagline,
       templates,
     } = req.body;
 
@@ -246,6 +251,11 @@ export const saveEmailSettings = async (req: any, res: Response) => {
       fromName: fromName || "Al-Siraat Tasker",
       fromEmail: fromEmail || "",
       replyToEmail: replyToEmail || "",
+      // Branding (always write; empty string clears the field)
+      brandName: brandName ?? "",
+      brandColor: brandColor ?? "",
+      brandLogo: brandLogo ?? "",
+      brandTagline: brandTagline ?? "",
     };
     if (emailProvider !== undefined)
       update.emailProvider = emailProvider === "azure" ? "azure" : "smtp";

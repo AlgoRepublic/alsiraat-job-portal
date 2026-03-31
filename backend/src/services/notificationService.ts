@@ -19,8 +19,18 @@ import Notification from "../models/Notification.js";
 import User from "../models/User.js";
 import EmailSettings from "../models/EmailSettings.js";
 import type { IEmailSettings } from "../models/EmailSettings.js";
-import type { EmailTemplate } from "./emailTemplates.js";
+import type { EmailTemplate, BrandConfig } from "./emailTemplates.js";
 import { normalizeAzureConnectionString } from "../utils/azureConnectionString.js";
+
+/** Extract the brand config stored in an EmailSettings document */
+export function brandFromSettings(settings: IEmailSettings | null): BrandConfig {
+  const cfg: BrandConfig = {};
+  if (settings?.brandName) cfg.brandName = settings.brandName;
+  if (settings?.brandColor) cfg.brandColor = settings.brandColor;
+  if (settings?.brandLogo) cfg.brandLogo = settings.brandLogo;
+  if (settings?.brandTagline) cfg.brandTagline = settings.brandTagline;
+  return cfg;
+}
 
 // ─── Send via SMTP (from EmailSettings only) ──────────────────────────────────
 
@@ -97,6 +107,11 @@ async function sendViaAzure(
 export interface SendEmailOptions {
   /** Organisation ID for the recipient (or null for global settings). Used to load EmailSettings. */
   organisationId?: string | null;
+  /**
+   * Pre-loaded brand config. When absent, notificationService loads it from
+   * EmailSettings automatically using organisationId.
+   */
+  brand?: BrandConfig;
 }
 
 /**

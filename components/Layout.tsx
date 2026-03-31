@@ -426,7 +426,7 @@ export const Layout: React.FC<LayoutProps> = ({
       protected: true,
       permission: Permission.DASHBOARD_VIEW,
     },
-    { icon: Briefcase, label: "Browse Tasks", path: "/jobs" },
+    { icon: Briefcase, label: "Search Tasks", path: "/jobs" },
 
     // ── Applicant menu ──────────────────────────────────────────────────────
     {
