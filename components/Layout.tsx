@@ -431,7 +431,7 @@ export const Layout: React.FC<LayoutProps> = ({
     // ── Applicant menu ──────────────────────────────────────────────────────
     {
       icon: FileText,
-      label: "My Application",
+      label: "My Applications",
       path: "/my-applications",
       protected: true,
       anyPermission: [
@@ -689,7 +689,7 @@ export const Layout: React.FC<LayoutProps> = ({
                             : location.pathname === "/my-tasks"
                               ? "My Tasks"
                               : location.pathname === "/my-applications"
-                                ? "My Application"
+                                ? "My Applications"
                                 : location.pathname
                                     .substring(1)
                                     .split("/")[0]

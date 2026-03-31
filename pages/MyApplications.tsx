@@ -108,7 +108,7 @@ export default function MyApplications() {
     <div className="max-w-5xl mx-auto space-y-8 animate-fade-in">
       <div className="glass-card p-10 rounded-[2.5rem]">
         <h1 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
-          My Application
+          My Applications
         </h1>
         <p className="text-zinc-500 dark:text-zinc-400 font-medium mt-2">
           Track the status of tasks you've applied for.
