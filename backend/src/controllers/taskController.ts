@@ -373,14 +373,17 @@ export const getTasks = async (req: any, res: Response) => {
         });
       }
 
-      // 4. Internal tasks (if user has permission to view internal)
-      // Only show from same org unless they have global read permission
-      if (canViewInternal && organisation) {
-        // Fetch groups the user belongs to
-        const Group = (await import("../models/Group.js")).default;
-        const userGroups = await Group.find({ members: userId }).select("_id");
-        const userGroupIds = userGroups.map((g) => g._id);
+      // 4. Internal tasks
+      // Fetch groups the user belongs to (needed for both canViewInternal and group-targeted visibility)
+      const Group = (await import("../models/Group.js")).default;
+      const userGroups = organisation
+        ? await Group.find({ members: userId }).select("_id")
+        : [];
+      const userGroupIds = userGroups.map((g) => g._id);
 
+      if (canViewInternal && organisation) {
+        // Users with task:view_internal see ALL internal tasks from their org
+        // (with group filtering: unrestricted tasks + tasks targeting their groups)
         conditions.push({
           visibility: TaskVisibility.INTERNAL,
           organisation: organisation,
@@ -394,6 +397,16 @@ export const getTasks = async (req: any, res: Response) => {
             // User is in one of the allowed groups
             { allowedGroups: { $in: userGroupIds } },
           ],
+        });
+      } else if (organisation && userGroupIds.length > 0) {
+        // Users WITHOUT task:view_internal but who ARE members of a group
+        // can still see Published internal tasks explicitly targeted at their group(s).
+        // This ensures group members always see tasks meant for them.
+        conditions.push({
+          visibility: TaskVisibility.INTERNAL,
+          organisation: organisation,
+          status: TaskStatus.PUBLISHED,
+          allowedGroups: { $in: userGroupIds },
         });
       }
 

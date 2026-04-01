@@ -256,20 +256,7 @@ export const updateApplicationStatus = async (req: any, res: Response) => {
         .json({ message: permCheck.error!.message });
     }
 
-    // Business rule: Approve/Reject requires shortlisted first (except Global Admin)
-    const isGlobalAdmin = req.user.roles?.includes(UserRole.GLOBAL_ADMIN);
-    if (
-      (status === ApplicationStatus.APPROVED ||
-        status === ApplicationStatus.REJECTED ||
-        status === ApplicationStatus.OFFERED) &&
-      app.status !== ApplicationStatus.SHORTLISTED &&
-      !isGlobalAdmin
-    ) {
-      return res.status(400).json({
-        message:
-          "Only shortlisted applications can be offered, approved or rejected.",
-      });
-    }
+
 
     app.status = status;
     await app.save();
