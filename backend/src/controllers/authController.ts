@@ -132,8 +132,10 @@ export const verifyOtp = async (req: Request, res: Response) => {
     user.firstName = firstName?.trim() ?? user.firstName;
     user.lastName = lastName?.trim() ?? user.lastName;
     user.password = hashedPassword;
-    user.roles = [UserRole.APPLICANT];
     if (contactNumber) user.contactNumber = contactNumber;
+
+    // Default roles (will be overridden by invitation if present)
+    user.roles = [UserRole.APPLICANT];
 
     // Handle invitation if present
     if (invitationToken) {
@@ -145,6 +147,10 @@ export const verifyOtp = async (req: Request, res: Response) => {
       });
       if (invitation) {
         user.organisation = invitation.organisation;
+        // Use the role from invitation if specified, otherwise keep Applicant default
+        if (invitation.role) {
+          user.roles = [invitation.role as UserRole];
+        }
         invitation.status = "Accepted";
         await invitation.save();
       }
@@ -740,7 +746,7 @@ export const exportUsersCsv = async (req: Request, res: Response) => {
  */
 export const inviteUser = async (req: any, res: Response) => {
   try {
-    const { email, organisationId } = req.body;
+    const { email, organisationId, role } = req.body;
 
     if (!email) return res.status(400).json({ message: "Email is required" });
 
@@ -785,6 +791,7 @@ export const inviteUser = async (req: any, res: Response) => {
       {
         email,
         organisation: targetOrgId,
+        role: role || "Applicant",
         token,
         invitedBy: req.user._id,
         expiresAt,

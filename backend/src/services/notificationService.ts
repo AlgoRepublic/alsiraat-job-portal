@@ -130,9 +130,19 @@ export const sendEmail = async (
 
   let settings: IEmailSettings | null = null;
   try {
-    settings = await EmailSettings.findOne({
-      organisation: orgForQuery,
-    }).exec();
+    // 1. Try to load per-org settings
+    if (orgForQuery) {
+      settings = await EmailSettings.findOne({
+        organisation: orgForQuery,
+      }).exec();
+    }
+
+    // 2. If no org settings exist, fallback to global settings (organisation: null)
+    if (!settings) {
+      settings = await EmailSettings.findOne({
+        organisation: null,
+      }).exec();
+    }
   } catch (err) {
     console.error("[Email] Failed to load EmailSettings:", err);
     return;

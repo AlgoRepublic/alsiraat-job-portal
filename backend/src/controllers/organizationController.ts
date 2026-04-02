@@ -115,22 +115,52 @@ export const addMember = async (req: Request, res: Response) => {
  */
 export const inviteOrganisation = async (req: any, res: Response) => {
   try {
-    const { name, domain, about, type, ownerEmail } = req.body;
+    const { name, domain, about, type, ownerEmail, organisationId, role } = req.body;
 
-    if (!name || !ownerEmail) {
+    if (!ownerEmail) {
       return res.status(400).json({
-        message: "Organisation name and owner email are required",
+        message: "Owner email is required",
       });
     }
 
-    // Check if org name already exists
-    const normalizedName = normalizeOrgName(name);
-    const slug = slugifyOrgName(normalizedName);
-    const existingOrg = await Organization.findOne({ slug });
-    if (existingOrg) {
-      return res.status(400).json({
-        message: "An organisation with this name already exists",
+    let targetOrgId: any;
+    let targetOrgName: string;
+
+    if (organisationId) {
+      // Use existing organisation
+      const existingOrg = await Organization.findById(organisationId);
+      if (!existingOrg) {
+        return res.status(404).json({ message: "Selected organisation not found" });
+      }
+      targetOrgId = existingOrg._id;
+      targetOrgName = existingOrg.name;
+    } else {
+      // Create new organisation
+      if (!name) {
+        return res.status(400).json({
+          message: "Organisation name is required to create a new organisation",
+        });
+      }
+
+      const normalizedName = normalizeOrgName(name);
+      const slug = slugifyOrgName(normalizedName);
+      const existingOrgDoc = await Organization.findOne({ slug });
+      if (existingOrgDoc) {
+        return res.status(400).json({
+          message: "An organisation with this name already exists",
+        });
+      }
+
+      const newOrg = await Organization.create({
+        name: normalizedName,
+        slug,
+        domain: domain || undefined,
+        about: about || undefined,
+        type: type || undefined,
       });
+
+      targetOrgId = newOrg._id;
+      targetOrgName = newOrg.name;
     }
 
     // Check if the owner email is already registered
@@ -141,15 +171,6 @@ export const inviteOrganisation = async (req: any, res: Response) => {
       });
     }
 
-    // Create the organisation record immediately
-    const org = await Organization.create({
-      name: normalizedName,
-      slug,
-      domain: domain || undefined,
-      about: about || undefined,
-      type: type || undefined,
-    });
-
     // Generate secure invitation token (48h expiry)
     const token = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
@@ -159,7 +180,8 @@ export const inviteOrganisation = async (req: any, res: Response) => {
       { email: ownerEmail },
       {
         email: ownerEmail,
-        organisation: org._id,
+        organisation: targetOrgId,
+        role: role || "Applicant", // Use chosen role or default to Applicant
         token,
         invitedBy: req.user._id,
         expiresAt,
@@ -178,15 +200,15 @@ export const inviteOrganisation = async (req: any, res: Response) => {
       ownerEmail,
       onboardingInvitationEmail(
         req.user.name || "Administrator",
-        normalizedName,
+        targetOrgName,
         invitationUrl
       ),
       {}
     );
 
     res.status(201).json({
-      message: `Organisation "${normalizedName}" created and invitation sent to ${ownerEmail}`,
-      organisation: org,
+      message: `Invitation sent to ${ownerEmail} for organisation "${targetOrgName}"`,
+      organisation: targetOrgId,
     });
   } catch (err: any) {
     res.status(500).json({ message: err.message });

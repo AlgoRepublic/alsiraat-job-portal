@@ -12,8 +12,8 @@ import TaskCategory from "../models/TaskCategory.js";
 import RewardType from "../models/RewardType.js";
 import Task from "../models/Task.js";
 import Application from "../models/Application.js";
-
 import PermissionModel from "../models/Permission.js";
+import EmailSettings from "../models/EmailSettings.js";
 import { Permission, RolePermissions } from "../config/permissions.js";
 
 import { UserRole } from "../models/UserRole.js";
@@ -86,6 +86,25 @@ async function resetDatabase() {
       isPublic: false,
     } as any)) as any;
     console.log(`✅ Created organisation: ${systemOrganization.name}`);
+
+    // Step 3.5: Seed Global Email Settings
+    console.log("\n📧 Seeding global email settings...");
+    const { DEFAULT_TEMPLATES } = await import("../controllers/emailSettingsController.js");
+    await EmailSettings.create({
+      organisation: null,
+      emailEnabled: true,
+      smtpEnabled: false, // User still needs to provide credentials in UI
+      fromName: "Al-Siraat Tasker",
+      fromEmail: "noreply@alsiraat.edu.au",
+      templates: DEFAULT_TEMPLATES.map(t => ({
+        eventKey: t.eventKey,
+        enabled: true,
+        subject: t.defaultSubject,
+        bodyText: t.defaultBodyText,
+        bodyHtml: "" // Will be handled by template generator
+      }))
+    });
+    console.log("✅ Seeded global email settings (enabled by default)");
 
     // Step 4: Seed Roles with Permissions
     console.log("\n👥 Seeding roles with permissions...");

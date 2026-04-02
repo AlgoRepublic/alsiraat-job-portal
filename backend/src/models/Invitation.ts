@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from "mongoose";
 export interface IInvitation extends Document {
   email: string;
   organisation: mongoose.Types.ObjectId;
+  role: string;
   token: string;
   invitedBy: mongoose.Types.ObjectId;
   status: "Pending" | "Accepted" | "Expired";
@@ -19,6 +20,7 @@ const InvitationSchema: Schema = new Schema(
       ref: "Organization",
       required: true,
     },
+    role: { type: String, default: "Applicant" },
     token: { type: String, required: true, unique: true },
     invitedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
     status: {
