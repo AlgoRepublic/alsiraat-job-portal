@@ -1,11 +1,11 @@
-import { useNavigate, Link, useSearchParams } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Mail,
   Lock,
   User as UserIcon,
   Shield,
   AlertCircle,
-  Layers,
   ArrowLeft,
   Building2,
   Phone,
@@ -35,7 +35,6 @@ const formatAustralianPhone = (raw: string): string => {
 };
 
 export const Signup: React.FC = () => {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const invitationToken = searchParams.get("token");
 
