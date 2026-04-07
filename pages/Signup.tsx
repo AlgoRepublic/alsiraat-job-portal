@@ -104,7 +104,7 @@ export const Signup: React.FC = () => {
           : {}),
       });
       setTimeout(() => {
-        window.location.reload();
+        window.location.href = "/";
       }, 100);
     } catch (err: any) {
       setError(err.message || "Signup failed. Please try again.");

@@ -18,6 +18,7 @@ import {
 import { useToast } from "../components/Toast";
 import { API_BASE_URL } from "../services/api";
 import { Loading } from "../components/Loading";
+import { db } from "../services/database";
 
 interface Organisation {
   _id: string;
@@ -26,6 +27,7 @@ interface Organisation {
   type?: string;
   domain?: string;
   about?: string;
+  logo?: string;
   isPublic: boolean;
   owner?: { name: string; email: string } | null;
   createdAt: string;
@@ -159,6 +161,27 @@ export const OrganisationManagement: React.FC = () => {
       await loadInvitations();
     } catch (err: any) {
       showError(err.message || "Failed to resend invitation");
+    }
+  };
+
+  const handleUploadLogo = async (orgId: string, file: File) => {
+    try {
+      await db.uploadOrganizationLogo(orgId, file);
+      showSuccess("Logo uploaded successfully");
+      await loadOrgs();
+    } catch (err: any) {
+      showError(err.message || "Failed to upload logo");
+    }
+  };
+
+  const handleRemoveLogo = async (orgId: string) => {
+    if (!confirm("Are you sure you want to remove this logo?")) return;
+    try {
+      await db.removeOrganizationLogo(orgId);
+      showSuccess("Logo removed successfully");
+      await loadOrgs();
+    } catch (err: any) {
+      showError(err.message || "Failed to remove logo");
     }
   };
 
@@ -540,9 +563,40 @@ export const OrganisationManagement: React.FC = () => {
                 key={org._id}
                 className="px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-4 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors"
               >
-                {/* Avatar */}
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 dark:from-primary/30 dark:to-primary/10 flex items-center justify-center shrink-0">
-                  <Building2 className="w-5 h-5 text-primary" />
+                {/* Avatar / Logo */}
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 dark:from-primary/30 dark:to-primary/10 flex items-center justify-center shrink-0 border border-zinc-200 dark:border-zinc-700 overflow-hidden relative group">
+                  {org.logo ? (
+                    <img src={`${API_BASE_URL.replace(/\/api$/, "")}${org.logo}`} alt={org.name} className="w-full h-full object-contain bg-white/50" />
+                  ) : (
+                    <Building2 className="w-5 h-5 text-primary" />
+                  )}
+                  <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      id={`logo-upload-${org._id}`}
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          handleUploadLogo(org._id, e.target.files[0]);
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor={`logo-upload-${org._id}`}
+                      className="text-[8px] font-bold text-white uppercase tracking-wider cursor-pointer hover:text-primary transition-colors text-center px-1"
+                    >
+                      {org.logo ? "Change" : "Upload"}
+                    </label>
+                    {org.logo && (
+                      <button
+                        onClick={(e) => { e.preventDefault(); handleRemoveLogo(org._id); }}
+                        className="text-[8px] font-bold text-red-400 hover:text-red-300 uppercase tracking-wider mt-1"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Info */}

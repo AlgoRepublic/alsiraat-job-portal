@@ -7,8 +7,11 @@ import {
   listOrgInvitations,
   revokeOrgInvitation,
   resendOrgInvitation,
+  uploadLogo,
+  removeLogo,
 } from "../controllers/organizationController.js";
 import { authenticate, requirePermission } from "../middleware/rbac.js";
+import { upload } from "../middleware/upload.js";
 import { Permission } from "../config/permissions.js";
 
 const router = express.Router();
@@ -30,6 +33,23 @@ router.post(
   authenticate,
   requirePermission(Permission.ORG_UPDATE),
   addMember,
+);
+
+// Admin: Upload/Update organisation logo
+router.post(
+  "/:id/logo",
+  authenticate,
+  requirePermission(Permission.ORG_UPDATE),
+  upload.single("logo"),
+  uploadLogo,
+);
+
+// Admin: Remove organisation logo
+router.delete(
+  "/:id/logo",
+  authenticate,
+  requirePermission(Permission.ORG_UPDATE),
+  removeLogo,
 );
 
 // ─── Onboarding Invitation Flow ──────────────────────────────────────────────

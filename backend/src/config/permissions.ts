@@ -122,6 +122,9 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
 
     // Reporting
     Permission.REPORTS_VIEW,
+
+    // Admin Settings (needed to access org management, users, etc.)
+    Permission.ADMIN_SETTINGS,
   ],
 
   [UserRole.TASK_MANAGER]: [

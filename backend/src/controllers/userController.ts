@@ -13,6 +13,7 @@ import Application from "../models/Application.js";
 
 export const getUsers = async (req: Request, res: Response) => {
   try {
+    const caller = (req as any).user;
     const { search, role } = req.query;
 
     // Pagination
@@ -24,6 +25,20 @@ export const getUsers = async (req: Request, res: Response) => {
     const skip = (page - 1) * limit;
 
     let query: any = {};
+
+    // Org scoping: unless the caller is a Global Admin, restrict to their active org.
+    // This also excludes "independent" users (no organisation) from non-admin views.
+    const isGlobalAdmin = (caller?.roles ?? []).some(
+      (r: string) => r.toLowerCase() === "global admin",
+    );
+    if (!isGlobalAdmin) {
+      if (caller?.activeOrganisation) {
+        query.organisations = caller.activeOrganisation;
+      } else {
+        // Non-admin with no active org → can only see themselves
+        query._id = caller?._id;
+      }
+    }
 
     if (search) {
       query.$or = [
@@ -38,7 +53,8 @@ export const getUsers = async (req: Request, res: Response) => {
 
     const [users, total] = await Promise.all([
       User.find(query)
-        .populate("organisation", "name")
+        .populate("activeOrganisation", "name logo")
+        .populate("organisations", "name logo")
         .select("-password")
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -63,7 +79,8 @@ export const getUsers = async (req: Request, res: Response) => {
 export const getUserById = async (req: Request, res: Response) => {
   try {
     const user = await User.findById(req.params.id)
-      .populate("organisation", "name")
+      .populate("activeOrganisation", "name logo")
+      .populate("organisations", "name logo")
       .select("-password");
 
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -93,7 +110,7 @@ export const updateUserRole = async (req: Request, res: Response) => {
 
 export const updateUser = async (req: Request, res: Response) => {
   try {
-    const { name, email, roles, organisation } = req.body;
+    const { name, email, roles, organisation, organisations } = req.body;
     const user = await User.findById(req.params.id);
 
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -116,20 +133,53 @@ export const updateUser = async (req: Request, res: Response) => {
     if (name) user.name = name;
     if (roles) user.roles = roles;
 
-    // Organisation: explicit null clears it; a string ID sets it; undefined = no change
-    if (organisation === null) {
-      user.organisation = undefined as any;
-    } else if (organisation) {
-      // Validate the org exists before assigning
-      const orgExists = await Organization.findById(organisation);
-      if (!orgExists)
-        return res.status(400).json({ message: "Organisation not found" });
-      user.organisation = organisation;
+    // Multi-org: if `organisations` array is provided, use it directly
+    if (organisations !== undefined) {
+      if (Array.isArray(organisations)) {
+        // Validate all org IDs exist
+        for (const orgId of organisations) {
+          const exists = await Organization.findById(orgId);
+          if (!exists) {
+            return res
+              .status(400)
+              .json({ message: `Organisation ${orgId} not found` });
+          }
+        }
+        user.organisations = organisations;
+        // Keep activeOrganisation valid: if current active isn't in the new list, pick first
+        const activeId = user.activeOrganisation?.toString();
+        const isStillMember = organisations.some(
+          (o: string) => o.toString() === activeId,
+        );
+        if (!isStillMember && organisations.length > 0) {
+          user.activeOrganisation = organisations[0] as any;
+        } else if (organisations.length === 0) {
+          user.activeOrganisation = undefined as any;
+        }
+      }
+    } else if (organisation !== undefined) {
+      // Legacy single-org handling (backward compat)
+      if (organisation === null) {
+        user.activeOrganisation = undefined as any;
+        user.organisations = [];
+      } else if (organisation) {
+        const orgExists = await Organization.findById(organisation);
+        if (!orgExists)
+          return res.status(400).json({ message: "Organisation not found" });
+        const alreadyMember = (user.organisations ?? []).some(
+          (o: any) => o.toString() === organisation.toString(),
+        );
+        if (!alreadyMember) {
+          user.organisations = [...(user.organisations ?? []), organisation];
+        }
+        user.activeOrganisation = organisation;
+      }
     }
 
     await user.save();
     const updated = await User.findById(user._id)
-      .populate("organisation", "name")
+      .populate("activeOrganisation", "name logo")
+      .populate("organisations", "name logo")
       .select("-password");
 
     res.json({ message: "User updated successfully", user: updated });

@@ -32,6 +32,24 @@ export const generateToken = (user: any) => {
 };
 
 /**
+ * Build the organisation fields to include in every auth response.
+ * Populates organisations[] with name+logo, and sets activeOrganisation.
+ */
+async function buildOrgPayload(user: any) {
+  await user.populate("activeOrganisation", "name logo");
+  await user.populate("organisations", "name logo");
+  return {
+    organisation: user.activeOrganisation ?? null,
+    activeOrganisation: user.activeOrganisation ?? null,
+    organisations: (user.organisations ?? []).map((o: any) => ({
+      _id: o._id,
+      name: o.name,
+      logo: o.logo,
+    })),
+  };
+}
+
+/**
  * POST /auth/send-otp
  * Generates a 6-digit OTP, stores hashed version on the (possibly temp) user record,
  * and emails it. If the user already exists and is verified, reject.
@@ -146,7 +164,17 @@ export const verifyOtp = async (req: Request, res: Response) => {
         expiresAt: { $gt: new Date() },
       });
       if (invitation) {
-        user.organisation = invitation.organisation;
+        // Push this org into the user's organisations array (multi-org)
+        const orgId = invitation.organisation;
+        if (orgId) {
+          const alreadyMember = (user.organisations ?? []).some(
+            (o: any) => o.toString() === orgId.toString()
+          );
+          if (!alreadyMember) {
+            user.organisations = [...(user.organisations ?? []), orgId];
+          }
+          user.activeOrganisation = orgId;
+        }
         // Use the role from invitation if specified, otherwise keep Applicant default
         if (invitation.role) {
           user.roles = [invitation.role as UserRole];
@@ -175,10 +203,12 @@ export const verifyOtp = async (req: Request, res: Response) => {
     const token = generateToken(user);
 
     // Send welcome email async
-    const organisationId = user.organisation?.toString() ?? null;
+    const organisationId = user.activeOrganisation?.toString() ?? null;
     sendEmail(user.email, welcomeEmail(name), { organisationId }).catch(
       () => {},
     );
+
+    const orgPayload = await buildOrgPayload(user);
 
     res.status(201).json({
       token,
@@ -192,11 +222,11 @@ export const verifyOtp = async (req: Request, res: Response) => {
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,
-        organisation: user.organisation,
         contactNumber: user.contactNumber,
         gender: user.gender,
         permissions,
         _groupIds: [],
+        ...orgPayload,
       },
     });
   } catch (err: any) {
@@ -293,9 +323,10 @@ export const authCallback = (
   const idToken = (req as any).idToken as string | undefined;
 
   // Redirect to frontend with token (use hash path for HashRouter: #/login?token=...)
-  const frontendUrl = (
+  const fallbackFrontendUrl = (
     process.env.FRONTEND_URL || "http://localhost:5173"
   ).replace(/\/$/, "");
+  const frontendUrl = (req.headers.origin || req.get("origin") || fallbackFrontendUrl).replace(/\/$/, "");
   let redirectUrl = `${frontendUrl}/#/login?token=${encodeURIComponent(token)}`;
   if (source) redirectUrl += `&source=${source}`;
   if (idToken) redirectUrl += `&idToken=${encodeURIComponent(idToken)}`;
@@ -321,9 +352,10 @@ export const getSsoLogoutUrl = async (req: Request, res: Response) => {
     const idToken = (req.body?.idToken ?? req.query?.id_token) as
       | string
       | undefined;
-    const frontendUrl = (
+    const fallbackFrontendUrl = (
       process.env.FRONTEND_URL || "http://localhost:5173"
     ).replace(/\/$/, "");
+    const frontendUrl = (req.headers.origin || req.get("origin") || fallbackFrontendUrl).replace(/\/$/, "");
     const postLogoutRedirect =
       ((req.body?.postLogoutRedirectUri ??
         req.query?.post_logout_redirect_uri) as string | undefined) ||
@@ -368,6 +400,8 @@ export const getMe = async (req: Request, res: Response) => {
     const groups = await Group.find({ members: user._id }).select("_id").lean();
     const _groupIds = groups.map((g: any) => g._id.toString());
 
+    const orgPayload = await buildOrgPayload(user);
+
     res.json({
       user: {
         id: user._id,
@@ -383,9 +417,9 @@ export const getMe = async (req: Request, res: Response) => {
         gender: user.gender,
         resumeUrl: user.resumeUrl,
         resumeOriginalName: user.resumeOriginalName,
-        organisation: user.organisation,
         permissions,
         _groupIds,
+        ...orgPayload,
       },
     });
   } catch (err: any) {
@@ -470,9 +504,10 @@ export const forgotPassword = async (req: Request, res: Response) => {
 
     await user.save();
 
-    const FRONTEND_URL = (
+    const fallbackFrontendUrl = (
       process.env.FRONTEND_URL || "http://localhost:5173"
     ).replace(/\/$/, "");
+    const FRONTEND_URL = (req.headers.origin || req.get("origin") || fallbackFrontendUrl).replace(/\/$/, "");
     const resetUrl = `${FRONTEND_URL}/#/reset-password/${resetToken}`;
 
     // Send branded password reset email directly
@@ -600,6 +635,8 @@ export const updateProfile = async (req: Request, res: Response) => {
     const groups = await Group.find({ members: user._id }).select("_id").lean();
     const _groupIds = groups.map((g) => g._id.toString());
 
+    const orgPayload = await buildOrgPayload(user);
+
     res.json({
       message: "Profile updated successfully",
       user: {
@@ -618,6 +655,7 @@ export const updateProfile = async (req: Request, res: Response) => {
         resumeOriginalName: user.resumeOriginalName,
         permissions,
         _groupIds,
+        ...orgPayload,
       },
     });
   } catch (err: any) {
@@ -679,9 +717,9 @@ export const exportUsersCsv = async (req: Request, res: Response) => {
       { roles: { $exists: true, $not: { $size: 0 } } }, // skip OTP-pending temp users
     )
       .select(
-        "name firstName lastName email roles contactNumber gender organisation createdAt",
+        "name firstName lastName email roles contactNumber gender activeOrganisation createdAt",
       )
-      .populate("organisation", "name")
+      .populate("activeOrganisation", "name")
       .lean();
 
     const escape = (val: any): string => {
@@ -713,7 +751,7 @@ export const exportUsersCsv = async (req: Request, res: Response) => {
       escape((u.roles || []).join("; ")),
       escape(u.contactNumber),
       escape(u.gender),
-      escape(u.organisation?.name),
+      escape(u.activeOrganisation?.name),
       escape(
         u.createdAt
           ? new Date(u.createdAt).toLocaleDateString("en-AU", {
@@ -801,8 +839,11 @@ export const inviteUser = async (req: any, res: Response) => {
     );
 
     // Send email
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-    const invitationUrl = `${frontendUrl}/signup?token=${token}`;
+    const fallbackFrontendUrl = (
+      process.env.FRONTEND_URL || "http://localhost:5173"
+    ).replace(/\/$/, "");
+    const frontendUrl = (req.headers.origin || req.get("origin") || fallbackFrontendUrl).replace(/\/$/, "");
+    const invitationUrl = `${frontendUrl}/#/signup?token=${token}`;
     await sendEmail(
       email,
       onboardingInvitationEmail(
@@ -848,3 +889,89 @@ export const getInvitationDetails = async (req: Request, res: Response) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+/**
+ * POST /auth/switch-organisation
+ * Authenticated: switch the caller's active organisation context.
+ * Validates membership, updates activeOrganisation, returns fresh token + user.
+ */
+export const switchOrganisation = async (req: Request, res: Response) => {
+  try {
+    const reqUser = (req as any).user;
+    const { organisationId } = req.body;
+
+    if (!organisationId) {
+      return res.status(400).json({ message: "organisationId is required" });
+    }
+
+    const user = await User.findById(reqUser._id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Global Admins can switch to any org
+    const isGlobalAdmin = (user.roles ?? []).some(
+      (r: any) => r.toLowerCase() === "global admin",
+    );
+
+    if (!isGlobalAdmin) {
+      // Must be a member
+      const isMember = (user.organisations ?? []).some(
+        (o: any) => o.toString() === organisationId.toString(),
+      );
+      if (!isMember) {
+        return res
+          .status(403)
+          .json({ message: "You are not a member of this organisation" });
+      }
+    }
+
+    // Validate org exists
+    const org = await Organization.findById(organisationId).select("name logo");
+    if (!org) {
+      return res.status(404).json({ message: "Organisation not found" });
+    }
+
+    user.activeOrganisation = organisationId as any;
+    await user.save();
+
+    const permissions: string[] = [];
+    const rolesArray = user.roles as UserRole[];
+    for (const p of Object.values(Permission)) {
+      for (const r of rolesArray) {
+        if (await hasPermissionAsync(r, p)) {
+          if (!permissions.includes(p)) permissions.push(p);
+        }
+      }
+    }
+
+    const groups = await Group.find({ members: user._id }).select("_id").lean();
+    const _groupIds = groups.map((g: any) => g._id.toString());
+
+    const orgPayload = await buildOrgPayload(user);
+    const token = generateToken(user);
+
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        roles: user.roles,
+        skills: user.skills || [],
+        about: user.about || "",
+        avatar: user.avatar,
+        contactNumber: user.contactNumber,
+        gender: user.gender,
+        resumeUrl: user.resumeUrl,
+        resumeOriginalName: user.resumeOriginalName,
+        permissions,
+        _groupIds,
+        ...orgPayload,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+

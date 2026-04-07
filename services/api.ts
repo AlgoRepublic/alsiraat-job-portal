@@ -199,6 +199,24 @@ class ApiService {
     return response;
   }
 
+  async switchOrganisation(organisationId: string): Promise<AuthResponse> {
+    const response = await this.request<AuthResponse>(
+      "/auth/switch-organisation",
+      {
+        method: "POST",
+        body: JSON.stringify({ organisationId }),
+      },
+    );
+
+    if (response.token) {
+      this.token = response.token;
+      localStorage.setItem("auth_token", this.token);
+      localStorage.setItem("user_data", JSON.stringify(response.user));
+    }
+
+    return response;
+  }
+
   async logout(): Promise<void> {
     this.token = null;
     localStorage.removeItem("auth_token");
@@ -258,6 +276,31 @@ class ApiService {
   // --- Organizations ---
   async getOrganizations(): Promise<any[]> {
     return this.request<any[]>("/organizations");
+  }
+
+  async uploadOrganizationLogo(orgId: string, file: File): Promise<any> {
+    const formData = new FormData();
+    formData.append("logo", file);
+
+    const token = localStorage.getItem("auth_token");
+    const response = await fetch(`${API_BASE_URL}/organizations/${orgId}/logo`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.message || "Failed to upload logo");
+    }
+
+    return await response.json();
+  }
+
+  async removeOrganizationLogo(orgId: string): Promise<any> {
+    return this.request<any>(`/organizations/${orgId}/logo`, {
+      method: "DELETE",
+    });
   }
 
   // --- Users ---

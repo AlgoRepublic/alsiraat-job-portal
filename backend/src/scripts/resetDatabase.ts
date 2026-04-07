@@ -165,7 +165,8 @@ async function resetDatabase() {
       email: "admin@alsiraat.edu.au",
       password: hashedPassword,
       role: UserRole.GLOBAL_ADMIN,
-      organisation: systemOrganization._id,
+      organisations: [systemOrganization._id],
+      activeOrganisation: systemOrganization._id,
       about:
         "Super admin with full system access - can manage all users, roles, permissions, organisations, and tasks",
     } as any)) as any;
@@ -178,7 +179,8 @@ async function resetDatabase() {
       email: "principal@alsiraat.edu.au",
       password: hashedPassword,
       role: UserRole.SCHOOL_ADMIN,
-      organisation: organization._id,
+      organisations: [organization._id],
+      activeOrganisation: organization._id,
     } as any)) as any;
     console.log(`   Created user: principal@alsiraat.edu.au (School Admin)`);
 
@@ -187,7 +189,8 @@ async function resetDatabase() {
       email: "coordinator@alsiraat.edu.au",
       password: hashedPassword,
       role: UserRole.TASK_MANAGER,
-      organisation: organization._id,
+      organisations: [organization._id],
+      activeOrganisation: organization._id,
     } as any)) as any;
     console.log(`   Created user: coordinator@alsiraat.edu.au (Task Manager)`);
 
@@ -196,7 +199,8 @@ async function resetDatabase() {
       email: "teacher@alsiraat.edu.au",
       password: hashedPassword,
       role: UserRole.TASK_ADVERTISER,
-      organisation: organization._id,
+      organisations: [organization._id],
+      activeOrganisation: organization._id,
     } as any)) as any;
     console.log(`   Created user: teacher@alsiraat.edu.au (Task Advertiser)`);
 
@@ -205,7 +209,8 @@ async function resetDatabase() {
       email: "student@alsiraat.edu.au",
       password: hashedPassword,
       role: UserRole.APPLICANT,
-      organisation: organization._id,
+      organisations: [organization._id],
+      activeOrganisation: organization._id,
     } as any)) as any;
     console.log(`   Created user: student@alsiraat.edu.au (Applicant)`);
 
@@ -225,7 +230,8 @@ async function resetDatabase() {
       email: "admin@crescent.edu.au",
       password: hashedPassword,
       role: UserRole.SCHOOL_ADMIN,
-      organisation: crescentOrg._id,
+      organisations: [crescentOrg._id],
+      activeOrganisation: crescentOrg._id,
     } as any)) as any;
     console.log(`   Created user: admin@crescent.edu.au (School Admin - Crescent)`);
 
@@ -234,7 +240,8 @@ async function resetDatabase() {
       email: "omar@crescent.edu.au",
       password: hashedPassword,
       role: UserRole.APPLICANT,
-      organisation: crescentOrg._id,
+      organisations: [crescentOrg._id],
+      activeOrganisation: crescentOrg._id,
     } as any)) as any;
     console.log(`   Created user: omar@crescent.edu.au (Applicant - Crescent)`);
 
@@ -254,7 +261,8 @@ async function resetDatabase() {
       email: "coordinator@minaret.edu.au",
       password: hashedPassword,
       role: UserRole.TASK_MANAGER,
-      organisation: minaretOrg._id,
+      organisations: [minaretOrg._id],
+      activeOrganisation: minaretOrg._id,
     } as any)) as any;
     console.log(`   Created user: coordinator@minaret.edu.au (Task Manager - Minaret)`);
 
@@ -263,7 +271,8 @@ async function resetDatabase() {
       email: "fatima@minaret.edu.au",
       password: hashedPassword,
       role: UserRole.TASK_ADVERTISER,
-      organisation: minaretOrg._id,
+      organisations: [minaretOrg._id],
+      activeOrganisation: minaretOrg._id,
     } as any)) as any;
     console.log(`   Created user: fatima@minaret.edu.au (Task Advertiser - Minaret)`);
 

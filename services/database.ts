@@ -140,6 +140,11 @@ class DatabaseService {
     return await api.verifyOtp(data);
   }
 
+  async switchOrganisation(organisationId: string) {
+    const response = await api.switchOrganisation(organisationId);
+    return response.user;
+  }
+
   async forgotPassword(email: string) {
     return await api.request<any>("/auth/forgot-password", {
       method: "POST",
@@ -465,6 +470,14 @@ class DatabaseService {
       console.warn("Failed to fetch organisations", err);
       return [];
     }
+  }
+
+  async uploadOrganizationLogo(orgId: string, file: File): Promise<any> {
+    return await api.uploadOrganizationLogo(orgId, file);
+  }
+
+  async removeOrganizationLogo(orgId: string): Promise<any> {
+    return await api.removeOrganizationLogo(orgId);
   }
 
   // --- Reward Types ---

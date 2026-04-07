@@ -30,6 +30,11 @@ export interface IUser extends Document {
   oidcId?: string;
   role?: string; // Legacy string role access
   roles: UserRole[];
+  // Multi-org: all orgs the user belongs to
+  organisations: mongoose.Types.ObjectId[];
+  // The currently active/selected organisation
+  activeOrganisation?: mongoose.Types.ObjectId;
+  // Virtual backward-compat alias → activeOrganisation
   organisation?: mongoose.Types.ObjectId;
   avatar?: string;
   about?: string;
@@ -86,7 +91,10 @@ const UserSchema: Schema = new Schema(
         set: normalizeUserRole,
       },
     ],
-    organisation: { type: Schema.Types.ObjectId, ref: "Organization" },
+    // Multi-org: the list of orgs this user belongs to
+    organisations: [{ type: Schema.Types.ObjectId, ref: "Organization" }],
+    // The currently active/selected org (used for data isolation)
+    activeOrganisation: { type: Schema.Types.ObjectId, ref: "Organization" },
     avatar: { type: String },
     about: { type: String },
     contactNumber: { type: String },
@@ -106,5 +114,10 @@ const UserSchema: Schema = new Schema(
   },
   { timestamps: true },
 );
+
+// Virtual backward-compat alias: user.organisation → user.activeOrganisation
+UserSchema.virtual("organisation").get(function (this: any) {
+  return this.activeOrganisation;
+});
 
 export default mongoose.model<IUser>("User", UserSchema);

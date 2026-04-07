@@ -17,8 +17,9 @@ async function checkUserOrganizations() {
 
     // Get all users with organization populated
     const users = await User.find()
-      .populate("organisation")
-      .select("name email role organisation organization");
+      .populate("activeOrganisation")
+      .populate("organisations")
+      .select("name email role activeOrganisation organisations");
 
     console.log("📊 User Organization Status:\n");
     console.log("Total users:", users.length);

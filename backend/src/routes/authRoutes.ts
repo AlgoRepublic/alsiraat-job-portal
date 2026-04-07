@@ -17,6 +17,7 @@ import {
   exportUsersCsv,
   inviteUser,
   getInvitationDetails,
+  switchOrganisation,
 } from "../controllers/authController.js";
 import { authenticate, requirePermission } from "../middleware/rbac.js";
 import { upload } from "../middleware/upload.js";
@@ -77,6 +78,10 @@ router.post("/login", (req, res, next) => {
           .lean();
         const _groupIds = groups.map((g: any) => g._id.toString());
 
+
+        await user.populate("activeOrganisation", "name logo");
+        await user.populate("organisations", "name logo");
+
         res.json({
           token,
           user: {
@@ -93,7 +98,13 @@ router.post("/login", (req, res, next) => {
             gender: user.gender,
             resumeUrl: user.resumeUrl,
             resumeOriginalName: user.resumeOriginalName,
-            organisation: user.organisation,
+            organisation: user.activeOrganisation ?? null,
+            activeOrganisation: user.activeOrganisation ?? null,
+            organisations: (user.organisations ?? []).map((o: any) => ({
+              _id: o._id,
+              name: o.name,
+              logo: o.logo,
+            })),
             permissions,
             _groupIds,
           },
@@ -184,6 +195,7 @@ router.post(
 );
 
 // Invitation System
+router.post("/switch-organisation", authenticate, switchOrganisation);
 router.post(
   "/invite",
   authenticate,

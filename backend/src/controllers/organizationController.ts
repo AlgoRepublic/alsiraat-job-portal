@@ -53,8 +53,14 @@ export const createOrganization = async (req: Request, res: Response) => {
       owner: ownerId,
     });
 
-    // Assign org + School Admin role to owner
-    owner.organisation = org._id as any;
+    // Assign org + School Admin role to owner (multi-org: push to array)
+    const alreadyMember = (owner.organisations ?? []).some(
+      (o: any) => o.toString() === (org._id as any).toString(),
+    );
+    if (!alreadyMember) {
+      owner.organisations = [...(owner.organisations ?? []), org._id as any];
+    }
+    owner.activeOrganisation = org._id as any;
     owner.roles = [UserRole.SCHOOL_ADMIN];
     await owner.save();
 
@@ -90,14 +96,25 @@ export const addMember = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    if (user.organisation) {
+    // Multi-org: add to organisations[] instead of replacing
+    const alreadyMember = (user.organisations ?? []).some(
+      (o: any) => o.toString() === (organization._id as any).toString(),
+    );
+    if (alreadyMember) {
       return res
         .status(400)
-        .json({ message: "User already belongs to an organization" });
+        .json({ message: "User is already a member of this organisation" });
     }
 
-    user.organisation = organization._id as any;
-    user.roles = [role || UserRole.TASK_ADVERTISER];
+    user.organisations = [
+      ...(user.organisations ?? []),
+      organization._id as any,
+    ];
+    // Set as active org only if user has none yet
+    if (!user.activeOrganisation) {
+      user.activeOrganisation = organization._id as any;
+    }
+    if (role) user.roles = [role];
 
     await user.save();
 
@@ -115,7 +132,8 @@ export const addMember = async (req: Request, res: Response) => {
  */
 export const inviteOrganisation = async (req: any, res: Response) => {
   try {
-    const { name, domain, about, type, ownerEmail, organisationId, role } = req.body;
+    const { name, domain, about, type, ownerEmail, organisationId, role } =
+      req.body;
 
     if (!ownerEmail) {
       return res.status(400).json({
@@ -130,7 +148,9 @@ export const inviteOrganisation = async (req: any, res: Response) => {
       // Use existing organisation
       const existingOrg = await Organization.findById(organisationId);
       if (!existingOrg) {
-        return res.status(404).json({ message: "Selected organisation not found" });
+        return res
+          .status(404)
+          .json({ message: "Selected organisation not found" });
       }
       targetOrgId = existingOrg._id;
       targetOrgName = existingOrg.name;
@@ -187,12 +207,17 @@ export const inviteOrganisation = async (req: any, res: Response) => {
         expiresAt,
         status: "Pending",
       },
-      { upsert: true, new: true }
+      { upsert: true, new: true },
     );
 
     // Send onboarding invitation email
-    const frontendUrl = (
+    const fallbackFrontendUrl = (
       process.env.FRONTEND_URL || "http://localhost:5173"
+    ).replace(/\/$/, "");
+    const frontendUrl = (
+      req.headers.origin ||
+      req.get("origin") ||
+      fallbackFrontendUrl
     ).replace(/\/$/, "");
     const invitationUrl = `${frontendUrl}/#/signup?token=${token}`;
 
@@ -201,9 +226,9 @@ export const inviteOrganisation = async (req: any, res: Response) => {
       onboardingInvitationEmail(
         req.user.name || "Administrator",
         targetOrgName,
-        invitationUrl
+        invitationUrl,
       ),
-      {}
+      {},
     );
 
     res.status(201).json({
@@ -257,7 +282,7 @@ export const resendOrgInvitation = async (req: any, res: Response) => {
     const { id } = req.params;
     const invitation = await Invitation.findById(id).populate(
       "organisation",
-      "name"
+      "name",
     );
     if (!invitation) {
       return res.status(404).json({ message: "Invitation not found" });
@@ -275,19 +300,60 @@ export const resendOrgInvitation = async (req: any, res: Response) => {
       process.env.FRONTEND_URL || "http://localhost:5173"
     ).replace(/\/$/, "");
     const invitationUrl = `${frontendUrl}/#/signup?token=${token}`;
-    const orgName = (invitation as any).organisation?.name || "the organisation";
+    const orgName =
+      (invitation as any).organisation?.name || "the organisation";
 
     await sendEmail(
       invitation.email,
       onboardingInvitationEmail(
         req.user.name || "Administrator",
         orgName,
-        invitationUrl
+        invitationUrl,
       ),
-      {}
+      {},
     );
 
     res.json({ message: `Invitation resent to ${invitation.email}` });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const uploadLogo = async (req: Request | any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const org = await Organization.findById(id);
+    if (!org)
+      return res.status(404).json({ message: "Organisation not found" });
+
+    org.logo = `/uploads/${file.filename}`;
+    await org.save();
+
+    res.json({
+      message: "Logo uploaded successfully",
+      logoContext: { id: org._id, name: org.name, logo: org.logo },
+    });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const removeLogo = async (req: Request | any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const org = await Organization.findById(id);
+    if (!org)
+      return res.status(404).json({ message: "Organisation not found" });
+
+    await Organization.updateOne({ _id: id }, { $unset: { logo: 1 } });
+
+    res.json({ message: "Logo removed successfully" });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }

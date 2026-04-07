@@ -23,6 +23,7 @@ import {
   Megaphone,
   ClipboardList,
   ClipboardCheck,
+  ChevronDown,
 } from "lucide-react";
 import { UserRole, User, Job, Permission } from "../types";
 import { SnowBackground } from "./SnowBackground";
@@ -32,6 +33,7 @@ interface LayoutProps {
   children: React.ReactNode;
   currentUser: User | null;
   onSwitchUser: (role: UserRole) => void;
+  onSwitchOrg: (orgId: string) => Promise<void>;
   isDarkMode: boolean;
   onToggleTheme: () => void;
 }
@@ -159,6 +161,7 @@ export const Layout: React.FC<LayoutProps> = ({
   children,
   currentUser,
   onSwitchUser,
+  onSwitchOrg,
   isDarkMode,
   onToggleTheme,
 }) => {
@@ -166,6 +169,8 @@ export const Layout: React.FC<LayoutProps> = ({
   const navigate = useNavigate();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showOrgSwitcher, setShowOrgSwitcher] = useState(false);
+  const [switchingOrg, setSwitchingOrg] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState(() => {
     const stored = localStorage.getItem("accentColor");
     return stored || "AlSiraat";
@@ -550,8 +555,14 @@ export const Layout: React.FC<LayoutProps> = ({
           >
             <div className="w-12 h-12 flex items-center justify-center relative shrink-0">
               <img
-                src={isDarkMode ? "/logo-dark.png" : "/logo-light.png"}
-                alt="Al Siraat"
+                src={
+                  (currentUser?.activeOrganisation as any)?.logo
+                    ? `${API_BASE_URL.replace(/\/api$/, "")}${(currentUser.activeOrganisation as any).logo}`
+                    : isDarkMode
+                      ? "/logo-dark.png"
+                      : "/logo-light.png"
+                }
+                alt={(currentUser?.activeOrganisation as any)?.name || "Tasker Logo"}
                 className="w-full h-full object-contain drop-shadow-sm"
                 onError={(e) => {
                   e.currentTarget.style.display = "none";
@@ -561,14 +572,103 @@ export const Layout: React.FC<LayoutProps> = ({
               />
             </div>
             <div className="ml-4">
-              <span className="block text-2xl font-black text-zinc-900 dark:text-white tracking-tighter leading-none">
-                Tasker
+              <span className="block text-2xl font-black text-zinc-900 dark:text-white tracking-tighter leading-none line-clamp-1">
+                {((currentUser?.activeOrganisation as any)?.name ?? "Tasker").split(" ")[0]}
               </span>
-              <span className="text-[10px] text-primary dark:text-primary rounded uppercase font-black tracking-[0.2em]">
-                Connect
+              <span className="text-[10px] text-primary dark:text-primary rounded uppercase font-black tracking-[0.2em] line-clamp-1">
+                {(() => {
+                  const n = (currentUser?.activeOrganisation as any)?.name;
+                  if (!n) return "Connect";
+                  const idx = n.indexOf(" ");
+                  return idx > -1 ? n.substring(idx + 1) : "Connect";
+                })()}
               </span>
             </div>
           </Link>
+
+          {/* ── Org Switcher ──────────────────────────────────────────────────── */}
+          {currentUser?.organisations && currentUser.organisations.length > 1 && (
+            <div className="mx-4 mt-2 mb-1 relative">
+              <button
+                onClick={() => setShowOrgSwitcher((v) => !v)}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-white/20 dark:bg-zinc-800/40 hover:bg-white/40 dark:hover:bg-zinc-700/50 border border-white/20 dark:border-white/5 transition-all text-left"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
+                    Organisation
+                  </p>
+                  <p className="text-xs font-bold text-zinc-800 dark:text-white truncate">
+                    {(currentUser.activeOrganisation as any)?.name ??
+                      currentUser.organisations[0]?.name ??
+                      "Select"}
+                  </p>
+                </div>
+                <ChevronDown
+                  className={`w-4 h-4 text-zinc-400 shrink-0 transition-transform ${showOrgSwitcher ? "rotate-180" : ""}`}
+                />
+              </button>
+
+              {showOrgSwitcher && (
+                <div className="absolute top-full mt-1 left-0 right-0 z-50 glass-card rounded-xl shadow-xl border border-white/20 dark:border-white/5 overflow-hidden animate-slide-up">
+                  {currentUser.organisations.map((org) => {
+                    const activeId =
+                      (currentUser.activeOrganisation as any)?._id ??
+                      currentUser.organisations?.[0]?._id;
+                    const isActive = org._id === activeId;
+                    return (
+                      <button
+                        key={org._id}
+                        disabled={isActive || switchingOrg !== null}
+                        onClick={async () => {
+                          if (isActive) return;
+                          setSwitchingOrg(org._id);
+                          setShowOrgSwitcher(false);
+                          await onSwitchOrg(org._id);
+                          setSwitchingOrg(null);
+                        }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all ${
+                          isActive
+                            ? "bg-primary/10 cursor-default"
+                            : "hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+                        }`}
+                      >
+                        {org.logo ? (
+                          <img
+                            src={`${API_BASE_URL.replace(/\/api$/, "")}${org.logo}`}
+                            alt={org.name}
+                            className="w-7 h-7 rounded-lg object-contain bg-white border border-zinc-200 dark:border-zinc-700"
+                          />
+                        ) : (
+                          <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                            <span className="text-[10px] font-black text-primary">
+                              {org.name.charAt(0)}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className={`text-xs font-bold truncate ${
+                              isActive
+                                ? "text-primary"
+                                : "text-zinc-800 dark:text-white"
+                            }`}
+                          >
+                            {org.name}
+                          </p>
+                        </div>
+                        {isActive && (
+                          <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                        )}
+                        {switchingOrg === org._id && (
+                          <div className="w-4 h-4 border-2 border-zinc-300 border-t-primary rounded-full animate-spin shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           <nav className="flex-1 px-4 py-8 space-y-2 overflow-y-auto">
             {currentUser?.permissions?.includes(Permission.TASK_CREATE) && (

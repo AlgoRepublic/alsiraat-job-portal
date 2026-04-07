@@ -47,7 +47,7 @@ interface EditForm {
   email: string;
   password?: string;
   roles: string[];
-  organisationId: string | null; // null = clear, "" = no change (create only)
+  organisationIds: string[]; // multi-org: array of selected org IDs
 }
 
 // Skill level badge colours
@@ -152,10 +152,10 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
                     </span>
                   )}
                 </div>
-                {user.organisation?.name && (
+                {(user.organisations?.length > 0 || user.activeOrganisation?.name) && (
                   <span className="flex items-center gap-1.5 text-xs font-bold text-zinc-500 dark:text-zinc-400">
                     <Building2 className="w-3.5 h-3.5" />
-                    {user.organisation.name}
+                    {user.organisations?.map((o: any) => o.name).join(", ") || user.activeOrganisation?.name}
                   </span>
                 )}
               </div>
@@ -192,8 +192,8 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
 
               <InfoPill
                 icon={<Building2 className="w-4 h-4" />}
-                label="Organisation"
-                value={user.organisation?.name || "Independent"}
+                label="Organisations"
+                value={user.organisations?.map((o: any) => o.name).join(", ") || user.activeOrganisation?.name || "Independent"}
               />
               <InfoPill
                 icon={<Calendar className="w-4 h-4" />}
@@ -381,7 +381,7 @@ export const UserManagement: React.FC = () => {
     email: "",
     password: "",
     roles: [],
-    organisationId: null,
+    organisationIds: [],
   });
   const [isCreating, setIsCreating] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -444,12 +444,10 @@ export const UserManagement: React.FC = () => {
       name: user.name || "",
       email: user.email || "",
       roles: user.roles || [],
-      // pre-populate with the user's current org _id (populated object has ._id or .id)
-      organisationId:
-        user.organisation?._id ??
-        user.organisation?.id ??
-        user.organisation ??
-        null,
+      // pre-populate with the user's organisation IDs (populated objects have ._id or .id)
+      organisationIds: (user.organisations ?? []).map(
+        (o: any) => o._id ?? o.id ?? o,
+      ).filter(Boolean),
     });
   };
 
@@ -460,7 +458,7 @@ export const UserManagement: React.FC = () => {
       email: "",
       password: "",
       roles: ["Applicant"],
-      organisationId: null,
+      organisationIds: [],
     });
   };
 
@@ -501,8 +499,8 @@ export const UserManagement: React.FC = () => {
         name: editForm.name,
         email: editForm.email,
         roles: editForm.roles,
-        // send null to clear, string ID to set, undefined to leave unchanged
-        organisation: editForm.organisationId,
+        // Send organisations array for multi-org support
+        organisations: editForm.organisationIds,
       });
       showSuccess("User updated successfully");
       closeEditModal();
@@ -591,9 +589,9 @@ export const UserManagement: React.FC = () => {
     setIsInviting(true);
     try {
       const orgId =
-        currentUser?.organisation?._id ||
-        currentUser?.organisation?.id ||
-        currentUser?.organisation;
+        currentUser?.activeOrganisation?._id ||
+        (currentUser?.activeOrganisation as any)?.id ||
+        currentUser?.activeOrganisation;
       const response = await db.inviteUser(email, orgId);
       showSuccess(response.message);
       setIsInviteModalOpen(false);
@@ -801,11 +799,22 @@ export const UserManagement: React.FC = () => {
 
                       {/* Organisation */}
                       <td className="px-6 py-5">
-                        <div className="flex items-center gap-1.5 text-sm font-bold text-zinc-500 dark:text-zinc-400">
-                          <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
-                          <span className="truncate max-w-[140px]">
-                            {(user as any).organisation?.name || "Independent"}
-                          </span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Building2 className="w-3.5 h-3.5 flex-shrink-0 text-zinc-400" />
+                          {(user as any).organisations?.length > 0 ? (
+                            (user as any).organisations.map((o: any) => (
+                              <span
+                                key={o._id ?? o}
+                                className="text-xs font-bold text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-lg truncate max-w-[120px]"
+                              >
+                                {o.name ?? o}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-sm font-bold text-zinc-400">
+                              Independent
+                            </span>
+                          )}
                         </div>
                       </td>
 
@@ -1160,44 +1169,32 @@ export const UserManagement: React.FC = () => {
                 </div>
               )}
 
-              {/* Organisation Picker */}
+              {/* Organisation Multi-Select Picker */}
               <div>
                 <label className="block text-xs font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest mb-2">
-                  Organisation
+                  Organisations
+                  {editForm.organisationIds.length > 0 && (
+                    <span className="ml-2 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-[10px] font-black">
+                      {editForm.organisationIds.length} selected
+                    </span>
+                  )}
                 </label>
                 <div className="grid grid-cols-1 gap-1.5 p-2 bg-zinc-50 dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 max-h-44 overflow-y-auto">
-                  {/* None / clear option */}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setEditForm({ ...editForm, organisationId: null })
-                    }
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all text-sm ${
-                      editForm.organisationId === null
-                        ? "bg-primary text-white shadow-md shadow-primary/20"
-                        : "bg-white dark:bg-zinc-900 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                    }`}
-                  >
-                    <span className="w-4 h-4 flex items-center justify-center">
-                      {editForm.organisationId === null ? (
-                        <BadgeCheck className="w-4 h-4" />
-                      ) : (
-                        <div className="w-3.5 h-3.5 rounded-full border-2 border-current opacity-40" />
-                      )}
-                    </span>
-                    <span className="font-bold italic">None / Independent</span>
-                  </button>
-
                   {organisations.map((org: any) => {
                     const orgId = org._id ?? org.id;
-                    const isSelected = editForm.organisationId === orgId;
+                    const isSelected = editForm.organisationIds.includes(orgId);
                     return (
                       <button
                         key={orgId}
                         type="button"
-                        onClick={() =>
-                          setEditForm({ ...editForm, organisationId: orgId })
-                        }
+                        onClick={() => {
+                          setEditForm({
+                            ...editForm,
+                            organisationIds: isSelected
+                              ? editForm.organisationIds.filter((id) => id !== orgId)
+                              : [...editForm.organisationIds, orgId],
+                          });
+                        }}
                         className={`flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all ${
                           isSelected
                             ? "bg-primary text-white shadow-md shadow-primary/20"
@@ -1208,7 +1205,7 @@ export const UserManagement: React.FC = () => {
                           {isSelected ? (
                             <BadgeCheck className="w-4 h-4" />
                           ) : (
-                            <div className="w-3.5 h-3.5 rounded-full border-2 border-zinc-300 dark:border-zinc-600" />
+                            <div className="w-3.5 h-3.5 rounded border-2 border-zinc-300 dark:border-zinc-600" />
                           )}
                         </span>
                         <span className="text-sm font-bold truncate">

@@ -151,6 +151,17 @@ const App: React.FC = () => {
     setCurrentUser(user);
   };
 
+  const handleSwitchOrg = async (orgId: string) => {
+    try {
+      await db.switchOrganisation(orgId);
+      // Refresh user from localStorage (already updated by api.ts)
+      const user = await db.getCurrentUser();
+      setCurrentUser(user);
+    } catch (err) {
+      console.error("Failed to switch organisation:", err);
+    }
+  };
+
   if (loading) {
     return <Loading fullScreen message="Loading Tasker..." />;
   }
@@ -243,6 +254,7 @@ const App: React.FC = () => {
                 <Layout
                   currentUser={currentUser}
                   onSwitchUser={handleSwitchUser}
+                  onSwitchOrg={handleSwitchOrg}
                   isDarkMode={isDarkMode}
                   onToggleTheme={toggleTheme}
                 >

@@ -111,6 +111,12 @@ export interface Job {
   organization?: string;
 }
 
+export interface OrgContext {
+  _id: string;
+  name: string;
+  logo?: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -122,8 +128,11 @@ export interface User {
   contactNumber?: string;
   gender?: "Male" | "Female";
   permissions?: string[];
-  organization?: string;
-  organisation?: string;
+  // Multi-org support
+  organisations?: OrgContext[];
+  activeOrganisation?: OrgContext | null;
+  // Backward-compat alias for activeOrganisation
+  organisation?: OrgContext | string | null;
   yearLevel?: string;
 }
 
