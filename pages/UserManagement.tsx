@@ -63,7 +63,7 @@ const SKILL_LEVEL_STYLES: Record<string, string> = {
 const ROLE_COLOUR: Record<string, string> = {
   "Global Admin":
     "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
-  "School Admin":
+  "Organization Admin":
     "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
   "Task Manager":
     "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
@@ -152,10 +152,12 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
                     </span>
                   )}
                 </div>
-                {(user.organisations?.length > 0 || user.activeOrganisation?.name) && (
+                {(user.organisations?.length > 0 ||
+                  user.activeOrganisation?.name) && (
                   <span className="flex items-center gap-1.5 text-xs font-bold text-zinc-500 dark:text-zinc-400">
                     <Building2 className="w-3.5 h-3.5" />
-                    {user.organisations?.map((o: any) => o.name).join(", ") || user.activeOrganisation?.name}
+                    {user.organisations?.map((o: any) => o.name).join(", ") ||
+                      user.activeOrganisation?.name}
                   </span>
                 )}
               </div>
@@ -193,7 +195,11 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
               <InfoPill
                 icon={<Building2 className="w-4 h-4" />}
                 label="Organisations"
-                value={user.organisations?.map((o: any) => o.name).join(", ") || user.activeOrganisation?.name || "Independent"}
+                value={
+                  user.organisations?.map((o: any) => o.name).join(", ") ||
+                  user.activeOrganisation?.name ||
+                  "Independent"
+                }
               />
               <InfoPill
                 icon={<Calendar className="w-4 h-4" />}
@@ -445,9 +451,9 @@ export const UserManagement: React.FC = () => {
       email: user.email || "",
       roles: user.roles || [],
       // pre-populate with the user's organisation IDs (populated objects have ._id or .id)
-      organisationIds: (user.organisations ?? []).map(
-        (o: any) => o._id ?? o.id ?? o,
-      ).filter(Boolean),
+      organisationIds: (user.organisations ?? [])
+        .map((o: any) => o._id ?? o.id ?? o)
+        .filter(Boolean),
     });
   };
 
@@ -979,8 +985,7 @@ export const UserManagement: React.FC = () => {
                               )}
                               <p className="text-xs font-semibold text-zinc-400 flex items-center gap-1 pt-1">
                                 <Calendar className="w-3 h-3" />
-                                Joined{" "}
-                                {formatDate(user.createdAt)}
+                                Joined {formatDate(user.createdAt)}
                               </p>
                             </div>
                           </div>
@@ -1191,7 +1196,9 @@ export const UserManagement: React.FC = () => {
                           setEditForm({
                             ...editForm,
                             organisationIds: isSelected
-                              ? editForm.organisationIds.filter((id) => id !== orgId)
+                              ? editForm.organisationIds.filter(
+                                  (id) => id !== orgId,
+                                )
                               : [...editForm.organisationIds, orgId],
                           });
                         }}
@@ -1229,33 +1236,39 @@ export const UserManagement: React.FC = () => {
                   System Roles (Select Multiple)
                 </label>
                 <div className="grid grid-cols-1 gap-2 p-2 bg-zinc-50 dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700">
-                  {roles.map((r) => {
-                    const isSelected = editForm.roles.includes(r.name);
-                    return (
-                      <button
-                        key={r._id}
-                        type="button"
-                        onClick={() => {
-                          const newRoles = isSelected
-                            ? editForm.roles.filter((role) => role !== r.name)
-                            : [...editForm.roles, r.name];
-                          setEditForm({ ...editForm, roles: newRoles });
-                        }}
-                        className={`flex items-center justify-between px-3 py-2.5 rounded-lg transition-all ${
-                          isSelected
-                            ? "bg-primary text-white shadow-md shadow-primary/20"
-                            : "bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                        }`}
-                      >
-                        <span className="text-sm font-bold">{r.name}</span>
-                        {isSelected ? (
-                          <BadgeCheck className="w-4 h-4" />
-                        ) : (
-                          <div className="w-4 h-4 rounded-full border-2 border-zinc-200 dark:border-zinc-700" />
-                        )}
-                      </button>
-                    );
-                  })}
+                  {roles
+                    .filter((r) =>
+                      r.name === UserRole.GLOBAL_ADMIN
+                        ? currentUser?.roles?.includes(UserRole.GLOBAL_ADMIN)
+                        : true,
+                    )
+                    .map((r) => {
+                      const isSelected = editForm.roles.includes(r.name);
+                      return (
+                        <button
+                          key={r._id}
+                          type="button"
+                          onClick={() => {
+                            const newRoles = isSelected
+                              ? editForm.roles.filter((role) => role !== r.name)
+                              : [...editForm.roles, r.name];
+                            setEditForm({ ...editForm, roles: newRoles });
+                          }}
+                          className={`flex items-center justify-between px-3 py-2.5 rounded-lg transition-all ${
+                            isSelected
+                              ? "bg-primary text-white shadow-md shadow-primary/20"
+                              : "bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                          }`}
+                        >
+                          <span className="text-sm font-bold">{r.name}</span>
+                          {isSelected ? (
+                            <BadgeCheck className="w-4 h-4" />
+                          ) : (
+                            <div className="w-4 h-4 rounded-full border-2 border-zinc-200 dark:border-zinc-700" />
+                          )}
+                        </button>
+                      );
+                    })}
                 </div>
               </div>
             </div>

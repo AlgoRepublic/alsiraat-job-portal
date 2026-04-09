@@ -34,9 +34,9 @@ export const Terms: React.FC = () => {
                 1. Acceptance of Terms
               </h2>
               <p className="text-zinc-700 dark:text-zinc-300">
-                By accessing and using Tasker ("the Service"), you accept and agree
-                to be bound by these Terms of Service. If you do not agree to these
-                terms, please do not use the Service.
+                By accessing and using Tasker ("the Service"), you accept and
+                agree to be bound by these Terms of Service. If you do not agree
+                to these terms, please do not use the Service.
               </p>
             </section>
 
@@ -45,15 +45,15 @@ export const Terms: React.FC = () => {
                 2. Description of Service
               </h2>
               <p className="text-zinc-700 dark:text-zinc-300 mb-4">
-                Tasker is a task and opportunity management platform designed for
-                educational institutions. The Service allows:
+                Tasker is a task and opportunity management platform designed
+                for educational institutions. The Service allows:
               </p>
               <ul className="list-disc pl-6 text-zinc-700 dark:text-zinc-300 space-y-2">
                 <li>Organizations to post tasks and opportunities</li>
                 <li>Students to search tasks and apply for opportunities</li>
                 <li>
-                  Task management, application tracking, and communication between
-                  parties
+                  Task management, application tracking, and communication
+                  between parties
                 </li>
                 <li>Profile management and skill tracking</li>
               </ul>
@@ -64,8 +64,8 @@ export const Terms: React.FC = () => {
                 3. User Accounts
               </h2>
               <p className="text-zinc-700 dark:text-zinc-300 mb-4">
-                To use certain features of the Service, you must create an account.
-                You agree to:
+                To use certain features of the Service, you must create an
+                account. You agree to:
               </p>
               <ul className="list-disc pl-6 text-zinc-700 dark:text-zinc-300 space-y-2">
                 <li>
@@ -73,8 +73,8 @@ export const Terms: React.FC = () => {
                   registration
                 </li>
                 <li>
-                  Maintain and promptly update your account information to keep it
-                  accurate
+                  Maintain and promptly update your account information to keep
+                  it accurate
                 </li>
                 <li>Maintain the security of your password and account</li>
                 <li>
@@ -105,8 +105,8 @@ export const Terms: React.FC = () => {
                   applications
                 </li>
                 <li>
-                  <strong>Administrators:</strong> Full access to all features and
-                  user management
+                  <strong>Administrators:</strong> Full access to all features
+                  and user management
                 </li>
               </ul>
             </section>
@@ -126,11 +126,10 @@ export const Terms: React.FC = () => {
                 <li>
                   Post false, inaccurate, misleading, or defamatory content
                 </li>
+                <li>Harass, abuse, or harm other users of the Service</li>
                 <li>
-                  Harass, abuse, or harm other users of the Service
-                </li>
-                <li>
-                  Attempt to gain unauthorized access to any portion of the Service
+                  Attempt to gain unauthorized access to any portion of the
+                  Service
                 </li>
                 <li>
                   Upload viruses or malicious code, or interfere with the proper
@@ -155,8 +154,8 @@ export const Terms: React.FC = () => {
               <ul className="list-disc pl-6 text-zinc-700 dark:text-zinc-300 space-y-2">
                 <li>You retain ownership of your content</li>
                 <li>
-                  You grant us a license to use, store, and display your content as
-                  necessary to provide the Service
+                  You grant us a license to use, store, and display your content
+                  as necessary to provide the Service
                 </li>
                 <li>
                   You represent that you have the right to submit the content
@@ -173,11 +172,11 @@ export const Terms: React.FC = () => {
                 7. Third-Party Authentication
               </h2>
               <p className="text-zinc-700 dark:text-zinc-300">
-                The Service may offer authentication through third-party providers
-                (such as Google OAuth and SSO). Your use of these authentication
-                methods is subject to the respective provider's terms of service
-                and privacy policy. We are not responsible for the practices of
-                third-party authentication providers.
+                The Service may offer authentication through third-party
+                providers (such as Google OAuth and SSO). Your use of these
+                authentication methods is subject to the respective provider's
+                terms of service and privacy policy. We are not responsible for
+                the practices of third-party authentication providers.
               </p>
             </section>
 
@@ -199,12 +198,12 @@ export const Terms: React.FC = () => {
                   applicants
                 </li>
                 <li>
-                  Task creators are solely responsible for selecting applicants and
-                  fulfilling commitments
+                  Task creators are solely responsible for selecting applicants
+                  and fulfilling commitments
                 </li>
                 <li>
-                  Payment or reward arrangements are between the task creator and
-                  applicant
+                  Payment or reward arrangements are between the task creator
+                  and applicant
                 </li>
               </ul>
             </section>
@@ -252,10 +251,10 @@ export const Terms: React.FC = () => {
                 12. Limitation of Liability
               </h2>
               <p className="text-zinc-700 dark:text-zinc-300">
-                To the maximum extent permitted by law, Al Siraat College shall not
-                be liable for any indirect, incidental, special, consequential, or
-                punitive damages resulting from your use of or inability to use the
-                Service.
+                To the maximum extent permitted by law, Al-Siraat College shall
+                not be liable for any indirect, incidental, special,
+                consequential, or punitive damages resulting from your use of or
+                inability to use the Service.
               </p>
             </section>
 
@@ -264,9 +263,9 @@ export const Terms: React.FC = () => {
                 13. Termination
               </h2>
               <p className="text-zinc-700 dark:text-zinc-300 mb-4">
-                We may terminate or suspend your account and access to the Service
-                immediately, without prior notice or liability, for any reason,
-                including but not limited to:
+                We may terminate or suspend your account and access to the
+                Service immediately, without prior notice or liability, for any
+                reason, including but not limited to:
               </p>
               <ul className="list-disc pl-6 text-zinc-700 dark:text-zinc-300 space-y-2">
                 <li>Breach of these Terms of Service</li>
@@ -292,9 +291,9 @@ export const Terms: React.FC = () => {
                 15. Governing Law
               </h2>
               <p className="text-zinc-700 dark:text-zinc-300">
-                These Terms shall be governed by and construed in accordance with
-                the laws of Victoria, Australia, without regard to its conflict of
-                law provisions.
+                These Terms shall be governed by and construed in accordance
+                with the laws of Victoria, Australia, without regard to its
+                conflict of law provisions.
               </p>
             </section>
 
@@ -308,7 +307,7 @@ export const Terms: React.FC = () => {
               </p>
               <div className="mt-4 p-4 bg-zinc-100 dark:bg-zinc-800 rounded-lg">
                 <p className="text-zinc-700 dark:text-zinc-300">
-                  Al Siraat College
+                  Al-Siraat College
                   <br />
                   Email: info@alsiraat.vic.edu.au
                   <br />

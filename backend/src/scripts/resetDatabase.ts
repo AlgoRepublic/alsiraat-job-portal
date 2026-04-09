@@ -67,7 +67,7 @@ async function resetDatabase() {
     // Step 3: Create Organisation
     console.log("\n🏫 Creating organisation...");
     const organization = (await Organization.create({
-      name: "Al Siraat College",
+      name: "Al-Siraat College",
       slug: "al-siraat-college",
       description: "Islamic College in Melbourne",
       contactEmail: "info@alsiraat.edu.au",
@@ -89,20 +89,21 @@ async function resetDatabase() {
 
     // Step 3.5: Seed Global Email Settings
     console.log("\n📧 Seeding global email settings...");
-    const { DEFAULT_TEMPLATES } = await import("../controllers/emailSettingsController.js");
+    const { DEFAULT_TEMPLATES } =
+      await import("../controllers/emailSettingsController.js");
     await EmailSettings.create({
       organisation: null,
       emailEnabled: true,
       smtpEnabled: false, // User still needs to provide credentials in UI
       fromName: "Al-Siraat Tasker",
       fromEmail: "noreply@alsiraat.edu.au",
-      templates: DEFAULT_TEMPLATES.map(t => ({
+      templates: DEFAULT_TEMPLATES.map((t) => ({
         eventKey: t.eventKey,
         enabled: true,
         subject: t.defaultSubject,
         bodyText: t.defaultBodyText,
-        bodyHtml: "" // Will be handled by template generator
-      }))
+        bodyHtml: "", // Will be handled by template generator
+      })),
     });
     console.log("✅ Seeded global email settings (enabled by default)");
 
@@ -118,11 +119,11 @@ async function resetDatabase() {
         permissions: RolePermissions[UserRole.GLOBAL_ADMIN],
       },
       {
-        name: UserRole.SCHOOL_ADMIN,
-        code: "school_admin",
-        description: "School administrator managing organisation tasks",
+        name: UserRole.ORGANIZATION_ADMIN,
+        code: "organization_admin",
+        description: "organisation administrator managing organisation tasks",
         isSystem: true,
-        permissions: RolePermissions[UserRole.SCHOOL_ADMIN],
+        permissions: RolePermissions[UserRole.ORGANIZATION_ADMIN],
       },
       {
         name: UserRole.TASK_MANAGER,
@@ -150,7 +151,7 @@ async function resetDatabase() {
     for (const roleData of rolesData) {
       await Role.create(roleData);
       console.log(
-        `   Created role: ${roleData.name} (${roleData.permissions.length} permissions)`,
+        `Created role: ${roleData.name} (${roleData.permissions.length} permissions)`,
       );
     }
     console.log("✅ All roles created");
@@ -162,7 +163,7 @@ async function resetDatabase() {
 
     const adminUser = (await User.create({
       name: "Super Administrator",
-      email: "admin@alsiraat.edu.au",
+      email: "superadmin@alsiraat.edu.au",
       password: hashedPassword,
       role: UserRole.GLOBAL_ADMIN,
       organisations: [systemOrganization._id],
@@ -175,14 +176,14 @@ async function resetDatabase() {
     );
 
     const principalUser = (await User.create({
-      name: "Principal Smith",
-      email: "principal@alsiraat.edu.au",
+      name: "Admin Smith",
+      email: "admin@alsiraat.edu.au",
       password: hashedPassword,
-      role: UserRole.SCHOOL_ADMIN,
+      role: UserRole.ORGANIZATION_ADMIN,
       organisations: [organization._id],
       activeOrganisation: organization._id,
     } as any)) as any;
-    console.log(`   Created user: principal@alsiraat.edu.au (School Admin)`);
+    console.log(`   Created user: admin@alsiraat.edu.au (organisation Admin)`);
 
     const coordinatorUser = (await User.create({
       name: "Task Coordinator",
@@ -226,14 +227,16 @@ async function resetDatabase() {
     console.log(`✅ Created organisation: ${crescentOrg.name}`);
 
     const crescentAdmin = (await User.create({
-      name: "Sarah Principal",
+      name: "Sarah admin",
       email: "admin@crescent.edu.au",
       password: hashedPassword,
-      role: UserRole.SCHOOL_ADMIN,
+      role: UserRole.ORGANIZATION_ADMIN,
       organisations: [crescentOrg._id],
       activeOrganisation: crescentOrg._id,
     } as any)) as any;
-    console.log(`   Created user: admin@crescent.edu.au (School Admin - Crescent)`);
+    console.log(
+      `   Created user: admin@crescent.edu.au (organisation Admin - Crescent)`,
+    );
 
     const crescentStudent = (await User.create({
       name: "Omar Student",
@@ -264,7 +267,9 @@ async function resetDatabase() {
       organisations: [minaretOrg._id],
       activeOrganisation: minaretOrg._id,
     } as any)) as any;
-    console.log(`   Created user: coordinator@minaret.edu.au (Task Manager - Minaret)`);
+    console.log(
+      `   Created user: coordinator@minaret.edu.au (Task Manager - Minaret)`,
+    );
 
     const minaretTeacher = (await User.create({
       name: "Fatima Teacher",
@@ -274,7 +279,9 @@ async function resetDatabase() {
       organisations: [minaretOrg._id],
       activeOrganisation: minaretOrg._id,
     } as any)) as any;
-    console.log(`   Created user: fatima@minaret.edu.au (Task Advertiser - Minaret)`);
+    console.log(
+      `   Created user: fatima@minaret.edu.au (Task Advertiser - Minaret)`,
+    );
 
     console.log("✅ All test users created");
     console.log(`   Password for all users: ${password}`);
@@ -399,7 +406,7 @@ async function resetDatabase() {
         startDate: new Date("2026-02-10"),
         endDate: new Date("2026-03-10"),
         selectionCriteria: "Organized, patient, and good with students",
-        requiredSkills: ["Organization", "Communication"],
+        requiredSkills: ["organisation", "Communication"],
         rewardType: "VIA Hours",
         rewardValue: 5,
         eligibility: ["Students", "Staff"],
@@ -549,13 +556,13 @@ async function resetDatabase() {
     console.log("   • Change password immediately after first login");
     console.log("   • DO NOT use these credentials in production");
     console.log("\n🧪 Additional Test User Credentials:");
-    console.log("   [Al Siraat College]");
-    console.log("   - principal@alsiraat.edu.au (School Admin)");
+    console.log("   [Al-Siraat College]");
+    console.log("   - admin@alsiraat.edu.au (organisation Admin)");
     console.log("   - coordinator@alsiraat.edu.au (Task Manager)");
     console.log("   - teacher@alsiraat.edu.au (Task Advertiser)");
     console.log("   - student@alsiraat.edu.au (Applicant)");
     console.log("   [Crescent High School]");
-    console.log("   - admin@crescent.edu.au (School Admin)");
+    console.log("   - admin@crescent.edu.au (organisation Admin)");
     console.log("   - omar@crescent.edu.au (Applicant)");
     console.log("   [Minaret College]");
     console.log("   - coordinator@minaret.edu.au (Task Manager)");

@@ -390,7 +390,7 @@ export const OrganisationManagement: React.FC = () => {
               <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
                 The organisation will be created immediately. The owner will
                 receive a secure invite link (valid 48 hours) to register their
-                account and will automatically be granted <strong>School Admin</strong>{" "}
+                account and will automatically be granted <strong>Organization Admin</strong>{" "}
                 access.
               </p>
             </div>

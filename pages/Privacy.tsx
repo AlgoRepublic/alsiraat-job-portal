@@ -38,7 +38,9 @@ export const Privacy: React.FC = () => {
               </p>
               <ul className="list-disc pl-6 text-zinc-700 dark:text-zinc-300 space-y-2">
                 <li>Create an account (name, email, password)</li>
-                <li>Complete your profile (skills, about, contact information)</li>
+                <li>
+                  Complete your profile (skills, about, contact information)
+                </li>
                 <li>Apply for tasks or post opportunities</li>
                 <li>Use authentication services (Google OAuth, SSO)</li>
               </ul>
@@ -73,9 +75,9 @@ export const Privacy: React.FC = () => {
                 <li>Your profile picture (if available)</li>
               </ul>
               <p className="text-zinc-700 dark:text-zinc-300 mt-4">
-                We use this information to create and manage your Tasker account.
-                We do not access any other Google services or data without your
-                explicit permission.
+                We use this information to create and manage your Tasker
+                account. We do not access any other Google services or data
+                without your explicit permission.
               </p>
             </section>
 
@@ -103,9 +105,9 @@ export const Privacy: React.FC = () => {
                 5. Data Security
               </h2>
               <p className="text-zinc-700 dark:text-zinc-300">
-                We implement appropriate technical and organizational measures to
-                protect your personal information against unauthorized access,
-                alteration, disclosure, or destruction. This includes:
+                We implement appropriate technical and organizational measures
+                to protect your personal information against unauthorized
+                access, alteration, disclosure, or destruction. This includes:
               </p>
               <ul className="list-disc pl-6 text-zinc-700 dark:text-zinc-300 space-y-2 mt-4">
                 <li>Encrypted data transmission (HTTPS/TLS)</li>
@@ -137,8 +139,8 @@ export const Privacy: React.FC = () => {
               </h2>
               <p className="text-zinc-700 dark:text-zinc-300">
                 We use local storage and session storage to maintain your login
-                state and preferences. We do not use third-party tracking cookies
-                for advertising purposes.
+                state and preferences. We do not use third-party tracking
+                cookies for advertising purposes.
               </p>
             </section>
 
@@ -158,9 +160,9 @@ export const Privacy: React.FC = () => {
                 9. Changes to This Policy
               </h2>
               <p className="text-zinc-700 dark:text-zinc-300">
-                We may update this privacy policy from time to time. We will notify
-                you of any changes by posting the new policy on this page and
-                updating the "Last updated" date.
+                We may update this privacy policy from time to time. We will
+                notify you of any changes by posting the new policy on this page
+                and updating the "Last updated" date.
               </p>
             </section>
 
@@ -169,12 +171,12 @@ export const Privacy: React.FC = () => {
                 10. Contact Us
               </h2>
               <p className="text-zinc-700 dark:text-zinc-300">
-                If you have any questions about this Privacy Policy, please contact
-                us at:
+                If you have any questions about this Privacy Policy, please
+                contact us at:
               </p>
               <div className="mt-4 p-4 bg-zinc-100 dark:bg-zinc-800 rounded-lg">
                 <p className="text-zinc-700 dark:text-zinc-300">
-                  Al Siraat College
+                  Al-Siraat College
                   <br />
                   Email: info@alsiraat.vic.edu.au
                   <br />

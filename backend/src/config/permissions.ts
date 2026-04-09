@@ -82,7 +82,7 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     ...Object.values(Permission),
   ],
 
-  [UserRole.SCHOOL_ADMIN]: [
+  [UserRole.ORGANIZATION_ADMIN]: [
     // Task Management - Full control within scope
     Permission.TASK_CREATE,
     Permission.TASK_READ,
@@ -419,7 +419,7 @@ export async function canWithContextMultiAsync(
 export function canAutoPublish(role: UserRole): boolean {
   const autoPublishRoles = [
     UserRole.GLOBAL_ADMIN,
-    UserRole.SCHOOL_ADMIN,
+    UserRole.ORGANIZATION_ADMIN,
     UserRole.TASK_MANAGER,
   ];
   return (autoPublishRoles as UserRole[]).includes(role);

@@ -1,6 +1,6 @@
 export const UserRole = {
   GLOBAL_ADMIN: "Global Admin",
-  SCHOOL_ADMIN: "School Admin",
+  ORGANIZATION_ADMIN: "Organization Admin",
   TASK_MANAGER: "Task Manager",
   TASK_ADVERTISER: "Task Advertiser",
   APPLICANT: "Applicant",

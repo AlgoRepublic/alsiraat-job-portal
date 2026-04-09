@@ -53,7 +53,7 @@ export const createOrganization = async (req: Request, res: Response) => {
       owner: ownerId,
     });
 
-    // Assign org + School Admin role to owner (multi-org: push to array)
+    // Assign org + Organization Admin role to owner (multi-org: push to array)
     const alreadyMember = (owner.organisations ?? []).some(
       (o: any) => o.toString() === (org._id as any).toString(),
     );
@@ -61,7 +61,11 @@ export const createOrganization = async (req: Request, res: Response) => {
       owner.organisations = [...(owner.organisations ?? []), org._id as any];
     }
     owner.activeOrganisation = org._id as any;
-    owner.roles = [UserRole.SCHOOL_ADMIN];
+    owner.roles = [UserRole.ORGANIZATION_ADMIN];
+    owner.organisationRoles = [
+      ...(owner.organisationRoles ?? []),
+      { organisation: org._id as any, roles: [UserRole.ORGANIZATION_ADMIN] },
+    ];
     await owner.save();
 
     res.status(201).json(org);
@@ -114,7 +118,20 @@ export const addMember = async (req: Request, res: Response) => {
     if (!user.activeOrganisation) {
       user.activeOrganisation = organization._id as any;
     }
-    if (role) user.roles = [role];
+    if (role) {
+      user.roles = [role];
+      const orgRoleIndex = (user.organisationRoles ?? []).findIndex(
+        (o: any) => o.organisation.toString() === (organization._id as any).toString()
+      );
+      if (orgRoleIndex > -1 && user.organisationRoles) {
+        (user.organisationRoles as any)[orgRoleIndex].roles = [role];
+      } else {
+        user.organisationRoles = [
+          ...(user.organisationRoles ?? []),
+          { organisation: organization._id as any, roles: [role] }
+        ];
+      }
+    }
 
     await user.save();
 
@@ -128,7 +145,7 @@ export const addMember = async (req: Request, res: Response) => {
  * POST /organisations/invite
  * Admin: Create a new organisation and send an onboarding invite to the owner email.
  * The invited person will receive a signup link; once they register their account
- * is automatically linked to the newly created organisation as School Admin.
+ * is automatically linked to the newly created organisation as Organization Admin.
  */
 export const inviteOrganisation = async (req: any, res: Response) => {
   try {
@@ -201,7 +218,7 @@ export const inviteOrganisation = async (req: any, res: Response) => {
       {
         email: ownerEmail,
         organisation: targetOrgId,
-        role: role || "Applicant", // Use chosen role or default to Applicant
+        role: role || UserRole.ORGANIZATION_ADMIN, // Default to Organization Admin
         token,
         invitedBy: req.user._id,
         expiresAt,

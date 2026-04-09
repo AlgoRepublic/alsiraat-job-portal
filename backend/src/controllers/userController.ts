@@ -131,7 +131,23 @@ export const updateUser = async (req: Request, res: Response) => {
     }
 
     if (name) user.name = name;
-    if (roles) user.roles = roles;
+    if (roles) {
+      user.roles = roles;
+      const targetOrg = organisation || user.activeOrganisation;
+      if (targetOrg) {
+        const orgRoleIndex = (user.organisationRoles ?? []).findIndex(
+          (o: any) => o.organisation.toString() === targetOrg.toString()
+        );
+        if (orgRoleIndex > -1 && user.organisationRoles) {
+          (user.organisationRoles as any)[orgRoleIndex].roles = roles;
+        } else {
+          user.organisationRoles = [
+            ...(user.organisationRoles ?? []),
+            { organisation: targetOrg as any, roles }
+          ];
+        }
+      }
+    }
 
     // Multi-org: if `organisations` array is provided, use it directly
     if (organisations !== undefined) {
@@ -422,15 +438,19 @@ export const importUsers = async (req: Request, res: Response) => {
           const salt = await bcrypt.genSalt(10);
           const hashedPassword = await bcrypt.hash(password, salt);
 
-          user = new User({
+          const userObj: any = {
             name,
             email,
             password: hashedPassword,
             roles: rolesArray,
             ...(mappedGender && { gender: mappedGender }),
             ...(row.year_level && { yearLevel: row.year_level }),
-            ...(organisationId && { organisation: organisationId }),
-          });
+          };
+          if (organisationId) {
+            userObj.organisation = organisationId;
+            userObj.organisationRoles = [{ organisation: organisationId, roles: rolesArray }];
+          }
+          user = new User(userObj);
           await user.save();
           imported++;
         } else {

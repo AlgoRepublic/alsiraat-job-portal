@@ -20,7 +20,7 @@ describe('UserRole Normalization', () => {
 
   it('should handle underscores instead of spaces', () => {
     assert.strictEqual(normalizeUserRole('global_admin'), UserRole.GLOBAL_ADMIN);
-    assert.strictEqual(normalizeUserRole('school_admin'), UserRole.SCHOOL_ADMIN);
+    assert.strictEqual(normalizeUserRole('organization_admin'), UserRole.ORGANIZATION_ADMIN);
     assert.strictEqual(normalizeUserRole('task_manager'), UserRole.TASK_MANAGER);
   });
 

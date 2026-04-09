@@ -87,7 +87,7 @@ async function resetDatabase() {
     // Step 2: Create Organisation
     console.log("\n🏫 Creating organisation...");
     const organization = await Organization.create({
-      name: "Al Siraat College",
+      name: "Al-Siraat College",
       slug: "al-siraat-college",
       description: "Islamic College in Melbourne",
       contactEmail: "[EMAIL_ADDRESS]",

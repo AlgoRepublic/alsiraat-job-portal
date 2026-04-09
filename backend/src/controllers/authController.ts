@@ -176,9 +176,12 @@ export const verifyOtp = async (req: Request, res: Response) => {
           user.activeOrganisation = orgId;
         }
         // Use the role from invitation if specified, otherwise keep Applicant default
-        if (invitation.role) {
-          user.roles = [invitation.role as UserRole];
-        }
+        const assignedRole = (invitation.role as UserRole) || UserRole.APPLICANT;
+        user.roles = [assignedRole];
+        user.organisationRoles = [
+          ...(user.organisationRoles ?? []),
+          { organisation: orgId, roles: [assignedRole] }
+        ];
         invitation.status = "Accepted";
         await invitation.save();
       }
@@ -931,6 +934,16 @@ export const switchOrganisation = async (req: Request, res: Response) => {
     }
 
     user.activeOrganisation = organisationId as any;
+
+    const orgRoleEntry = user.organisationRoles?.find(
+      (o) => o.organisation.toString() === organisationId.toString()
+    );
+    if (orgRoleEntry && orgRoleEntry.roles && orgRoleEntry.roles.length > 0) {
+      user.roles = orgRoleEntry.roles;
+    } else if (!isGlobalAdmin) {
+      user.roles = [UserRole.APPLICANT];
+    }
+
     await user.save();
 
     const permissions: string[] = [];

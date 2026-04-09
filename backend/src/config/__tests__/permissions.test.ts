@@ -12,15 +12,15 @@ describe('hasPermission', () => {
     });
   });
 
-  it('should return true for SCHOOL_ADMIN for allowed permissions', () => {
-    // SCHOOL_ADMIN has specific permissions like TASK_CREATE
-    assert.strictEqual(hasPermission(UserRole.SCHOOL_ADMIN, Permission.TASK_CREATE), true);
-    assert.strictEqual(hasPermission(UserRole.SCHOOL_ADMIN, Permission.APPLICATION_READ), true);
+  it('should return true for ORGANIZATION_ADMIN for allowed permissions', () => {
+    // ORGANIZATION_ADMIN has specific permissions like TASK_CREATE
+    assert.strictEqual(hasPermission(UserRole.ORGANIZATION_ADMIN, Permission.TASK_CREATE), true);
+    assert.strictEqual(hasPermission(UserRole.ORGANIZATION_ADMIN, Permission.APPLICATION_READ), true);
   });
 
-  it('should return false for SCHOOL_ADMIN for disallowed permissions', () => {
-    // SCHOOL_ADMIN does not have ADMIN_SETTINGS permission
-    assert.strictEqual(hasPermission(UserRole.SCHOOL_ADMIN, Permission.ADMIN_SETTINGS), false);
+  it('should return false for ORGANIZATION_ADMIN for disallowed permissions', () => {
+    // ORGANIZATION_ADMIN does not have ADMIN_SETTINGS permission
+    assert.strictEqual(hasPermission(UserRole.ORGANIZATION_ADMIN, Permission.ADMIN_SETTINGS), false);
   });
 
   it('should return true for APPLICANT for allowed permissions', () => {

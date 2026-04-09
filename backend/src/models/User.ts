@@ -20,6 +20,11 @@ export interface IExperience {
   reviewText?: string;
 }
 
+export interface IOrganisationRole {
+  organisation: mongoose.Types.ObjectId;
+  roles: UserRole[];
+}
+
 export interface IUser extends Document {
   name: string;
   firstName?: string;
@@ -32,6 +37,8 @@ export interface IUser extends Document {
   roles: UserRole[];
   // Multi-org: all orgs the user belongs to
   organisations: mongoose.Types.ObjectId[];
+  // Multi-org roles: specific roles for each organisation
+  organisationRoles: IOrganisationRole[];
   // The currently active/selected organisation
   activeOrganisation?: mongoose.Types.ObjectId;
   // Virtual backward-compat alias → activeOrganisation
@@ -93,6 +100,19 @@ const UserSchema: Schema = new Schema(
     ],
     // Multi-org: the list of orgs this user belongs to
     organisations: [{ type: Schema.Types.ObjectId, ref: "Organization" }],
+    // Multi-org roles: roles specific to each organisation
+    organisationRoles: [
+      {
+        organisation: { type: Schema.Types.ObjectId, ref: "Organization" },
+        roles: [
+          {
+            type: String,
+            enum: Object.values(UserRole),
+            set: normalizeUserRole,
+          },
+        ],
+      },
+    ],
     // The currently active/selected org (used for data isolation)
     activeOrganisation: { type: Schema.Types.ObjectId, ref: "Organization" },
     avatar: { type: String },
