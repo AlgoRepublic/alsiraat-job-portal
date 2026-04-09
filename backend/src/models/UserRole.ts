@@ -1,6 +1,6 @@
 export const UserRole = {
   GLOBAL_ADMIN: "Global Admin",
-  ORGANIZATION_ADMIN: "Organization Admin",
+  ORGANIZATION_ADMIN: "Organisation Admin",
   TASK_MANAGER: "Task Manager",
   TASK_ADVERTISER: "Task Advertiser",
   APPLICANT: "Applicant",
@@ -22,6 +22,7 @@ export const normalizeUserRole = (v: any): any => {
   // Legacy role mappings
   const legacyMap: Record<string, string> = {
     admin: UserRole.GLOBAL_ADMIN,
+    "organization admin": UserRole.ORGANIZATION_ADMIN,
     owner: UserRole.ORGANIZATION_ADMIN,
     approver: UserRole.TASK_MANAGER,
     member: UserRole.TASK_ADVERTISER,

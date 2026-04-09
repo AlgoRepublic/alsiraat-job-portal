@@ -53,7 +53,7 @@ export const createOrganization = async (req: Request, res: Response) => {
       owner: ownerId,
     });
 
-    // Assign org + Organization Admin role to owner (multi-org: push to array)
+    // Assign org + Organisation Admin role to owner (multi-org: push to array)
     const alreadyMember = (owner.organisations ?? []).some(
       (o: any) => o.toString() === (org._id as any).toString(),
     );
@@ -145,7 +145,7 @@ export const addMember = async (req: Request, res: Response) => {
  * POST /organisations/invite
  * Admin: Create a new organisation and send an onboarding invite to the owner email.
  * The invited person will receive a signup link; once they register their account
- * is automatically linked to the newly created organisation as Organization Admin.
+ * is automatically linked to the newly created organisation as Organisation Admin.
  */
 export const inviteOrganisation = async (req: any, res: Response) => {
   try {
@@ -218,7 +218,7 @@ export const inviteOrganisation = async (req: any, res: Response) => {
       {
         email: ownerEmail,
         organisation: targetOrgId,
-        role: role || UserRole.ORGANIZATION_ADMIN, // Default to Organization Admin
+        role: role || UserRole.ORGANIZATION_ADMIN, // Default to Organisation Admin
         token,
         invitedBy: req.user._id,
         expiresAt,
