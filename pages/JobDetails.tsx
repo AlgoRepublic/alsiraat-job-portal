@@ -80,7 +80,7 @@ export const JobDetails: React.FC = () => {
                   (
                     [
                       UserRole.GLOBAL_ADMIN,
-                      UserRole.SCHOOL_ADMIN,
+                      UserRole.ORGANIZATION_ADMIN,
                       UserRole.TASK_MANAGER,
                       UserRole.TASK_ADVERTISER,
                     ] as UserRole[]

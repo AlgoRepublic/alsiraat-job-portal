@@ -42,7 +42,7 @@ export const getDashboardStats = async (req: any, res: Response) => {
     let taskFilter: any = {};
 
     if (canManageTasks && canViewPending && canViewInternal) {
-      // Global/School admin: see all org tasks
+      // Global/Organisation admin: see all org tasks
       if (orgId) {
         taskFilter = { organisation: orgId };
       }

@@ -69,7 +69,7 @@ export type Permission = (typeof Permission)[keyof typeof Permission];
 export const RolePermissions: Record<UserRole, Permission[]> = {
   [UserRole.GLOBAL_ADMIN]: Object.values(Permission),
 
-  [UserRole.SCHOOL_ADMIN]: [
+  [UserRole.ORGANIZATION_ADMIN]: [
     Permission.TASK_CREATE,
     Permission.TASK_READ,
     Permission.TASK_UPDATE,
@@ -205,7 +205,7 @@ export function canAutoPublish(role: UserRole | undefined): boolean {
   return (
     [
       UserRole.GLOBAL_ADMIN,
-      UserRole.SCHOOL_ADMIN,
+      UserRole.ORGANIZATION_ADMIN,
       UserRole.TASK_MANAGER,
     ] as UserRole[]
   ).includes(role);

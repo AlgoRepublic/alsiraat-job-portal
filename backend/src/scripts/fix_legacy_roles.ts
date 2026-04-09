@@ -18,7 +18,7 @@ async function main() {
 
     const mapping = {
       admin: "Global Admin",
-      owner: "School Admin",
+      owner: "Organisation Admin",
       approver: "Task Manager",
       member: "Task Advertiser",
       independent: "Applicant",
@@ -38,6 +38,16 @@ async function main() {
           `   ✨ Updated ${result.modifiedCount} users from '${oldRole}' to '${newRole}'`,
         );
       }
+    }
+
+    const schoolAdminRename = await User.updateMany(
+      { role: { $regex: /^school admin$/i } },
+      { role: "Organisation Admin" },
+    );
+    if (schoolAdminRename.matchedCount > 0) {
+      console.log(
+        `   ✨ Renamed ${schoolAdminRename.modifiedCount} users from 'School Admin' to 'Organisation Admin'`,
+      );
     }
 
     console.log("✅ Migration complete");

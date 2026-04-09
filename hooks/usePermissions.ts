@@ -91,7 +91,7 @@ export function usePermissions(
       role,
       userId,
       isAdmin: role === UserRole.GLOBAL_ADMIN,
-      isOwner: role === UserRole.SCHOOL_ADMIN,
+      isOwner: role === UserRole.ORGANIZATION_ADMIN,
       isApprover: role === UserRole.TASK_MANAGER,
       isMember: role === UserRole.TASK_ADVERTISER,
       isIndependent: role === UserRole.APPLICANT,

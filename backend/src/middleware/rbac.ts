@@ -266,7 +266,7 @@ export const checkImpersonation = async (
 /**
  * Context-aware middleware for task approval
  * - Global Admin can approve ANY task (Internal or Global)
- * - School Admin and Task Manager can approve INTERNAL tasks from their org only
+ * - Organisation Admin and Task Manager can approve INTERNAL tasks from their org only
  * - All other roles cannot approve
  */
 export const requireTaskApproval = async (

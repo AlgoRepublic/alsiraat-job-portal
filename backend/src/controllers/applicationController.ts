@@ -22,7 +22,7 @@ import { buildApplicationQuery } from "./applicationQueryBuilder.js";
  * Directly assign a task to a user, creating an application in OFFERED status.
  * Requires APPLICATION_ASSIGN_DIRECT permission.
  * Task Advertisers can only assign their own tasks.
- * Task Managers / School Admins can assign any task in their org.
+ * Task Managers / Organisation Admins can assign any task in their org.
  * Global Admins have no restriction.
  */
 export const assignTask = async (req: any, res: Response) => {
@@ -67,7 +67,7 @@ export const assignTask = async (req: any, res: Response) => {
         });
       }
     } else if (!isGlobalAdmin) {
-      // Task Managers / School Admins: must be same org
+      // Task Managers / Organisation Admins: must be same org
       const taskOrg = task.organisation?.toString();
       const userOrg = req.user.organisation?.toString();
       if (taskOrg && userOrg && taskOrg !== userOrg) {

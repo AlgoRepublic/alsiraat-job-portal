@@ -141,9 +141,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles, role }) => {
 
   const isAdmin =
     roles?.includes(UserRole.GLOBAL_ADMIN) ||
-    roles?.includes(UserRole.SCHOOL_ADMIN) ||
+    roles?.includes(UserRole.ORGANIZATION_ADMIN) ||
     role === UserRole.GLOBAL_ADMIN ||
-    role === UserRole.SCHOOL_ADMIN;
+    role === UserRole.ORGANIZATION_ADMIN;
 
   const canSeeOrgStats =
     stats?.capabilities?.canViewPending && stats?.capabilities?.canViewApps;
@@ -714,9 +714,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles, role }) => {
                 </button>
               )}
 
-              {(isAdmin ||
-                roles?.includes(UserRole.SCHOOL_ADMIN) ||
-                role === UserRole.SCHOOL_ADMIN) && (
+              {isAdmin && (
                 <button
                   onClick={() => navigate("/reports")}
                   className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all group"

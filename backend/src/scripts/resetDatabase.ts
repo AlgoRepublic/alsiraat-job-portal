@@ -395,7 +395,7 @@ async function resetDatabase() {
     console.log("\n📝 Seeding sample tasks...");
 
     const sampleTasks = [
-      // Pending Internal Task (School Admin/Task Manager can approve)
+      // Pending Internal Task (Organisation Admin/Task Manager can approve)
       {
         title: "Library Assistant Needed",
         description:

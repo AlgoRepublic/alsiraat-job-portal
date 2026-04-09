@@ -46,7 +46,7 @@ router.put(
   updateTask,
 );
 
-// Approve task - context-aware approval (Global Admin for all, School Admin/Task Manager for Internal)
+// Approve task - context-aware approval (Global Admin for all, Organisation Admin/Task Manager for Internal)
 router.put("/:taskId/approve", authenticate, requireTaskApproval, approveTask);
 
 router.post(

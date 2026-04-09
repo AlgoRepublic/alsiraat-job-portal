@@ -571,8 +571,8 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
         color: "#DC2626", // Red
       },
       {
-        name: "School Admin",
-        code: "school_admin",
+        name: "Organisation Admin",
+        code: "organization_admin",
         description: "Oversee tasks, manage roles, run reports",
         permissions: [
           "task:create",
@@ -682,7 +682,7 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
     // Migrate existing users to new roles
     const roleMapping: Record<string, string> = {
       admin: "Global Admin",
-      owner: "School Admin",
+      owner: "Organisation Admin",
       approver: "Task Manager",
       member: "Task Advertiser",
       independent: "Applicant",
@@ -694,6 +694,12 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
         { role: newRole },
       );
     }
+
+    await User.updateMany(
+      { role: { $regex: /^school admin$/i } },
+      { role: "Organisation Admin" },
+    );
+    await Role.deleteMany({ code: "school_admin" });
 
     // We only delete them if they are NOT in the new codes (which they aren't)
     // And to be safe, we might check if they are system roles or just delete by code
