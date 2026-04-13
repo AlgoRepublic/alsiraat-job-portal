@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db } from "../services/database";
-import { Application, Job, Permission, Skill } from "../types";
+import { Application, Job, Permission, Skill, UserRole } from "../types";
 import { API_BASE_URL } from "../services/api";
 import { useToast } from "../components/Toast";
 import {
@@ -49,6 +49,17 @@ const skillLevelDot: Record<string, string> = {
   Intermediate: "bg-blue-500",
   Beginner: "bg-amber-500",
 };
+
+/** API may return organisation as ObjectId string or populated `{ _id }` — match JobDetails / backend. */
+function organisationIdToString(value: unknown): string | undefined {
+  if (value == null || value === "") return undefined;
+  if (typeof value === "string") return value;
+  if (typeof value === "object" && value !== null && "_id" in value) {
+    const id = (value as { _id?: unknown })._id;
+    return id != null ? String(id) : undefined;
+  }
+  return String(value);
+}
 
 export const ApplicationReview: React.FC = () => {
   const { appId } = useParams<{ appId: string }>();
@@ -237,15 +248,40 @@ export const ApplicationReview: React.FC = () => {
   const hasPermission = (p: Permission) =>
     currentUser?.permissions?.includes(p);
 
-  const taskOrgId = job?.organisation || (job as any)?.organization;
-  const userOrgId = currentUser?.organisation || currentUser?.organization;
-  const isMemberOfOrg =
-    userOrgId && taskOrgId && String(taskOrgId) === String(userOrgId);
+  const taskOrgId = organisationIdToString(
+    job?.organisation ?? (job as { organization?: unknown }).organization,
+  );
+  const userOrgId =
+    organisationIdToString(
+      currentUser?.organisation ??
+        (currentUser as { organization?: unknown }).organization,
+    ) ?? organisationIdToString(currentUser?.activeOrganisation);
+
+  const isGlobalAdmin = Boolean(
+    currentUser?.roles?.includes(UserRole.GLOBAL_ADMIN),
+  );
+
+  // Align with backend canWithContextAsync: Global Admin bypasses org scope; org match only
+  // when both task and user have an organisation id. (Previous `isMemberOfOrg` required both
+  // always, breaking Global Admin, tasks without org, and populated org objects.)
+  const orgScopeAllows =
+    isGlobalAdmin ||
+    !taskOrgId ||
+    !userOrgId ||
+    taskOrgId === userOrgId;
+
+  const isTaskCreator =
+    job?.createdBy === currentUser?.id ||
+    job?.createdBy === currentUser?._id;
+  const advertiserOwnsTask =
+    isTaskCreator && currentUser?.roles?.includes(UserRole.TASK_ADVERTISER);
 
   const canShortlist =
-    hasPermission(Permission.APPLICATION_SHORTLIST) && isMemberOfOrg;
+    orgScopeAllows &&
+    (hasPermission(Permission.APPLICATION_SHORTLIST) || advertiserOwnsTask);
   const canApproveReject =
-    hasPermission(Permission.APPLICATION_APPROVE) && isMemberOfOrg;
+    orgScopeAllows &&
+    (hasPermission(Permission.APPLICATION_APPROVE) || advertiserOwnsTask);
   const isOwner =
     job?.createdBy === currentUser?.id || job?.createdBy === currentUser?._id;
   const canManageCompletion = canApproveReject || isOwner;
