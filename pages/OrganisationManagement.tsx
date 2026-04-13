@@ -199,6 +199,40 @@ export const OrganisationManagement: React.FC = () => {
 
   const isExpired = (dateStr: string) => new Date(dateStr) < new Date();
 
+  const handleMarkActive = async (orgId: string) => {
+    const ownerEmail = window.prompt(
+      "Enter the email address of the existing user to assign as organisation owner:"
+    );
+    if (!ownerEmail?.trim()) return;
+    try {
+      // Look up user by email first
+      const searchRes = await fetch(
+        `${API_BASE_URL}/users?search=${encodeURIComponent(ownerEmail.trim())}&limit=1`,
+        { headers: authHeader() }
+      );
+      const searchData = await searchRes.json();
+      const users = searchData.users ?? searchData;
+      const matched = Array.isArray(users)
+        ? users.find((u: any) => u.email?.toLowerCase() === ownerEmail.trim().toLowerCase())
+        : null;
+      if (!matched) {
+        showError(`No user found with email: ${ownerEmail.trim()}`);
+        return;
+      }
+      const res = await fetch(`${API_BASE_URL}/organisations/${orgId}/mark-active`, {
+        method: "PATCH",
+        headers: authHeader(),
+        body: JSON.stringify({ ownerUserId: matched._id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      showSuccess("Organisation marked as active!");
+      await loadOrgs();
+    } catch (err: any) {
+      showError(err.message || "Failed to mark organisation as active");
+    }
+  };
+
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Header */}
@@ -646,16 +680,20 @@ export const OrganisationManagement: React.FC = () => {
                   )}
                 </div>
 
-                {/* Status badge */}
+                {/* Status badge / action */}
                 <div className="shrink-0">
                   {org.owner ? (
                     <span className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-bold">
                       <CheckCircle2 className="w-3.5 h-3.5" /> Active
                     </span>
                   ) : (
-                    <span className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded-lg text-xs font-bold">
-                      <Clock className="w-3.5 h-3.5" /> Pending Setup
-                    </span>
+                    <button
+                      onClick={() => handleMarkActive(org._id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/40 rounded-lg text-xs font-bold transition-colors"
+                      title="Assign an owner to mark this organisation as active"
+                    >
+                      <Clock className="w-3.5 h-3.5" /> Pending — Mark Active
+                    </button>
                   )}
                 </div>
               </div>

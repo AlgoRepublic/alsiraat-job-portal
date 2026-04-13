@@ -446,14 +446,23 @@ export const UserManagement: React.FC = () => {
 
   const openEditModal = (user: any) => {
     setEditingUser(user);
+    const orgIds = (user.organisations ?? [])
+      .map((o: any) => o._id ?? o.id ?? o)
+      .filter(Boolean);
+    // Build roles aligned with orgIds: look up per-org role from organisationRoles array
+    const orgRolesMap: Record<string, string> = {};
+    (user.organisationRoles ?? []).forEach((or: any) => {
+      const oid = (or.organisation?._id ?? or.organisation)?.toString();
+      if (oid) orgRolesMap[oid] = or.roles?.[0] ?? "Applicant";
+    });
+    const alignedRoles = orgIds.map(
+      (oid: string) => orgRolesMap[oid] ?? (user.roles?.[0] ?? "Applicant")
+    );
     setEditForm({
       name: user.name || "",
       email: user.email || "",
-      roles: user.roles || [],
-      // pre-populate with the user's organisation IDs (populated objects have ._id or .id)
-      organisationIds: (user.organisations ?? [])
-        .map((o: any) => o._id ?? o.id ?? o)
-        .filter(Boolean),
+      roles: alignedRoles,
+      organisationIds: orgIds,
     });
   };
 
@@ -501,12 +510,19 @@ export const UserManagement: React.FC = () => {
     if (!editingUser) return;
     setSaving(true);
     try {
+      // Build per-org role map aligned with organisationIds
+      const organisationRoles = editForm.organisationIds.map((orgId, idx) => ({
+        organisation: orgId,
+        roles: [editForm.roles[idx] ?? "Applicant"],
+      }));
+      // Derive flat roles array (unique) from org selections for backward compat
+      const flatRoles = [...new Set(editForm.roles.filter(Boolean))];
       await db.updateUser(editingUser._id, {
         name: editForm.name,
         email: editForm.email,
-        roles: editForm.roles,
-        // Send organisations array for multi-org support
+        roles: flatRoles,
         organisations: editForm.organisationIds,
+        organisationRoles,
       });
       showSuccess("User updated successfully");
       closeEditModal();
@@ -1230,47 +1246,50 @@ export const UserManagement: React.FC = () => {
                 </div>
               </div>
 
-              {/* Roles Picker */}
-              <div>
-                <label className="block text-xs font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest mb-2">
-                  System Roles (Select Multiple)
-                </label>
-                <div className="grid grid-cols-1 gap-2 p-2 bg-zinc-50 dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700">
-                  {roles
-                    .filter((r) =>
-                      r.name === UserRole.GLOBAL_ADMIN
-                        ? currentUser?.roles?.includes(UserRole.GLOBAL_ADMIN)
-                        : true,
-                    )
-                    .map((r) => {
-                      const isSelected = editForm.roles.includes(r.name);
+              {/* Per-Organisation Role Picker */}
+              {editForm.organisationIds.length > 0 && (
+                <div>
+                  <label className="block text-xs font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest mb-2">
+                    Role Per Organisation
+                  </label>
+                  <div className="space-y-2 p-2 bg-zinc-50 dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                    {editForm.organisationIds.map((orgId) => {
+                      const org = organisations.find((o: any) => (o._id ?? o.id) === orgId);
+                      const currentRole = editForm.roles[editForm.organisationIds.indexOf(orgId)] ?? "Applicant";
                       return (
-                        <button
-                          key={r._id}
-                          type="button"
-                          onClick={() => {
-                            const newRoles = isSelected
-                              ? editForm.roles.filter((role) => role !== r.name)
-                              : [...editForm.roles, r.name];
-                            setEditForm({ ...editForm, roles: newRoles });
-                          }}
-                          className={`flex items-center justify-between px-3 py-2.5 rounded-lg transition-all ${
-                            isSelected
-                              ? "bg-primary text-white shadow-md shadow-primary/20"
-                              : "bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                          }`}
-                        >
-                          <span className="text-sm font-bold">{r.name}</span>
-                          {isSelected ? (
-                            <BadgeCheck className="w-4 h-4" />
-                          ) : (
-                            <div className="w-4 h-4 rounded-full border-2 border-zinc-200 dark:border-zinc-700" />
-                          )}
-                        </button>
+                        <div key={orgId} className="flex items-center justify-between gap-3 px-3 py-2 bg-white dark:bg-zinc-900 rounded-lg">
+                          <span className="text-sm font-bold text-zinc-800 dark:text-zinc-200 truncate flex-1">
+                            {org?.name ?? orgId}
+                          </span>
+                          <select
+                            value={currentRole}
+                            onChange={(e) => {
+                              const updatedRoles = [...editForm.roles];
+                              const idx = editForm.organisationIds.indexOf(orgId);
+                              updatedRoles[idx] = e.target.value;
+                              setEditForm({ ...editForm, roles: updatedRoles });
+                            }}
+                            className="text-sm font-semibold bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1.5 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-primary outline-none transition-all"
+                          >
+                            {roles
+                              .filter((r) =>
+                                r.name === UserRole.GLOBAL_ADMIN
+                                  ? currentUser?.roles?.includes(UserRole.GLOBAL_ADMIN)
+                                  : true
+                              )
+                              .map((r) => (
+                                <option key={r._id} value={r.name}>{r.name}</option>
+                              ))}
+                          </select>
+                        </div>
                       );
                     })}
+                  </div>
+                  <p className="text-[10px] text-zinc-400 mt-1.5 font-medium">
+                    Each organisation can have a different role for this user.
+                  </p>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Footer */}

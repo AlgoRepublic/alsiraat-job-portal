@@ -219,6 +219,13 @@ export const JobWizard: React.FC = () => {
       } else {
         if (cats.length > 0) updateField("category", cats[0].name);
         if (types.length > 0) updateField("rewardType", types[0].name);
+        // Auto-select "All Members" group for new tasks
+        const allMembersGroup = groupsData.find(
+          (g: any) => g.name?.toLowerCase() === "all members"
+        );
+        if (allMembersGroup) {
+          updateField("allowedGroups", [allMembersGroup._id]);
+        }
       }
     };
     fetchData();
@@ -907,7 +914,7 @@ export const JobWizard: React.FC = () => {
                         Allowed Groups
                       </label>
                       <p className="text-xs text-zinc-500 mt-0.5">
-                        Leave empty to allow all internal users.
+                        "All Members" is pre-selected by default. Deselect or choose specific groups to restrict visibility.
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">

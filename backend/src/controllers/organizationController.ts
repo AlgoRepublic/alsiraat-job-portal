@@ -5,6 +5,7 @@ import User, { UserRole } from "../models/User.js";
 import Invitation from "../models/Invitation.js";
 import { sendEmail } from "../services/notificationService.js";
 import { onboardingInvitationEmail } from "../services/emailTemplates.js";
+import Group from "../models/Group.js";
 
 /**
  * Normalise an organisation name so it is always stored consistently.
@@ -67,6 +68,22 @@ export const createOrganization = async (req: Request, res: Response) => {
       { organisation: org._id as any, roles: [UserRole.ORGANIZATION_ADMIN] },
     ];
     await owner.save();
+
+    // Create the default "All Members" group for the new organisation
+    await Group.findOneAndUpdate(
+      { organisation: org._id, name: "All Members" },
+      {
+        name: "All Members",
+        description: "Default group — contains all organisation members",
+        color: "#6366F1",
+        organisation: org._id,
+        members: [owner._id],
+        createdBy: owner._id,
+        isActive: true,
+        oidcMapping: [],
+      },
+      { upsert: true, new: true }
+    );
 
     res.status(201).json(org);
   } catch (err: any) {
@@ -135,6 +152,12 @@ export const addMember = async (req: Request, res: Response) => {
 
     await user.save();
 
+    // Auto-add to the org's "All Members" default group
+    await Group.findOneAndUpdate(
+      { organisation: organization._id, name: "All Members" },
+      { $addToSet: { members: user._id } }
+    );
+
     res.json({ message: "Member added successfully", user });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
@@ -198,6 +221,22 @@ export const inviteOrganisation = async (req: any, res: Response) => {
 
       targetOrgId = newOrg._id;
       targetOrgName = newOrg.name;
+
+      // Create default "All Members" group for the new organisation
+      await Group.findOneAndUpdate(
+        { organisation: newOrg._id, name: "All Members" },
+        {
+          name: "All Members",
+          description: "Default group — contains all organisation members",
+          color: "#6366F1",
+          organisation: newOrg._id,
+          members: [],
+          createdBy: req.user._id,
+          isActive: true,
+          oidcMapping: [],
+        },
+        { upsert: true, new: true }
+      );
     }
 
     // Check if the owner email is already registered
@@ -371,6 +410,69 @@ export const removeLogo = async (req: Request | any, res: Response) => {
     await Organization.updateOne({ _id: id }, { $unset: { logo: 1 } });
 
     res.json({ message: "Logo removed successfully" });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/**
+ * PATCH /organisations/:id/mark-active
+ * Admin: Manually clear the "Pending Setup" state by assigning a user as owner.
+ * Useful when the owner has already been created through other means and
+ * the invitation flow was bypassed or the org was created directly.
+ */
+export const markOrganisationActive = async (req: Request | any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { ownerUserId } = req.body;
+
+    const org = await Organization.findById(id);
+    if (!org) return res.status(404).json({ message: "Organisation not found" });
+
+    if (ownerUserId) {
+      const ownerUser = await User.findById(ownerUserId);
+      if (!ownerUser) return res.status(404).json({ message: "User not found" });
+
+      org.owner = ownerUserId;
+
+      // Ensure the owner is also a member with Organisation Admin role
+      const alreadyMember = (ownerUser.organisations ?? []).some(
+        (o: any) => o.toString() === (org._id as any).toString()
+      );
+      if (!alreadyMember) {
+        ownerUser.organisations = [...(ownerUser.organisations ?? []), org._id as any];
+      }
+      if (!ownerUser.activeOrganisation) {
+        ownerUser.activeOrganisation = org._id as any;
+      }
+      const hasOrgRole = (ownerUser.organisationRoles ?? []).some(
+        (o: any) => o.organisation.toString() === (org._id as any).toString()
+      );
+      if (!hasOrgRole) {
+        ownerUser.organisationRoles = [
+          ...(ownerUser.organisationRoles ?? []),
+          { organisation: org._id as any, roles: [UserRole.ORGANIZATION_ADMIN] }
+        ];
+      }
+      if (!ownerUser.roles?.includes(UserRole.ORGANIZATION_ADMIN)) {
+        ownerUser.roles = [UserRole.ORGANIZATION_ADMIN];
+      }
+      await ownerUser.save();
+    } else {
+      // No ownerUserId provided — just clear the owner field to reset to pending
+      // (This shouldn't be called without ownerUserId in normal flow)
+      return res.status(400).json({ message: "ownerUserId is required to mark organisation as active" });
+    }
+
+    await org.save();
+
+    // Revoke any lingering pending invitations for this org
+    await Invitation.updateMany(
+      { organisation: id, status: "Pending" },
+      { $set: { status: "Accepted" } }
+    );
+
+    res.json({ message: "Organisation marked as active", organisation: org });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }

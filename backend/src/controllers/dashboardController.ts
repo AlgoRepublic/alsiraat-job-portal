@@ -20,10 +20,8 @@ export const getDashboardStats = async (req: any, res: Response) => {
       user,
       Permission.TASK_READ,
     );
-    const { allowed: canViewInternal } = await checkPermissionAsync(
-      user,
-      Permission.TASK_VIEW_INTERNAL,
-    );
+    // canViewInternal is now determined by TASK_READ (same permission)
+    const canViewInternal = canManageTasks;
     const { allowed: canViewPending } = await checkPermissionAsync(
       user,
       Permission.TASK_VIEW_PENDING,

@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import mongoose from "mongoose";
 import User from "../models/User.js";
 import Organization from "../models/Organization.js";
+import Group from "../models/Group.js";
 import Role from "../models/Role.js";
 import fs from "fs";
 import Papa from "papaparse";
@@ -161,6 +162,13 @@ export const updateUser = async (req: Request, res: Response) => {
               .json({ message: `Organisation ${orgId} not found` });
           }
         }
+
+        // Diff old vs new orgs to sync "All Members" groups
+        const oldOrgIds = (user.organisations ?? []).map((o: any) => o.toString());
+        const newOrgIds = organisations.map((o: string) => o.toString());
+        const addedOrgs = newOrgIds.filter((id) => !oldOrgIds.includes(id));
+        const removedOrgs = oldOrgIds.filter((id) => !newOrgIds.includes(id));
+
         user.organisations = organisations;
         // Keep activeOrganisation valid: if current active isn't in the new list, pick first
         const activeId = user.activeOrganisation?.toString();
@@ -172,12 +180,37 @@ export const updateUser = async (req: Request, res: Response) => {
         } else if (organisations.length === 0) {
           user.activeOrganisation = undefined as any;
         }
+
+        await user.save();
+
+        // Sync "All Members" groups for newly added / removed orgs
+        for (const orgId of addedOrgs) {
+          await Group.findOneAndUpdate(
+            { organisation: orgId, name: "All Members" },
+            { $addToSet: { members: user._id } }
+          );
+        }
+        for (const orgId of removedOrgs) {
+          await Group.findOneAndUpdate(
+            { organisation: orgId, name: "All Members" },
+            { $pull: { members: user._id } }
+          );
+        }
       }
     } else if (organisation !== undefined) {
       // Legacy single-org handling (backward compat)
       if (organisation === null) {
+        // Remove from all current org "All Members" groups
+        const oldOrgIds = (user.organisations ?? []).map((o: any) => o.toString());
         user.activeOrganisation = undefined as any;
         user.organisations = [];
+        await user.save();
+        for (const orgId of oldOrgIds) {
+          await Group.findOneAndUpdate(
+            { organisation: orgId, name: "All Members" },
+            { $pull: { members: user._id } }
+          );
+        }
       } else if (organisation) {
         const orgExists = await Organization.findById(organisation);
         if (!orgExists)
@@ -187,12 +220,21 @@ export const updateUser = async (req: Request, res: Response) => {
         );
         if (!alreadyMember) {
           user.organisations = [...(user.organisations ?? []), organisation];
+          await user.save();
+          // Add to new org's "All Members" group
+          await Group.findOneAndUpdate(
+            { organisation: organisation, name: "All Members" },
+            { $addToSet: { members: user._id } }
+          );
+        } else {
+          await user.save();
         }
         user.activeOrganisation = organisation;
       }
+    } else {
+      await user.save();
     }
 
-    await user.save();
     const updated = await User.findById(user._id)
       .populate("activeOrganisation", "name logo")
       .populate("organisations", "name logo")

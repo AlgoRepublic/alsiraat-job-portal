@@ -344,7 +344,7 @@ export const getTasks = async (req: any, res: Response) => {
       );
       const { allowed: canViewInternal } = await checkPermissionAsync(
         user,
-        Permission.TASK_VIEW_INTERNAL,
+        Permission.TASK_READ,
       );
       const { allowed: canViewPending } = await checkPermissionAsync(
         user,

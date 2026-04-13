@@ -24,7 +24,6 @@ export const Permission = {
   TASK_PUBLISH: "task:publish",
   TASK_ARCHIVE: "task:archive",
   TASK_COMPLETE: "task:complete",
-  TASK_VIEW_INTERNAL: "task:view_internal",
   TASK_VIEW_PENDING: "task:view_pending",
   TASK_AUTO_PUBLISH: "task:auto_publish",
 
@@ -93,7 +92,6 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.TASK_PUBLISH,
     Permission.TASK_ARCHIVE,
     Permission.TASK_COMPLETE,
-    Permission.TASK_VIEW_INTERNAL,
     Permission.TASK_VIEW_PENDING,
     Permission.TASK_AUTO_PUBLISH,
 
@@ -132,7 +130,6 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.TASK_READ,
     Permission.TASK_APPROVE,
     Permission.TASK_PUBLISH,
-    Permission.TASK_VIEW_INTERNAL,
     Permission.TASK_VIEW_PENDING,
     Permission.TASK_AUTO_PUBLISH,
 

@@ -54,13 +54,27 @@ async function resetDatabase() {
 
     // Step 2: Seed Permissions
     console.log("\n🔑 Seeding permissions...");
-    const permDocs = Object.entries(Permission).map(([key, value]) => ({
-      code: value,
-      name: key.replace(/_/g, " "),
-      description: `Allows user to: ${key.replace(/_/g, " ").toLowerCase()}`,
-      category: key.split("_")[0],
-      isSystem: true,
-    }));
+    // Map permission prefix → canonical display category name
+    const CATEGORY_MAP: Record<string, string> = {
+      TASK: "Tasks",
+      APPLICATION: "Applications",
+      USER: "Users",
+      ORG: "Organisation",
+      DASHBOARD: "Dashboard",
+      ANALYTICS: "Dashboard",
+      REPORTS: "Reports",
+      ADMIN: "Admin",
+    };
+    const permDocs = Object.entries(Permission).map(([key, value]) => {
+      const prefix = key.split("_")[0];
+      return {
+        code: value,
+        name: key.replace(/_/g, " "),
+        description: `Allows user to: ${key.replace(/_/g, " ").toLowerCase()}`,
+        category: CATEGORY_MAP[prefix] ?? prefix,
+        isSystem: true,
+      };
+    });
     await PermissionModel.insertMany(permDocs);
     console.log(`✅ Seeded ${permDocs.length} permissions`);
 
@@ -395,7 +409,7 @@ async function resetDatabase() {
     console.log("\n📝 Seeding sample tasks...");
 
     const sampleTasks = [
-      // Pending Internal Task (Organisation Admin/Task Manager can approve)
+      // Pending Internal Task (School Admin/Task Manager can approve)
       {
         title: "Library Assistant Needed",
         description:
@@ -546,7 +560,7 @@ async function resetDatabase() {
     console.log("\n" + "=".repeat(70));
     console.log("🔑 SUPER ADMIN LOGIN CREDENTIALS");
     console.log("=".repeat(70));
-    console.log(`   Email:    admin@alsiraat.edu.au`);
+    console.log(`   Email:    superadmin@alsiraat.edu.au`);
     console.log(`   Password: ${password}`);
     console.log(`   Role:     GLOBAL ADMIN (Full System Access)`);
     console.log("=".repeat(70));

@@ -291,6 +291,31 @@ export const removePermissionFromRole = async (req: Request, res: Response) => {
 
 export const seedDefaultPermissions = async (req: Request, res: Response) => {
   try {
+    // ── Normalize legacy category names in existing permissions ──────────────
+    // When resetDatabase.ts ran, it used raw enum prefix as category (e.g. "TASK",
+    // "APPLICATION"). We consolidate those into the canonical plural display names.
+    const categoryRenames: Record<string, string> = {
+      TASK: "Tasks",
+      Task: "Tasks",
+      APPLICATION: "Applications",
+      Application: "Applications",
+      USER: "Users",
+      User: "Users",
+      ORG: "Organisation",
+      Org: "Organisation",
+      DASHBOARD: "Dashboard",
+      ANALYTICS: "Dashboard",
+      Analytics: "Dashboard",
+      REPORTS: "Reports",
+      Report: "Reports",
+      ADMIN: "Admin",
+    };
+    for (const [oldCat, newCat] of Object.entries(categoryRenames)) {
+      if (oldCat !== newCat) {
+        await Permission.updateMany({ category: oldCat }, { $set: { category: newCat } });
+      }
+    }
+
     const defaultPermissions = [
       // Task permissions
       {
@@ -344,12 +369,6 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
       {
         code: "task:complete",
         name: "Mark Task Complete",
-        category: "Tasks",
-        isSystem: true,
-      },
-      {
-        code: "task:view_internal",
-        name: "View Internal Tasks",
         category: "Tasks",
         isSystem: true,
       },
@@ -583,7 +602,6 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
           "task:publish",
           "task:archive",
           "task:submit",
-          "task:view_internal",
           "task:view_pending",
           "task:auto_publish",
           "application:read",
@@ -618,7 +636,6 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
           "task:update",
           "task:approve",
           "task:publish",
-          "task:view_internal",
           "task:view_pending",
           "task:auto_publish",
           "application:read",
@@ -705,9 +722,19 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
     // And to be safe, we might check if they are system roles or just delete by code
     await Role.deleteMany({ code: { $in: oldRoleCodes } });
 
+    // ── Cleanup deprecated permissions ────────────────────────
+    // Remove task:view_internal — internal visibility is now governed by task:read
+    const deprecatedPermCodes = ["task:view_internal"];
+    await Permission.deleteMany({ code: { $in: deprecatedPermCodes } });
+    // Remove from all roles that might still reference them
+    await Role.updateMany(
+      { permissions: { $in: deprecatedPermCodes } },
+      { $pull: { permissions: { $in: deprecatedPermCodes } } }
+    );
+
     res.json({
       message:
-        "Default permissions and roles seeded successfully. Old roles removed.",
+        "Default permissions and roles seeded successfully. Old roles and deprecated permissions removed.",
       permissions: defaultPermissions.length,
       roles: defaultRoles.length,
     });

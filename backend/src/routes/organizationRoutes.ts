@@ -9,6 +9,7 @@ import {
   resendOrgInvitation,
   uploadLogo,
   removeLogo,
+  markOrganisationActive,
 } from "../controllers/organizationController.js";
 import { authenticate, requirePermission } from "../middleware/rbac.js";
 import { upload } from "../middleware/upload.js";
@@ -84,6 +85,13 @@ router.post(
   authenticate,
   requirePermission(Permission.ORG_CREATE),
   resendOrgInvitation,
+);
+// Admin: Mark a pending organisation as active by assigning an existing user as owner
+router.patch(
+  "/:id/mark-active",
+  authenticate,
+  requirePermission(Permission.ORG_UPDATE),
+  markOrganisationActive,
 );
 
 export default router;

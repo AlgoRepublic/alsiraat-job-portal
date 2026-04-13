@@ -184,6 +184,15 @@ export const verifyOtp = async (req: Request, res: Response) => {
         ];
         invitation.status = "Accepted";
         await invitation.save();
+
+        // Auto-add to the "All Members" group for this org
+        if (orgId) {
+          const Group = (await import("../models/Group.js")).default;
+          await Group.findOneAndUpdate(
+            { organisation: orgId, name: "All Members" },
+            { $addToSet: { members: user._id } }
+          );
+        }
       }
     }
 
