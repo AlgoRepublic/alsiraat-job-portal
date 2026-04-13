@@ -18,6 +18,34 @@ import {
 import { checkPermissionAsync, Permission } from "../middleware/rbac.js";
 import { buildApplicationQuery } from "./applicationQueryBuilder.js";
 
+function taskCreatedById(task: { createdBy?: unknown }): string {
+  const cb = task?.createdBy as { _id?: unknown } | string | null | undefined;
+  if (cb == null) return "";
+  if (typeof cb === "object" && "_id" in cb && cb._id != null) {
+    return String(cb._id);
+  }
+  return String(cb);
+}
+
+/** Global Admin, task creator, or holder of task:complete (org-scoped via checkPermissionAsync). */
+async function canVerifyTaskCompletion(req: any, task: any): Promise<boolean> {
+  const isGlobalAdmin = req.user.roles?.includes(UserRole.GLOBAL_ADMIN);
+  if (isGlobalAdmin) return true;
+
+  const creatorId = taskCreatedById(task);
+  if (creatorId && req.user._id.toString() === creatorId) return true;
+
+  const { allowed } = await checkPermissionAsync(
+    req.user,
+    Permission.TASK_COMPLETE,
+    {
+      organizationId: task.organisation?.toString?.() ?? null,
+      taskCreatorId: creatorId || null,
+    },
+  );
+  return allowed;
+}
+
 /**
  * Directly assign a task to a user, creating an application in OFFERED status.
  * Requires APPLICATION_ASSIGN_DIRECT permission.
@@ -640,11 +668,7 @@ export const acceptCompletion = async (req: any, res: Response) => {
     const task: any = app.task;
     const applicantUser: any = app.applicant;
 
-    const isGlobalAdmin = req.user.roles?.includes(UserRole.GLOBAL_ADMIN);
-    if (
-      !isGlobalAdmin &&
-      req.user._id.toString() !== task.createdBy.toString()
-    ) {
+    if (!(await canVerifyTaskCompletion(req, task))) {
       return res
         .status(403)
         .json({ message: "Not authorized to accept task completion" });
@@ -733,12 +757,8 @@ export const rejectCompletion = async (req: any, res: Response) => {
     if (!app) return res.status(404).json({ message: "Application not found" });
 
     const task: any = app.task;
-    const isGlobalAdmin = req.user.roles?.includes(UserRole.GLOBAL_ADMIN);
 
-    if (
-      !isGlobalAdmin &&
-      req.user._id.toString() !== task.createdBy.toString()
-    ) {
+    if (!(await canVerifyTaskCompletion(req, task))) {
       return res
         .status(403)
         .json({ message: "Not authorized to reject task completion" });

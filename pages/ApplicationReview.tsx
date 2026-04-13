@@ -284,7 +284,10 @@ export const ApplicationReview: React.FC = () => {
     (hasPermission(Permission.APPLICATION_APPROVE) || advertiserOwnsTask);
   const isOwner =
     job?.createdBy === currentUser?.id || job?.createdBy === currentUser?._id;
-  const canManageCompletion = canApproveReject || isOwner;
+  const canManageCompletion =
+    canApproveReject ||
+    isOwner ||
+    (orgScopeAllows && hasPermission(Permission.TASK_COMPLETE));
   const isApplicant =
     currentUser?.id === app.userId || currentUser?._id === app.userId;
 
