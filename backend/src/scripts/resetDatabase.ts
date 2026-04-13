@@ -66,7 +66,7 @@ async function resetDatabase() {
       ADMIN: "Admin",
     };
     const permDocs = Object.entries(Permission).map(([key, value]) => {
-      const prefix = key.split("_")[0];
+      const prefix = key.split("_")[0] ?? key;
       return {
         code: value,
         name: key.replace(/_/g, " "),
