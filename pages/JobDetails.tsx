@@ -30,6 +30,17 @@ import {
 } from "../types";
 import { useToast } from "../components/Toast";
 
+/** Auth returns populated `organisation` objects; tasks use string ids — compare as strings. */
+function organisationIdToString(value: unknown): string | undefined {
+  if (value == null || value === "") return undefined;
+  if (typeof value === "string") return value;
+  if (typeof value === "object" && value !== null && "_id" in value) {
+    const id = (value as { _id?: unknown })._id;
+    return id != null ? String(id) : undefined;
+  }
+  return String(value);
+}
+
 export const JobDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -275,18 +286,14 @@ export const JobDetails: React.FC = () => {
     if (!hasApprovePermission) {
       return false;
     }
-    const taskOrgId = job.organisation || job.organization;
-    const userOrgId = currentUser.organisation || currentUser.organization;
-    console.log("Approval check:", {
-      hasApprovePermission,
-      taskOrgId,
-      userOrgId,
-      taskOrgIdType: String(taskOrgId),
-      userOrgIdType: String(userOrgId),
-      jobVisibility: job.visibility,
-      userRole: currentUser.role,
-      userRoles: currentUser.roles,
-    });
+    const taskOrgId = organisationIdToString(
+      job.organisation ?? (job as { organization?: unknown }).organization,
+    );
+    const userOrgId =
+      organisationIdToString(
+        currentUser.organisation ?? (currentUser as { organization?: unknown }).organization,
+      ) ?? organisationIdToString(currentUser.activeOrganisation);
+
     // Context-aware check: Global Admin can approve any task
     if (currentUser.roles?.includes(UserRole.GLOBAL_ADMIN)) {
       return true;
@@ -294,7 +301,11 @@ export const JobDetails: React.FC = () => {
 
     // For other roles with TASK_APPROVE permission:
     // They can only approve tasks from their own organization
-    if (taskOrgId == userOrgId) {
+    if (
+      taskOrgId &&
+      userOrgId &&
+      taskOrgId === userOrgId
+    ) {
       return true;
     }
 
@@ -687,8 +698,8 @@ export const JobDetails: React.FC = () => {
             )}
 
             {/* ── Apply Panel ── */}
-            {/* Show if: guest (login prompt), canApply (eligible), or locked/applied state */}
-            {!isJobOwner && (
+            {/* Show if: guest (login prompt), canApply (eligible), or locked/applied state — hide for reviewers on pending tasks */}
+            {!isJobOwner && !showManagerActions && (
               <div className="glass-card rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:shadow-none border border-zinc-100 dark:border-zinc-800 overflow-hidden">
                 <div className="p-6 bg-primary text-white">
                   <h3 className="text-lg font-bold">Apply</h3>
