@@ -107,6 +107,7 @@ stages:
 
 # ============================================
 # Build and push frontend
+# (Node dependency installs use pnpm via frontend.Dockerfile / backend/Dockerfile)
 # ============================================
 build-frontend:
   extends: .docker-job

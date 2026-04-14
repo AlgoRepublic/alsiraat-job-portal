@@ -5,18 +5,20 @@ FROM node:20-alpine AS build
 
 WORKDIR /app
 
+RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
+
 # Copy package files
-COPY package.json yarn.lock ./
+COPY package.json pnpm-lock.yaml ./
 
 # Install dependencies
-RUN yarn install --frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 # Copy source (excluding backend)
 COPY . .
 RUN rm -rf backend
 
 # Build the frontend
-RUN yarn build
+RUN pnpm run build
 
 # ===== PRODUCTION - NGINX =====
 FROM nginx:alpine AS production

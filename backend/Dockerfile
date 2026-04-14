@@ -5,17 +5,19 @@ FROM node:20-alpine AS build
 
 WORKDIR /app
 
+RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
+
 # Copy package files
-COPY package.json ./
+COPY package.json pnpm-lock.yaml ./
 
 # Install dependencies
-RUN npm install
+RUN pnpm install --frozen-lockfile
 
 # Copy source
 COPY . .
 
 # Build TypeScript
-RUN npm run build
+RUN pnpm run build
 
 # ===== PRODUCTION STAGE =====
 FROM node:20-alpine AS production
