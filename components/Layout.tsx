@@ -470,11 +470,7 @@ export const Layout: React.FC<LayoutProps> = ({
       label: "Pending Approvals",
       path: "/jobs?status=Pending",
       protected: true,
-      anyPermission: [
-        Permission.TASK_APPROVE,
-        Permission.TASK_PUBLISH,
-        Permission.APPLICATION_APPROVE,
-      ],
+      permission: Permission.TASK_VIEW_PENDING,
     },
 
     // ── Common ──────────────────────────────────────────────────────────────

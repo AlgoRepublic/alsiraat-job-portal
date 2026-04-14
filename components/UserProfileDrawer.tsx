@@ -210,8 +210,9 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
     (a) =>
       !["Completed", "Declined", "Rejected"].includes(a.status)
   );
-  const completedApps = applications.filter((a) =>
-    ["Completed", "Declined", "Rejected"].includes(a.status)
+  const completedApps = applications.filter((a) => a.status === "Completed");
+  const closedApps = applications.filter((a) =>
+    ["Declined", "Rejected"].includes(a.status)
   );
 
   /* ── Tab definitions ───────────────────────────────────────────────────────── */
@@ -586,11 +587,27 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
                       <div className="flex items-center gap-2 mb-3">
                         <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                         <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                          Completed / Closed ({completedApps.length})
+                          Completed ({completedApps.length})
                         </h3>
                       </div>
                       <div className="space-y-2">
                         {completedApps.map((a) => (
+                          <ApplicationRow key={a._id} app={a} />
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {closedApps.length > 0 && (
+                    <section>
+                      <div className="flex items-center gap-2 mb-3">
+                        <AlertTriangle className="w-4 h-4 text-red-500" />
+                        <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                          Declined / Rejected ({closedApps.length})
+                        </h3>
+                      </div>
+                      <div className="space-y-2">
+                        {closedApps.map((a) => (
                           <ApplicationRow key={a._id} app={a} />
                         ))}
                       </div>

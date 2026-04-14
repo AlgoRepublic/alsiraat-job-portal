@@ -78,16 +78,42 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
       setProfile(data);
       try {
         if (data) {
-          const apps = await db.getApplications({
-            status: "Completed",
-            limit: 100,
-            applicant: "me"
-          });
+          const pageSize = 50;
+          const firstPage = await db.getApplicationsPaged(
+            {
+              status: "Completed",
+              applicant: "me",
+            },
+            1,
+            pageSize,
+          );
+
+          let allCompletedApps = [...firstPage.applications];
+          const totalPages = firstPage.pagination?.pages || 1;
+
+          for (let page = 2; page <= totalPages; page++) {
+            const nextPage = await db.getApplicationsPaged(
+              {
+                status: "Completed",
+                applicant: "me",
+              },
+              page,
+              pageSize,
+            );
+            allCompletedApps = allCompletedApps.concat(nextPage.applications);
+          }
+
           setCompletedTasks(
-            apps.filter(
-              (app: Application) =>
-                app.userId === data.id || app.userId === (data as any)._id,
-            ),
+            allCompletedApps
+              .filter(
+                (app: Application) =>
+                  app.userId === data.id || app.userId === (data as any)._id,
+              )
+              .sort(
+                (a: Application, b: Application) =>
+                  new Date(b.appliedAt || 0).getTime() -
+                  new Date(a.appliedAt || 0).getTime(),
+              ),
           );
         }
       } catch (err) {

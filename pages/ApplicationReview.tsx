@@ -77,6 +77,7 @@ export const ApplicationReview: React.FC = () => {
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState("");
   const [showReviewForm, setShowReviewForm] = useState(false);
+  const [completedHistory, setCompletedHistory] = useState<Application[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -90,6 +91,31 @@ export const ApplicationReview: React.FC = () => {
             setApp(application);
             const jobData = await db.getJob(application.jobId);
             setJob(jobData);
+
+            // Load full completed history for this applicant (all pages)
+            const pageSize = 50;
+            const firstPage = await db.getApplicationsPaged(
+              {
+                status: "Completed",
+                applicant: application.userId,
+              },
+              1,
+              pageSize,
+            );
+            let allCompleted = [...firstPage.applications];
+            const totalPages = firstPage.pagination?.pages || 1;
+            for (let page = 2; page <= totalPages; page++) {
+              const nextPage = await db.getApplicationsPaged(
+                {
+                  status: "Completed",
+                  applicant: application.userId,
+                },
+                page,
+                pageSize,
+              );
+              allCompleted = allCompleted.concat(nextPage.applications);
+            }
+            setCompletedHistory(allCompleted);
           }
         } catch (err) {
           console.error("Failed to fetch application", err);
@@ -306,7 +332,20 @@ export const ApplicationReview: React.FC = () => {
     currentUser?.id === app.userId || currentUser?._id === app.userId;
 
   const skills: Skill[] = app.applicantSkills || [];
-  const experience: any[] = app.applicantExperience || [];
+  const experience: any[] =
+    completedHistory.length > 0
+      ? completedHistory.map((completedApp) => ({
+          title:
+            completedApp.task?.title || completedApp.jobTitle || "Task Deleted",
+          organisationName:
+            (completedApp.task as any)?.organisation?.name ||
+            (completedApp.task as any)?.organisation ||
+            "Independent",
+          rewardType: (completedApp.task as any)?.rewardType,
+          rewardValue: (completedApp.task as any)?.rewardValue,
+          completedAt: completedApp.appliedAt,
+        }))
+      : app.applicantExperience || [];
 
   const initials = app.applicantName
     .split(" ")
