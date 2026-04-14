@@ -1,4 +1,4 @@
-import express from "express";
+import express, { type Router } from "express";
 import {
   createTask,
   getTasks,
@@ -17,7 +17,7 @@ import {
 } from "../middleware/rbac.js";
 import { upload, handleUploadError } from "../middleware/upload.js";
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // Create task - requires TASK_CREATE permission
 // Supports up to 5 file attachments

@@ -1,4 +1,4 @@
-import express from "express";
+import express, { type Router } from "express";
 import {
   getAiSettings,
   updateAiSettings,
@@ -7,7 +7,7 @@ import {
 import { authenticate, requirePermission } from "../middleware/rbac.js";
 import { Permission } from "../config/permissions.js";
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // Publicly authenticated endpoints
 router.post("/generate", authenticate, generateJobDescription);

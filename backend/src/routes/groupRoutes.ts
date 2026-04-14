@@ -1,4 +1,4 @@
-import express from "express";
+import express, { type Router } from "express";
 import {
   getGroups,
   getGroupsPublic,
@@ -15,7 +15,7 @@ import {
   Permission,
 } from "../middleware/rbac.js";
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // Public read-only list (for task wizard dropdowns)
 router.get("/public", authenticate, getGroupsPublic);

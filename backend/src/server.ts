@@ -1,4 +1,4 @@
-import express from "express";
+import express, { type Express } from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 import passport from "passport";
@@ -27,7 +27,7 @@ if (process.env.NODE_ENV !== "production") {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const app = express();
+const app: Express = express();
 const PORT = process.env.PORT || 5001;
 const isProduction = process.env.NODE_ENV === "production";
 

@@ -1,4 +1,4 @@
-import express from "express";
+import express, { type Router } from "express";
 import {
   getRewardTypes,
   getRewardType,
@@ -13,7 +13,7 @@ import {
   Permission,
 } from "../middleware/rbac.js";
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // Public route - get all active reward types
 router.get("/", getRewardTypes);

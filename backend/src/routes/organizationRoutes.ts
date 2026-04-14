@@ -1,4 +1,4 @@
-import express from "express";
+import express, { type Router } from "express";
 import {
   createOrganization,
   getOrganizations,
@@ -15,7 +15,7 @@ import { authenticate, requirePermission } from "../middleware/rbac.js";
 import { upload } from "../middleware/upload.js";
 import { Permission } from "../config/permissions.js";
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // Admin only: create organization (legacy — direct with ownerId)
 router.post(

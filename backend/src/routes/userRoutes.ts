@@ -1,4 +1,4 @@
-import express from "express";
+import express, { type Router } from "express";
 import {
   getUsers,
   getUserById,
@@ -16,7 +16,7 @@ import {
 } from "../middleware/rbac.js";
 import { upload, handleUploadError } from "../middleware/upload.js";
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // All routes require authentication and user:read or admin permission
 router.get(

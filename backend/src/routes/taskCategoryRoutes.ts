@@ -1,4 +1,4 @@
-import express from "express";
+import express, { type Router } from "express";
 import {
   getTaskCategories,
   getTaskCategory,
@@ -13,7 +13,7 @@ import {
   Permission,
 } from "../middleware/rbac.js";
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // Public route - get all active categories
 router.get("/", getTaskCategories);

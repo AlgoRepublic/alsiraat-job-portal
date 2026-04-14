@@ -1,4 +1,4 @@
-import express from "express";
+import express, { type Router } from "express";
 import {
   getNotifications,
   getUnreadCount,
@@ -9,7 +9,7 @@ import {
 } from "../controllers/notificationController.js";
 import { authenticate } from "../middleware/rbac.js";
 
-const router = express.Router();
+const router: Router = express.Router();
 
 router.get("/", authenticate, getNotifications);
 router.get("/unread-count", authenticate, getUnreadCount);

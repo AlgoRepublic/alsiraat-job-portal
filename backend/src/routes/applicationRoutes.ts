@@ -1,4 +1,4 @@
-import express from "express";
+import express, { type Router } from "express";
 import {
   applyForTask,
   assignTask,
@@ -19,7 +19,7 @@ import {
   Permission,
 } from "../middleware/rbac.js";
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // Direct assignment by manager/advertiser - requires APPLICATION_ASSIGN_DIRECT
 router.post(

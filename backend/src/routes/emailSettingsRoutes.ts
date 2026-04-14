@@ -7,7 +7,7 @@ import {
   getTemplateMeta,
 } from "../controllers/emailSettingsController.js";
 
-const router = Router();
+const router: Router = Router();
 
 router.get("/", authenticate, getEmailSettings);
 router.put("/", authenticate, saveEmailSettings);

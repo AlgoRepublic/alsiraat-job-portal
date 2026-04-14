@@ -1,4 +1,4 @@
-import express from "express";
+import express, { type Router } from "express";
 import passport from "passport";
 import {
   signup,
@@ -27,7 +27,7 @@ import { normalizeUserRole } from "../models/UserRole.js";
 import Group from "../models/Group.js";
 import "../config/passport.js";
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // Local Auth
 router.post("/send-otp", sendOtp);       // Step 1: request OTP
