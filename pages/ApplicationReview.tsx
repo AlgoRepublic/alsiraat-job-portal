@@ -288,6 +288,20 @@ export const ApplicationReview: React.FC = () => {
     canApproveReject ||
     isOwner ||
     (orgScopeAllows && hasPermission(Permission.TASK_COMPLETE));
+  const hasManagerAccess =
+    canShortlist || canApproveReject || canManageCompletion || isOwner;
+  const isAssignedToApplicant = [
+    "Accepted",
+    "Completion Requested",
+    "Completion Rejected",
+    "Completed",
+  ].includes(app.status);
+  const canShowDecisionActions =
+    hasManagerAccess && !isAssignedToApplicant && (canShortlist || canApproveReject);
+  const canShowCompletionActions =
+    hasManagerAccess && canManageCompletion && app.status === "Completion Requested";
+  const canShowReviewActions =
+    hasManagerAccess && app.status === "Completed";
   const isApplicant =
     currentUser?.id === app.userId || currentUser?._id === app.userId;
 
@@ -615,14 +629,14 @@ export const ApplicationReview: React.FC = () => {
             if (!currentUser || !job) return null;
 
             // Manager actions
-            if (canShortlist || canApproveReject) {
+            if (canShowDecisionActions || canShowCompletionActions || canShowReviewActions) {
               return (
                 <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
                   <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-4">
                     Manager Actions
                   </h3>
                   <div className="space-y-3">
-                    {canShortlist && (
+                    {canShowDecisionActions && canShortlist && (
                       <button
                         id="btn-shortlist"
                         onClick={() => handleStatusUpdate("Shortlisted")}
@@ -634,7 +648,7 @@ export const ApplicationReview: React.FC = () => {
                       </button>
                     )}
 
-                    {canApproveReject && (
+                    {canShowDecisionActions && canApproveReject && (
                       <>
                         <button
                           id="btn-offer"
@@ -664,8 +678,7 @@ export const ApplicationReview: React.FC = () => {
                       </>
                     )}
 
-                    {canManageCompletion &&
-                      app.status === "Completion Requested" && (
+                    {canShowCompletionActions && (
                         <>
                           <div className="border-t border-zinc-100 dark:border-zinc-800 pt-3">
                             <p className="text-xs text-zinc-500 mb-3 font-semibold">
@@ -692,7 +705,7 @@ export const ApplicationReview: React.FC = () => {
                       )}
 
                     {/* Review Section */}
-                    {app.status === "Completed" && (
+                    {canShowReviewActions && (
                       <div className="border-t border-zinc-100 dark:border-zinc-800 pt-4 mt-2">
                         {app.rating ? (
                           <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/50 rounded-xl p-4">
