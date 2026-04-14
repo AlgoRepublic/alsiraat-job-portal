@@ -27,6 +27,17 @@ function taskCreatedById(task: { createdBy?: unknown }): string {
   return String(cb);
 }
 
+function applicationTaskPermissionContext(task: any): {
+  organizationId: string | null;
+  taskCreatorId: string | null;
+} {
+  const creatorId = taskCreatedById(task);
+  return {
+    organizationId: task.organisation?.toString?.() ?? null,
+    taskCreatorId: creatorId || null,
+  };
+}
+
 /** Global Admin, task creator, or holder of task:complete (org-scoped via checkPermissionAsync). */
 async function canVerifyTaskCompletion(req: any, task: any): Promise<boolean> {
   const isGlobalAdmin = req.user.roles?.includes(UserRole.GLOBAL_ADMIN);
@@ -38,12 +49,34 @@ async function canVerifyTaskCompletion(req: any, task: any): Promise<boolean> {
   const { allowed } = await checkPermissionAsync(
     req.user,
     Permission.TASK_COMPLETE,
-    {
-      organizationId: task.organisation?.toString?.() ?? null,
-      taskCreatorId: creatorId || null,
-    },
+    applicationTaskPermissionContext(task),
   );
   return allowed;
+}
+
+/** Post-completion rating: same cohort as offer/completion managers, plus task creator. */
+async function canSubmitApplicationReview(req: any, task: any): Promise<boolean> {
+  const isGlobalAdmin = req.user.roles?.includes(UserRole.GLOBAL_ADMIN);
+  if (isGlobalAdmin) return true;
+
+  const creatorId = taskCreatedById(task);
+  if (creatorId && req.user._id.toString() === creatorId) return true;
+
+  const ctx = applicationTaskPermissionContext(task);
+
+  const { allowed: canApproveApp } = await checkPermissionAsync(
+    req.user,
+    Permission.APPLICATION_APPROVE,
+    ctx,
+  );
+  if (canApproveApp) return true;
+
+  const { allowed: canComplete } = await checkPermissionAsync(
+    req.user,
+    Permission.TASK_COMPLETE,
+    ctx,
+  );
+  return canComplete;
 }
 
 /**
@@ -807,12 +840,8 @@ export const submitReview = async (req: any, res: Response) => {
     if (!app) return res.status(404).json({ message: "Application not found" });
 
     const task: any = app.task;
-    const isGlobalAdmin = req.user.roles?.includes(UserRole.GLOBAL_ADMIN);
 
-    if (
-      !isGlobalAdmin &&
-      req.user._id.toString() !== task.createdBy.toString()
-    ) {
+    if (!(await canSubmitApplicationReview(req, task))) {
       return res
         .status(403)
         .json({ message: "Not authorized to review this application" });

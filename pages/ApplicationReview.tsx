@@ -714,7 +714,7 @@ export const ApplicationReview: React.FC = () => {
                               </p>
                             )}
                           </div>
-                        ) : (
+                        ) : canManageCompletion ? (
                           <button
                             onClick={() => setShowReviewForm(true)}
                             className="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/90 flex items-center justify-center gap-2 transition-colors shadow-md shadow-primary/20"
@@ -722,6 +722,11 @@ export const ApplicationReview: React.FC = () => {
                             <Star className="w-4 h-4" />
                             Rate Applicant
                           </button>
+                        ) : (
+                          <p className="text-xs text-zinc-500 text-center py-2">
+                            You do not have permission to submit a rating for
+                            this application.
+                          </p>
                         )}
                       </div>
                     )}
