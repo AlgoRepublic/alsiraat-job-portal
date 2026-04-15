@@ -111,7 +111,14 @@ export const updateUserRole = async (req: Request, res: Response) => {
 
 export const updateUser = async (req: Request, res: Response) => {
   try {
-    const { name, email, roles, organisation, organisations } = req.body;
+    const {
+      name,
+      email,
+      roles,
+      organisation,
+      organisations,
+      organisationRoles,
+    } = req.body;
     const user = await User.findById(req.params.id);
 
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -134,20 +141,50 @@ export const updateUser = async (req: Request, res: Response) => {
     if (name) user.name = name;
     if (roles) {
       user.roles = roles;
-      const targetOrg = organisation || user.activeOrganisation;
-      if (targetOrg) {
-        const orgRoleIndex = (user.organisationRoles ?? []).findIndex(
-          (o: any) => o.organisation.toString() === targetOrg.toString()
-        );
-        if (orgRoleIndex > -1 && user.organisationRoles) {
-          (user.organisationRoles as any)[orgRoleIndex].roles = roles;
-        } else {
-          user.organisationRoles = [
-            ...(user.organisationRoles ?? []),
-            { organisation: targetOrg as any, roles }
-          ];
+      // Backward compat: when a caller only sends flat roles (+ optional single org),
+      // keep existing behaviour by syncing the target org role entry.
+      if (!Array.isArray(organisationRoles)) {
+        const targetOrg = organisation || user.activeOrganisation;
+        if (targetOrg) {
+          const orgRoleIndex = (user.organisationRoles ?? []).findIndex(
+            (o: any) => o.organisation.toString() === targetOrg.toString()
+          );
+          if (orgRoleIndex > -1 && user.organisationRoles) {
+            (user.organisationRoles as any)[orgRoleIndex].roles = roles;
+          } else {
+            user.organisationRoles = [
+              ...(user.organisationRoles ?? []),
+              { organisation: targetOrg as any, roles }
+            ];
+          }
         }
       }
+    }
+
+    // Preferred multi-org contract: explicit role mapping per organisation.
+    if (Array.isArray(organisationRoles)) {
+      for (const entry of organisationRoles) {
+        const orgId = entry?.organisation;
+        if (!orgId) {
+          return res
+            .status(400)
+            .json({ message: "Each organisationRoles entry must include organisation" });
+        }
+        const exists = await Organization.findById(orgId);
+        if (!exists) {
+          return res
+            .status(400)
+            .json({ message: `Organisation ${orgId} not found` });
+        }
+      }
+
+      user.organisationRoles = organisationRoles.map((entry: any) => ({
+        organisation: entry.organisation,
+        roles:
+          Array.isArray(entry.roles) && entry.roles.length > 0
+            ? entry.roles
+            : [UserRole.APPLICANT],
+      })) as any;
     }
 
     // Multi-org: if `organisations` array is provided, use it directly
@@ -170,6 +207,12 @@ export const updateUser = async (req: Request, res: Response) => {
         const removedOrgs = oldOrgIds.filter((id) => !newOrgIds.includes(id));
 
         user.organisations = organisations;
+        // Keep org-role map aligned to selected organisations.
+        if (Array.isArray(user.organisationRoles)) {
+          user.organisationRoles = user.organisationRoles.filter((or: any) =>
+            newOrgIds.includes(or.organisation.toString()),
+          ) as any;
+        }
         // Keep activeOrganisation valid: if current active isn't in the new list, pick first
         const activeId = user.activeOrganisation?.toString();
         const isStillMember = organisations.some(
