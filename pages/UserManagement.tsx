@@ -467,21 +467,13 @@ export const UserManagement: React.FC = () => {
   };
 
   const openCreateModal = () => {
-    const creatorOrgId =
-      currentUser?.activeOrganisation?._id ||
-      (currentUser?.activeOrganisation as any)?.id ||
-      currentUser?.activeOrganisation;
-    const isGlobalAdmin = currentUser?.roles?.includes(UserRole.GLOBAL_ADMIN);
-    const defaultOrgIds =
-      !isGlobalAdmin && creatorOrgId ? [String(creatorOrgId)] : [];
-
     setIsCreating(true);
     setEditForm({
       name: "",
       email: "",
       password: "",
       roles: ["Applicant"],
-      organisationIds: defaultOrgIds,
+      organisationIds: [],
     });
   };
 
