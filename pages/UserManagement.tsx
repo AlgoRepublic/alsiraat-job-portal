@@ -489,7 +489,7 @@ export const UserManagement: React.FC = () => {
       const names = editForm.name.trim().split(" ");
       const firstName = names[0] || "New";
       const lastName = names.slice(1).join(" ") || "User";
-      await db.signup({
+      await db.adminCreateUser({
         firstName,
         lastName,
         email: editForm.email,

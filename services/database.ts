@@ -132,6 +132,10 @@ class DatabaseService {
     return await api.signup(userData);
   }
 
+  async adminCreateUser(userData: any) {
+    return await api.adminCreateUser(userData);
+  }
+
   async sendOtp(data: { firstName: string; lastName: string; email: string }) {
     return await api.sendOtp(data);
   }

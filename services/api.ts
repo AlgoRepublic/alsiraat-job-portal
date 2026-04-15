@@ -153,6 +153,17 @@ class ApiService {
     return response;
   }
 
+  /**
+   * Admin creates a user account without switching current session.
+   * Uses the same backend endpoint as signup but intentionally does not persist returned auth token.
+   */
+  async adminCreateUser(userData: any): Promise<{ user: any; token?: string }> {
+    return this.request<{ user: any; token?: string }>("/auth/signup", {
+      method: "POST",
+      body: JSON.stringify(userData),
+    });
+  }
+
   async sendOtp(data: {
     firstName: string;
     lastName: string;
