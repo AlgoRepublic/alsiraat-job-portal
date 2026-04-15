@@ -382,14 +382,11 @@ export const getTasks = async (req: any, res: Response) => {
       const userGroupIds = userGroups.map((g) => g._id);
 
       if (canViewInternal && organisation) {
-        // Users with task:view_internal see ALL internal tasks from their org
-        // (with group filtering: unrestricted tasks + tasks targeting their groups)
+        // Published internal tasks remain group-restricted for normal browsing.
         conditions.push({
           visibility: TaskVisibility.INTERNAL,
           organisation: organisation,
-          status: canViewPending
-            ? { $in: [TaskStatus.PUBLISHED, TaskStatus.PENDING] }
-            : TaskStatus.PUBLISHED,
+          status: TaskStatus.PUBLISHED,
           $or: [
             // No group restriction — visible to all internal users
             { allowedGroups: { $exists: false } },
@@ -398,6 +395,16 @@ export const getTasks = async (req: any, res: Response) => {
             { allowedGroups: { $in: userGroupIds } },
           ],
         });
+
+        // Pending internal tasks should be visible to approvers irrespective of group targeting.
+        // Group-based visibility controls applicant audience, not approval authority.
+        if (canViewPending) {
+          conditions.push({
+            visibility: TaskVisibility.INTERNAL,
+            organisation: organisation,
+            status: TaskStatus.PENDING,
+          });
+        }
       } else if (organisation && userGroupIds.length > 0) {
         // Users WITHOUT task:view_internal but who ARE members of a group
         // can still see Published internal tasks explicitly targeted at their group(s).
