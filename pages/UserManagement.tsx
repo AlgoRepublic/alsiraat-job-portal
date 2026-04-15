@@ -500,21 +500,23 @@ export const UserManagement: React.FC = () => {
       const flatRoles = editForm.roles
         .filter((r): r is string => typeof r === "string" && r.trim().length > 0)
         .filter((r, idx, arr) => arr.indexOf(r) === idx);
+      const organisationRoles = editForm.organisationIds.map((orgId, idx) => ({
+        organisation: orgId,
+        roles: [editForm.roles[idx] ?? "Applicant"],
+      }));
       const created = await db.adminCreateUser({
         firstName,
         lastName,
         email: editForm.email,
         password: editForm.password,
         roles: flatRoles.length > 0 ? flatRoles : ["Applicant"],
+        organisations: editForm.organisationIds,
+        organisationRoles,
       });
 
       // Attach the new user to selected organisations so org-scoped lists can see it.
       const createdUserId = created?.user?._id || created?.user?.id;
       if (createdUserId && editForm.organisationIds.length > 0) {
-        const organisationRoles = editForm.organisationIds.map((orgId, idx) => ({
-          organisation: orgId,
-          roles: [editForm.roles[idx] ?? "Applicant"],
-        }));
         await db.updateUser(createdUserId, {
           roles: flatRoles.length > 0 ? flatRoles : ["Applicant"],
           organisations: editForm.organisationIds,
