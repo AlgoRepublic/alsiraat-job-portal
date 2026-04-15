@@ -562,6 +562,8 @@ class DatabaseService {
       email?: string;
       roles?: string[];
       organisation?: string | null;
+      organisations?: string[];
+      organisationRoles?: { organisation: string; roles: string[] }[];
     },
   ): Promise<any> {
     return api.put(`/users/${id}`, data);

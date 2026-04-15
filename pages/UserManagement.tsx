@@ -467,13 +467,21 @@ export const UserManagement: React.FC = () => {
   };
 
   const openCreateModal = () => {
+    const creatorOrgId =
+      currentUser?.activeOrganisation?._id ||
+      (currentUser?.activeOrganisation as any)?.id ||
+      currentUser?.activeOrganisation;
+    const isGlobalAdmin = currentUser?.roles?.includes(UserRole.GLOBAL_ADMIN);
+    const defaultOrgIds =
+      !isGlobalAdmin && creatorOrgId ? [String(creatorOrgId)] : [];
+
     setIsCreating(true);
     setEditForm({
       name: "",
       email: "",
       password: "",
       roles: ["Applicant"],
-      organisationIds: [],
+      organisationIds: defaultOrgIds,
     });
   };
 
@@ -489,13 +497,31 @@ export const UserManagement: React.FC = () => {
       const names = editForm.name.trim().split(" ");
       const firstName = names[0] || "New";
       const lastName = names.slice(1).join(" ") || "User";
-      await db.adminCreateUser({
+      const flatRoles = editForm.roles
+        .filter((r): r is string => typeof r === "string" && r.trim().length > 0)
+        .filter((r, idx, arr) => arr.indexOf(r) === idx);
+      const created = await db.adminCreateUser({
         firstName,
         lastName,
         email: editForm.email,
         password: editForm.password,
-        roles: editForm.roles,
+        roles: flatRoles.length > 0 ? flatRoles : ["Applicant"],
       });
+
+      // Attach the new user to selected organisations so org-scoped lists can see it.
+      const createdUserId = created?.user?._id || created?.user?.id;
+      if (createdUserId && editForm.organisationIds.length > 0) {
+        const organisationRoles = editForm.organisationIds.map((orgId, idx) => ({
+          organisation: orgId,
+          roles: [editForm.roles[idx] ?? "Applicant"],
+        }));
+        await db.updateUser(createdUserId, {
+          roles: flatRoles.length > 0 ? flatRoles : ["Applicant"],
+          organisations: editForm.organisationIds,
+          organisationRoles,
+        });
+      }
+
       showSuccess("User created successfully");
       closeEditModal();
       fetchData();
@@ -516,7 +542,9 @@ export const UserManagement: React.FC = () => {
         roles: [editForm.roles[idx] ?? "Applicant"],
       }));
       // Derive flat roles array (unique) from org selections for backward compat
-      const flatRoles = [...new Set(editForm.roles.filter(Boolean))];
+      const flatRoles = editForm.roles
+        .filter((r): r is string => typeof r === "string" && r.trim().length > 0)
+        .filter((r, idx, arr) => arr.indexOf(r) === idx);
       await db.updateUser(editingUser._id, {
         name: editForm.name,
         email: editForm.email,
