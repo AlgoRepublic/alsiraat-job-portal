@@ -5,7 +5,6 @@ import {
   Application,
   ApplicantProfile,
   JobStatus,
-  JobCategory,
   RewardType,
   Visibility,
   FileVisibility,

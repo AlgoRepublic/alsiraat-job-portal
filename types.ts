@@ -85,7 +85,7 @@ export interface Job {
   id: string;
   _id?: string;
   title: string;
-  category: JobCategory;
+  category: string;
   description: string;
   location: string;
   hoursRequired?: number;

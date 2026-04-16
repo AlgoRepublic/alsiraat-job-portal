@@ -26,7 +26,6 @@ import { useToast } from "../components/Toast";
 
 import {
   Job,
-  JobCategory,
   JobStatus,
   RewardType,
   Visibility,
@@ -158,7 +157,7 @@ export const JobWizard: React.FC = () => {
 
   const [formData, setFormData] = useState<Partial<Job>>({
     title: "",
-    category: JobCategory.TUTORING,
+    category: "",
     description: "",
     location: "",
     hoursRequired: 0,

@@ -12,7 +12,7 @@ import {
   RotateCcw,
   ClipboardList,
 } from "lucide-react";
-import { JobCategory, JobStatus, RewardType, Job } from "../types";
+import { JobStatus, RewardType, Job } from "../types";
 import { db } from "../services/database";
 import { getStatusColor } from "./Dashboard";
 
@@ -30,6 +30,9 @@ export const JobList: React.FC = () => {
 
   // Data State
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [categories, setCategories] = useState<Array<{ name: string; code?: string }>>(
+    [],
+  );
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -107,6 +110,15 @@ export const JobList: React.FC = () => {
     searchParams.get("page"),
   ]);
 
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const data = await db.getTaskCategories();
+      setCategories(Array.isArray(data) ? data : []);
+    };
+
+    fetchCategories();
+  }, []);
+
   const handlePageChange = (page: number) => {
     const newParams = new URLSearchParams(searchParams);
     newParams.set("page", String(page));
@@ -174,9 +186,9 @@ export const JobList: React.FC = () => {
                   onChange={(e) => updateParam("category", e.target.value)}
                 >
                   <option value="All">All Categories</option>
-                  {Object.values(JobCategory).map((c) => (
-                    <option key={c} value={c}>
-                      {c}
+                  {categories.map((category) => (
+                    <option key={category.code || category.name} value={category.name}>
+                      {category.name}
                     </option>
                   ))}
                 </select>
