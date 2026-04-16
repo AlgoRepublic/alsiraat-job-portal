@@ -105,10 +105,6 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
 
           setCompletedTasks(
             allCompletedApps
-              .filter(
-                (app: Application) =>
-                  app.userId === data.id || app.userId === (data as any)._id,
-              )
               .sort(
                 (a: Application, b: Application) =>
                   new Date(b.appliedAt || 0).getTime() -
@@ -724,7 +720,7 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
           {completedTasks.length > 0 ? (
             completedTasks.map((app) => (
               <div
-                key={app.id}
+                key={app.id || app._id || `${app.jobId}-${app.appliedAt}`}
                 className="flex gap-4 p-4 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-800"
               >
                 <div className="mt-1">
