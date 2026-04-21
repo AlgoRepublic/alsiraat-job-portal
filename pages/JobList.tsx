@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Search,
@@ -20,6 +20,9 @@ import { Loading } from "../components/Loading";
 import { Pagination } from "../components/Pagination";
 
 const PAGE_SIZE = 12;
+const SEARCH_DEBOUNCE_MS = 400;
+/** Native date input uses yyyy-mm-dd; only sync to URL when complete or cleared. */
+const FULL_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export const JobList: React.FC = () => {
   const navigate = useNavigate();
@@ -27,6 +30,10 @@ export const JobList: React.FC = () => {
 
   // UI State
   const [showFilters, setShowFilters] = useState(false);
+  const [queryDraft, setQueryDraft] = useState(() => searchParams.get("q") || "");
+  const [dateFromDraft, setDateFromDraft] = useState(() => searchParams.get("dateFrom") || "");
+  const [dateToDraft, setDateToDraft] = useState(() => searchParams.get("dateTo") || "");
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Data State
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -34,6 +41,8 @@ export const JobList: React.FC = () => {
     [],
   );
   const [loading, setLoading] = useState(true);
+  const [listRefreshing, setListRefreshing] = useState(false);
+  const initialFetchDone = useRef(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -45,22 +54,97 @@ export const JobList: React.FC = () => {
   const filterReward = searchParams.get("reward") || "All";
   const dateFrom = searchParams.get("dateFrom") || "";
   const dateTo = searchParams.get("dateTo") || "";
+  /** Last `q` we pushed or adopted from the URL — avoids clobbering `queryDraft` after debounced commits. */
+  const lastCommittedQueryRef = useRef(searchTerm);
+
+  // Adopt `q` from the URL when it changes without our debounced commit (back/forward, shared link, reset).
+  useEffect(() => {
+    if (searchTerm === lastCommittedQueryRef.current) return;
+    setQueryDraft(searchTerm);
+    lastCommittedQueryRef.current = searchTerm;
+  }, [searchTerm]);
+
+  useEffect(() => {
+    setDateFromDraft(dateFrom);
+  }, [dateFrom]);
+
+  useEffect(() => {
+    setDateToDraft(dateTo);
+  }, [dateTo]);
 
   // Filter Updates
-  const updateParam = (key: string, value: string) => {
-    const newParams = new URLSearchParams(searchParams);
-    if (value && value !== "All") {
-      newParams.set(key, value);
-    } else {
-      newParams.delete(key);
+  const updateParam = useCallback(
+    (key: string, value: string, opts?: { resetPage?: boolean }) => {
+      const resetPage = opts?.resetPage !== false;
+      setSearchParams((prev) => {
+        const newParams = new URLSearchParams(prev);
+        if (value && value !== "All") {
+          newParams.set(key, value);
+        } else {
+          newParams.delete(key);
+        }
+        if (resetPage) {
+          newParams.set("page", "1");
+        }
+        return newParams;
+      }, { replace: true });
+    },
+    [setSearchParams],
+  );
+
+  useEffect(() => {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
     }
-    newParams.set("page", "1"); // Reset to page 1 on filter change
-    setSearchParams(newParams, { replace: true });
+    searchDebounceRef.current = setTimeout(() => {
+      searchDebounceRef.current = null;
+      if (queryDraft === searchTerm) return;
+      lastCommittedQueryRef.current = queryDraft;
+      updateParam("q", queryDraft);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+        searchDebounceRef.current = null;
+      }
+    };
+  }, [queryDraft, searchTerm, updateParam]);
+
+  const commitDateFrom = () => {
+    if (dateFromDraft === dateFrom) return;
+    if (dateFromDraft === "" || FULL_DATE_RE.test(dateFromDraft)) {
+      updateParam("dateFrom", dateFromDraft);
+    }
+  };
+
+  const commitDateTo = () => {
+    if (dateToDraft === dateTo) return;
+    if (dateToDraft === "" || FULL_DATE_RE.test(dateToDraft)) {
+      updateParam("dateTo", dateToDraft);
+    }
+  };
+
+  const onDateFromChange = (value: string) => {
+    setDateFromDraft(value);
+    if (value === "" || FULL_DATE_RE.test(value)) {
+      updateParam("dateFrom", value);
+    }
+  };
+
+  const onDateToChange = (value: string) => {
+    setDateToDraft(value);
+    if (value === "" || FULL_DATE_RE.test(value)) {
+      updateParam("dateTo", value);
+    }
   };
 
   const clearFilters = () => {
     setSearchParams({}, { replace: true });
     setCurrentPage(1);
+    setQueryDraft("");
+    setDateFromDraft("");
+    setDateToDraft("");
+    lastCommittedQueryRef.current = "";
   };
 
   const hasActiveFilters =
@@ -72,7 +156,11 @@ export const JobList: React.FC = () => {
 
   useEffect(() => {
     const fetchJobs = async () => {
-      setLoading(true);
+      if (!initialFetchDone.current) {
+        setLoading(true);
+      } else {
+        setListRefreshing(true);
+      }
       const filters: any = {
         search: searchTerm,
       };
@@ -98,6 +186,8 @@ export const JobList: React.FC = () => {
       setTotalItems(data.pagination.total);
       setTotalPages(data.pagination.pages);
       setLoading(false);
+      setListRefreshing(false);
+      initialFetchDone.current = true;
     };
     fetchJobs();
   }, [
@@ -131,7 +221,7 @@ export const JobList: React.FC = () => {
   }
 
   return (
-    <div className="space-y-10 animate-fade-in pb-20">
+    <div className={`space-y-10 animate-fade-in pb-20 relative ${listRefreshing ? "opacity-70 pointer-events-none" : ""}`}>
       <div className="relative overflow-hidden rounded-[3rem] p-12 md:p-16 shadow-2xl transition-all duration-300 bg-primary dark:bg-zinc-900 border border-white/10">
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-white/10 rounded-full -mr-40 -mt-40 blur-[120px] pointer-events-none"></div>
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-white/5 rounded-full -ml-20 -mb-20 blur-[100px] pointer-events-none"></div>
@@ -152,8 +242,8 @@ export const JobList: React.FC = () => {
                 type="text"
                 placeholder="Search tasks, skills, locations..."
                 className="w-full pl-14 pr-6 py-5 rounded-2xl bg-white/95 dark:bg-zinc-800 border-0 focus:ring-4 focus:ring-primary/30 outline-none shadow-2xl placeholder-zinc-400 dark:text-white font-bold transition-all text-lg"
-                value={searchTerm}
-                onChange={(e) => updateParam("q", e.target.value)}
+                value={queryDraft}
+                onChange={(e) => setQueryDraft(e.target.value)}
               />
             </div>
             <button
@@ -238,15 +328,17 @@ export const JobList: React.FC = () => {
                   <input
                     type="date"
                     className="flex-1 px-4 py-3 rounded-xl bg-white/90 dark:bg-zinc-900 border-0 focus:ring-2 focus:ring-[#812349] font-bold text-sm"
-                    value={dateFrom}
-                    onChange={(e) => updateParam("dateFrom", e.target.value)}
+                    value={dateFromDraft}
+                    onChange={(e) => onDateFromChange(e.target.value)}
+                    onBlur={commitDateFrom}
                     placeholder="From"
                   />
                   <input
                     type="date"
                     className="flex-1 px-4 py-3 rounded-xl bg-white/90 dark:bg-zinc-900 border-0 focus:ring-2 focus:ring-[#812349] font-bold text-sm"
-                    value={dateTo}
-                    onChange={(e) => updateParam("dateTo", e.target.value)}
+                    value={dateToDraft}
+                    onChange={(e) => onDateToChange(e.target.value)}
+                    onBlur={commitDateTo}
                     placeholder="To"
                   />
                 </div>
