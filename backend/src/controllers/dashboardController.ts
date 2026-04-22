@@ -56,6 +56,14 @@ export const getDashboardStats = async (req: any, res: Response) => {
       taskFilter = { status: TaskStatus.PUBLISHED };
     }
 
+    const nonExpiredTaskFilter = {
+      $or: [
+        { endDate: { $exists: false } },
+        { endDate: null },
+        { endDate: { $gte: new Date() } },
+      ],
+    };
+
     const [
       totalTasks,
       activeTasks,
@@ -66,7 +74,11 @@ export const getDashboardStats = async (req: any, res: Response) => {
     ] = await Promise.all([
       Task.countDocuments(taskFilter),
       Task.countDocuments({ ...taskFilter, status: TaskStatus.PUBLISHED }),
-      Task.countDocuments({ ...taskFilter, status: TaskStatus.PENDING }),
+      Task.countDocuments({
+        ...taskFilter,
+        status: TaskStatus.PENDING,
+        ...nonExpiredTaskFilter,
+      }),
       Task.countDocuments({ ...taskFilter, status: TaskStatus.COMPLETED }),
       Task.countDocuments({ ...taskFilter, status: TaskStatus.CLOSED }),
       Task.countDocuments({ createdBy: userId }),
@@ -120,7 +132,10 @@ export const getDashboardStats = async (req: any, res: Response) => {
     // ── Recent pending tasks needing approval (for managers) ──
     let recentPendingTasks: any[] = [];
     if (canViewPending) {
-      const filter: any = { status: TaskStatus.PENDING };
+      const filter: any = {
+        status: TaskStatus.PENDING,
+        ...nonExpiredTaskFilter,
+      };
       if (orgId) filter.organisation = orgId;
       recentPendingTasks = await Task.find(filter)
         .sort({ createdAt: -1 })
