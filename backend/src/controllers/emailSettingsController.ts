@@ -149,12 +149,12 @@ export const DEFAULT_TEMPLATES = [
   },
   {
     eventKey: "task_changes_requested",
-    label: "Task Changes Requested",
-    description: "Sent to task creator when changes are requested",
+    label: "Task Revise and Resubmit",
+    description: "Sent to task creator when revisions are requested",
     variables: ["{{creatorName}}", "{{taskTitle}}", "{{reason}}", "{{taskId}}"],
-    defaultSubject: '⚠️ Changes requested for your task "{{taskTitle}}"',
+    defaultSubject: '⚠️ Revise and resubmit your task "{{taskTitle}}"',
     defaultBodyText:
-      'Hi {{creatorName}},\n\nChanges have been requested for "{{taskTitle}}". Reason: {{reason}}',
+      'Hi {{creatorName}},\n\nPlease revise and resubmit "{{taskTitle}}". Guidance: {{reason}}',
   },
   {
     eventKey: "task_archived",

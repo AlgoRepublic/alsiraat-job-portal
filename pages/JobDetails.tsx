@@ -57,7 +57,7 @@ export const JobDetails: React.FC = () => {
   const [coverLetter, setCoverLetter] = useState("");
   const [availability, setAvailability] = useState("");
   const [agreed, setAgreed] = useState(false);
-  // Rejection Modal State
+  // Revise and Resubmit Modal State
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
 
@@ -376,7 +376,7 @@ export const JobDetails: React.FC = () => {
               job.rejectionReason && (
                 <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl animate-fade-in">
                   <h4 className="text-sm font-bold text-red-800 dark:text-red-300 flex items-center mb-1">
-                    <XCircle className="w-4 h-4 mr-2" /> Changes Requested
+                    <XCircle className="w-4 h-4 mr-2" /> Revise and Resubmit
                   </h4>
                   <p className="text-sm text-red-700 dark:text-red-400">
                     {job.rejectionReason}
@@ -429,7 +429,7 @@ export const JobDetails: React.FC = () => {
               onClick={() => handleManagerAction("decline")}
               className="px-4 py-2 bg-white dark:bg-zinc-900 text-amber-600 border border-zinc-200 dark:border-zinc-700 rounded-xl font-semibold hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors flex items-center"
             >
-              <XCircle className="w-4 h-4 mr-2" /> Reject
+              <XCircle className="w-4 h-4 mr-2" /> Revise and Resubmit
             </button>
             <button
               onClick={handleDecline}
@@ -853,21 +853,21 @@ export const JobDetails: React.FC = () => {
         </div>
       </div>
 
-      {/* Reject Modal */}
+      {/* Revise and Resubmit Modal */}
       {showRejectModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
           <div className="bg-white dark:bg-zinc-900 w-full max-w-md p-6 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 animate-scale-in">
             <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-4">
-              Reject Task
+              Revise and Resubmit
             </h3>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-              Please provide a reason for rejecting this task. This will be sent
-              to the advertiser.
+              Please provide guidance for revisions before resubmission. This
+              will be sent to the advertiser.
             </p>
             <textarea
               className="w-full p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl mb-4 focus:ring-2 focus:ring-red-500 focus:outline-none dark:text-white"
               rows={4}
-              placeholder="Reason for rejection..."
+              placeholder="Revision guidance..."
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
             />
@@ -883,7 +883,7 @@ export const JobDetails: React.FC = () => {
                 disabled={!rejectionReason.trim()}
                 className="px-4 py-2 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                Reject Task
+                Revise and Resubmit
               </button>
             </div>
           </div>

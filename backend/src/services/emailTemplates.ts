@@ -474,7 +474,7 @@ export const newTaskAnnouncementEmail = (
   };
 };
 
-// 15. Task Changes Requested (to task creator)
+// 15. Task Revise and Resubmit (to task creator)
 export const taskChangesRequestedEmail = (
   creatorName: string,
   taskTitle: string,
@@ -482,18 +482,18 @@ export const taskChangesRequestedEmail = (
   taskId: string,
   brand?: BrandConfig,
 ): EmailTemplate => ({
-  subject: `⚠️ Changes requested for your task "${taskTitle}"`,
+  subject: `⚠️ Revise and resubmit your task "${taskTitle}"`,
   html: wrap(`
-    <h2>⚠️ Changes Requested</h2>
+    <h2>⚠️ Revise and Resubmit</h2>
     <p>Hi <strong>${creatorName}</strong>,</p>
-    <p>The following task requires changes before it can be published:</p>
+    <p>The following task needs revisions before it can be published:</p>
     <div class="info-box">
-      <p><strong>Task:</strong> ${taskTitle}${reason ? `<br/><strong>Reason:</strong> ${reason}` : ""}</p>
+      <p><strong>Task:</strong> ${taskTitle}${reason ? `<br/><strong>Guidance:</strong> ${reason}` : ""}</p>
     </div>
     <p>Please update your task and resubmit it for approval.</p>
     <a href="${FRONTEND_URL}/jobs/${taskId}" class="cta">Edit Task</a>
   `, brand),
-  text: `Changes requested for "${taskTitle}".${reason ? ` Reason: ${reason}.` : ""} Edit: ${FRONTEND_URL}/jobs/${taskId}`,
+  text: `Please revise and resubmit "${taskTitle}".${reason ? ` Guidance: ${reason}.` : ""} Edit: ${FRONTEND_URL}/jobs/${taskId}`,
 });
 
 // 16. Task Archived (to task creator)

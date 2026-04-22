@@ -707,8 +707,8 @@ export const approveTask = async (req: any, res: Response) => {
       const creatorUser = await User.findById(task.createdBy).select("name");
       await notify({
         recipientId: task.createdBy.toString(),
-        title: "⚠️ Changes Requested",
-        message: `Changes have been requested for your task "${task.title}".${rejectionReason ? ` Reason: ${rejectionReason}` : ""}`,
+        title: "⚠️ Revise and Resubmit",
+        message: `Your task "${task.title}" needs revisions and resubmission.${rejectionReason ? ` Guidance: ${rejectionReason}` : ""}`,
         type: "warning",
         link: `/jobs/${task._id}`,
         emailTemplate: taskChangesRequestedEmail(
