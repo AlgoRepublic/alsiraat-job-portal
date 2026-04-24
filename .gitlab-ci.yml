@@ -249,7 +249,6 @@ deploy:
         export BE_OIDC_CLIENT_ID=$DEV_BE_OIDC_CLIENT_ID
         export BE_OIDC_CALLBACK_URL=$DEV_BE_OIDC_CALLBACK_URL
         export BE_FRONTEND_URL=$DEV_BE_FRONTEND_URL
-        export VERSION_BUMP_URL=$DEV_FE_VITE_API_URL/system/version/bump
         export VERSION_BUMP_TOKEN=$DEV_DEPLOY_VERSION_BUMP_TOKEN
       elif [ "$ENVIRONMENT" = "test" ]; then
         export UPLOADS_STORAGE_DIR=$TEST_UPLOADS_STORAGE_DIR
@@ -268,7 +267,6 @@ deploy:
         export BE_OIDC_CLIENT_ID=$TEST_BE_OIDC_CLIENT_ID
         export BE_OIDC_CALLBACK_URL=$TEST_BE_OIDC_CALLBACK_URL
         export BE_FRONTEND_URL=$TEST_BE_FRONTEND_URL
-        export VERSION_BUMP_URL=$TEST_FE_VITE_API_URL/system/version/bump
         export VERSION_BUMP_TOKEN=$TEST_DEPLOY_VERSION_BUMP_TOKEN
       elif [ "$ENVIRONMENT" = "prod" ]; then
         export UPLOADS_STORAGE_DIR=$PROD_UPLOADS_STORAGE_DIR
@@ -287,7 +285,6 @@ deploy:
         export BE_OIDC_CLIENT_ID=$PROD_BE_OIDC_CLIENT_ID
         export BE_OIDC_CALLBACK_URL=$PROD_BE_OIDC_CALLBACK_URL
         export BE_FRONTEND_URL=$PROD_BE_FRONTEND_URL
-        export VERSION_BUMP_URL=$PROD_FE_VITE_API_URL/system/version/bump
         export VERSION_BUMP_TOKEN=$PROD_DEPLOY_VERSION_BUMP_TOKEN
       fi
     - |
@@ -507,6 +504,5 @@ deploy:
       SSHEOF
     - echo "Bumping system version after successful deployment..."
     - |
-      curl --fail --retry 5 --retry-delay 3 --retry-all-errors \
-        -X POST "$VERSION_BUMP_URL" \
-        -H "x-deploy-token: $VERSION_BUMP_TOKEN"
+      ssh -p $VPS_PORT $VPS_USER@$VPS_HOST \
+        "curl --fail --retry 5 --retry-delay 3 --retry-all-errors -X POST 'http://127.0.0.1:$BACKEND_PORT/api/system/version/bump' -H 'x-deploy-token: $VERSION_BUMP_TOKEN'"
