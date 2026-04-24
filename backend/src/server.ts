@@ -17,6 +17,7 @@ import groupRoutes from "./routes/groupRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
 import emailSettingsRoutes from "./routes/emailSettingsRoutes.js";
 import aiSettingsRoutes from "./routes/aiSettingsRoutes.js";
+import systemRoutes from "./routes/systemRoutes.js";
 
 // Only load dotenv in development (Cloud Run provides env vars directly)
 if (process.env.NODE_ENV !== "production") {
@@ -71,6 +72,7 @@ app.use("/api/groups", groupRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/email-settings", emailSettingsRoutes);
 app.use("/api/ai", aiSettingsRoutes);
+app.use("/api/system", systemRoutes);
 
 // Serve uploaded files
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));

@@ -171,6 +171,7 @@ export const Layout: React.FC<LayoutProps> = ({
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showOrgSwitcher, setShowOrgSwitcher] = useState(false);
   const [switchingOrg, setSwitchingOrg] = useState<string | null>(null);
+  const [systemVersion, setSystemVersion] = useState("v1");
   const [selectedColor, setSelectedColor] = useState(() => {
     const stored = localStorage.getItem("accentColor");
     return stored || "AlSiraat";
@@ -218,6 +219,25 @@ export const Layout: React.FC<LayoutProps> = ({
       return () => clearInterval(interval);
     }
   }, [currentUser]);
+
+  // Public app version (shown in sidebar footer for everyone)
+  useEffect(() => {
+    let isMounted = true;
+    const loadSystemVersion = async () => {
+      try {
+        const response = await api.getSystemVersion();
+        if (isMounted && response?.version) {
+          setSystemVersion(response.version);
+        }
+      } catch (err) {
+        // Keep safe fallback value if version endpoint is temporarily unavailable
+      }
+    };
+    loadSystemVersion();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -754,6 +774,9 @@ export const Layout: React.FC<LayoutProps> = ({
                 Sign In
               </button>
             )}
+            <p className="mt-3 text-center text-[10px] text-zinc-400 dark:text-zinc-500">
+              {systemVersion}
+            </p>
           </div>
         </div>
       </aside>

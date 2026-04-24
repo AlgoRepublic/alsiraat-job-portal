@@ -119,6 +119,17 @@ class ApiService {
     return this.request<T>(endpoint, { method: "DELETE" });
   }
 
+  // --- System ---
+  public async getSystemVersion(): Promise<{
+    version: string;
+    versionNumber: number;
+  }> {
+    return this.request<{ version: string; versionNumber: number }>(
+      "/system/version",
+      { method: "GET" },
+    );
+  }
+
   // --- Auth ---
 
   async login(email: string, password: string): Promise<AuthResponse> {
