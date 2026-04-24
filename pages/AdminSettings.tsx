@@ -618,18 +618,24 @@ export const AdminSettings: React.FC = () => {
                         </span>
                       )}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleUpdateRole(editingRole)}
-                        className="p-2 bg-emerald-500 text-white rounded-xl"
+                        title="Save role changes"
+                        aria-label="Save role changes"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-bold transition-colors"
                       >
                         <Check className="w-4 h-4" />
+                        Save Role
                       </button>
                       <button
                         onClick={() => setEditingRole(null)}
-                        className="p-2 bg-zinc-200 dark:bg-zinc-700 rounded-xl"
+                        title="Cancel editing"
+                        aria-label="Cancel editing"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-700 dark:text-zinc-200 rounded-xl text-sm font-bold transition-colors"
                       >
                         <X className="w-4 h-4" />
+                        Cancel
                       </button>
                     </div>
                   </div>
@@ -685,7 +691,7 @@ export const AdminSettings: React.FC = () => {
                     <div className="flex gap-2">
                       <input
                         type="text"
-                        placeholder="Add ADFS role value"
+                        placeholder="Claim value (e.g. OrgAdmin)"
                         value={oidcMappingInput}
                         onChange={(e) => setOidcMappingInput(e.target.value)}
                         onKeyDown={(e) => {
@@ -728,11 +734,17 @@ export const AdminSettings: React.FC = () => {
                           }
                           setOidcMappingInput("");
                         }}
-                        className="px-4 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-sm font-bold transition-colors"
+                        title="Add mapping value"
+                        aria-label="Add mapping value"
+                        className="inline-flex items-center justify-center w-11 h-11 border border-blue-300 dark:border-blue-700 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/35 text-blue-700 dark:text-blue-300 rounded-xl transition-colors"
                       >
-                        Add
+                        <Plus className="w-5 h-5" />
                       </button>
                     </div>
+                    <p className="text-xs text-zinc-400">
+                      This button only adds a claim value. Use Save Role above to
+                      persist all role changes.
+                    </p>
                   </div>
 
                   {/* Permission Checkboxes */}
