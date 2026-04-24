@@ -31,6 +31,10 @@ COPY --from=build /app/dist ./dist
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/package.json ./
 
+# Version baked in at build time by CI (git tag or env-SHA). Fallback for local builds.
+ARG APP_VERSION=local
+ENV APP_VERSION=$APP_VERSION
+
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=8080

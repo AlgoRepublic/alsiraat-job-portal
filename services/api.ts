@@ -120,14 +120,10 @@ class ApiService {
   }
 
   // --- System ---
-  public async getSystemVersion(): Promise<{
-    version: string;
-    versionNumber: number;
-  }> {
-    return this.request<{ version: string; versionNumber: number }>(
-      "/system/version",
-      { method: "GET" },
-    );
+  public async getSystemVersion(): Promise<{ version: string }> {
+    return this.request<{ version: string }>("/system/version", {
+      method: "GET",
+    });
   }
 
   // --- Auth ---

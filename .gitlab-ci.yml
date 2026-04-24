@@ -37,7 +37,6 @@
 #   - DEV_BE_OIDC_CLIENT_ID: OIDC client ID (public client, no secret required)
 #   - DEV_BE_OIDC_CALLBACK_URL: OIDC callback URL (environment-specific)
 #   - DEV_BE_FRONTEND_URL: Frontend URL
-#   - DEV_DEPLOY_VERSION_BUMP_TOKEN: token for POST /api/system/version/bump (masked)
 #
 # TEST Environment (prefix: TEST_):
 #   (Same variables as DEV with TEST_ prefix)
@@ -136,9 +135,11 @@ build-backend:
   script:
     - echo "Building backend for $ENVIRONMENT environment..."
     - export IMAGE_NAME="tasker-backend-${ENVIRONMENT}"
+    - export APP_VERSION="${CI_COMMIT_TAG:-${ENVIRONMENT}-${CI_COMMIT_SHORT_SHA}}"
     - >
       docker build
       --no-cache
+      --build-arg APP_VERSION=$APP_VERSION
       -f backend/Dockerfile
       -t $IMAGE_NAME:latest
       ./backend
@@ -249,7 +250,6 @@ deploy:
         export BE_OIDC_CLIENT_ID=$DEV_BE_OIDC_CLIENT_ID
         export BE_OIDC_CALLBACK_URL=$DEV_BE_OIDC_CALLBACK_URL
         export BE_FRONTEND_URL=$DEV_BE_FRONTEND_URL
-        export VERSION_BUMP_TOKEN=$DEV_DEPLOY_VERSION_BUMP_TOKEN
       elif [ "$ENVIRONMENT" = "test" ]; then
         export UPLOADS_STORAGE_DIR=$TEST_UPLOADS_STORAGE_DIR
         export MONGODB_DATA_DIR=$TEST_MONGODB_DATA_DIR
@@ -267,7 +267,6 @@ deploy:
         export BE_OIDC_CLIENT_ID=$TEST_BE_OIDC_CLIENT_ID
         export BE_OIDC_CALLBACK_URL=$TEST_BE_OIDC_CALLBACK_URL
         export BE_FRONTEND_URL=$TEST_BE_FRONTEND_URL
-        export VERSION_BUMP_TOKEN=$TEST_DEPLOY_VERSION_BUMP_TOKEN
       elif [ "$ENVIRONMENT" = "prod" ]; then
         export UPLOADS_STORAGE_DIR=$PROD_UPLOADS_STORAGE_DIR
         export MONGODB_DATA_DIR=$PROD_MONGODB_DATA_DIR
@@ -285,7 +284,6 @@ deploy:
         export BE_OIDC_CLIENT_ID=$PROD_BE_OIDC_CLIENT_ID
         export BE_OIDC_CALLBACK_URL=$PROD_BE_OIDC_CALLBACK_URL
         export BE_FRONTEND_URL=$PROD_BE_FRONTEND_URL
-        export VERSION_BUMP_TOKEN=$PROD_DEPLOY_VERSION_BUMP_TOKEN
       fi
     - |
       ssh -p $VPS_PORT $VPS_USER@$VPS_HOST << SSHEOF
@@ -387,7 +385,6 @@ deploy:
           --network tasker-network-$ENVIRONMENT \
           -e MONGODB_URI='$BE_MONGODB_URI' \
           -e JWT_SECRET='$BE_JWT_SECRET' \
-          -e DEPLOY_VERSION_BUMP_TOKEN='$VERSION_BUMP_TOKEN' \
           -e GOOGLE_CLIENT_ID='$BE_GOOGLE_CLIENT_ID' \
           -e GOOGLE_CLIENT_SECRET='$BE_GOOGLE_CLIENT_SECRET' \
           -e GOOGLE_CALLBACK_URL='$BE_GOOGLE_CALLBACK_URL' \
@@ -450,7 +447,6 @@ deploy:
           --network tasker-network-$ENVIRONMENT \
           -e MONGODB_URI='$BE_MONGODB_URI' \
           -e JWT_SECRET='$BE_JWT_SECRET' \
-          -e DEPLOY_VERSION_BUMP_TOKEN='$VERSION_BUMP_TOKEN' \
           -e GOOGLE_CLIENT_ID='$BE_GOOGLE_CLIENT_ID' \
           -e GOOGLE_CLIENT_SECRET='$BE_GOOGLE_CLIENT_SECRET' \
           -e GOOGLE_CALLBACK_URL='$BE_GOOGLE_CALLBACK_URL' \
@@ -502,7 +498,3 @@ deploy:
         echo "============================================"
         docker ps --filter name=tasker-$ENVIRONMENT --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
       SSHEOF
-    - echo "Bumping system version after successful deployment..."
-    - |
-      ssh -p $VPS_PORT $VPS_USER@$VPS_HOST \
-        "curl --fail --retry 5 --retry-delay 3 --retry-all-errors -X POST 'http://127.0.0.1:$BACKEND_PORT/api/system/version/bump' -H 'x-deploy-token: $VERSION_BUMP_TOKEN'"
