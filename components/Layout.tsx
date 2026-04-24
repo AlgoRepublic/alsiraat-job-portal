@@ -725,6 +725,14 @@ export const Layout: React.FC<LayoutProps> = ({
           </nav>
 
           <div className="p-6 border-t border-white/20 dark:border-white/5">
+            <div className="mb-3 rounded-xl border border-zinc-200/70 dark:border-zinc-700/60 bg-white/60 dark:bg-zinc-900/30 px-3 py-2 text-center">
+              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
+                Version
+              </p>
+              <p className="mt-0.5 text-xs font-bold text-zinc-700 dark:text-zinc-200">
+                {systemVersion}
+              </p>
+            </div>
             {currentUser ? (
               <div
                 className="flex items-center p-3 rounded-2xl hover:bg-white/40 dark:hover:bg-white/5 transition-all group cursor-pointer border border-transparent hover:border-white/30 dark:hover:border-white/10"
@@ -774,9 +782,6 @@ export const Layout: React.FC<LayoutProps> = ({
                 Sign In
               </button>
             )}
-            <p className="mt-3 text-center text-[10px] text-zinc-400 dark:text-zinc-500">
-              {systemVersion}
-            </p>
           </div>
         </div>
       </aside>
