@@ -171,7 +171,8 @@ export const Layout: React.FC<LayoutProps> = ({
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showOrgSwitcher, setShowOrgSwitcher] = useState(false);
   const [switchingOrg, setSwitchingOrg] = useState<string | null>(null);
-  const [systemVersion, setSystemVersion] = useState("v1");
+  const [systemVersion, setSystemVersion] = useState<string | null>(null);
+  const [isVersionLoading, setIsVersionLoading] = useState(true);
   const [selectedColor, setSelectedColor] = useState(() => {
     const stored = localStorage.getItem("accentColor");
     return stored || "AlSiraat";
@@ -226,11 +227,15 @@ export const Layout: React.FC<LayoutProps> = ({
     const loadSystemVersion = async () => {
       try {
         const response = await api.getSystemVersion();
-        if (isMounted && response?.version) {
-          setSystemVersion(response.version);
+        if (isMounted) {
+          setSystemVersion(response?.version || "unknown");
+          setIsVersionLoading(false);
         }
       } catch (err) {
-        // Keep safe fallback value if version endpoint is temporarily unavailable
+        if (isMounted) {
+          setSystemVersion("unknown");
+          setIsVersionLoading(false);
+        }
       }
     };
     loadSystemVersion();
@@ -729,7 +734,9 @@ export const Layout: React.FC<LayoutProps> = ({
               <span className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-400 dark:text-zinc-500">
                 Version
               </span>
-              <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-300 font-mono">{systemVersion}</span>
+              <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-300 font-mono">
+                {isVersionLoading ? "..." : systemVersion}
+              </span>
             </div>
             {currentUser ? (
               <div
