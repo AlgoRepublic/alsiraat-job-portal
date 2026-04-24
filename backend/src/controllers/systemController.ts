@@ -43,7 +43,7 @@ export const bumpSystemVersion = async (req: Request, res: Response) => {
 
     const version = await SystemVersion.findOneAndUpdate(
       { key: GLOBAL_KEY },
-      { $inc: { versionNumber: 1 }, $setOnInsert: { versionNumber: 1 } },
+      { $inc: { versionNumber: 1 }, $setOnInsert: { key: GLOBAL_KEY } },
       { new: true, upsert: true },
     );
 
