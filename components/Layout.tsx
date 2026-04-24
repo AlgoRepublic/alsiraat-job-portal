@@ -725,13 +725,11 @@ export const Layout: React.FC<LayoutProps> = ({
           </nav>
 
           <div className="p-6 border-t border-white/20 dark:border-white/5">
-            <div className="mb-3 rounded-xl border border-zinc-200/70 dark:border-zinc-700/60 bg-white/60 dark:bg-zinc-900/30 px-3 py-2 text-center">
-              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
+            <div className="mb-3 flex items-center justify-center gap-1.5 rounded-lg border border-zinc-200/70 dark:border-zinc-700/60 bg-white/60 dark:bg-zinc-900/30 px-3 py-1.5">
+              <span className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-400 dark:text-zinc-500">
                 Version
-              </p>
-              <p className="mt-0.5 text-xs font-bold text-zinc-700 dark:text-zinc-200">
-                {systemVersion}
-              </p>
+              </span>
+              <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-300 font-mono">{systemVersion}</span>
             </div>
             {currentUser ? (
               <div
