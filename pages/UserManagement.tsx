@@ -449,15 +449,26 @@ export const UserManagement: React.FC = () => {
     const orgIds = (user.organisations ?? [])
       .map((o: any) => o._id ?? o.id ?? o)
       .filter(Boolean);
+    const systemOrgIds = new Set(
+      (user.organisations ?? [])
+        .filter((o: any) => (o?.name ?? "").trim().toLowerCase() === "system")
+        .map((o: any) => (o._id ?? o.id ?? o)?.toString())
+        .filter(Boolean),
+    );
     // Build roles aligned with orgIds: look up per-org role from organisationRoles array
     const orgRolesMap: Record<string, string> = {};
     (user.organisationRoles ?? []).forEach((or: any) => {
       const oid = (or.organisation?._id ?? or.organisation)?.toString();
       if (oid) orgRolesMap[oid] = or.roles?.[0] ?? "Applicant";
     });
-    const alignedRoles = orgIds.map(
-      (oid: string) => orgRolesMap[oid] ?? (user.roles?.[0] ?? "Applicant")
-    );
+    const alignedRoles = orgIds.map((oid: string) => {
+      const oidStr = oid.toString();
+      // "System" organisation represents the user's global/system role.
+      if (systemOrgIds.has(oidStr)) {
+        return user.roles?.[0] ?? orgRolesMap[oidStr] ?? "Applicant";
+      }
+      return orgRolesMap[oidStr] ?? (user.roles?.[0] ?? "Applicant");
+    });
     setEditForm({
       name: user.name || "",
       email: user.email || "",
@@ -489,7 +500,15 @@ export const UserManagement: React.FC = () => {
       const names = editForm.name.trim().split(" ");
       const firstName = names[0] || "New";
       const lastName = names.slice(1).join(" ") || "User";
-      const flatRoles = editForm.roles
+      const systemOrgIndex = editForm.organisationIds.findIndex((orgId) => {
+        const org = organisations.find((o: any) => (o._id ?? o.id) === orgId);
+        return (org?.name ?? "").trim().toLowerCase() === "system";
+      });
+      const flatRolesSource =
+        systemOrgIndex > -1
+          ? [editForm.roles[systemOrgIndex] ?? "Applicant"]
+          : editForm.roles;
+      const flatRoles = flatRolesSource
         .filter((r): r is string => typeof r === "string" && r.trim().length > 0)
         .filter((r, idx, arr) => arr.indexOf(r) === idx);
       const organisationRoles = editForm.organisationIds.map((orgId, idx) => ({
@@ -535,8 +554,16 @@ export const UserManagement: React.FC = () => {
         organisation: orgId,
         roles: [editForm.roles[idx] ?? "Applicant"],
       }));
-      // Derive flat roles array (unique) from org selections for backward compat
-      const flatRoles = editForm.roles
+      // Keep system/global role in sync with the "System" organisation selection.
+      const systemOrgIndex = editForm.organisationIds.findIndex((orgId) => {
+        const org = organisations.find((o: any) => (o._id ?? o.id) === orgId);
+        return (org?.name ?? "").trim().toLowerCase() === "system";
+      });
+      const flatRolesSource =
+        systemOrgIndex > -1
+          ? [editForm.roles[systemOrgIndex] ?? "Applicant"]
+          : editForm.roles;
+      const flatRoles = flatRolesSource
         .filter((r): r is string => typeof r === "string" && r.trim().length > 0)
         .filter((r, idx, arr) => arr.indexOf(r) === idx);
       await db.updateUser(editingUser._id, {
@@ -1231,13 +1258,19 @@ export const UserManagement: React.FC = () => {
                         key={orgId}
                         type="button"
                         onClick={() => {
+                          const currentIdx = editForm.organisationIds.indexOf(orgId);
+                          const nextOrganisationIds =
+                            currentIdx > -1
+                              ? editForm.organisationIds.filter((id) => id !== orgId)
+                              : [...editForm.organisationIds, orgId];
+                          const nextRoles =
+                            currentIdx > -1
+                              ? editForm.roles.filter((_, idx) => idx !== currentIdx)
+                              : [...editForm.roles, "Applicant"];
                           setEditForm({
                             ...editForm,
-                            organisationIds: isSelected
-                              ? editForm.organisationIds.filter(
-                                  (id) => id !== orgId,
-                                )
-                              : [...editForm.organisationIds, orgId],
+                            organisationIds: nextOrganisationIds,
+                            roles: nextRoles,
                           });
                         }}
                         className={`flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all ${
