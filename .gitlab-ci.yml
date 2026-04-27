@@ -8,10 +8,10 @@
 #   - test: Testing environment on Node 2  
 #   - prod: Production environment on Node 1
 #
-# Branch Strategy:
+# Branch & Tag Strategy:
 #   - dev branch → deploys to dev environment (Node 2)
 #   - test branch → deploys to test environment (Node 2)
-#   - master branch → deploys to prod environment (Node 1)
+#   - tag pipeline → deploys to prod environment (Node 1)
 #
 # Required CI/CD Variables per Environment:
 #
@@ -51,7 +51,7 @@
 #   - Backend connects to MongoDB using container name (e.g., tasker-mongodb-prod)
 #   - Frontend and Backend are exposed to host via port mappings
 
-# Workflow rules - run on dev, test, or master branches
+# Workflow rules - run on dev/test branches, or tags for prod
 workflow:
   rules:
     - if: $CI_COMMIT_BRANCH == "dev"
@@ -64,7 +64,7 @@ workflow:
         ENVIRONMENT: "test"
         FRONTEND_PORT: "7000"
         BACKEND_PORT: "7001"
-    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_COMMIT_TAG
       variables:
         ENVIRONMENT: "prod"
         FRONTEND_PORT: "6000"
