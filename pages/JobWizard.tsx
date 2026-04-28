@@ -830,14 +830,14 @@ export const JobWizard: React.FC = () => {
                       label: "External",
                       description: "Open to anyone",
                       icon: "🌐",
-                      disabled: true,
+                      disabled: false,
                     },
                     {
                       value: Visibility.GLOBAL,
                       label: "Global",
                       description: "Published globally",
                       icon: "✨",
-                      disabled: true,
+                      disabled: false,
                     },
                   ].map((opt) => {
                     const isSelected = formData.visibility === opt.value;
