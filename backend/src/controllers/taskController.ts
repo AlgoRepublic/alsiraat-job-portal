@@ -53,7 +53,7 @@ export const createTask = async (req: any, res: Response) => {
     // Only users with TASK_AUTO_PUBLISH permission can skip approval
     const { canAutoPublishAsync } = await import("../config/permissions.js");
     let isAutoPublish = false;
-    for (const role of req.user.roles) {
+    for (const role of req.orgRoles || []) {
       if (await canAutoPublishAsync(role)) {
         isAutoPublish = true;
         break;
@@ -101,7 +101,7 @@ export const createTask = async (req: any, res: Response) => {
     console.log("User Info:", {
       id: req.user._id,
       email: req.user.email,
-      roles: req.user.roles,
+      roles: req.orgRoles,
       organisation: req.orgId,
     });
 
@@ -172,7 +172,7 @@ export const updateTask = async (req: any, res: Response) => {
     }
 
     // Check permissions
-    const userRoles = req.user.roles as string[];
+    const userRoles = (req.orgRoles || []) as string[];
     const isGlobalAdmin = userRoles.some(
       (r) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
     );
@@ -618,7 +618,7 @@ export const approveTask = async (req: any, res: Response) => {
     if (!task) return res.status(404).json({ message: "Task not found" });
 
     // Ensure approver is from the same org (or is a global admin)
-    const userRoles = req.user.roles as string[];
+    const userRoles = (req.orgRoles || []) as string[];
     const isGlobalAdmin = userRoles.some(
       (r) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
     );
@@ -754,7 +754,7 @@ export const repostTask = async (req: any, res: Response) => {
 
     if (
       task.createdBy.toString() !== req.user._id.toString() &&
-      req.user.role !== UserRole.GLOBAL_ADMIN
+      !(req.orgRoles || []).includes(UserRole.GLOBAL_ADMIN)
     ) {
       return res
         .status(403)
@@ -781,7 +781,7 @@ export const repostTask = async (req: any, res: Response) => {
 
     const { canAutoPublishAsync } = await import("../config/permissions.js");
     let isAutoPublish = false;
-    for (const role of req.user.roles) {
+    for (const role of req.orgRoles || []) {
       if (await canAutoPublishAsync(role)) {
         isAutoPublish = true;
         break;

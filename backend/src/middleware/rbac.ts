@@ -10,15 +10,25 @@ const getOrgIdFromToken = (decoded: any): string | null => {
   return typeof orgId === "string" && orgId.trim() ? orgId : null;
 };
 
+const getAllUserRoles = (user: any): UserRole[] => {
+  const roles = (user.organisationRoles || []).flatMap(
+    (entry: any) => entry.roles || [],
+  ) as UserRole[];
+  return Array.from(new Set(roles));
+};
+
+const isGlobalAdminUser = (user: any): boolean => {
+  return getAllUserRoles(user).some(
+    (r: string) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
+  );
+};
+
 const resolveOrgRoles = (user: any, orgId: string): UserRole[] => {
   const entry = (user.organisationRoles || []).find(
     (item: any) => item.organisation?.toString() === orgId,
   );
   if (entry?.roles?.length) return entry.roles as UserRole[];
-  const isGlobalAdmin = (user.roles || []).some(
-    (r: string) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
-  );
-  return isGlobalAdmin ? (user.roles as UserRole[]) : [UserRole.APPLICANT];
+  return isGlobalAdminUser(user) ? getAllUserRoles(user) : [UserRole.APPLICANT];
 };
 
 // ============================================================================
@@ -44,14 +54,12 @@ export const authenticate = async (
     if (!user) return res.status(401).json({ message: "User not found" });
 
     const orgId = getOrgIdFromToken(decoded);
-    const isGlobalAdmin = (user.roles || []).some(
-      (r: string) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
-    );
+    const isGlobalAdmin = isGlobalAdminUser(user);
     req.user = user;
     if (!orgId) {
       // Allow auth without org context for non-org-scoped flows (e.g. initial /auth/me after SSO).
       req.orgId = null;
-      req.orgRoles = user.roles as UserRole[];
+      req.orgRoles = getAllUserRoles(user);
     } else {
       const isMember = (user.organisations || []).some(
         (o: any) => o.toString() === orgId,
@@ -116,7 +124,7 @@ export const requirePermission = (permission: Permission) => {
       return res.status(401).json({ message: "Authentication required" });
     }
 
-    const userRoles = (req.orgRoles || user.roles) as UserRole[];
+    const userRoles = (req.orgRoles || getAllUserRoles(user)) as UserRole[];
 
     // Use dynamic permission check from database
     const { hasPermissionMultiAsync } =
@@ -146,7 +154,7 @@ export const requireAnyPermission = (permissions: Permission[]) => {
       return res.status(401).json({ message: "Authentication required" });
     }
 
-    const userRoles = (req.orgRoles || user.roles) as UserRole[];
+    const userRoles = (req.orgRoles || getAllUserRoles(user)) as UserRole[];
 
     // Use dynamic permission check from database
     const { hasAnyPermissionMultiAsync } =
@@ -188,7 +196,7 @@ export const requirePermissionWithContext = (
       return res.status(401).json({ message: "Authentication required" });
     }
 
-    const userRoles = (req.orgRoles || user.roles) as UserRole[];
+    const userRoles = (req.orgRoles || getAllUserRoles(user)) as UserRole[];
 
     try {
       const context = await getContext(req);
@@ -237,7 +245,7 @@ export async function checkPermissionAsync(
     };
   }
 
-  const userRoles = ((user as any).orgRoles || user.roles) as UserRole[];
+  const userRoles = ((user as any).orgRoles || getAllUserRoles(user)) as UserRole[];
   const { hasPermissionMultiAsync, canWithContextMultiAsync } =
     await import("../config/permissions.js");
 
@@ -351,7 +359,7 @@ export const requireTaskApproval = async (
     // but the Permission.TASK_APPROVE check should have covered this if Admin has all permissions
     return res.status(403).json({
       message: "Insufficient permissions to approve this task",
-      roles: req.user.roles,
+      roles: req.orgRoles,
     });
   }
 
@@ -363,7 +371,7 @@ export const requireTaskApproval = async (
 
   if (
     task.visibility !== "Internal" &&
-    !req.user.roles?.some(
+    !req.orgRoles?.some(
       (r: string) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
     ) &&
     organisationId !== userOrganisationId

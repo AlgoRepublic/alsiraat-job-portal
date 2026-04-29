@@ -177,7 +177,7 @@ export const getEmailSettings = async (req: any, res: Response) => {
     if (!allowed) return res.status(403).json({ message: "Permission denied" });
 
     // Global admin can get global settings; org admin gets org-scoped
-    const isGlobalAdmin = req.user.roles?.some(
+    const isGlobalAdmin = req.orgRoles?.some(
       (r: string) => r.toLowerCase() === "global admin",
     );
 
@@ -214,7 +214,7 @@ export const saveEmailSettings = async (req: any, res: Response) => {
     );
     if (!allowed) return res.status(403).json({ message: "Permission denied" });
 
-    const isGlobalAdmin = req.user.roles?.some(
+    const isGlobalAdmin = req.orgRoles?.some(
       (r: string) => r.toLowerCase() === "global admin",
     );
     const orgId = isGlobalAdmin
@@ -303,7 +303,7 @@ export const testSmtpConnection = async (req: any, res: Response) => {
     );
     if (!allowed) return res.status(403).json({ message: "Permission denied" });
 
-    const isGlobalAdmin = req.user.roles?.some(
+    const isGlobalAdmin = req.orgRoles?.some(
       (r: string) => r.toLowerCase() === "global admin",
     );
     const orgId = isGlobalAdmin

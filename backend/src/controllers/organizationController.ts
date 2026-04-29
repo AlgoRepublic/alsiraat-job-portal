@@ -61,7 +61,6 @@ export const createOrganization = async (req: Request, res: Response) => {
     if (!alreadyMember) {
       owner.organisations = [...(owner.organisations ?? []), org._id as any];
     }
-    owner.roles = [UserRole.ORGANIZATION_ADMIN];
     owner.organisationRoles = [
       ...(owner.organisationRoles ?? []),
       { organisation: org._id as any, roles: [UserRole.ORGANIZATION_ADMIN] },
@@ -131,7 +130,6 @@ export const addMember = async (req: Request, res: Response) => {
       organization._id as any,
     ];
     if (role) {
-      user.roles = [role];
       const orgRoleIndex = (user.organisationRoles ?? []).findIndex(
         (o: any) => o.organisation.toString() === (organization._id as any).toString()
       );
@@ -236,7 +234,10 @@ export const inviteOrganisation = async (req: any, res: Response) => {
 
     // Check if the owner email is already registered
     const existingUser = await User.findOne({ email: ownerEmail });
-    if (existingUser && existingUser.roles && existingUser.roles.length > 0) {
+    const existingUserHasRoles = (existingUser?.organisationRoles ?? []).some(
+      (entry: any) => (entry.roles?.length ?? 0) > 0,
+    );
+    if (existingUser && existingUserHasRoles) {
       return res.status(400).json({
         message: "A user with this email already exists in the system",
       });
@@ -446,9 +447,7 @@ export const markOrganisationActive = async (req: Request | any, res: Response) 
           { organisation: org._id as any, roles: [UserRole.ORGANIZATION_ADMIN] }
         ];
       }
-      if (!ownerUser.roles?.includes(UserRole.ORGANIZATION_ADMIN)) {
-        ownerUser.roles = [UserRole.ORGANIZATION_ADMIN];
-      }
+      // org-scoped roles are persisted in organisationRoles only
       await ownerUser.save();
     } else {
       // No ownerUserId provided — just clear the owner field to reset to pending

@@ -35,11 +35,9 @@ export const buildApplicationQuery = async (
     // If user has full access, check if they can view this task's applications
     else if (hasFullAccess) {
       const task = await deps.TaskModel.findById(taskId);
-      const isGlobalAdmin =
-        user.roles?.some(
-          (r: string) =>
-            r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
-        ) || user.role === UserRole.GLOBAL_ADMIN;
+      const isGlobalAdmin = (user.orgRoles || []).some(
+        (r: string) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
+      );
       if (task && !isGlobalAdmin) {
         // Check if user is from the same org or is the task creator
         if (
@@ -54,10 +52,9 @@ export const buildApplicationQuery = async (
     }
   } else {
     // No specific task - filter based on permissions
-    const isGlobalAdmin =
-      user.roles?.some(
-        (r: string) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
-      ) || user.role === UserRole.GLOBAL_ADMIN;
+    const isGlobalAdmin = (user.orgRoles || []).some(
+      (r: string) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
+    );
     if (isGlobalAdmin) {
       // Admin sees all
       query = {};

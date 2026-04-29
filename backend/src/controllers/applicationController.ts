@@ -40,7 +40,7 @@ function applicationTaskPermissionContext(task: any): {
 
 /** Global Admin, task creator, or holder of task:complete (org-scoped via checkPermissionAsync). */
 async function canVerifyTaskCompletion(req: any, task: any): Promise<boolean> {
-  const isGlobalAdmin = req.user.roles?.includes(UserRole.GLOBAL_ADMIN);
+  const isGlobalAdmin = req.orgRoles?.includes(UserRole.GLOBAL_ADMIN);
   if (isGlobalAdmin) return true;
 
   const creatorId = taskCreatedById(task);
@@ -56,7 +56,7 @@ async function canVerifyTaskCompletion(req: any, task: any): Promise<boolean> {
 
 /** Post-completion rating: same cohort as offer/completion managers, plus task creator. */
 async function canSubmitApplicationReview(req: any, task: any): Promise<boolean> {
-  const isGlobalAdmin = req.user.roles?.includes(UserRole.GLOBAL_ADMIN);
+  const isGlobalAdmin = req.orgRoles?.includes(UserRole.GLOBAL_ADMIN);
   if (isGlobalAdmin) return true;
 
   const creatorId = taskCreatedById(task);
@@ -110,10 +110,10 @@ export const assignTask = async (req: any, res: Response) => {
     if (!targetUser) return res.status(404).json({ message: "User not found" });
 
     // Permission scope check
-    const isGlobalAdmin = req.user.roles?.some(
+    const isGlobalAdmin = req.orgRoles?.some(
       (r: string) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
     );
-    const isAdvertiser = req.user.roles?.some(
+    const isAdvertiser = req.orgRoles?.some(
       (r: string) =>
         r.toLowerCase() === UserRole.TASK_ADVERTISER.toLowerCase(),
     );
@@ -493,7 +493,7 @@ export const getApplicationById = async (req: any, res: Response) => {
       }
     }
 
-    const isGlobalAdmin = req.user.roles?.includes(UserRole.GLOBAL_ADMIN);
+    const isGlobalAdmin = req.orgRoles?.includes(UserRole.GLOBAL_ADMIN);
     if (hasFullAccess.allowed && !isGlobalAdmin) {
       const task: any = app.task;
       const isOrgMember = task.organisation?.toString() === req.orgId?.toString();

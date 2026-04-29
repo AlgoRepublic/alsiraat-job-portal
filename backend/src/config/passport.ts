@@ -81,8 +81,14 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
                 email,
                 googleId: profile.id,
                 avatar: profile.photos?.[0]?.value ?? "",
-                role: UserRole.APPLICANT,
                 ...(defaultOrg ? { organisations: [defaultOrg._id] } : {}),
+                ...(defaultOrg
+                  ? {
+                      organisationRoles: [
+                        { organisation: defaultOrg._id, roles: [UserRole.APPLICANT] },
+                      ],
+                    }
+                  : {}),
               });
             }
           } else if ((user.organisations?.length ?? 0) === 0 && defaultOrg) {
@@ -179,7 +185,21 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
 
                 // Update roles from ADFS if any mapped; otherwise preserve existing DB roles
                 if (mappedRoles.length > 0) {
-                  user.roles = mappedRoles;
+                  const targetOrgId =
+                    user.organisations?.[0] || (defaultOrg?._id as mongoose.Types.ObjectId | undefined);
+                  if (targetOrgId) {
+                    const orgRoleIndex = (user.organisationRoles ?? []).findIndex(
+                      (o: any) => o.organisation?.toString() === targetOrgId.toString(),
+                    );
+                    if (orgRoleIndex > -1 && user.organisationRoles) {
+                      (user.organisationRoles as any)[orgRoleIndex].roles = mappedRoles;
+                    } else {
+                      user.organisationRoles = [
+                        ...(user.organisationRoles ?? []),
+                        { organisation: targetOrgId, roles: mappedRoles },
+                      ] as any;
+                    }
+                  }
                   dirty = true;
                 }
 
@@ -194,7 +214,26 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                 const existingUser = await User.findOne({ email });
                 if (existingUser) {
                   existingUser.oidcId = profile.id;
-                  if (mappedRoles.length > 0) existingUser.roles = mappedRoles;
+                  if (mappedRoles.length > 0) {
+                    const targetOrgId =
+                      existingUser.organisations?.[0] ||
+                      (defaultOrg?._id as mongoose.Types.ObjectId | undefined);
+                    if (targetOrgId) {
+                      const orgRoleIndex = (existingUser.organisationRoles ?? []).findIndex(
+                        (o: any) =>
+                          o.organisation?.toString() === targetOrgId.toString(),
+                      );
+                      if (orgRoleIndex > -1 && existingUser.organisationRoles) {
+                        (existingUser.organisationRoles as any)[orgRoleIndex].roles =
+                          mappedRoles;
+                      } else {
+                        existingUser.organisationRoles = [
+                          ...(existingUser.organisationRoles ?? []),
+                          { organisation: targetOrgId, roles: mappedRoles },
+                        ] as any;
+                      }
+                    }
+                  }
                   if ((existingUser.organisations?.length ?? 0) === 0 && defaultOrg) {
                     existingUser.organisations = [defaultOrg._id as mongoose.Types.ObjectId];
                   }
@@ -210,8 +249,20 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                     name: decoded?.unique_name ? (decoded.unique_name as string) : "SSO User",
                     email,
                     oidcId: profile.id,
-                    roles: mappedRoles.length > 0 ? mappedRoles : [UserRole.APPLICANT],
                     ...(defaultOrg ? { organisations: [defaultOrg._id] } : {}),
+                    ...(defaultOrg
+                      ? {
+                          organisationRoles: [
+                            {
+                              organisation: defaultOrg._id,
+                              roles:
+                                mappedRoles.length > 0
+                                  ? mappedRoles
+                                  : [UserRole.APPLICANT],
+                            },
+                          ],
+                        }
+                      : {}),
                   });
                 }
               }

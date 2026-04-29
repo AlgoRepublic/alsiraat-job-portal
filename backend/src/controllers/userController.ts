@@ -97,7 +97,22 @@ export const updateUserRole = async (req: Request, res: Response) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     if (roles) {
-      user.roles = roles;
+      const currentOrgId =
+        (req as any).orgId || (user.organisations?.[0]?.toString?.() ?? null);
+      if (!currentOrgId) {
+        return res.status(400).json({ message: "No organisation context available" });
+      }
+      const orgRoleIndex = (user.organisationRoles ?? []).findIndex(
+        (o: any) => o.organisation.toString() === currentOrgId.toString(),
+      );
+      if (orgRoleIndex > -1 && user.organisationRoles) {
+        (user.organisationRoles as any)[orgRoleIndex].roles = roles;
+      } else {
+        user.organisationRoles = [
+          ...(user.organisationRoles ?? []),
+          { organisation: currentOrgId as any, roles },
+        ];
+      }
       await user.save();
     }
 
@@ -138,7 +153,6 @@ export const updateUser = async (req: Request, res: Response) => {
 
     if (name) user.name = name;
     if (roles) {
-      user.roles = roles;
       // Backward compat: when a caller only sends flat roles (+ optional single org),
       // keep existing behaviour by syncing the target org role entry.
       if (!Array.isArray(organisationRoles)) {

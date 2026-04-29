@@ -26,7 +26,10 @@ async function checkUserOrganizations() {
 
     for (const user of users) {
       console.log(`\n- ${user.name} (${user.email})`);
-      console.log(`  Role: ${user.role}`);
+      const roleList = (user.organisationRoles || [])
+        .flatMap((entry: any) => entry.roles || [])
+        .join(", ");
+      console.log(`  Roles: ${roleList || "None"}`);
       console.log(`  organisations:`, (user as any).organisations);
     }
 

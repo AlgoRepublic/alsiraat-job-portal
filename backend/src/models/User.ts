@@ -33,8 +33,6 @@ export interface IUser extends Document {
   password?: string;
   googleId?: string;
   oidcId?: string;
-  role?: string; // Legacy string role access
-  roles: UserRole[];
   // Multi-org: all orgs the user belongs to
   organisations: mongoose.Types.ObjectId[];
   // Multi-org roles: specific roles for each organisation
@@ -86,14 +84,9 @@ const UserSchema: Schema = new Schema(
     password: { type: String },
     googleId: { type: String },
     oidcId: { type: String },
-    role: { type: String }, // Legacy string role access
-    roles: [
-      {
-        type: String,
-        enum: Object.values(UserRole),
-        set: normalizeUserRole,
-      },
-    ],
+    // NOTE:
+    // We intentionally do not persist legacy global role fields (`role`, `roles`).
+    // Org-scoped roles are stored via `organisationRoles` below.
     // Multi-org: the list of orgs this user belongs to
     organisations: [{ type: Schema.Types.ObjectId, ref: "Organization" }],
     // Multi-org roles: roles specific to each organisation

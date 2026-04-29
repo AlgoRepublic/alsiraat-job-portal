@@ -2,7 +2,6 @@ import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import User, { UserRole } from "../models/User.js";
-import { normalizeUserRole } from "../models/UserRole.js";
 import Group from "../models/Group.js";
 import dotenv from "dotenv";
 import crypto from "crypto";
@@ -35,7 +34,13 @@ export const generateToken = (
     user.organisations?.[0]?.toString?.() ||
     user.organisations?.[0] ||
     null;
-  const roles = rolesOverride || user.roles;
+  const roles =
+    rolesOverride ||
+    Array.from(
+      new Set(
+        (user.organisationRoles || []).flatMap((entry: any) => entry.roles || []),
+      ),
+    );
   return jwt.sign(
     { id: user._id, roles, act_org: selectedOrgId },
     JWT_SECRET,
@@ -64,18 +69,38 @@ async function buildOrgPayload(user: any, selectedOrgId?: string | null) {
   };
 }
 
+async function ensureOrganisationMembership(user: any): Promise<void> {
+  const hasOrgs = Array.isArray(user.organisations) && user.organisations.length > 0;
+  if (hasOrgs) return;
+
+  const orgIdsFromRoles = (user.organisationRoles || [])
+    .map((entry: any) => entry?.organisation)
+    .filter(Boolean);
+
+  if (orgIdsFromRoles.length === 0) return;
+
+  const uniqueOrgIds = Array.from(new Set(orgIdsFromRoles.map((id: any) => id.toString())));
+  user.organisations = uniqueOrgIds as any;
+  await user.save();
+}
+
 function getOrgScopedRoles(user: any, selectedOrgId?: string | null): UserRole[] {
-  if (!selectedOrgId) return (user.roles || []) as UserRole[];
+  const allRoles = Array.from(
+    new Set(
+      (user.organisationRoles || []).flatMap((entry: any) => entry.roles || []),
+    ),
+  ) as UserRole[];
+  if (!selectedOrgId) return allRoles;
   const orgRoleEntry = (user.organisationRoles || []).find(
     (o: any) => o.organisation?.toString() === selectedOrgId.toString(),
   );
   if (orgRoleEntry?.roles?.length) {
     return orgRoleEntry.roles as UserRole[];
   }
-  const isGlobalAdmin = (user.roles || []).some(
+  const isGlobalAdmin = allRoles.some(
     (r: string) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
   );
-  return isGlobalAdmin ? (user.roles as UserRole[]) : [UserRole.APPLICANT];
+  return isGlobalAdmin ? allRoles : [UserRole.APPLICANT];
 }
 
 /**
@@ -119,7 +144,6 @@ export const sendOtp = async (req: Request, res: Response) => {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email,
-        roles: [],
         otpToken: hashedOtp,
         otpExpires: expires,
       });
@@ -182,7 +206,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
     if (contactNumber) user.contactNumber = contactNumber;
 
     // Default roles (will be overridden by invitation if present)
-    user.roles = [UserRole.APPLICANT];
+    const fallbackRoles: UserRole[] = [UserRole.APPLICANT];
 
     // Handle invitation if present
     if (invitationToken) {
@@ -205,10 +229,10 @@ export const verifyOtp = async (req: Request, res: Response) => {
         }
         // Use the role from invitation if specified, otherwise keep Applicant default
         const assignedRole = (invitation.role as UserRole) || UserRole.APPLICANT;
-        user.roles = [assignedRole];
+        const invitationRoles: UserRole[] = [assignedRole];
         user.organisationRoles = [
           ...(user.organisationRoles ?? []),
-          { organisation: orgId, roles: [assignedRole] }
+          { organisation: orgId, roles: invitationRoles }
         ];
         invitation.status = "Accepted";
         await invitation.save();
@@ -300,7 +324,6 @@ export const signup = async (req: Request, res: Response) => {
       lastName: lastName.trim(),
       email,
       password: hashedPassword,
-      roles: roles || [UserRole.APPLICANT],
       ...(contactNumber ? { contactNumber } : {}),
     });
 
@@ -428,17 +451,11 @@ export const getMe = async (req: Request, res: Response) => {
     const user: any = (req as any).user;
     if (!user) return res.status(401).json({ message: "Not authenticated" });
 
-    const selectedOrgId = (req as any).orgId || null;
-    const permissions: string[] = [];
-    let rolesArray = getOrgScopedRoles(user, selectedOrgId);
+    await ensureOrganisationMembership(user);
 
-    if ((!rolesArray || rolesArray.length === 0) && user.role) {
-      rolesArray = [normalizeUserRole(user.role)];
-      user.roles = rolesArray;
-      try {
-        await user.save();
-      } catch (e) {}
-    }
+    const selectedOrgId = (req as any).orgId || user.organisations?.[0]?.toString?.() || null;
+    const permissions: string[] = [];
+    const rolesArray = getOrgScopedRoles(user, selectedOrgId);
 
     for (const p of Object.values(Permission)) {
       for (const r of rolesArray) {
@@ -489,15 +506,7 @@ export const impersonate = async (req: Request, res: Response) => {
     const selectedOrgId = user.organisations?.[0]?.toString?.() ?? null;
     // Get current permissions for the roles
     const permissions: string[] = [];
-    let rolesArray = getOrgScopedRoles(user, selectedOrgId);
-
-    if ((!rolesArray || rolesArray.length === 0) && user.role) {
-      rolesArray = [normalizeUserRole(user.role)];
-      user.roles = rolesArray;
-      try {
-        await user.save();
-      } catch (e) {}
-    }
+    const rolesArray = getOrgScopedRoles(user, selectedOrgId);
 
     for (const p of Object.values(Permission)) {
       for (const r of rolesArray) {
@@ -845,7 +854,7 @@ export const inviteUser = async (req: any, res: Response) => {
     if (!email) return res.status(400).json({ message: "Email is required" });
 
     // Validate permission
-    const isGlobalAdmin = req.user.roles.includes(UserRole.GLOBAL_ADMIN);
+    const isGlobalAdmin = (req.orgRoles || []).includes(UserRole.GLOBAL_ADMIN);
     const targetOrgId = organisationId || req.orgId;
 
     if (!targetOrgId) {
@@ -964,7 +973,7 @@ export const switchOrganisation = async (req: Request, res: Response) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     // Global Admins can switch to any org
-    const isGlobalAdmin = (user.roles ?? []).some(
+    const isGlobalAdmin = ((req as any).orgRoles ?? getOrgScopedRoles(user, null)).some(
       (r: any) => r.toLowerCase() === "global admin",
     );
 
@@ -990,9 +999,7 @@ export const switchOrganisation = async (req: Request, res: Response) => {
       (o) => o.organisation.toString() === organisationId.toString()
     );
     if (orgRoleEntry && orgRoleEntry.roles && orgRoleEntry.roles.length > 0) {
-      user.roles = orgRoleEntry.roles;
-    } else if (!isGlobalAdmin) {
-      user.roles = [UserRole.APPLICANT];
+      // no-op; org-scoped roles resolved below
     }
 
     const permissions: string[] = [];

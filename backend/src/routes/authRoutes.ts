@@ -23,7 +23,6 @@ import { authenticate, requirePermission } from "../middleware/rbac.js";
 import { upload } from "../middleware/upload.js";
 import { hasPermissionAsync, Permission } from "../config/permissions.js";
 import { UserRole } from "../models/User.js";
-import { normalizeUserRole } from "../models/UserRole.js";
 import Group from "../models/Group.js";
 import "../config/passport.js";
 
@@ -52,7 +51,9 @@ router.post("/login", (req, res, next) => {
       // Get current permissions for the roles
       (async () => {
         const permissions: string[] = [];
-        let rolesArray = user.roles as UserRole[];
+        let rolesArray = (user.organisationRoles || [])
+          .flatMap((entry: any) => entry.roles || []) as UserRole[];
+        rolesArray = Array.from(new Set(rolesArray));
 
         if (selectedOrgId) {
           const orgRoleEntry = (user.organisationRoles ?? []).find(
@@ -61,7 +62,7 @@ router.post("/login", (req, res, next) => {
           if (orgRoleEntry?.roles?.length) {
             rolesArray = orgRoleEntry.roles as UserRole[];
           } else {
-            const isGlobalAdmin = (user.roles ?? []).some(
+            const isGlobalAdmin = rolesArray.some(
               (r: string) =>
                 r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
             );
@@ -71,13 +72,9 @@ router.post("/login", (req, res, next) => {
           }
         }
 
-        // Legacy role migration fallback on login
-        if ((!rolesArray || rolesArray.length === 0) && user.role) {
-          rolesArray = [normalizeUserRole(user.role)];
-          user.roles = rolesArray;
-          try {
-            await user.save();
-          } catch (e) {}
+        // Final fallback when user has no mapped role for selected org
+        if (!rolesArray || rolesArray.length === 0) {
+          rolesArray = [UserRole.APPLICANT];
         }
 
         for (const p of Object.values(Permission)) {
