@@ -13,6 +13,19 @@ import jwt from "jsonwebtoken";
 import { extractRoles, mapAdfsRolesToUserRoles, extractGroups, mapAdfsGroupsToGroupIds } from "./adfsClaims.js";
 import Group from "../models/Group.js";
 
+const buildDefaultOrgQuery = () => {
+  const envName = process.env.OIDC_DEFAULT_ORG?.trim();
+  if (envName) {
+    return { name: envName };
+  }
+  return {
+    $or: [
+      { name: { $regex: /al[-\s]?siraat\s+college/i } },
+      { slug: { $regex: /al[-\s]?siraat[-\s]?college/i } },
+    ],
+  };
+};
+
 // Local Strategy
 passport.use(
   new LocalStrategy(
@@ -58,9 +71,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           if (!email) {
             return done(new Error("No email found in Google profile"));
           }
-          const defaultOrg = await Organization.findOne({
-            name: process.env.OIDC_DEFAULT_ORG ?? "Al Siraat College",
-          })
+          const defaultOrg = await Organization.findOne(buildDefaultOrgQuery())
             .select("_id")
             .lean();
 
@@ -157,9 +168,7 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
               const [dbRoles, dbGroups, defaultOrg] = await Promise.all([
                 Role.find({ isActive: true }).select("name oidcMapping").lean(),
                 Group.find({ isActive: true }).select("name oidcMapping").lean(),
-                Organization.findOne({
-                  name: process.env.OIDC_DEFAULT_ORG ?? "Al Siraat College",
-                }).select("_id").lean(),
+                Organization.findOne(buildDefaultOrgQuery()).select("_id").lean(),
               ]);
               const mappedRoles = mapAdfsRolesToUserRoles(adfsRoles, dbRoles);
               const mappedGroupIds = mapAdfsGroupsToGroupIds(adfsGroups, dbGroups as Array<{ _id: unknown; name: string; oidcMapping?: string[] }>);
