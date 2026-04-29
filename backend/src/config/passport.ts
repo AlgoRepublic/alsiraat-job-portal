@@ -172,8 +172,8 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                 }
 
                 // Assign default org if not already set
-                if (!user.organisation && defaultOrg) {
-                  user.organisation = defaultOrg._id as mongoose.Types.ObjectId;
+                if ((user.organisations?.length ?? 0) === 0 && defaultOrg) {
+                  user.organisations = [defaultOrg._id as mongoose.Types.ObjectId];
                   dirty = true;
                 }
 
@@ -183,8 +183,8 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                 if (existingUser) {
                   existingUser.oidcId = profile.id;
                   if (mappedRoles.length > 0) existingUser.roles = mappedRoles;
-                  if (!existingUser.organisation && defaultOrg) {
-                    existingUser.organisation = defaultOrg._id as mongoose.Types.ObjectId;
+                  if ((existingUser.organisations?.length ?? 0) === 0 && defaultOrg) {
+                    existingUser.organisations = [defaultOrg._id as mongoose.Types.ObjectId];
                   }
                   await existingUser.save();
                   user = existingUser;
@@ -199,7 +199,7 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                     email,
                     oidcId: profile.id,
                     roles: mappedRoles.length > 0 ? mappedRoles : [UserRole.APPLICANT],
-                    ...(defaultOrg ? { organisation: defaultOrg._id } : {}),
+                    ...(defaultOrg ? { organisations: [defaultOrg._id] } : {}),
                   });
                 }
               }

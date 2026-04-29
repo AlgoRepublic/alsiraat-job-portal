@@ -130,7 +130,7 @@ export const assignTask = async (req: any, res: Response) => {
     } else if (!isGlobalAdmin) {
       // Task Managers / Organisation Admins: must be same org
       const taskOrg = task.organisation?.toString();
-      const userOrg = req.user.organisation?.toString();
+      const userOrg = req.orgId?.toString();
       if (taskOrg && userOrg && taskOrg !== userOrg) {
         return res.status(403).json({
           message: "You can only assign tasks within your organisation",
@@ -496,8 +496,7 @@ export const getApplicationById = async (req: any, res: Response) => {
     const isGlobalAdmin = req.user.roles?.includes(UserRole.GLOBAL_ADMIN);
     if (hasFullAccess.allowed && !isGlobalAdmin) {
       const task: any = app.task;
-      const isOrgMember =
-        task.organisation?.toString() === req.user.organisation?.toString();
+      const isOrgMember = task.organisation?.toString() === req.orgId?.toString();
       const isTaskCreator =
         task.createdBy?.toString() === req.user._id.toString();
       if (!isOrgMember && !isTaskCreator) {

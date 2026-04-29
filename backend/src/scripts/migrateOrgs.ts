@@ -3,7 +3,6 @@
  *
  * Before: user.organisation = ObjectId (single)
  * After:  user.organisations = [ObjectId, ...]
- *         user.activeOrganisation = ObjectId
  *
  * Run with:
  *   npx ts-node --esm src/scripts/migrateOrgs.ts
@@ -50,24 +49,9 @@ async function migrate() {
       { _id: user._id },
       {
         $set: {
-          activeOrganisation: orgId,
           organisations: [orgId],
         },
       },
-    );
-    migrated++;
-  }
-
-  // Also handle users that already have `organisations[]` but no `activeOrganisation`
-  const cursor2 = users.find({
-    organisations: { $exists: true, $not: { $size: 0 } },
-    activeOrganisation: { $exists: false },
-  });
-
-  for await (const user of cursor2) {
-    await users.updateOne(
-      { _id: user._id },
-      { $set: { activeOrganisation: user.organisations[0] } },
     );
     migrated++;
   }

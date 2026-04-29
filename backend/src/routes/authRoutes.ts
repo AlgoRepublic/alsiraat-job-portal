@@ -47,7 +47,8 @@ router.post("/login", (req, res, next) => {
           .json({ message: info?.message || "Invalid email or password" });
       }
 
-      const token = generateToken(user);
+      const selectedOrgId = user.organisations?.[0]?.toString?.() ?? null;
+      const token = generateToken(user, selectedOrgId);
 
       // Get current permissions for the roles
       (async () => {
@@ -79,8 +80,11 @@ router.post("/login", (req, res, next) => {
         const _groupIds = groups.map((g: any) => g._id.toString());
 
 
-        await user.populate("activeOrganisation", "name logo");
         await user.populate("organisations", "name logo");
+        const activeOrg =
+          (user.organisations ?? []).find(
+            (o: any) => o._id?.toString() === selectedOrgId,
+          ) ?? null;
 
         res.json({
           token,
@@ -98,8 +102,8 @@ router.post("/login", (req, res, next) => {
             gender: user.gender,
             resumeUrl: user.resumeUrl,
             resumeOriginalName: user.resumeOriginalName,
-            organisation: user.activeOrganisation ?? null,
-            activeOrganisation: user.activeOrganisation ?? null,
+            organisation: activeOrg,
+            activeOrganisation: activeOrg,
             organisations: (user.organisations ?? []).map((o: any) => ({
               _id: o._id,
               name: o.name,

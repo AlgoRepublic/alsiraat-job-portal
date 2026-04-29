@@ -39,10 +39,6 @@ export interface IUser extends Document {
   organisations: mongoose.Types.ObjectId[];
   // Multi-org roles: specific roles for each organisation
   organisationRoles: IOrganisationRole[];
-  // The currently active/selected organisation
-  activeOrganisation?: mongoose.Types.ObjectId;
-  // Virtual backward-compat alias → activeOrganisation
-  organisation?: mongoose.Types.ObjectId;
   avatar?: string;
   about?: string;
   contactNumber?: string;
@@ -113,8 +109,6 @@ const UserSchema: Schema = new Schema(
         ],
       },
     ],
-    // The currently active/selected org (used for data isolation)
-    activeOrganisation: { type: Schema.Types.ObjectId, ref: "Organization" },
     avatar: { type: String },
     about: { type: String },
     contactNumber: { type: String },
@@ -134,10 +128,5 @@ const UserSchema: Schema = new Schema(
   },
   { timestamps: true },
 );
-
-// Virtual backward-compat alias: user.organisation → user.activeOrganisation
-UserSchema.virtual("organisation").get(function (this: any) {
-  return this.activeOrganisation;
-});
 
 export default mongoose.model<IUser>("User", UserSchema);

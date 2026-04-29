@@ -33,8 +33,8 @@ export const getUsers = async (req: Request, res: Response) => {
       (r: string) => r.toLowerCase() === "global admin",
     );
     if (!isGlobalAdmin) {
-      if (caller?.activeOrganisation) {
-        query.organisations = caller.activeOrganisation;
+      if ((req as any).orgId) {
+        query.organisations = (req as any).orgId;
       } else {
         // Non-admin with no active org → can only see themselves
         query._id = caller?._id;
@@ -54,7 +54,6 @@ export const getUsers = async (req: Request, res: Response) => {
 
     const [users, total] = await Promise.all([
       User.find(query)
-        .populate("activeOrganisation", "name logo")
         .populate("organisations", "name logo")
         .select("-password")
         .sort({ createdAt: -1 })
@@ -80,7 +79,6 @@ export const getUsers = async (req: Request, res: Response) => {
 export const getUserById = async (req: Request, res: Response) => {
   try {
     const user = await User.findById(req.params.id)
-      .populate("activeOrganisation", "name logo")
       .populate("organisations", "name logo")
       .select("-password");
 
@@ -144,7 +142,7 @@ export const updateUser = async (req: Request, res: Response) => {
       // Backward compat: when a caller only sends flat roles (+ optional single org),
       // keep existing behaviour by syncing the target org role entry.
       if (!Array.isArray(organisationRoles)) {
-        const targetOrg = organisation || user.activeOrganisation;
+        const targetOrg = organisation || (user.organisations?.[0] as any);
         if (targetOrg) {
           const orgRoleIndex = (user.organisationRoles ?? []).findIndex(
             (o: any) => o.organisation.toString() === targetOrg.toString()
@@ -213,17 +211,6 @@ export const updateUser = async (req: Request, res: Response) => {
             newOrgIds.includes(or.organisation.toString()),
           ) as any;
         }
-        // Keep activeOrganisation valid: if current active isn't in the new list, pick first
-        const activeId = user.activeOrganisation?.toString();
-        const isStillMember = organisations.some(
-          (o: string) => o.toString() === activeId,
-        );
-        if (!isStillMember && organisations.length > 0) {
-          user.activeOrganisation = organisations[0] as any;
-        } else if (organisations.length === 0) {
-          user.activeOrganisation = undefined as any;
-        }
-
         await user.save();
 
         // Sync "All Members" groups for newly added / removed orgs
@@ -245,7 +232,6 @@ export const updateUser = async (req: Request, res: Response) => {
       if (organisation === null) {
         // Remove from all current org "All Members" groups
         const oldOrgIds = (user.organisations ?? []).map((o: any) => o.toString());
-        user.activeOrganisation = undefined as any;
         user.organisations = [];
         await user.save();
         for (const orgId of oldOrgIds) {
@@ -272,14 +258,12 @@ export const updateUser = async (req: Request, res: Response) => {
         } else {
           await user.save();
         }
-        user.activeOrganisation = organisation;
       }
     } else {
       await user.save();
     }
 
     const updated = await User.findById(user._id)
-      .populate("activeOrganisation", "name logo")
       .populate("organisations", "name logo")
       .select("-password");
 
@@ -532,7 +516,7 @@ export const importUsers = async (req: Request, res: Response) => {
             ...(row.year_level && { yearLevel: row.year_level }),
           };
           if (organisationId) {
-            userObj.organisation = organisationId;
+            userObj.organisations = [organisationId];
             userObj.organisationRoles = [{ organisation: organisationId, roles: rolesArray }];
           }
           user = new User(userObj);
@@ -545,11 +529,11 @@ export const importUsers = async (req: Request, res: Response) => {
           // Only assign organisation if:
           //   (a) user doesn't have one, OR
           //   (b) user is NOT an OIDC/SAML user (oidcId not set)
-          const userHasOrg = !!user.organisation;
+          const userHasOrg = (user.organisations?.length ?? 0) > 0;
           const userIsSAML = !!user.oidcId;
 
           if (organisationId && !userHasOrg && !userIsSAML) {
-            user.organisation = organisationId as any;
+            user.organisations = [...(user.organisations ?? []), organisationId as any];
             dirty = true;
           }
 

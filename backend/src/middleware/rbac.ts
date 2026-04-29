@@ -5,6 +5,22 @@ import { Permission, PermissionContext } from "../config/permissions.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_here";
 
+const getOrgIdFromToken = (decoded: any): string | null => {
+  const orgId = decoded?.act_org;
+  return typeof orgId === "string" && orgId.trim() ? orgId : null;
+};
+
+const resolveOrgRoles = (user: any, orgId: string): UserRole[] => {
+  const entry = (user.organisationRoles || []).find(
+    (item: any) => item.organisation?.toString() === orgId,
+  );
+  if (entry?.roles?.length) return entry.roles as UserRole[];
+  const isGlobalAdmin = (user.roles || []).some(
+    (r: string) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
+  );
+  return isGlobalAdmin ? (user.roles as UserRole[]) : [UserRole.APPLICANT];
+};
+
 // ============================================================================
 // AUTHENTICATION MIDDLEWARE
 // ============================================================================
@@ -27,7 +43,25 @@ export const authenticate = async (
 
     if (!user) return res.status(401).json({ message: "User not found" });
 
+    const orgId = getOrgIdFromToken(decoded);
+    const isGlobalAdmin = (user.roles || []).some(
+      (r: string) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
+    );
+    if (!orgId) {
+      return res.status(401).json({ message: "Token missing organisation context" });
+    }
+    const isMember = (user.organisations || []).some(
+      (o: any) => o.toString() === orgId,
+    );
+    if (!isGlobalAdmin && !isMember) {
+      return res.status(403).json({ message: "Invalid organisation context" });
+    }
+
     req.user = user;
+    req.orgId = orgId;
+    req.orgRoles = resolveOrgRoles(user, orgId);
+    (req.user as any).orgId = req.orgId;
+    (req.user as any).orgRoles = req.orgRoles;
     next();
   } catch (err) {
     res.status(401).json({ message: "Token is not valid" });
@@ -51,6 +85,13 @@ export const optionalAuthenticate = async (
 
     if (user) {
       req.user = user;
+      const orgId = getOrgIdFromToken(decoded);
+      if (orgId) {
+        req.orgId = orgId;
+        req.orgRoles = resolveOrgRoles(user, orgId);
+        (req.user as any).orgId = req.orgId;
+        (req.user as any).orgRoles = req.orgRoles;
+      }
     }
     next();
   } catch (err) {
@@ -73,7 +114,7 @@ export const requirePermission = (permission: Permission) => {
       return res.status(401).json({ message: "Authentication required" });
     }
 
-    const userRoles = user.roles as UserRole[];
+    const userRoles = (req.orgRoles || user.roles) as UserRole[];
 
     // Use dynamic permission check from database
     const { hasPermissionMultiAsync } =
@@ -103,7 +144,7 @@ export const requireAnyPermission = (permissions: Permission[]) => {
       return res.status(401).json({ message: "Authentication required" });
     }
 
-    const userRoles = user.roles as UserRole[];
+    const userRoles = (req.orgRoles || user.roles) as UserRole[];
 
     // Use dynamic permission check from database
     const { hasAnyPermissionMultiAsync } =
@@ -145,12 +186,12 @@ export const requirePermissionWithContext = (
       return res.status(401).json({ message: "Authentication required" });
     }
 
-    const userRoles = user.roles as UserRole[];
+    const userRoles = (req.orgRoles || user.roles) as UserRole[];
 
     try {
       const context = await getContext(req);
       context.userId = user._id.toString();
-      context.userOrganizationId = user.organisation?.toString();
+      context.userOrganizationId = req.orgId || null;
 
       // Use dynamic permission check from database
       const { canWithContextMultiAsync } =
@@ -194,13 +235,13 @@ export async function checkPermissionAsync(
     };
   }
 
-  const userRoles = user.roles as UserRole[];
+  const userRoles = ((user as any).orgRoles || user.roles) as UserRole[];
   const { hasPermissionMultiAsync, canWithContextMultiAsync } =
     await import("../config/permissions.js");
 
   if (context) {
     context.userId = user._id.toString();
-    context.userOrganizationId = user.organisation?.toString();
+    context.userOrganizationId = (user as any).orgId || null;
 
     const hasAccess = await canWithContextMultiAsync(
       userRoles,
@@ -292,7 +333,7 @@ export const requireTaskApproval = async (
   // Use dynamic permission check with context
   const context: any = {
     organizationId: task.organisation?.toString() || null,
-    userOrganizationId: req.user.organisation?.toString() || null,
+    userOrganizationId: req.orgId || null,
     taskCreatorId: task.createdBy?.toString() || null,
     userId: req.user._id.toString(),
   };
@@ -316,7 +357,7 @@ export const requireTaskApproval = async (
   // but if it's Global Visibility, we need to ensure they have the permission to approve Global tasks
   // Let's add that specific check if visibility is Global
   const organisationId = task.organisation?.toString();
-  const userOrganisationId = req.user.organisation?.toString();
+  const userOrganisationId = req.orgId || null;
 
   if (
     task.visibility !== "Internal" &&

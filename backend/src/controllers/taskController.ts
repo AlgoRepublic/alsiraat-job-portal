@@ -102,17 +102,17 @@ export const createTask = async (req: any, res: Response) => {
       id: req.user._id,
       email: req.user.email,
       roles: req.user.roles,
-      organisation: req.user.organisation,
+      organisation: req.orgId,
     });
 
     // Validate that user has an organisation (required for all tasks)
-    if (!req.user.organisation) {
+    if (!req.orgId) {
       console.error("❌ User has no organisation - cannot create task");
       return res.status(400).json({
         message: "Users must belong to an organisation to create tasks",
       });
     }
-    taskData.organisation = req.user.organisation;
+    taskData.organisation = req.orgId;
 
     // Only add dates if provided
     if (startDate) taskData.startDate = new Date(startDate);
@@ -254,7 +254,8 @@ export const updateTask = async (req: any, res: Response) => {
 export const getTasks = async (req: any, res: Response) => {
   try {
     const user = req.user;
-    const { roles, organisation, _id: userId } = user || {};
+    const { roles, _id: userId } = user || {};
+    const organisation = req.orgId;
     const hasGlobalAdminRole = roles?.some(
       (r: string) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
     );
@@ -625,8 +626,8 @@ export const approveTask = async (req: any, res: Response) => {
     if (!isGlobalAdmin) {
       // For non-global-admins, check organization match
       const taskOrgId = task.organisation ? String(task.organisation) : null;
-      const userOrgId = req.user.organisation
-        ? String(req.user.organisation)
+      const userOrgId = req.orgId
+        ? String(req.orgId)
         : null;
 
       if (!taskOrgId || !userOrgId || taskOrgId !== userOrgId) {

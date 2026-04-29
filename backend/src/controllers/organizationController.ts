@@ -61,7 +61,6 @@ export const createOrganization = async (req: Request, res: Response) => {
     if (!alreadyMember) {
       owner.organisations = [...(owner.organisations ?? []), org._id as any];
     }
-    owner.activeOrganisation = org._id as any;
     owner.roles = [UserRole.ORGANIZATION_ADMIN];
     owner.organisationRoles = [
       ...(owner.organisationRoles ?? []),
@@ -131,10 +130,6 @@ export const addMember = async (req: Request, res: Response) => {
       ...(user.organisations ?? []),
       organization._id as any,
     ];
-    // Set as active org only if user has none yet
-    if (!user.activeOrganisation) {
-      user.activeOrganisation = organization._id as any;
-    }
     if (role) {
       user.roles = [role];
       const orgRoleIndex = (user.organisationRoles ?? []).findIndex(
@@ -441,9 +436,6 @@ export const markOrganisationActive = async (req: Request | any, res: Response) 
       );
       if (!alreadyMember) {
         ownerUser.organisations = [...(ownerUser.organisations ?? []), org._id as any];
-      }
-      if (!ownerUser.activeOrganisation) {
-        ownerUser.activeOrganisation = org._id as any;
       }
       const hasOrgRole = (ownerUser.organisationRoles ?? []).some(
         (o: any) => o.organisation.toString() === (org._id as any).toString()

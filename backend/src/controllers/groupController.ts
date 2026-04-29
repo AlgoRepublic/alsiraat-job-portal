@@ -77,7 +77,7 @@ export const createGroup = async (req: any, res: Response) => {
       color: color || "#6B7280",
       members: members || [],
       oidcMapping: Array.isArray(oidcMapping) ? oidcMapping.map((v: string) => String(v).trim()).filter(Boolean) : [],
-      organisation: req.user.organisation,
+      organisation: req.orgId,
       createdBy: req.user._id,
     });
 

@@ -181,7 +181,6 @@ async function resetDatabase() {
       password: hashedPassword,
       role: UserRole.GLOBAL_ADMIN,
       organisations: [systemOrganization._id],
-      activeOrganisation: systemOrganization._id,
       about:
         "Super admin with full system access - can manage all users, roles, permissions, organisations, and tasks",
     } as any)) as any;
@@ -195,7 +194,6 @@ async function resetDatabase() {
       password: hashedPassword,
       role: UserRole.ORGANIZATION_ADMIN,
       organisations: [organization._id],
-      activeOrganisation: organization._id,
     } as any)) as any;
     console.log(`   Created user: admin@alsiraat.edu.au (organisation Admin)`);
 
@@ -205,7 +203,6 @@ async function resetDatabase() {
       password: hashedPassword,
       role: UserRole.TASK_MANAGER,
       organisations: [organization._id],
-      activeOrganisation: organization._id,
     } as any)) as any;
     console.log(`   Created user: coordinator@alsiraat.edu.au (Task Manager)`);
 
@@ -215,7 +212,6 @@ async function resetDatabase() {
       password: hashedPassword,
       role: UserRole.TASK_ADVERTISER,
       organisations: [organization._id],
-      activeOrganisation: organization._id,
     } as any)) as any;
     console.log(`   Created user: teacher@alsiraat.edu.au (Task Advertiser)`);
 
@@ -225,7 +221,6 @@ async function resetDatabase() {
       password: hashedPassword,
       role: UserRole.APPLICANT,
       organisations: [organization._id],
-      activeOrganisation: organization._id,
     } as any)) as any;
     console.log(`   Created user: student@alsiraat.edu.au (Applicant)`);
 
@@ -246,7 +241,6 @@ async function resetDatabase() {
       password: hashedPassword,
       role: UserRole.ORGANIZATION_ADMIN,
       organisations: [crescentOrg._id],
-      activeOrganisation: crescentOrg._id,
     } as any)) as any;
     console.log(
       `   Created user: admin@crescent.edu.au (organisation Admin - Crescent)`,
@@ -258,7 +252,6 @@ async function resetDatabase() {
       password: hashedPassword,
       role: UserRole.APPLICANT,
       organisations: [crescentOrg._id],
-      activeOrganisation: crescentOrg._id,
     } as any)) as any;
     console.log(`   Created user: omar@crescent.edu.au (Applicant - Crescent)`);
 
@@ -279,7 +272,6 @@ async function resetDatabase() {
       password: hashedPassword,
       role: UserRole.TASK_MANAGER,
       organisations: [minaretOrg._id],
-      activeOrganisation: minaretOrg._id,
     } as any)) as any;
     console.log(
       `   Created user: coordinator@minaret.edu.au (Task Manager - Minaret)`,
@@ -291,7 +283,6 @@ async function resetDatabase() {
       password: hashedPassword,
       role: UserRole.TASK_ADVERTISER,
       organisations: [minaretOrg._id],
-      activeOrganisation: minaretOrg._id,
     } as any)) as any;
     console.log(
       `   Created user: fatima@minaret.edu.au (Task Advertiser - Minaret)`,

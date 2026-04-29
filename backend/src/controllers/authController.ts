@@ -25,22 +25,28 @@ dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_here";
 
-export const generateToken = (user: any) => {
-  return jwt.sign({ id: user._id, roles: user.roles }, JWT_SECRET, {
+export const generateToken = (user: any, orgId?: string | null) => {
+  const selectedOrgId =
+    orgId ||
+    user.organisations?.[0]?.toString?.() ||
+    user.organisations?.[0] ||
+    null;
+  return jwt.sign({ id: user._id, roles: user.roles, act_org: selectedOrgId }, JWT_SECRET, {
     expiresIn: "7d",
   });
 };
 
 /**
- * Build the organisation fields to include in every auth response.
- * Populates organisations[] with name+logo, and sets activeOrganisation.
+ * Build organisation fields for auth responses.
  */
-async function buildOrgPayload(user: any) {
-  await user.populate("activeOrganisation", "name logo");
+async function buildOrgPayload(user: any, selectedOrgId?: string | null) {
   await user.populate("organisations", "name logo");
+  const active = (user.organisations ?? []).find(
+    (o: any) => o._id?.toString() === selectedOrgId?.toString(),
+  ) ?? null;
   return {
-    organisation: user.activeOrganisation ?? null,
-    activeOrganisation: user.activeOrganisation ?? null,
+    organisation: active,
+    activeOrganisation: active,
     organisations: (user.organisations ?? []).map((o: any) => ({
       _id: o._id,
       name: o.name,
@@ -173,7 +179,6 @@ export const verifyOtp = async (req: Request, res: Response) => {
           if (!alreadyMember) {
             user.organisations = [...(user.organisations ?? []), orgId];
           }
-          user.activeOrganisation = orgId;
         }
         // Use the role from invitation if specified, otherwise keep Applicant default
         const assignedRole = (invitation.role as UserRole) || UserRole.APPLICANT;
@@ -212,15 +217,16 @@ export const verifyOtp = async (req: Request, res: Response) => {
       }
     }
 
-    const token = generateToken(user);
+    const selectedOrgId = user.organisations?.[0]?.toString?.() ?? null;
+    const token = generateToken(user, selectedOrgId);
 
     // Send welcome email async
-    const organisationId = user.activeOrganisation?.toString() ?? null;
+    const organisationId = selectedOrgId;
     sendEmail(user.email, welcomeEmail(name), { organisationId }).catch(
       () => {},
     );
 
-    const orgPayload = await buildOrgPayload(user);
+    const orgPayload = await buildOrgPayload(user, selectedOrgId);
 
     res.status(201).json({
       token,
@@ -286,13 +292,16 @@ export const signup = async (req: Request, res: Response) => {
       }
     }
 
-    const token = generateToken(user);
+    const selectedOrgId = user.organisations?.[0]?.toString?.() ?? null;
+    const token = generateToken(user, selectedOrgId);
 
     // Send welcome email asynchronously (don't await to keep signup fast)
-    const organisationId = user.organisation?.toString() ?? null;
+    const organisationId = selectedOrgId;
     sendEmail(user.email, welcomeEmail(user.name || fullName), {
       organisationId,
     }).catch(() => {});
+
+    const orgPayload = await buildOrgPayload(user, selectedOrgId);
 
     res.status(201).json({
       token,
@@ -306,7 +315,9 @@ export const signup = async (req: Request, res: Response) => {
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,
-        organisation: user.organisation,
+        organisation: orgPayload.organisation,
+        activeOrganisation: orgPayload.activeOrganisation,
+        organisations: orgPayload.organisations,
         contactNumber: user.contactNumber,
         gender: user.gender,
         permissions,
@@ -331,7 +342,7 @@ export const authCallback = (
   source?: OAuthLoginSource,
 ) => {
   const user: any = req.user;
-  const token = generateToken(user);
+  const token = generateToken(user, user.organisations?.[0]?.toString?.() ?? null);
   const idToken = (req as any).idToken as string | undefined;
 
   // Redirect to frontend with token (use hash path for HashRouter: #/login?token=...)
@@ -412,7 +423,7 @@ export const getMe = async (req: Request, res: Response) => {
     const groups = await Group.find({ members: user._id }).select("_id").lean();
     const _groupIds = groups.map((g: any) => g._id.toString());
 
-    const orgPayload = await buildOrgPayload(user);
+    const orgPayload = await buildOrgPayload(user, (req as any).orgId || null);
 
     res.json({
       user: {
@@ -470,7 +481,9 @@ export const impersonate = async (req: Request, res: Response) => {
     const groups = await Group.find({ members: user._id }).select("_id").lean();
     const _groupIds = groups.map((g) => g._id.toString());
 
-    const token = generateToken(user);
+    const selectedOrgId = user.organisations?.[0]?.toString?.() ?? null;
+    const token = generateToken(user, selectedOrgId);
+    const orgPayload = await buildOrgPayload(user, selectedOrgId);
     res.json({
       token,
       user: {
@@ -487,7 +500,9 @@ export const impersonate = async (req: Request, res: Response) => {
         gender: user.gender,
         resumeUrl: user.resumeUrl,
         resumeOriginalName: user.resumeOriginalName,
-        organisation: user.organisation,
+        organisation: orgPayload.organisation,
+        activeOrganisation: orgPayload.activeOrganisation,
+        organisations: orgPayload.organisations,
         permissions,
         _groupIds,
       },
@@ -523,7 +538,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
     const resetUrl = `${FRONTEND_URL}/#/reset-password/${resetToken}`;
 
     // Send branded password reset email directly
-    const organisationId = user.organisation?.toString() ?? null;
+    const organisationId = user.organisations?.[0]?.toString?.() ?? null;
     await sendEmail(
       user.email,
       passwordResetEmail(user.name || user.email, resetUrl),
@@ -567,7 +582,7 @@ export const resetPassword = async (req: Request, res: Response) => {
     await user.save();
 
     // Send password changed confirmation email
-    const organisationId = user.organisation?.toString() ?? null;
+    const organisationId = user.organisations?.[0]?.toString?.() ?? null;
     await sendEmail(
       user.email,
       {
@@ -647,7 +662,7 @@ export const updateProfile = async (req: Request, res: Response) => {
     const groups = await Group.find({ members: user._id }).select("_id").lean();
     const _groupIds = groups.map((g) => g._id.toString());
 
-    const orgPayload = await buildOrgPayload(user);
+    const orgPayload = await buildOrgPayload(user, (req as any).orgId || null);
 
     res.json({
       message: "Profile updated successfully",
@@ -728,10 +743,8 @@ export const exportUsersCsv = async (req: Request, res: Response) => {
     const users = await User.find(
       { roles: { $exists: true, $not: { $size: 0 } } }, // skip OTP-pending temp users
     )
-      .select(
-        "name firstName lastName email roles contactNumber gender activeOrganisation createdAt",
-      )
-      .populate("activeOrganisation", "name")
+      .select("name firstName lastName email roles contactNumber gender organisations createdAt")
+      .populate("organisations", "name")
       .lean();
 
     const escape = (val: any): string => {
@@ -763,7 +776,7 @@ export const exportUsersCsv = async (req: Request, res: Response) => {
       escape((u.roles || []).join("; ")),
       escape(u.contactNumber),
       escape(u.gender),
-      escape(u.activeOrganisation?.name),
+      escape(u.organisations?.[0]?.name),
       escape(
         u.createdAt
           ? new Date(u.createdAt).toLocaleDateString("en-AU", {
@@ -802,7 +815,7 @@ export const inviteUser = async (req: any, res: Response) => {
 
     // Validate permission
     const isGlobalAdmin = req.user.roles.includes(UserRole.GLOBAL_ADMIN);
-    const targetOrgId = organisationId || req.user.organisation;
+    const targetOrgId = organisationId || req.orgId;
 
     if (!targetOrgId) {
       return res.status(400).json({
@@ -812,7 +825,7 @@ export const inviteUser = async (req: any, res: Response) => {
 
     if (
       !isGlobalAdmin &&
-      req.user.organisation?.toString() !== targetOrgId.toString()
+      req.orgId?.toString() !== targetOrgId.toString()
     ) {
       return res.status(403).json({
         message: "Not authorized to invite to this organisation",
@@ -904,8 +917,8 @@ export const getInvitationDetails = async (req: Request, res: Response) => {
 
 /**
  * POST /auth/switch-organisation
- * Authenticated: switch the caller's active organisation context.
- * Validates membership, updates activeOrganisation, returns fresh token + user.
+ * Authenticated: switch the caller's organisation context.
+ * Validates membership and returns fresh token + org-scoped user context.
  */
 export const switchOrganisation = async (req: Request, res: Response) => {
   try {
@@ -942,8 +955,6 @@ export const switchOrganisation = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Organisation not found" });
     }
 
-    user.activeOrganisation = organisationId as any;
-
     const orgRoleEntry = user.organisationRoles?.find(
       (o) => o.organisation.toString() === organisationId.toString()
     );
@@ -952,8 +963,6 @@ export const switchOrganisation = async (req: Request, res: Response) => {
     } else if (!isGlobalAdmin) {
       user.roles = [UserRole.APPLICANT];
     }
-
-    await user.save();
 
     const permissions: string[] = [];
     const rolesArray = user.roles as UserRole[];
@@ -968,8 +977,8 @@ export const switchOrganisation = async (req: Request, res: Response) => {
     const groups = await Group.find({ members: user._id }).select("_id").lean();
     const _groupIds = groups.map((g: any) => g._id.toString());
 
-    const orgPayload = await buildOrgPayload(user);
-    const token = generateToken(user);
+    const orgPayload = await buildOrgPayload(user, organisationId);
+    const token = generateToken(user, organisationId);
 
     res.json({
       token,

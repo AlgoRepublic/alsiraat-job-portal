@@ -183,7 +183,7 @@ export const getEmailSettings = async (req: any, res: Response) => {
 
     const orgId = isGlobalAdmin
       ? null
-      : req.user.organisation?.toString() || null;
+      : req.orgId?.toString() || null;
 
     let settings = await EmailSettings.findOne({ organisation: orgId });
 
@@ -219,7 +219,7 @@ export const saveEmailSettings = async (req: any, res: Response) => {
     );
     const orgId = isGlobalAdmin
       ? null
-      : req.user.organisation?.toString() || null;
+      : req.orgId?.toString() || null;
 
     const {
       emailProvider,
@@ -308,7 +308,7 @@ export const testSmtpConnection = async (req: any, res: Response) => {
     );
     const orgId = isGlobalAdmin
       ? null
-      : req.user.organisation?.toString() || null;
+      : req.orgId?.toString() || null;
 
     const {
       provider: requestedProvider,

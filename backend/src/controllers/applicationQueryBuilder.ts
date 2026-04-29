@@ -43,7 +43,7 @@ export const buildApplicationQuery = async (
       if (task && !isGlobalAdmin) {
         // Check if user is from the same org or is the task creator
         if (
-          task.organisation?.toString() !== user.organisation?.toString() &&
+          task.organisation?.toString() !== user.orgId?.toString() &&
           task.createdBy?.toString() !== user._id.toString()
         ) {
           throw new Error(
@@ -63,9 +63,9 @@ export const buildApplicationQuery = async (
       query = {};
     } else if (hasFullAccess) {
       // Users with APPLICATION_READ see applications for their org's tasks
-      if (user.organisation) {
+      if (user.orgId) {
         const tasks = await deps.TaskModel.find({
-          organisation: user.organisation,
+          organisation: user.orgId,
         }).select("_id");
         query.task = { $in: tasks.map((t: any) => t._id) };
       } else {

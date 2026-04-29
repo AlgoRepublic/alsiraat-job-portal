@@ -13,7 +13,7 @@ export const getDashboardStats = async (req: any, res: Response) => {
   try {
     const user = req.user;
     const userId = user._id;
-    const orgId = user.organisation;
+    const orgId = req.orgId;
 
     // ── Determine capabilities ──
     const { allowed: canManageTasks } = await checkPermissionAsync(
@@ -123,7 +123,7 @@ export const getDashboardStats = async (req: any, res: Response) => {
     if (canManageUsers) {
       totalUsers = orgId
         ? await User.countDocuments({
-            organisation: orgId,
+            organisations: orgId,
             isActive: { $ne: false },
           })
         : await User.countDocuments({ isActive: { $ne: false } });

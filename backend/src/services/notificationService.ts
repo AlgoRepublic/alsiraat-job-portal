@@ -225,9 +225,9 @@ export const notify = async (opts: NotifyOptions): Promise<void> => {
 
     // 2. Email (if template provided); use recipient's org for email config
     if (emailTemplate) {
-      const user = await User.findById(recipientId).select("email organisation");
+      const user = await User.findById(recipientId).select("email organisations");
       if (user?.email) {
-        const organisationId = user.organisation?.toString() ?? null;
+        const organisationId = user.organisations?.[0]?.toString?.() ?? null;
         await sendEmail(user.email, emailTemplate, { organisationId });
       }
     }
@@ -255,14 +255,14 @@ export const sendNotification = async (
     await Notification.create(data);
 
     if (sendEmailFlag) {
-      const user = await User.findById(recipientId).select("email name organisation");
+      const user = await User.findById(recipientId).select("email name organisations");
       if (user?.email) {
         const genericTemplate = {
           subject: title,
           html: `<p>${message}</p>${link ? `<p><a href="${process.env.FRONTEND_URL || ""}${link}">View details</a></p>` : ""}`,
           text: `${message}${link ? `\n\nView: ${process.env.FRONTEND_URL || ""}${link}` : ""}`,
         };
-        const organisationId = user.organisation?.toString() ?? null;
+        const organisationId = user.organisations?.[0]?.toString?.() ?? null;
         await sendEmail(user.email, genericTemplate, { organisationId });
       }
     }
