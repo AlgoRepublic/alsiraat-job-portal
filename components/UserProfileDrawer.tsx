@@ -384,7 +384,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
                   <InfoPill
                     icon={<Building2 className="w-4 h-4" />}
                     label="Organisation"
-                    value={user.organisation?.name || "Independent"}
+                    value={user.organisation?.name || "Central"}
                   />
                   <InfoPill
                     icon={<Calendar className="w-4 h-4" />}

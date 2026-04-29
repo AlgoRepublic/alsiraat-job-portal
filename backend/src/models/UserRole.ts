@@ -28,7 +28,6 @@ export const normalizeUserRole = (v: any): any => {
     owner: UserRole.ORGANIZATION_ADMIN,
     approver: UserRole.TASK_MANAGER,
     member: UserRole.TASK_ADVERTISER,
-    independent: UserRole.APPLICANT,
     teacher: UserRole.TASK_ADVERTISER,
     staff: UserRole.TASK_ADVERTISER,
     administrative: UserRole.ORGANIZATION_ADMIN,

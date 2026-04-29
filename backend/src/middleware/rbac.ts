@@ -175,7 +175,7 @@ export const requireAnyPermission = (permissions: Permission[]) => {
 
 /**
  * Middleware factory for context-aware permission checks
- * This allows checking ownership (e.g., Independent managing own task's applications)
+ * This allows checking ownership (e.g., users managing their own task's applications)
  *
  * Usage:
  * requirePermissionWithContext(

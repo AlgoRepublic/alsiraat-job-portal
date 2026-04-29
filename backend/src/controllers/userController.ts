@@ -28,7 +28,7 @@ export const getUsers = async (req: Request, res: Response) => {
     let query: any = {};
 
     // Org scoping: unless the caller is a Global Admin, restrict to their active org.
-    // This also excludes "independent" users (no organisation) from non-admin views.
+    // This also excludes users without an organisation from non-admin views.
     const isGlobalAdmin = (caller?.roles ?? []).some(
       (r: string) => r.toLowerCase() === "global admin",
     );

@@ -21,7 +21,6 @@ async function main() {
       owner: "Organisation Admin",
       approver: "Task Manager",
       member: "Task Advertiser",
-      independent: "Applicant",
     };
 
     console.log("🔄 Starting migration...");

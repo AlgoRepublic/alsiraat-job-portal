@@ -198,7 +198,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
                 value={
                   user.organisations?.map((o: any) => o.name).join(", ") ||
                   user.activeOrganisation?.name ||
-                  "Independent"
+                  "Central"
                 }
               />
               <InfoPill
@@ -451,7 +451,7 @@ export const UserManagement: React.FC = () => {
       .filter(Boolean);
     const systemOrgIds = new Set(
       (user.organisations ?? [])
-        .filter((o: any) => (o?.name ?? "").trim().toLowerCase() === "system")
+        .filter((o: any) => (o?.name ?? "").trim().toLowerCase() === "central")
         .map((o: any) => (o._id ?? o.id ?? o)?.toString())
         .filter(Boolean),
     );
@@ -463,7 +463,7 @@ export const UserManagement: React.FC = () => {
     });
     const alignedRoles = orgIds.map((oid: string) => {
       const oidStr = oid.toString();
-      // "System" organisation represents the user's global/system role.
+      // "Central" organisation represents the user's global role.
       if (systemOrgIds.has(oidStr)) {
         return user.roles?.[0] ?? orgRolesMap[oidStr] ?? "Applicant";
       }
@@ -502,7 +502,7 @@ export const UserManagement: React.FC = () => {
       const lastName = names.slice(1).join(" ") || "User";
       const systemOrgIndex = editForm.organisationIds.findIndex((orgId) => {
         const org = organisations.find((o: any) => (o._id ?? o.id) === orgId);
-        return (org?.name ?? "").trim().toLowerCase() === "system";
+        return (org?.name ?? "").trim().toLowerCase() === "central";
       });
       const flatRolesSource =
         systemOrgIndex > -1
@@ -554,10 +554,10 @@ export const UserManagement: React.FC = () => {
         organisation: orgId,
         roles: [editForm.roles[idx] ?? "Applicant"],
       }));
-      // Keep system/global role in sync with the "System" organisation selection.
+      // Keep global role in sync with the "Central" organisation selection.
       const systemOrgIndex = editForm.organisationIds.findIndex((orgId) => {
         const org = organisations.find((o: any) => (o._id ?? o.id) === orgId);
-        return (org?.name ?? "").trim().toLowerCase() === "system";
+        return (org?.name ?? "").trim().toLowerCase() === "central";
       });
       const flatRolesSource =
         systemOrgIndex > -1
@@ -883,7 +883,7 @@ export const UserManagement: React.FC = () => {
                             ))
                           ) : (
                             <span className="text-sm font-bold text-zinc-400">
-                              Independent
+                              Central
                             </span>
                           )}
                         </div>

@@ -340,7 +340,7 @@ export const ApplicationReview: React.FC = () => {
           organisationName:
             (completedApp.task as any)?.organisation?.name ||
             (completedApp.task as any)?.organisation ||
-            "Independent",
+            "Central",
           rewardType: (completedApp.task as any)?.rewardType,
           rewardValue: (completedApp.task as any)?.rewardValue,
           completedAt: completedApp.appliedAt,
@@ -536,7 +536,7 @@ export const ApplicationReview: React.FC = () => {
                           {exp.title || "Task"}
                         </p>
                         <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                          {exp.organisationName || "Independent"}
+                          {exp.organisationName || "Central"}
                         </p>
                         {exp.rewardType && (
                           <span className="inline-block mt-1.5 px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-bold rounded-md uppercase tracking-wide">

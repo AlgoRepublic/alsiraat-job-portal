@@ -78,12 +78,12 @@ async function runTests() {
         console.error('❌ Test 2 Failed:', e);
     }
 
-    // Test 3: Independent User with Full Access (no taskId) should see tasks they created
+    // Test 3: User without org context with full access should see tasks they created
     try {
         const query = await buildApplicationQuery(mockIndependentUser, undefined, { hasFullAccess: true, hasOwnAccess: true }, deps, UserRole);
         assert(query.task.$in.includes('task_indep_1'), 'Should include created task');
         assert(!query.task.$in.includes('task_org_1'), 'Should NOT include other tasks');
-        console.log('✅ Test 3 Passed: Independent User sees created tasks');
+        console.log('✅ Test 3 Passed: User without org context sees created tasks');
     } catch (e) {
         console.error('❌ Test 3 Failed:', e);
     }

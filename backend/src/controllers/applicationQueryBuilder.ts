@@ -66,7 +66,7 @@ export const buildApplicationQuery = async (
         }).select("_id");
         query.task = { $in: tasks.map((t: any) => t._id) };
       } else {
-        // Independent users with full access see applications for their own tasks
+        // Users without an org context see applications for their own tasks
         const tasks = await deps.TaskModel.find({
           createdBy: user._id,
         }).select("_id");

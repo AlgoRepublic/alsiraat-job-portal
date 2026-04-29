@@ -90,16 +90,16 @@ async function resetDatabase() {
     } as any)) as any;
     console.log(`✅ Created organisation: ${organization.name}`);
 
-    // Create System organisation for Global Admin
-    const systemOrganization = (await Organization.create({
-      name: "System",
-      slug: "system",
-      description: "System-wide organisation for global administration",
+    // Create Central organisation for global administration
+    const centralOrganization = (await Organization.create({
+      name: "Central",
+      slug: "central",
+      description: "Central organisation for global administration",
       contactEmail: "admin@alsiraat.edu.au",
       contactPhone: "+61 3 9395 5000",
       isPublic: false,
     } as any)) as any;
-    console.log(`✅ Created organisation: ${systemOrganization.name}`);
+    console.log(`✅ Created organisation: ${centralOrganization.name}`);
 
     // Step 3.5: Seed Global Email Settings
     console.log("\n📧 Seeding global email settings...");
@@ -128,7 +128,7 @@ async function resetDatabase() {
       {
         name: UserRole.GLOBAL_ADMIN,
         code: "global_admin",
-        description: "Super administrator with full system access",
+        description: "Super administrator with full platform access",
         isSystem: true,
         permissions: RolePermissions[UserRole.GLOBAL_ADMIN],
       },
@@ -180,9 +180,9 @@ async function resetDatabase() {
       email: "superadmin@alsiraat.edu.au",
       password: hashedPassword,
       role: UserRole.GLOBAL_ADMIN,
-      organisations: [systemOrganization._id],
+      organisations: [centralOrganization._id],
       about:
-        "Super admin with full system access - can manage all users, roles, permissions, organisations, and tasks",
+        "Super admin with full platform access - can manage all users, roles, permissions, organisations, and tasks",
     } as any)) as any;
     console.log(
       `   Created user: admin@alsiraat.edu.au (SUPER ADMIN - Full Access)`,
@@ -522,7 +522,7 @@ async function resetDatabase() {
         rewardValue: 4,
         eligibility: ["Students", "Parents", "Staff", "Public"],
         visibility: TaskVisibility.GLOBAL,
-        organisation: systemOrganization._id,
+        organisation: centralOrganization._id,
         status: TaskStatus.PUBLISHED,
         createdBy: teacherUser._id,
         attachments: [],
@@ -553,7 +553,7 @@ async function resetDatabase() {
     console.log("=".repeat(70));
     console.log(`   Email:    superadmin@alsiraat.edu.au`);
     console.log(`   Password: ${password}`);
-    console.log(`   Role:     GLOBAL ADMIN (Full System Access)`);
+    console.log(`   Role:     GLOBAL ADMIN (Full Platform Access)`);
     console.log("=".repeat(70));
     console.log("\n⚠️  SECURITY WARNING:");
     console.log("   • This account has UNRESTRICTED access to ALL features");

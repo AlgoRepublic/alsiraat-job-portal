@@ -721,7 +721,7 @@ export const acceptCompletion = async (req: any, res: Response) => {
       title: task.title,
       organisationName: task.organisation
         ? String(task.organisation)
-        : "Independent",
+        : "Central",
       rewardType: task.rewardType,
       rewardValue: task.rewardValue,
       completedAt: new Date(),

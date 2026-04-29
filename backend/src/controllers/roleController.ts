@@ -693,7 +693,6 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
       "owner",
       "approver",
       "member",
-      "independent",
     ];
 
     // Migrate existing users to new roles
@@ -702,7 +701,6 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
       owner: "Organisation Admin",
       approver: "Task Manager",
       member: "Task Advertiser",
-      independent: "Applicant",
     };
 
     for (const [oldRole, newRole] of Object.entries(roleMapping)) {

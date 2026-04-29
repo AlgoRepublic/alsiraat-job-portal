@@ -302,7 +302,7 @@ export interface PermissionContext {
 
 /**
  * Check permission with context (e.g., resource ownership)
- * This allows Independent users to manage their own tasks' applications
+ * This allows users to manage their own tasks' applications
  * @deprecated Use canWithContextAsync for database-driven permissions
  */
 export function canWithContext(
@@ -347,11 +347,11 @@ export function canWithContext(
 
 /**
  * Check permission with context (DYNAMIC - uses database)
- * This allows Independent users to manage their own tasks' applications
+ * This allows users to manage their own tasks' applications
  */
 /**
  * Check permission with context (DYNAMIC - uses database)
- * This allows Independent users to manage their own tasks' applications
+ * This allows users to manage their own tasks' applications
  */
 export async function canWithContextAsync(
   role: UserRole,
