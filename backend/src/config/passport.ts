@@ -58,6 +58,11 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           if (!email) {
             return done(new Error("No email found in Google profile"));
           }
+          const defaultOrg = await Organization.findOne({
+            name: process.env.OIDC_DEFAULT_ORG ?? "Al Siraat College",
+          })
+            .select("_id")
+            .lean();
 
           let user = await User.findOne({ googleId: profile.id });
           if (!user) {
@@ -65,6 +70,9 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
             const existingUser = await User.findOne({ email });
             if (existingUser) {
               existingUser.googleId = profile.id;
+              if ((existingUser.organisations?.length ?? 0) === 0 && defaultOrg) {
+                existingUser.organisations = [defaultOrg._id as mongoose.Types.ObjectId];
+              }
               await existingUser.save();
               user = existingUser;
             } else {
@@ -74,8 +82,12 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
                 googleId: profile.id,
                 avatar: profile.photos?.[0]?.value ?? "",
                 role: UserRole.APPLICANT,
+                ...(defaultOrg ? { organisations: [defaultOrg._id] } : {}),
               });
             }
+          } else if ((user.organisations?.length ?? 0) === 0 && defaultOrg) {
+            user.organisations = [defaultOrg._id as mongoose.Types.ObjectId];
+            await user.save();
           }
           return done(null, user as Express.User);
         } catch (err) {

@@ -47,19 +47,21 @@ export const authenticate = async (
     const isGlobalAdmin = (user.roles || []).some(
       (r: string) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
     );
-    if (!orgId) {
-      return res.status(401).json({ message: "Token missing organisation context" });
-    }
-    const isMember = (user.organisations || []).some(
-      (o: any) => o.toString() === orgId,
-    );
-    if (!isGlobalAdmin && !isMember) {
-      return res.status(403).json({ message: "Invalid organisation context" });
-    }
-
     req.user = user;
-    req.orgId = orgId;
-    req.orgRoles = resolveOrgRoles(user, orgId);
+    if (!orgId) {
+      // Allow auth without org context for non-org-scoped flows (e.g. initial /auth/me after SSO).
+      req.orgId = null;
+      req.orgRoles = user.roles as UserRole[];
+    } else {
+      const isMember = (user.organisations || []).some(
+        (o: any) => o.toString() === orgId,
+      );
+      if (!isGlobalAdmin && !isMember) {
+        return res.status(403).json({ message: "Invalid organisation context" });
+      }
+      req.orgId = orgId;
+      req.orgRoles = resolveOrgRoles(user, orgId);
+    }
     (req.user as any).orgId = req.orgId;
     (req.user as any).orgRoles = req.orgRoles;
     next();

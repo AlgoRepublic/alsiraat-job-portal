@@ -369,7 +369,9 @@ export const authCallback = (
   source?: OAuthLoginSource,
 ) => {
   const user: any = req.user;
-  const token = generateToken(user, user.organisations?.[0]?.toString?.() ?? null);
+  const selectedOrgId = user.organisations?.[0]?.toString?.() ?? null;
+  const scopedRoles = getOrgScopedRoles(user, selectedOrgId);
+  const token = generateToken(user, selectedOrgId, scopedRoles);
   const idToken = (req as any).idToken as string | undefined;
 
   // Redirect to frontend with token (use hash path for HashRouter: #/login?token=...)
