@@ -16,6 +16,7 @@ import {
   Check,
 } from "lucide-react";
 import { Loading } from "../components/Loading";
+import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
 
 const GROUP_COLORS = [
   "#812349", // AlSiraat
@@ -335,16 +336,19 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-1 flex-shrink-0">
-                    {user.roles && user.roles.length > 0 ? (
-                      user.roles.map((r: string) => (
-                        <span
-                          key={r}
-                          className="text-[10px] font-black uppercase tracking-widest text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded-lg"
-                        >
-                          {r}
-                        </span>
-                      ))
-                    ) : null}
+                    {(() => {
+                      const displayRoles = getUserRolesForActiveOrg(user);
+                      return displayRoles.length > 0
+                        ? displayRoles.map((r: string) => (
+                            <span
+                              key={r}
+                              className="text-[10px] font-black uppercase tracking-widest text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded-lg"
+                            >
+                              {r}
+                            </span>
+                          ))
+                        : null;
+                    })()}
                   </div>
                   {isSelected && (
                     <Check className="w-4 h-4 text-primary flex-shrink-0" />

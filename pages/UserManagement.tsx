@@ -41,6 +41,7 @@ import { Loading } from "../components/Loading";
 import { CustomDropdown } from "../components/CustomUI";
 import { UserProfileDrawer } from "../components/UserProfileDrawer";
 import { Permission, UserRole } from "../types";
+import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
 
 interface EditForm {
   name: string;
@@ -99,6 +100,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
   onClose,
   onEdit,
 }) => {
+  const displayRoles = getUserRolesForActiveOrg(user);
   const resumeFullUrl = user.resumeUrl
     ? user.resumeUrl.startsWith("http")
       ? user.resumeUrl
@@ -138,7 +140,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
               </h2>
               <div className="flex flex-wrap items-center gap-2 mt-1.5">
                 <div className="flex flex-wrap gap-2">
-                  {user.roles?.map((r: string) => (
+                  {displayRoles.map((r: string) => (
                     <span
                       key={r}
                       className={`px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider ${getRoleColour(r)}`}
@@ -146,7 +148,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
                       {r}
                     </span>
                   ))}
-                  {(!user.roles || user.roles.length === 0) && (
+                  {displayRoles.length === 0 && (
                     <span className="px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider bg-zinc-100 text-zinc-400">
                       No Role
                     </span>
@@ -643,12 +645,14 @@ export const UserManagement: React.FC = () => {
   const sortedUsers = [...users].sort((a, b) => {
     let av = "";
     let bv = "";
+    const aRoles = getUserRolesForActiveOrg(a, currentUser?.activeOrganisation?._id);
+    const bRoles = getUserRolesForActiveOrg(b, currentUser?.activeOrganisation?._id);
     if (sortBy === "name") {
       av = a.name?.toLowerCase() ?? "";
       bv = b.name?.toLowerCase() ?? "";
     } else if (sortBy === "role") {
-      av = (a.roles?.[0] || "").toLowerCase();
-      bv = (b.roles?.[0] || "").toLowerCase();
+      av = (aRoles[0] || "").toLowerCase();
+      bv = (bRoles[0] || "").toLowerCase();
     } else {
       av = a.createdAt ?? "";
       bv = b.createdAt ?? "";
@@ -891,8 +895,14 @@ export const UserManagement: React.FC = () => {
 
                       {/* Role */}
                       <td className="px-6 py-5">
+                        {(() => {
+                          const displayRoles = getUserRolesForActiveOrg(
+                            user,
+                            currentUser?.activeOrganisation?._id,
+                          );
+                          return (
                         <div className="flex flex-wrap gap-1">
-                          {user.roles?.map((r: string) => (
+                          {displayRoles.map((r: string) => (
                             <span
                               key={r}
                               className={`px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-wider ${getRoleColour(r)}`}
@@ -900,12 +910,14 @@ export const UserManagement: React.FC = () => {
                               {r}
                             </span>
                           ))}
-                          {(!user.roles || user.roles.length === 0) && (
+                          {displayRoles.length === 0 && (
                             <span className="px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-wider bg-zinc-100 text-zinc-400">
                               No Role
                             </span>
                           )}
                         </div>
+                          );
+                        })()}
                       </td>
 
                       {/* Actions */}

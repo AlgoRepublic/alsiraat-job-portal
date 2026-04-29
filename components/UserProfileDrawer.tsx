@@ -23,6 +23,7 @@ import {
   Edit2,
 } from "lucide-react";
 import { api, API_BASE_URL } from "../services/api";
+import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
 
 /* ─── Types ──────────────────────────────────────────────────────────────────── */
 interface UserProfileDrawerProps {
@@ -157,6 +158,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
   onClose,
   onEdit,
 }) => {
+  const displayRoles = getUserRolesForActiveOrg(user);
   const [activeTab, setActiveTab] = useState<Tab>("profile");
   const [tasks, setTasks] = useState<any[]>([]);
   const [applications, setApplications] = useState<any[]>([]);
@@ -273,7 +275,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
                 {user.name}
               </h2>
               <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                {user.roles?.map((r: string) => (
+                {displayRoles.map((r: string) => (
                   <span
                     key={r}
                     className={`px-2.5 py-0.5 rounded-lg text-xs font-black uppercase tracking-wider ${roleColour(r)}`}
