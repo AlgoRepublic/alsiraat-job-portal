@@ -162,6 +162,11 @@ const App: React.FC = () => {
     }
   };
 
+  const activeOrgId =
+    typeof currentUser?.activeOrganisation === "object"
+      ? currentUser?.activeOrganisation?._id
+      : (currentUser?.activeOrganisation as any);
+
   if (loading) {
     return <Loading fullScreen message="Loading Tasker..." />;
   }
@@ -252,6 +257,7 @@ const App: React.FC = () => {
               path="/*"
               element={
                 <Layout
+                  key={`org-${activeOrgId || "none"}`}
                   currentUser={currentUser}
                   onSwitchUser={handleSwitchUser}
                   onSwitchOrg={handleSwitchOrg}

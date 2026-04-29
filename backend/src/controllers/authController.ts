@@ -25,15 +25,24 @@ dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_here";
 
-export const generateToken = (user: any, orgId?: string | null) => {
+export const generateToken = (
+  user: any,
+  orgId?: string | null,
+  rolesOverride?: UserRole[],
+) => {
   const selectedOrgId =
     orgId ||
     user.organisations?.[0]?.toString?.() ||
     user.organisations?.[0] ||
     null;
-  return jwt.sign({ id: user._id, roles: user.roles, act_org: selectedOrgId }, JWT_SECRET, {
-    expiresIn: "7d",
-  });
+  const roles = rolesOverride || user.roles;
+  return jwt.sign(
+    { id: user._id, roles, act_org: selectedOrgId },
+    JWT_SECRET,
+    {
+      expiresIn: "7d",
+    },
+  );
 };
 
 /**
@@ -53,6 +62,20 @@ async function buildOrgPayload(user: any, selectedOrgId?: string | null) {
       logo: o.logo,
     })),
   };
+}
+
+function getOrgScopedRoles(user: any, selectedOrgId?: string | null): UserRole[] {
+  if (!selectedOrgId) return (user.roles || []) as UserRole[];
+  const orgRoleEntry = (user.organisationRoles || []).find(
+    (o: any) => o.organisation?.toString() === selectedOrgId.toString(),
+  );
+  if (orgRoleEntry?.roles?.length) {
+    return orgRoleEntry.roles as UserRole[];
+  }
+  const isGlobalAdmin = (user.roles || []).some(
+    (r: string) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
+  );
+  return isGlobalAdmin ? (user.roles as UserRole[]) : [UserRole.APPLICANT];
 }
 
 /**
@@ -207,8 +230,9 @@ export const verifyOtp = async (req: Request, res: Response) => {
     await user.save();
 
     // Build permissions
+    const permissionOrgId = (req as any).orgId || null;
     const permissions: string[] = [];
-    const rolesArray = user.roles as UserRole[];
+    const rolesArray = getOrgScopedRoles(user, permissionOrgId);
     for (const p of Object.values(Permission)) {
       for (const r of rolesArray) {
         if (await hasPermissionAsync(r, p)) {
@@ -217,8 +241,9 @@ export const verifyOtp = async (req: Request, res: Response) => {
       }
     }
 
-    const selectedOrgId = user.organisations?.[0]?.toString?.() ?? null;
-    const token = generateToken(user, selectedOrgId);
+    const selectedOrgId =
+      permissionOrgId || (user.organisations?.[0]?.toString?.() ?? null);
+    const token = generateToken(user, selectedOrgId, rolesArray);
 
     // Send welcome email async
     const organisationId = selectedOrgId;
@@ -236,7 +261,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
-        roles: user.roles,
+        roles: rolesArray,
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,
@@ -280,8 +305,9 @@ export const signup = async (req: Request, res: Response) => {
     });
 
     // Get current permissions for the roles
+    const permissionOrgId = (req as any).orgId || null;
     const permissions: string[] = [];
-    const rolesArray = user.roles as UserRole[];
+    const rolesArray = getOrgScopedRoles(user, permissionOrgId);
     for (const p of Object.values(Permission)) {
       for (const r of rolesArray) {
         if (await hasPermissionAsync(r, p)) {
@@ -292,7 +318,8 @@ export const signup = async (req: Request, res: Response) => {
       }
     }
 
-    const selectedOrgId = user.organisations?.[0]?.toString?.() ?? null;
+    const selectedOrgId =
+      permissionOrgId || user.organisations?.[0]?.toString?.() || null;
     const token = generateToken(user, selectedOrgId);
 
     // Send welcome email asynchronously (don't await to keep signup fast)
@@ -311,7 +338,7 @@ export const signup = async (req: Request, res: Response) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
-        roles: user.roles,
+        roles: rolesArray,
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,
@@ -399,8 +426,9 @@ export const getMe = async (req: Request, res: Response) => {
     const user: any = (req as any).user;
     if (!user) return res.status(401).json({ message: "Not authenticated" });
 
+    const selectedOrgId = (req as any).orgId || null;
     const permissions: string[] = [];
-    let rolesArray = user.roles as UserRole[];
+    let rolesArray = getOrgScopedRoles(user, selectedOrgId);
 
     if ((!rolesArray || rolesArray.length === 0) && user.role) {
       rolesArray = [normalizeUserRole(user.role)];
@@ -423,7 +451,7 @@ export const getMe = async (req: Request, res: Response) => {
     const groups = await Group.find({ members: user._id }).select("_id").lean();
     const _groupIds = groups.map((g: any) => g._id.toString());
 
-    const orgPayload = await buildOrgPayload(user, (req as any).orgId || null);
+    const orgPayload = await buildOrgPayload(user, selectedOrgId);
 
     res.json({
       user: {
@@ -432,7 +460,7 @@ export const getMe = async (req: Request, res: Response) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
-        roles: user.roles,
+        roles: rolesArray,
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,
@@ -456,9 +484,10 @@ export const impersonate = async (req: Request, res: Response) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    const selectedOrgId = user.organisations?.[0]?.toString?.() ?? null;
     // Get current permissions for the roles
     const permissions: string[] = [];
-    let rolesArray = user.roles as UserRole[];
+    let rolesArray = getOrgScopedRoles(user, selectedOrgId);
 
     if ((!rolesArray || rolesArray.length === 0) && user.role) {
       rolesArray = [normalizeUserRole(user.role)];
@@ -481,7 +510,6 @@ export const impersonate = async (req: Request, res: Response) => {
     const groups = await Group.find({ members: user._id }).select("_id").lean();
     const _groupIds = groups.map((g) => g._id.toString());
 
-    const selectedOrgId = user.organisations?.[0]?.toString?.() ?? null;
     const token = generateToken(user, selectedOrgId);
     const orgPayload = await buildOrgPayload(user, selectedOrgId);
     res.json({
@@ -492,7 +520,7 @@ export const impersonate = async (req: Request, res: Response) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
-        roles: user.roles,
+        roles: rolesArray,
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,
@@ -646,9 +674,10 @@ export const updateProfile = async (req: Request, res: Response) => {
 
     await user.save();
 
+    const selectedOrgId = (req as any).orgId || null;
     // Get current permissions for the roles
     const permissions: string[] = [];
-    const rolesArray = user.roles as UserRole[];
+    const rolesArray = getOrgScopedRoles(user, selectedOrgId);
     for (const p of Object.values(Permission)) {
       for (const r of rolesArray) {
         if (await hasPermissionAsync(r, p)) {
@@ -662,7 +691,7 @@ export const updateProfile = async (req: Request, res: Response) => {
     const groups = await Group.find({ members: user._id }).select("_id").lean();
     const _groupIds = groups.map((g) => g._id.toString());
 
-    const orgPayload = await buildOrgPayload(user, (req as any).orgId || null);
+    const orgPayload = await buildOrgPayload(user, selectedOrgId);
 
     res.json({
       message: "Profile updated successfully",
@@ -672,7 +701,7 @@ export const updateProfile = async (req: Request, res: Response) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
-        roles: user.roles,
+        roles: rolesArray,
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,
@@ -965,7 +994,7 @@ export const switchOrganisation = async (req: Request, res: Response) => {
     }
 
     const permissions: string[] = [];
-    const rolesArray = user.roles as UserRole[];
+    const rolesArray = getOrgScopedRoles(user, organisationId);
     for (const p of Object.values(Permission)) {
       for (const r of rolesArray) {
         if (await hasPermissionAsync(r, p)) {
@@ -978,7 +1007,7 @@ export const switchOrganisation = async (req: Request, res: Response) => {
     const _groupIds = groups.map((g: any) => g._id.toString());
 
     const orgPayload = await buildOrgPayload(user, organisationId);
-    const token = generateToken(user, organisationId);
+    const token = generateToken(user, organisationId, rolesArray);
 
     res.json({
       token,
@@ -988,7 +1017,7 @@ export const switchOrganisation = async (req: Request, res: Response) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
-        roles: user.roles,
+        roles: rolesArray,
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,

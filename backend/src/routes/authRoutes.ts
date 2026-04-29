@@ -48,12 +48,28 @@ router.post("/login", (req, res, next) => {
       }
 
       const selectedOrgId = user.organisations?.[0]?.toString?.() ?? null;
-      const token = generateToken(user, selectedOrgId);
 
       // Get current permissions for the roles
       (async () => {
         const permissions: string[] = [];
         let rolesArray = user.roles as UserRole[];
+
+        if (selectedOrgId) {
+          const orgRoleEntry = (user.organisationRoles ?? []).find(
+            (o: any) => o.organisation?.toString() === selectedOrgId,
+          );
+          if (orgRoleEntry?.roles?.length) {
+            rolesArray = orgRoleEntry.roles as UserRole[];
+          } else {
+            const isGlobalAdmin = (user.roles ?? []).some(
+              (r: string) =>
+                r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
+            );
+            if (!isGlobalAdmin) {
+              rolesArray = [UserRole.APPLICANT];
+            }
+          }
+        }
 
         // Legacy role migration fallback on login
         if ((!rolesArray || rolesArray.length === 0) && user.role) {
@@ -86,6 +102,8 @@ router.post("/login", (req, res, next) => {
             (o: any) => o._id?.toString() === selectedOrgId,
           ) ?? null;
 
+        const token = generateToken(user, selectedOrgId, rolesArray);
+
         res.json({
           token,
           user: {
@@ -94,7 +112,7 @@ router.post("/login", (req, res, next) => {
             firstName: user.firstName,
             lastName: user.lastName,
             email: user.email,
-            roles: user.roles,
+            roles: rolesArray,
             skills: user.skills || [],
             about: user.about || "",
             avatar: user.avatar,
