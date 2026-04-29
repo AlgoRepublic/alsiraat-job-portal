@@ -770,11 +770,7 @@ export const Layout: React.FC<LayoutProps> = ({
                           {r}
                         </span>
                       ))
-                    ) : (
-                      <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                        {currentUser.role}
-                      </span>
-                    )}
+                    ) : null}
                   </div>
                 </div>
                 <button

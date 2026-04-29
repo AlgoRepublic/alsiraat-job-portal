@@ -29,7 +29,6 @@ import { Loading } from "../components/Loading";
 
 interface DashboardProps {
   roles?: UserRole[];
-  role?: UserRole;
 }
 
 export const getStatusColor = (status: JobStatus) => {
@@ -99,7 +98,7 @@ const getTaskStatusDot = (status: string) => {
   }
 };
 
-export const Dashboard: React.FC<DashboardProps> = ({ roles, role }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
   const navigate = useNavigate();
   const [stats, setStats] = useState<any>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -141,9 +140,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles, role }) => {
 
   const isAdmin =
     roles?.includes(UserRole.GLOBAL_ADMIN) ||
-    roles?.includes(UserRole.ORGANIZATION_ADMIN) ||
-    role === UserRole.GLOBAL_ADMIN ||
-    role === UserRole.ORGANIZATION_ADMIN;
+    roles?.includes(UserRole.ORGANIZATION_ADMIN);
 
   const canSeeOrgStats =
     stats?.capabilities?.canViewPending && stats?.capabilities?.canViewApps;

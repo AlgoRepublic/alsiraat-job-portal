@@ -276,7 +276,6 @@ const App: React.FC = () => {
                             path="/dashboard"
                             element={
                               <Dashboard
-                                role={currentUser.role}
                                 roles={currentUser.roles}
                               />
                             }

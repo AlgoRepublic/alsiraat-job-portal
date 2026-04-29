@@ -344,11 +344,7 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
                           {r}
                         </span>
                       ))
-                    ) : (
-                      <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded-lg">
-                        {user.role}
-                      </span>
-                    )}
+                    ) : null}
                   </div>
                   {isSelected && (
                     <Check className="w-4 h-4 text-primary flex-shrink-0" />

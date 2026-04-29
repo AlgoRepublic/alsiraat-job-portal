@@ -451,7 +451,8 @@ export const getMe = async (req: Request, res: Response) => {
     const user: any = (req as any).user;
     if (!user) return res.status(401).json({ message: "Not authenticated" });
 
-    await ensureOrganisationMembership(user);
+    // Safety net disabled for now.
+    // await ensureOrganisationMembership(user);
 
     const selectedOrgId = (req as any).orgId || user.organisations?.[0]?.toString?.() || null;
     const permissions: string[] = [];
