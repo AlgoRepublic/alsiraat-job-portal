@@ -275,7 +275,7 @@ export const Layout: React.FC<LayoutProps> = ({
       searchTimeoutRef.current = setTimeout(async () => {
         try {
           const response = await fetch(
-            `${API_BASE_URL}/tasks?search=${encodeURIComponent(searchQuery)}`,
+            `${API_BASE_URL}/tasks/tab/search?search=${encodeURIComponent(searchQuery)}`,
             {
               headers: currentUser
                 ? {
@@ -493,7 +493,7 @@ export const Layout: React.FC<LayoutProps> = ({
     {
       icon: ClipboardList,
       label: "Pending Approvals",
-      path: "/jobs?status=Pending",
+      path: "/pending-approvals",
       protected: true,
       permission: Permission.TASK_VIEW_PENDING,
     },
@@ -821,6 +821,8 @@ export const Layout: React.FC<LayoutProps> = ({
                             ? "My Ads"
                             : location.pathname === "/my-tasks"
                               ? "My Tasks"
+                              : location.pathname === "/pending-approvals"
+                                ? "Pending Approvals"
                               : location.pathname === "/my-applications"
                                 ? "My Applications"
                                 : location.pathname

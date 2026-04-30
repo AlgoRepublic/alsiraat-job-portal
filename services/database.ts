@@ -330,6 +330,69 @@ class DatabaseService {
     };
   }
 
+  async getSearchJobsPaged(
+    filters: any = {},
+    page = 1,
+    limit = 10,
+  ): Promise<{
+    jobs: Job[];
+    pagination: { total: number; page: number; limit: number; pages: number };
+  }> {
+    const data = await api.getSearchTasks({ ...filters, page, limit });
+    if (Array.isArray(data)) {
+      return {
+        jobs: data.map(mapTaskToJob),
+        pagination: { total: data.length, page: 1, limit: data.length, pages: 1 },
+      };
+    }
+    return {
+      jobs: (data.tasks || []).map(mapTaskToJob),
+      pagination: data.pagination || { total: 0, page, limit, pages: 0 },
+    };
+  }
+
+  async getMyAdsJobsPaged(
+    filters: any = {},
+    page = 1,
+    limit = 10,
+  ): Promise<{
+    jobs: Job[];
+    pagination: { total: number; page: number; limit: number; pages: number };
+  }> {
+    const data = await api.getMyAdsTasks({ ...filters, page, limit });
+    if (Array.isArray(data)) {
+      return {
+        jobs: data.map(mapTaskToJob),
+        pagination: { total: data.length, page: 1, limit: data.length, pages: 1 },
+      };
+    }
+    return {
+      jobs: (data.tasks || []).map(mapTaskToJob),
+      pagination: data.pagination || { total: 0, page, limit, pages: 0 },
+    };
+  }
+
+  async getPendingApprovalJobsPaged(
+    filters: any = {},
+    page = 1,
+    limit = 10,
+  ): Promise<{
+    jobs: Job[];
+    pagination: { total: number; page: number; limit: number; pages: number };
+  }> {
+    const data = await api.getPendingApprovalTasks({ ...filters, page, limit });
+    if (Array.isArray(data)) {
+      return {
+        jobs: data.map(mapTaskToJob),
+        pagination: { total: data.length, page: 1, limit: data.length, pages: 1 },
+      };
+    }
+    return {
+      jobs: (data.tasks || []).map(mapTaskToJob),
+      pagination: data.pagination || { total: 0, page, limit, pages: 0 },
+    };
+  }
+
   async getJob(id: string): Promise<Job | undefined> {
     const task = await api.getTask(id);
     return mapTaskToJob(task);

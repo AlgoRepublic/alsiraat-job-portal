@@ -2,6 +2,9 @@ import express, { type Router } from "express";
 import {
   createTask,
   getTasks,
+  getSearchTasks,
+  getMyAdsTasks,
+  getPendingApprovalTasks,
   getTaskById,
   approveTask,
   updateTask,
@@ -32,6 +35,16 @@ router.post(
 
 // List tasks - public with optional auth for personalized results
 router.get("/", optionalAuthenticate, getTasks);
+
+// Tab-specific task list APIs (keep default / untouched)
+router.get("/tab/search", optionalAuthenticate, getSearchTasks);
+router.get("/tab/my-ads", authenticate, getMyAdsTasks);
+router.get(
+  "/tab/pending-approvals",
+  authenticate,
+  requirePermission(Permission.TASK_VIEW_PENDING),
+  getPendingApprovalTasks,
+);
 
 // Get single task - public with optional auth
 router.get("/:id", optionalAuthenticate, getTaskById);

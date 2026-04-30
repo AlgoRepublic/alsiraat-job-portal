@@ -399,6 +399,21 @@ class ApiService {
     return this.request<any>(`/tasks?${query}`);
   }
 
+  async getSearchTasks(filters: any = {}): Promise<any> {
+    const query = new URLSearchParams(filters).toString();
+    return this.request<any>(`/tasks/tab/search?${query}`);
+  }
+
+  async getMyAdsTasks(filters: any = {}): Promise<any> {
+    const query = new URLSearchParams(filters).toString();
+    return this.request<any>(`/tasks/tab/my-ads?${query}`);
+  }
+
+  async getPendingApprovalTasks(filters: any = {}): Promise<any> {
+    const query = new URLSearchParams(filters).toString();
+    return this.request<any>(`/tasks/tab/pending-approvals?${query}`);
+  }
+
   async getTask(id: string): Promise<any> {
     return this.request<any>(`/tasks/${id}`);
   }

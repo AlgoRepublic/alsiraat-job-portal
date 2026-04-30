@@ -67,6 +67,11 @@ const UserManagement = lazy(() =>
   })),
 );
 const MyApplications = lazy(() => import("./pages/MyApplications"));
+const PendingApprovals = lazy(() =>
+  import("./pages/PendingApprovals").then((module) => ({
+    default: module.PendingApprovals,
+  })),
+);
 const AdminSettings = lazy(() =>
   import("./pages/AdminSettings").then((module) => ({
     default: module.AdminSettings,
@@ -288,6 +293,10 @@ const App: React.FC = () => {
                           />
                           <Route path="/my-ads" element={<MyAds />} />
                           <Route path="/my-tasks" element={<MyAssignedTasks />} />
+                          <Route
+                            path="/pending-approvals"
+                            element={<PendingApprovals />}
+                          />
                           <Route
                             path="/my-applications"
                             element={<MyApplications />}

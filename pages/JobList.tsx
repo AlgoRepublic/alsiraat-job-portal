@@ -173,7 +173,7 @@ export const JobList: React.FC = () => {
       const page = parseInt(searchParams.get("page") || "1");
       setCurrentPage(page);
 
-      const data = await db.getJobsPaged(filters, page, PAGE_SIZE);
+      const data = await db.getSearchJobsPaged(filters, page, PAGE_SIZE);
 
       console.log("\n📋 Jobs Paged:", {
         count: data.jobs.length,

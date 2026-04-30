@@ -558,6 +558,447 @@ export const getTasks = async (req: any, res: Response) => {
   }
 };
 
+/**
+ * Tab API: Search Tasks
+ * Intentionally delegates to the default listing logic so existing visibility
+ * and filtering semantics remain consistent.
+ */
+export const getSearchTasks = async (req: any, res: Response) => {
+  try {
+    const user = req.user;
+    const { roles, _id: userId } = user || {};
+    const organisation = req.orgId;
+    const hasSuperAdminRole = !!user?.isSuperAdmin;
+    const { search, includeExpired, createdByMe } = req.query;
+    let query: any = {};
+
+    // If createdByMe is true, only return tasks created by this user
+    if (createdByMe === "true" && user) {
+      query = {
+        createdBy: userId,
+        status: { $ne: TaskStatus.ARCHIVED },
+      };
+
+      // Apply search filter if provided
+      if (search && typeof search === "string" && search.trim().length > 0) {
+        const searchRegex = new RegExp(search.trim(), "i");
+        query.$and = [
+          { createdBy: userId },
+          { status: { $ne: TaskStatus.ARCHIVED } },
+          {
+            $or: [{ title: searchRegex }, { description: searchRegex }],
+          },
+        ];
+        delete query.createdBy;
+        delete query.status;
+      }
+
+      const total = await Task.countDocuments(query);
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const skip = (page - 1) * limit;
+
+      const tasks = await Task.find(query)
+        .populate("category", "name code icon")
+        .populate("rewardType", "name code")
+        .populate("organisation", "name slug")
+        .populate("createdBy", "name email")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+      const taskIds = tasks.map((t) => t._id);
+      const counts = await Application.aggregate([
+        { $match: { task: { $in: taskIds } } },
+        { $group: { _id: "$task", count: { $sum: 1 } } },
+      ]);
+      const countMap = new Map(counts.map((c) => [c._id.toString(), c.count]));
+
+      const tasksMapped = tasks.map((task) => ({
+        ...task.toObject(),
+        applicantsCount: countMap.get(task._id.toString()) || 0,
+      }));
+
+      if (!req.query.page && !req.query.limit) {
+        return res.json(tasksMapped);
+      }
+
+      return res.json({
+        tasks: tasksMapped,
+        pagination: {
+          total,
+          page,
+          limit,
+          pages: Math.ceil(total / limit),
+        },
+      });
+    }
+
+    const { checkPermissionAsync } = await import("../middleware/rbac.js");
+
+    if (!user) {
+      query = {
+        status: TaskStatus.PUBLISHED,
+        visibility: TaskVisibility.GLOBAL,
+      };
+    } else {
+      const { allowed: canViewAll } = await checkPermissionAsync(
+        user,
+        Permission.TASK_READ,
+      );
+      const { allowed: canViewInternal } = await checkPermissionAsync(
+        user,
+        Permission.TASK_READ,
+      );
+      const { allowed: canViewPending } = await checkPermissionAsync(
+        user,
+        Permission.TASK_VIEW_PENDING,
+      );
+
+      const conditions: any[] = [];
+      conditions.push({
+        createdBy: userId,
+        status: { $ne: TaskStatus.ARCHIVED },
+      });
+      conditions.push({
+        visibility: TaskVisibility.GLOBAL,
+        status: TaskStatus.PUBLISHED,
+      });
+      if (canViewPending) {
+        conditions.push({
+          visibility: TaskVisibility.GLOBAL,
+          status: TaskStatus.PENDING,
+        });
+      }
+
+      const Group = (await import("../models/Group.js")).default;
+      const userGroups = organisation
+        ? await Group.find({ members: userId }).select("_id")
+        : [];
+      const userGroupIds = userGroups.map((g) => g._id);
+
+      if (canViewInternal && organisation) {
+        conditions.push({
+          visibility: TaskVisibility.INTERNAL,
+          organisation: organisation,
+          status: TaskStatus.PUBLISHED,
+          $or: [
+            { allowedGroups: { $exists: false } },
+            { allowedGroups: { $size: 0 } },
+            { allowedGroups: { $in: userGroupIds } },
+          ],
+        });
+        if (canViewPending) {
+          conditions.push({
+            visibility: TaskVisibility.INTERNAL,
+            organisation: organisation,
+            status: TaskStatus.PENDING,
+          });
+        }
+      } else if (organisation && userGroupIds.length > 0) {
+        conditions.push({
+          visibility: TaskVisibility.INTERNAL,
+          organisation: organisation,
+          status: TaskStatus.PUBLISHED,
+          allowedGroups: { $in: userGroupIds },
+        });
+      }
+
+      if (organisation) {
+        conditions.push({
+          visibility: TaskVisibility.EXTERNAL,
+          organisation: organisation,
+          status: canViewPending
+            ? { $in: [TaskStatus.PUBLISHED, TaskStatus.PENDING] }
+            : TaskStatus.PUBLISHED,
+        });
+      }
+
+      if (canViewAll && canViewInternal && canViewPending) {
+        if (hasSuperAdminRole) {
+          query = organisation
+            ? { organisation, status: { $ne: TaskStatus.ARCHIVED } }
+            : { status: { $ne: TaskStatus.ARCHIVED } };
+        } else if (organisation) {
+          query = {
+            organisation,
+            status: { $ne: TaskStatus.ARCHIVED },
+          };
+        } else {
+          query = { $or: conditions };
+        }
+      } else {
+        query = { $or: conditions };
+      }
+    }
+
+    const additionalFilters: any[] = [];
+    if (search && typeof search === "string" && search.trim().length > 0) {
+      const searchRegex = new RegExp(search.trim(), "i");
+      additionalFilters.push({
+        $or: [
+          { title: searchRegex },
+          { description: searchRegex },
+          { category: searchRegex },
+        ],
+      });
+    }
+    if (req.query.category) additionalFilters.push({ category: req.query.category });
+    if (req.query.status) additionalFilters.push({ status: req.query.status });
+    if (req.query.reward) additionalFilters.push({ rewardType: req.query.reward });
+
+    if (additionalFilters.length > 0) {
+      if (Object.keys(query).length > 0) {
+        query = { $and: [query, ...additionalFilters] };
+      } else if (additionalFilters.length > 1) {
+        query = { $and: additionalFilters };
+      } else {
+        query = additionalFilters[0];
+      }
+    }
+
+    const isAdmin = hasSuperAdminRole;
+    const shouldIncludeExpired = includeExpired === "true" && isAdmin;
+    if (!shouldIncludeExpired) {
+      const expirationFilter = {
+        $or: [
+          { endDate: { $exists: false } },
+          { endDate: null },
+          { endDate: { $gte: new Date() } },
+        ],
+      };
+      if (Object.keys(query).length > 0) {
+        query = { $and: [query, expirationFilter] };
+      } else {
+        query = expirationFilter;
+      }
+    }
+
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await Task.countDocuments(query);
+    const tasks = await Task.find(query)
+      .populate("organisation", "name")
+      .populate("createdBy", "name")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const taskIds = tasks.map((t) => t._id);
+    const counts = await Application.aggregate([
+      { $match: { task: { $in: taskIds } } },
+      { $group: { _id: "$task", count: { $sum: 1 } } },
+    ]);
+    const countMap = new Map(counts.map((c) => [c._id.toString(), c.count]));
+
+    let appliedTaskIds = new Set<string>();
+    if (user) {
+      const userApplications = await Application.find({
+        task: { $in: taskIds },
+        applicant: userId,
+      }).select("task");
+      appliedTaskIds = new Set(userApplications.map((app) => app.task.toString()));
+    }
+
+    const tasksMapped = tasks.map((task) => ({
+      ...task.toObject(),
+      applicantsCount: countMap.get(task._id.toString()) || 0,
+      hasApplied: appliedTaskIds.has(task._id.toString()),
+    }));
+
+    if (!req.query.page && !req.query.limit) {
+      return res.json(tasksMapped);
+    }
+
+    return res.json({
+      tasks: tasksMapped,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+/**
+ * Tab API: My Ads (tasks created by current user)
+ * Forces createdByMe without changing the default /api/tasks endpoint.
+ */
+export const getMyAdsTasks = async (req: any, res: Response) => {
+  try {
+    if (!req.user?._id) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+
+    const userId = req.user._id;
+    const search = req.query.search;
+    let query: any = {
+      createdBy: userId,
+    };
+
+    if (search && typeof search === "string" && search.trim().length > 0) {
+      const searchRegex = new RegExp(search.trim(), "i");
+      query = {
+        $and: [
+          { createdBy: userId },
+          { $or: [{ title: searchRegex }, { description: searchRegex }] },
+        ],
+      };
+    }
+
+    if (req.query.category) {
+      query = { $and: [query, { category: req.query.category }] };
+    }
+    if (req.query.status) {
+      query = { $and: [query, { status: req.query.status }] };
+    }
+    if (req.query.reward) {
+      query = { $and: [query, { rewardType: req.query.reward }] };
+    }
+
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await Task.countDocuments(query);
+    const tasks = await Task.find(query)
+      .populate("category", "name code icon")
+      .populate("rewardType", "name code")
+      .populate("organisation", "name slug")
+      .populate("createdBy", "name email")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const taskIds = tasks.map((t) => t._id);
+    const counts = await Application.aggregate([
+      { $match: { task: { $in: taskIds } } },
+      { $group: { _id: "$task", count: { $sum: 1 } } },
+    ]);
+    const countMap = new Map(counts.map((c) => [c._id.toString(), c.count]));
+
+    const tasksMapped = tasks.map((task) => ({
+      ...task.toObject(),
+      applicantsCount: countMap.get(task._id.toString()) || 0,
+    }));
+
+    if (!req.query.page && !req.query.limit) {
+      return res.json(tasksMapped);
+    }
+
+    return res.json({
+      tasks: tasksMapped,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+/**
+ * Tab API: Pending Approvals
+ * Forces pending status without changing the default /api/tasks endpoint.
+ */
+export const getPendingApprovalTasks = async (req: any, res: Response) => {
+  try {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+
+    const organisation = req.orgId;
+    const hasSuperAdminRole = !!user?.isSuperAdmin;
+    const search = req.query.search;
+
+    // Pending approvals are organization-scoped unless super admin has no active org.
+    let query: any;
+    if (hasSuperAdminRole && !organisation) {
+      query = { status: TaskStatus.PENDING };
+    } else if (organisation) {
+      query = { organisation, status: TaskStatus.PENDING };
+    } else {
+      query = { status: TaskStatus.PENDING };
+    }
+
+    if (search && typeof search === "string" && search.trim().length > 0) {
+      const searchRegex = new RegExp(search.trim(), "i");
+      query = {
+        $and: [
+          query,
+          {
+            $or: [
+              { title: searchRegex },
+              { description: searchRegex },
+              { category: searchRegex },
+            ],
+          },
+        ],
+      };
+    }
+
+    if (req.query.category) {
+      query = { $and: [query, { category: req.query.category }] };
+    }
+    if (req.query.reward) {
+      query = { $and: [query, { rewardType: req.query.reward }] };
+    }
+    if (req.query.visibility) {
+      query = { $and: [query, { visibility: req.query.visibility }] };
+    }
+
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await Task.countDocuments(query);
+    const tasks = await Task.find(query)
+      .populate("organisation", "name slug")
+      .populate("createdBy", "name email")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const taskIds = tasks.map((t) => t._id);
+    const counts = await Application.aggregate([
+      { $match: { task: { $in: taskIds } } },
+      { $group: { _id: "$task", count: { $sum: 1 } } },
+    ]);
+    const countMap = new Map(counts.map((c) => [c._id.toString(), c.count]));
+
+    const tasksMapped = tasks.map((task) => ({
+      ...task.toObject(),
+      applicantsCount: countMap.get(task._id.toString()) || 0,
+    }));
+
+    if (!req.query.page && !req.query.limit) {
+      return res.json(tasksMapped);
+    }
+
+    return res.json({
+      tasks: tasksMapped,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
 export const getTaskById = async (req: any, res: Response) => {
   try {
     const { id } = req.params;

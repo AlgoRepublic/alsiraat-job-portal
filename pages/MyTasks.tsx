@@ -51,7 +51,7 @@ export const MyAds: React.FC = () => {
   const fetchMyTasks = useCallback(async (page = 1) => {
     try {
       setLoading(true);
-      const data = await db.getJobsPaged({ createdByMe: "true" }, page, PAGE_SIZE);
+      const data = await db.getMyAdsJobsPaged({}, page, PAGE_SIZE);
       setTasks(data.jobs);
       setTotalItems(data.pagination.total);
       setTotalPages(data.pagination.pages);
