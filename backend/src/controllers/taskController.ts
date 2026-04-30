@@ -431,12 +431,9 @@ export const getTasks = async (req: any, res: Response) => {
         // If they have all view permissions, we could just empty the query,
         // but let's stick to the granular conditions for now as they are safer.
         if (canViewInternal && canViewPending) {
-          // If they can see internal and pending, and they are global admin,
-          // they should see global tasks from other orgs too?
-          // The current system doesn't really have "global internal" tasks.
-          // Let's just allow empty query for truly global admins.
           if (hasGlobalAdminRole) {
-            query = {};
+            // Keep super admins org-scoped when active org is selected.
+            query = organisation ? { organisation } : {};
           } else {
             query = { $or: conditions };
           }

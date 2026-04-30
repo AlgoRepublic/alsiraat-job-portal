@@ -28,13 +28,12 @@ export const getUsers = async (req: Request, res: Response) => {
 
     let query: any = {};
 
-    if (!isSuperAdminUser(caller)) {
-      if ((req as any).orgId) {
-        query.organisations = (req as any).orgId;
-      } else {
-        // Non-admin with no active org → can only see themselves
-        query._id = caller?._id;
-      }
+    // Always scope by active organisation when org context exists.
+    if ((req as any).orgId) {
+      query.organisations = (req as any).orgId;
+    } else if (!isSuperAdminUser(caller)) {
+      // Non-admin with no active org → can only see themselves
+      query._id = caller?._id;
     }
 
     if (search) {

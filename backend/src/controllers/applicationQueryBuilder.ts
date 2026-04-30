@@ -43,8 +43,15 @@ export const buildApplicationQuery = async (
   } else {
     // No specific task - filter based on permissions
     if (user.isSuperAdmin) {
-      // Admin sees all
-      query = {};
+      // Keep super admins org-scoped when active org is selected.
+      if (user.orgId) {
+        const tasks = await deps.TaskModel.find({
+          organisation: user.orgId,
+        }).select("_id");
+        query.task = { $in: tasks.map((t: any) => t._id) };
+      } else {
+        query = {};
+      }
     } else if (hasFullAccess) {
       // Users with APPLICATION_READ see applications for their org's tasks
       if (user.orgId) {
