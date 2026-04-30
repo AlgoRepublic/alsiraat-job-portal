@@ -685,6 +685,7 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
       "owner",
       "approver",
       "member",
+      "global_admin",
     ];
 
     // Migrate existing users to new roles
@@ -707,6 +708,7 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
       { role: "Organisation Admin" },
     );
     await Role.deleteMany({ code: "school_admin" });
+    await Role.deleteMany({ name: { $regex: /^global admin$/i } });
 
     // We only delete them if they are NOT in the new codes (which they aren't)
     // And to be safe, we might check if they are system roles or just delete by code

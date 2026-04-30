@@ -96,7 +96,7 @@ async function resolveCentralOrganization(db: mongoose.mongo.Db) {
           name: "Central",
           slug: "central",
           about:
-            system.about || "Central organisation for global administration",
+            system.about || "Central organisation for platform administration",
         },
       },
     );
@@ -112,7 +112,7 @@ async function resolveCentralOrganization(db: mongoose.mongo.Db) {
   const created = await organizations.insertOne({
     name: "Central",
     slug: "central",
-    about: "Central organisation for global administration",
+    about: "Central organisation for platform administration",
     isPublic: false,
     createdAt: new Date(),
     updatedAt: new Date(),

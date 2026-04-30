@@ -90,11 +90,11 @@ async function resetDatabase() {
     } as any)) as any;
     console.log(`✅ Created organisation: ${organization.name}`);
 
-    // Create Central organisation for global administration
+    // Create Central organisation for platform administration
     const centralOrganization = (await Organization.create({
       name: "Central",
       slug: "central",
-      description: "Central organisation for global administration",
+      description: "Central organisation for platform administration",
       contactEmail: "admin@alsiraat.edu.au",
       contactPhone: "+61 3 9395 5000",
       isPublic: false,
@@ -119,7 +119,7 @@ async function resetDatabase() {
         bodyHtml: "", // Will be handled by template generator
       })),
     });
-    console.log("✅ Seeded global email settings (enabled by default)");
+    console.log("✅ Seeded platform email settings (enabled by default)");
 
     // Step 4: Seed Roles with Permissions
     console.log("\n👥 Seeding roles with permissions...");
