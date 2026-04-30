@@ -18,6 +18,8 @@ import dashboardRoutes from "./routes/dashboardRoutes.js";
 import emailSettingsRoutes from "./routes/emailSettingsRoutes.js";
 import aiSettingsRoutes from "./routes/aiSettingsRoutes.js";
 import systemRoutes from "./routes/systemRoutes.js";
+import { logger } from "./utils/logger.js";
+import { requestLoggerMiddleware } from "./utils/requestLogger.js";
 
 // Only load dotenv in development (Cloud Run provides env vars directly)
 if (process.env.NODE_ENV !== "production") {
@@ -41,14 +43,15 @@ app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
 app.use(passport.initialize());
+app.use(requestLoggerMiddleware);
 
 // DB Connection
 const MONGODB_URI =
   process.env.MONGODB_URI || "mongodb://localhost:27017/tasker";
 mongoose
   .connect(MONGODB_URI)
-  .then(() => console.log("Connected to MongoDB"))
-  .catch((err) => console.error("MongoDB connection error:", err));
+  .then(() => logger.info("Connected to MongoDB"))
+  .catch((err) => logger.error("MongoDB connection error", { err }));
 
 // Health check endpoint (required for Cloud Run)
 app.get("/health", (req, res) => {
@@ -109,16 +112,17 @@ app.use(
     res: express.Response,
     next: express.NextFunction,
   ) => {
-    console.error(err.stack);
+    logger.error("Unhandled server error", { stack: err?.stack });
     res.status(500).json({ message: "Internal Server Error" });
   },
 );
 
 // Start Server
 app.listen(PORT, () => {
-  console.log(
-    `Server is running on port ${PORT} (${isProduction ? "production" : "development"})`,
-  );
+  logger.info("Server started", {
+    port: PORT,
+    environment: isProduction ? "production" : "development",
+  });
 });
 
 export default app;
