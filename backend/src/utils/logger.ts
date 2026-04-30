@@ -1,4 +1,5 @@
 type LogMeta = Record<string, unknown>;
+const isPrettyPrintEnabled = process.env.LOG_PRETTY !== "false";
 
 const write = (level: "info" | "warn" | "error", message: string, meta?: LogMeta) => {
   const payload = {
@@ -7,7 +8,9 @@ const write = (level: "info" | "warn" | "error", message: string, meta?: LogMeta
     message,
     ...(meta ? { meta } : {}),
   };
-  const line = JSON.stringify(payload);
+  const line = isPrettyPrintEnabled
+    ? JSON.stringify(payload, null, 2)
+    : JSON.stringify(payload);
   if (level === "error") {
     console.error(line);
     return;
