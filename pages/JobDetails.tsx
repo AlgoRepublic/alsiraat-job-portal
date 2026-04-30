@@ -87,16 +87,17 @@ export const JobDetails: React.FC = () => {
                 const appList = await db.getApplicationsForJob(id);
 
                 // For internal users, this shows all applicants
-                const isInternal = user.roles?.some((r: string) =>
-                  (
-                    [
-                      UserRole.GLOBAL_ADMIN,
-                      UserRole.ORGANIZATION_ADMIN,
-                      UserRole.TASK_MANAGER,
-                      UserRole.TASK_ADVERTISER,
-                    ] as UserRole[]
-                  ).includes(r as UserRole),
-                );
+                const isInternal =
+                  !!user.isSuperAdmin ||
+                  user.roles?.some((r: string) =>
+                    (
+                      [
+                        UserRole.ORGANIZATION_ADMIN,
+                        UserRole.TASK_MANAGER,
+                        UserRole.TASK_ADVERTISER,
+                      ] as UserRole[]
+                    ).includes(r as UserRole),
+                  );
 
                 if (isInternal) {
                   setApplicants(appList);
@@ -295,7 +296,7 @@ export const JobDetails: React.FC = () => {
       ) ?? organisationIdToString(currentUser.activeOrganisation);
 
     // Context-aware check: Global Admin can approve any task
-    if (currentUser.roles?.includes(UserRole.GLOBAL_ADMIN)) {
+    if (currentUser.isSuperAdmin) {
       return true;
     }
 

@@ -38,10 +38,9 @@ function applicationTaskPermissionContext(task: any): {
   };
 }
 
-/** Global Admin, task creator, or holder of task:complete (org-scoped via checkPermissionAsync). */
+/** Super admin, task creator, or holder of task:complete (org-scoped via checkPermissionAsync). */
 async function canVerifyTaskCompletion(req: any, task: any): Promise<boolean> {
-  const isGlobalAdmin = req.orgRoles?.includes(UserRole.GLOBAL_ADMIN);
-  if (isGlobalAdmin) return true;
+  if (req.user?.isSuperAdmin) return true;
 
   const creatorId = taskCreatedById(task);
   if (creatorId && req.user._id.toString() === creatorId) return true;
@@ -56,8 +55,7 @@ async function canVerifyTaskCompletion(req: any, task: any): Promise<boolean> {
 
 /** Post-completion rating: same cohort as offer/completion managers, plus task creator. */
 async function canSubmitApplicationReview(req: any, task: any): Promise<boolean> {
-  const isGlobalAdmin = req.orgRoles?.includes(UserRole.GLOBAL_ADMIN);
-  if (isGlobalAdmin) return true;
+  if (req.user?.isSuperAdmin) return true;
 
   const creatorId = taskCreatedById(task);
   if (creatorId && req.user._id.toString() === creatorId) return true;
@@ -84,7 +82,7 @@ async function canSubmitApplicationReview(req: any, task: any): Promise<boolean>
  * Requires APPLICATION_ASSIGN_DIRECT permission.
  * Task Advertisers can only assign their own tasks.
  * Task Managers / Organisation Admins can assign any task in their org.
- * Global Admins have no restriction.
+ * Platform super admins have no restriction.
  */
 export const assignTask = async (req: any, res: Response) => {
   try {
@@ -110,9 +108,7 @@ export const assignTask = async (req: any, res: Response) => {
     if (!targetUser) return res.status(404).json({ message: "User not found" });
 
     // Permission scope check
-    const isGlobalAdmin = req.orgRoles?.some(
-      (r: string) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
-    );
+    const isGlobalAdmin = !!req.user?.isSuperAdmin;
     const isAdvertiser = req.orgRoles?.some(
       (r: string) =>
         r.toLowerCase() === UserRole.TASK_ADVERTISER.toLowerCase(),
@@ -388,15 +384,15 @@ export const getApplications = async (req: any, res: Response) => {
         .json({ message: "You don't have permission to view applications" });
     }
 
+    const udoc = (req.user as any).toObject?.() ?? req.user;
     const query = await buildApplicationQuery(
-      req.user,
+      { ...udoc, orgId: req.orgId, isSuperAdmin: !!(req.user as any).isSuperAdmin },
       taskId,
       {
         hasFullAccess: hasFullAccess.allowed,
         hasOwnAccess: hasOwnAccess.allowed,
       },
       { TaskModel: Task },
-      UserRole,
     );
 
     // Apply additional filters
@@ -493,8 +489,7 @@ export const getApplicationById = async (req: any, res: Response) => {
       }
     }
 
-    const isGlobalAdmin = req.orgRoles?.includes(UserRole.GLOBAL_ADMIN);
-    if (hasFullAccess.allowed && !isGlobalAdmin) {
+    if (hasFullAccess.allowed && !req.user?.isSuperAdmin) {
       const task: any = app.task;
       const isOrgMember = task.organisation?.toString() === req.orgId?.toString();
       const isTaskCreator =

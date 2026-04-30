@@ -172,6 +172,13 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
               ]);
               const mappedRoles = mapAdfsRolesToUserRoles(adfsRoles, dbRoles);
               const mappedGroupIds = mapAdfsGroupsToGroupIds(adfsGroups, dbGroups as Array<{ _id: unknown; name: string; oidcMapping?: string[] }>);
+              const superAdminClaims =
+                process.env.OIDC_SUPERADMIN_MAPPING?.split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean) ?? [];
+              const grantSuperAdmin = adfsRoles.some((r) =>
+                superAdminClaims.includes(r),
+              );
 
               let user = await User.findOne({ oidcId: profile.id });
               if (user) {
@@ -218,6 +225,11 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                   dirty = true;
                 }
 
+                if (grantSuperAdmin && !user.isSuperAdmin) {
+                  user.isSuperAdmin = true;
+                  dirty = true;
+                }
+
                 if (dirty) await user.save();
               } else {
                 const existingUser = await User.findOne({ email });
@@ -246,6 +258,9 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                   if ((existingUser.organisations?.length ?? 0) === 0 && defaultOrg) {
                     existingUser.organisations = [defaultOrg._id as mongoose.Types.ObjectId];
                   }
+                  if (grantSuperAdmin && !existingUser.isSuperAdmin) {
+                    existingUser.isSuperAdmin = true;
+                  }
                   await existingUser.save();
                   user = existingUser;
 
@@ -258,8 +273,9 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                     name: decoded?.unique_name ? (decoded.unique_name as string) : "SSO User",
                     email,
                     oidcId: profile.id,
+                    isSuperAdmin: grantSuperAdmin,
                     ...(defaultOrg ? { organisations: [defaultOrg._id] } : {}),
-                    ...(defaultOrg
+                    ...(defaultOrg && !grantSuperAdmin
                       ? {
                           organisationRoles: [
                             {

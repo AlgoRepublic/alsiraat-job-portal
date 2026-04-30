@@ -17,7 +17,7 @@ async function main() {
     console.log("✅ Connected to MongoDB");
 
     const mapping = {
-      admin: "Global Admin",
+      admin: "Organisation Admin",
       owner: "Organisation Admin",
       approver: "Task Manager",
       member: "Task Advertiser",

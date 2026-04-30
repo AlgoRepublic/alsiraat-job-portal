@@ -67,8 +67,6 @@ export type Permission = (typeof Permission)[keyof typeof Permission];
 // ============================================================================
 
 export const RolePermissions: Record<UserRole, Permission[]> = {
-  [UserRole.GLOBAL_ADMIN]: Object.values(Permission),
-
   [UserRole.ORGANIZATION_ADMIN]: [
     Permission.TASK_CREATE,
     Permission.TASK_READ,
@@ -129,7 +127,9 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
 export function hasPermission(
   role: UserRole | undefined,
   permission: Permission,
+  options?: { isSuperAdmin?: boolean },
 ): boolean {
+  if (options?.isSuperAdmin) return true;
   if (!role) return false;
   const permissions = RolePermissions[role];
   if (!permissions) return false;
@@ -139,17 +139,21 @@ export function hasPermission(
 export function hasAnyPermission(
   role: UserRole | undefined,
   permissions: Permission[],
+  options?: { isSuperAdmin?: boolean },
 ): boolean {
+  if (options?.isSuperAdmin) return true;
   if (!role) return false;
-  return permissions.some((p) => hasPermission(role, p));
+  return permissions.some((p) => hasPermission(role, p, options));
 }
 
 export function hasAllPermissions(
   role: UserRole | undefined,
   permissions: Permission[],
+  options?: { isSuperAdmin?: boolean },
 ): boolean {
+  if (options?.isSuperAdmin) return true;
   if (!role) return false;
-  return permissions.every((p) => hasPermission(role, p));
+  return permissions.every((p) => hasPermission(role, p, options));
 }
 
 // ============================================================================
@@ -169,11 +173,12 @@ export function canWithContext(
   role: UserRole | undefined,
   permission: Permission,
   context: PermissionContext,
+  options?: { isSuperAdmin?: boolean },
 ): boolean {
+  if (options?.isSuperAdmin) return true;
   if (!role) return false;
-  if (role === UserRole.GLOBAL_ADMIN) return true;
 
-  if (hasPermission(role, permission)) {
+  if (hasPermission(role, permission, options)) {
     return true;
   }
 
@@ -200,14 +205,14 @@ export function canWithContext(
 // CONVENIENCE FUNCTIONS
 // ============================================================================
 
-export function canAutoPublish(role: UserRole | undefined): boolean {
+export function canAutoPublish(
+  role: UserRole | undefined,
+  options?: { isSuperAdmin?: boolean },
+): boolean {
+  if (options?.isSuperAdmin) return true;
   if (!role) return false;
   return (
-    [
-      UserRole.GLOBAL_ADMIN,
-      UserRole.ORGANIZATION_ADMIN,
-      UserRole.TASK_MANAGER,
-    ] as UserRole[]
+    [UserRole.ORGANIZATION_ADMIN, UserRole.TASK_MANAGER] as UserRole[]
   ).includes(role);
 }
 

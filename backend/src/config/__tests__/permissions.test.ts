@@ -1,45 +1,49 @@
-import test, { describe, it } from 'node:test';
-import assert from 'node:assert';
-import { hasPermission, Permission, RolePermissions } from '../permissions.ts';
-import { UserRole } from '../../models/UserRole.ts';
+import { describe, it } from "node:test";
+import assert from "node:assert";
+import { hasPermission, Permission } from "../permissions.js";
+import { UserRole as UR } from "../../models/UserRole.js";
 
-describe('hasPermission', () => {
-  it('should return true for GLOBAL_ADMIN for any permission', () => {
-    // GLOBAL_ADMIN has all permissions
-    const permissions = Object.values(Permission);
-    permissions.forEach((permission) => {
-      assert.strictEqual(hasPermission(UserRole.GLOBAL_ADMIN, permission), true);
-    });
+describe("hasPermission (static map)", () => {
+  it("should return true for ORGANIZATION_ADMIN for common admin permissions", () => {
+    assert.strictEqual(
+      hasPermission(UR.ORGANIZATION_ADMIN, Permission.TASK_CREATE),
+      true,
+    );
+    assert.strictEqual(
+      hasPermission(UR.ORGANIZATION_ADMIN, Permission.APPLICATION_READ),
+      true,
+    );
   });
 
-  it('should return true for ORGANIZATION_ADMIN for allowed permissions', () => {
-    // ORGANIZATION_ADMIN has specific permissions like TASK_CREATE
-    assert.strictEqual(hasPermission(UserRole.ORGANIZATION_ADMIN, Permission.TASK_CREATE), true);
-    assert.strictEqual(hasPermission(UserRole.ORGANIZATION_ADMIN, Permission.APPLICATION_READ), true);
+  it("should not grant undefined permissions to ORGANIZATION_ADMIN", () => {
+    assert.strictEqual(
+      hasPermission(UR.ORGANIZATION_ADMIN, "UNKNOWN_PERMISSION" as Permission),
+      false,
+    );
   });
 
-  it('should return false for ORGANIZATION_ADMIN for disallowed permissions', () => {
-    // ORGANIZATION_ADMIN does not have ADMIN_SETTINGS permission
-    assert.strictEqual(hasPermission(UserRole.ORGANIZATION_ADMIN, Permission.ADMIN_SETTINGS), false);
+  it("should return true for ORGANIZATION_ADMIN, TASK_CREATE", () => {
+    assert.strictEqual(
+      hasPermission(UR.ORGANIZATION_ADMIN, Permission.TASK_CREATE),
+      true,
+    );
   });
 
-  it('should return true for APPLICANT for allowed permissions', () => {
-    // APPLICANT has TASK_READ permission
-    assert.strictEqual(hasPermission(UserRole.APPLICANT, Permission.TASK_READ), true);
+  it("should return true for APPLICANT, TASK_READ", () => {
+    assert.strictEqual(hasPermission(UR.APPLICANT, Permission.TASK_READ), true);
   });
 
-  it('should return false for APPLICANT for disallowed permissions', () => {
-    // APPLICANT does not have TASK_CREATE permission
-    assert.strictEqual(hasPermission(UserRole.APPLICANT, Permission.TASK_CREATE), false);
+  it("should return false for APPLICANT, TASK_CREATE", () => {
+    assert.strictEqual(
+      hasPermission(UR.APPLICANT, Permission.TASK_CREATE),
+      false,
+    );
   });
 
-  it('should return false for unknown role', () => {
-    // @ts-expect-error Testing invalid role
-    assert.strictEqual(hasPermission('UNKNOWN_ROLE' as UserRole, Permission.TASK_READ), false);
-  });
-
-  it('should return false for unknown permission', () => {
-    // @ts-expect-error Testing invalid permission
-    assert.strictEqual(hasPermission(UserRole.GLOBAL_ADMIN, 'UNKNOWN_PERMISSION' as Permission), false);
+  it("should return false for unknown role", () => {
+    assert.strictEqual(
+      hasPermission("UNKNOWN_ROLE" as any, Permission.TASK_READ),
+      false,
+    );
   });
 });

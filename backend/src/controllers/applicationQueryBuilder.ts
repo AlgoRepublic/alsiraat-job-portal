@@ -9,18 +9,11 @@ interface ApplicationQueryDeps {
   TaskModel: TaskModel;
 }
 
-// Define the shape of UserRole object we expect
-interface UserRoleEnum {
-  GLOBAL_ADMIN: string;
-  [key: string]: string;
-}
-
 export const buildApplicationQuery = async (
   user: any,
   taskId: string | undefined,
   permissions: { hasFullAccess: boolean; hasOwnAccess: boolean },
   deps: ApplicationQueryDeps,
-  UserRole: UserRoleEnum, // Inject UserRole
 ): Promise<any> => {
   const { hasFullAccess, hasOwnAccess } = permissions;
   let query: any = {};
@@ -35,10 +28,7 @@ export const buildApplicationQuery = async (
     // If user has full access, check if they can view this task's applications
     else if (hasFullAccess) {
       const task = await deps.TaskModel.findById(taskId);
-      const isGlobalAdmin = (user.orgRoles || []).some(
-        (r: string) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
-      );
-      if (task && !isGlobalAdmin) {
+      if (task && !user.isSuperAdmin) {
         // Check if user is from the same org or is the task creator
         if (
           task.organisation?.toString() !== user.orgId?.toString() &&
@@ -52,10 +42,7 @@ export const buildApplicationQuery = async (
     }
   } else {
     // No specific task - filter based on permissions
-    const isGlobalAdmin = (user.orgRoles || []).some(
-      (r: string) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
-    );
-    if (isGlobalAdmin) {
+    if (user.isSuperAdmin) {
       // Admin sees all
       query = {};
     } else if (hasFullAccess) {

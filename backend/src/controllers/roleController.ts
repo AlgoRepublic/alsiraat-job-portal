@@ -582,14 +582,6 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
 
     const defaultRoles = [
       {
-        name: "Global Admin",
-        code: "global_admin",
-        description: "Manage tenants, global settings, onboarding",
-        permissions: allPermissions,
-        isSystem: true,
-        color: "#DC2626", // Red
-      },
-      {
         name: "Organisation Admin",
         code: "organization_admin",
         description: "Oversee tasks, manage roles, run reports",
@@ -697,7 +689,7 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
 
     // Migrate existing users to new roles
     const roleMapping: Record<string, string> = {
-      admin: "Global Admin",
+      admin: "Organisation Admin",
       owner: "Organisation Admin",
       approver: "Task Manager",
       member: "Task Advertiser",

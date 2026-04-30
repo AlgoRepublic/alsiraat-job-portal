@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import User, { UserRole } from "../models/User.js";
 import { Permission, PermissionContext } from "../config/permissions.js";
+import { isSuperAdminUser } from "../utils/superAdmin.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_here";
 
@@ -17,18 +18,14 @@ const getAllUserRoles = (user: any): UserRole[] => {
   return Array.from(new Set(roles));
 };
 
-const isGlobalAdminUser = (user: any): boolean => {
-  return getAllUserRoles(user).some(
-    (r: string) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
-  );
-};
-
 const resolveOrgRoles = (user: any, orgId: string): UserRole[] => {
   const entry = (user.organisationRoles || []).find(
     (item: any) => item.organisation?.toString() === orgId,
   );
   if (entry?.roles?.length) return entry.roles as UserRole[];
-  return isGlobalAdminUser(user) ? getAllUserRoles(user) : [UserRole.APPLICANT];
+  return isSuperAdminUser(user)
+    ? [UserRole.ORGANIZATION_ADMIN]
+    : [UserRole.APPLICANT];
 };
 
 // ============================================================================
@@ -54,17 +51,19 @@ export const authenticate = async (
     if (!user) return res.status(401).json({ message: "User not found" });
 
     const orgId = getOrgIdFromToken(decoded);
-    const isGlobalAdmin = isGlobalAdminUser(user);
+    const superAdmin = isSuperAdminUser(user);
     req.user = user;
     if (!orgId) {
       // Allow auth without org context for non-org-scoped flows (e.g. initial /auth/me after SSO).
       req.orgId = null;
-      req.orgRoles = getAllUserRoles(user);
+      req.orgRoles = superAdmin
+        ? [UserRole.ORGANIZATION_ADMIN]
+        : getAllUserRoles(user);
     } else {
       const isMember = (user.organisations || []).some(
         (o: any) => o.toString() === orgId,
       );
-      if (!isGlobalAdmin && !isMember) {
+      if (!superAdmin && !isMember) {
         return res.status(403).json({ message: "Invalid organisation context" });
       }
       req.orgId = orgId;
@@ -123,6 +122,7 @@ export const requirePermission = (permission: Permission) => {
     if (!user) {
       return res.status(401).json({ message: "Authentication required" });
     }
+    if (isSuperAdminUser(user)) return next();
 
     const userRoles = (req.orgRoles || getAllUserRoles(user)) as UserRole[];
 
@@ -153,6 +153,7 @@ export const requireAnyPermission = (permissions: Permission[]) => {
     if (!user) {
       return res.status(401).json({ message: "Authentication required" });
     }
+    if (isSuperAdminUser(user)) return next();
 
     const userRoles = (req.orgRoles || getAllUserRoles(user)) as UserRole[];
 
@@ -194,6 +195,20 @@ export const requirePermissionWithContext = (
     const user = req.user;
     if (!user) {
       return res.status(401).json({ message: "Authentication required" });
+    }
+    if (isSuperAdminUser(user)) {
+      try {
+        const context = await getContext(req);
+        context.userId = user._id.toString();
+        context.userOrganizationId = req.orgId || null;
+        req.permissionContext = context;
+      } catch {
+        req.permissionContext = {
+          userId: user._id.toString(),
+          userOrganizationId: req.orgId || null,
+        };
+      }
+      return next();
     }
 
     const userRoles = (req.orgRoles || getAllUserRoles(user)) as UserRole[];
@@ -243,6 +258,9 @@ export async function checkPermissionAsync(
       allowed: false,
       error: { status: 401, message: "Authentication required" },
     };
+  }
+  if (isSuperAdminUser(user)) {
+    return { allowed: true };
   }
 
   const userRoles = ((user as any).orgRoles || getAllUserRoles(user)) as UserRole[];
@@ -316,7 +334,7 @@ export const checkImpersonation = async (
 
 /**
  * Context-aware middleware for task approval
- * - Global Admin can approve ANY task (Internal or Global)
+ * - Platform super admin can approve ANY task (Internal or Global)
  * - Organisation Admin and Task Manager can approve INTERNAL tasks from their org only
  * - All other roles cannot approve
  */
@@ -355,8 +373,7 @@ export const requireTaskApproval = async (
   );
 
   if (!allowed) {
-    // Basic roles check fallback for Global tasks to ensure Global Admin can always approve
-    // but the Permission.TASK_APPROVE check should have covered this if Admin has all permissions
+    // Fallback when permission check fails unexpectedly for Global tasks
     return res.status(403).json({
       message: "Insufficient permissions to approve this task",
       roles: req.orgRoles,
@@ -371,15 +388,12 @@ export const requireTaskApproval = async (
 
   if (
     task.visibility !== "Internal" &&
-    !req.orgRoles?.some(
-      (r: string) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
-    ) &&
+    !isSuperAdminUser(req.user) &&
     organisationId !== userOrganisationId
   ) {
-    // Only Global Admin (or Org Admin for their own tasks) can approve non-internal tasks
     return res.status(403).json({
       message:
-        "Only Global Admin can approve Global tasks from other organisations. You can only approve tasks from your own organisation.",
+        "Only platform administrators can approve Global tasks from other organisations. You can only approve tasks from your own organisation.",
     });
   }
 

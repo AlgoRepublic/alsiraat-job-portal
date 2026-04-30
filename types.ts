@@ -1,5 +1,4 @@
 export const UserRole = {
-  GLOBAL_ADMIN: "Global Admin",
   ORGANIZATION_ADMIN: "Organisation Admin",
   TASK_MANAGER: "Task Manager",
   TASK_ADVERTISER: "Task Advertiser",
@@ -123,6 +122,8 @@ export interface User {
   firstName?: string;
   lastName?: string;
   roles: UserRole[];
+  /** Platform super-admin; when true, organisations / organisationRoles from API may be virtual. */
+  isSuperAdmin?: boolean;
   avatar: string;
   email: string;
   contactNumber?: string;

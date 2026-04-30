@@ -283,9 +283,7 @@ export const ApplicationReview: React.FC = () => {
         (currentUser as { organization?: unknown }).organization,
     ) ?? organisationIdToString(currentUser?.activeOrganisation);
 
-  const isGlobalAdmin = Boolean(
-    currentUser?.roles?.includes(UserRole.GLOBAL_ADMIN),
-  );
+  const isGlobalAdmin = Boolean(currentUser?.isSuperAdmin);
 
   // Align with backend canWithContextAsync: Global Admin bypasses org scope; org match only
   // when both task and user have an organisation id. (Previous `isMemberOfOrg` required both

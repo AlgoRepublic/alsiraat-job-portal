@@ -76,11 +76,6 @@ export type Permission = (typeof Permission)[keyof typeof Permission];
 // ============================================================================
 
 export const RolePermissions: Record<UserRole, Permission[]> = {
-  [UserRole.GLOBAL_ADMIN]: [
-    // Admins have ALL permissions
-    ...Object.values(Permission),
-  ],
-
   [UserRole.ORGANIZATION_ADMIN]: [
     // Task Management - Full control within scope
     Permission.TASK_CREATE,
@@ -310,9 +305,6 @@ export function canWithContext(
   permission: Permission,
   context: PermissionContext,
 ): boolean {
-  // Admin always has access
-  if (role === UserRole.GLOBAL_ADMIN) return true;
-
   // First check static permission
   if (hasPermission(role, permission)) {
     // For org-scoped permissions, verify same organization
@@ -358,9 +350,6 @@ export async function canWithContextAsync(
   permission: Permission,
   context: PermissionContext,
 ): Promise<boolean> {
-  // Admin always has access
-  if (role === UserRole.GLOBAL_ADMIN) return true;
-
   // First check database permission
   if (await hasPermissionAsync(role, permission)) {
     // For org-scoped permissions, verify same organization
@@ -415,7 +404,6 @@ export async function canWithContextMultiAsync(
  */
 export function canAutoPublish(role: UserRole): boolean {
   const autoPublishRoles = [
-    UserRole.GLOBAL_ADMIN,
     UserRole.ORGANIZATION_ADMIN,
     UserRole.TASK_MANAGER,
   ];

@@ -126,13 +126,6 @@ async function resetDatabase() {
 
     const rolesData = [
       {
-        name: UserRole.GLOBAL_ADMIN,
-        code: "global_admin",
-        description: "Super administrator with full platform access",
-        isSystem: true,
-        permissions: RolePermissions[UserRole.GLOBAL_ADMIN],
-      },
-      {
         name: UserRole.ORGANIZATION_ADMIN,
         code: "organization_admin",
         description: "organisation administrator managing organisation tasks",
@@ -179,10 +172,11 @@ async function resetDatabase() {
       name: "Super Administrator",
       email: "superadmin@alsiraat.edu.au",
       password: hashedPassword,
-      role: UserRole.GLOBAL_ADMIN,
-      organisations: [centralOrganization._id],
+      isSuperAdmin: true,
+      organisations: [],
+      organisationRoles: [],
       about:
-        "Super admin with full platform access - can manage all users, roles, permissions, organisations, and tasks",
+        "Platform super admin — virtual access to all organisations via API; not stored as org membership.",
     } as any)) as any;
     console.log(
       `   Created user: admin@alsiraat.edu.au (SUPER ADMIN - Full Access)`,

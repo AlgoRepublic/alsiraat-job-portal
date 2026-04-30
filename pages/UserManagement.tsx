@@ -62,7 +62,7 @@ const SKILL_LEVEL_STYLES: Record<string, string> = {
 
 // Role badge colours
 const ROLE_COLOUR: Record<string, string> = {
-  "Global Admin":
+  "Super Admin":
     "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
   "Organisation Admin":
     "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
@@ -709,7 +709,7 @@ export const UserManagement: React.FC = () => {
         <div className="flex items-center gap-3">
           {(currentUser?.permissions?.includes(Permission.USER_IMPORT) ||
             currentUser?.permissions?.includes(Permission.USER_CREATE) ||
-            currentUser?.roles?.includes(UserRole.GLOBAL_ADMIN)) && (
+            currentUser?.isSuperAdmin) && (
             <>
               <input
                 type="file"
@@ -765,7 +765,7 @@ export const UserManagement: React.FC = () => {
             </>
           )}
           {(currentUser?.permissions?.includes(Permission.USER_CREATE) ||
-            currentUser?.roles?.includes(UserRole.GLOBAL_ADMIN)) && (
+            currentUser?.isSuperAdmin) && (
             <button
               onClick={openCreateModal}
               disabled={saving}
@@ -1339,11 +1339,7 @@ export const UserManagement: React.FC = () => {
                             className="text-sm font-semibold bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1.5 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-primary outline-none transition-all"
                           >
                             {roles
-                              .filter((r) =>
-                                r.name === UserRole.GLOBAL_ADMIN
-                                  ? currentUser?.roles?.includes(UserRole.GLOBAL_ADMIN)
-                                  : true
-                              )
+                              .filter((r) => r.code !== "global_admin")
                               .map((r) => (
                                 <option key={r._id} value={r.name}>{r.name}</option>
                               ))}

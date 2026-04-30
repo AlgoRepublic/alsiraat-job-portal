@@ -8,6 +8,7 @@ import fs from "fs";
 import Papa from "papaparse";
 import bcrypt from "bcryptjs";
 import { UserRole, normalizeUserRole } from "../models/UserRole.js";
+import { isSuperAdminUser } from "../utils/superAdmin.js";
 import { normalizeOrgName, slugifyOrgName } from "./organizationController.js";
 import Task from "../models/Task.js";
 import Application from "../models/Application.js";
@@ -27,12 +28,7 @@ export const getUsers = async (req: Request, res: Response) => {
 
     let query: any = {};
 
-    // Org scoping: unless the caller is a Global Admin, restrict to their active org.
-    // This also excludes users without an organisation from non-admin views.
-    const isGlobalAdmin = (caller?.roles ?? []).some(
-      (r: string) => r.toLowerCase() === "global admin",
-    );
-    if (!isGlobalAdmin) {
+    if (!isSuperAdminUser(caller)) {
       if ((req as any).orgId) {
         query.organisations = (req as any).orgId;
       } else {
@@ -131,10 +127,21 @@ export const updateUser = async (req: Request, res: Response) => {
       organisation,
       organisations,
       organisationRoles,
+      isSuperAdmin: bodyIsSuperAdmin,
     } = req.body;
     const user = await User.findById(req.params.id);
 
     if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (
+      isSuperAdminUser((req as any).user) &&
+      typeof bodyIsSuperAdmin === "boolean"
+    ) {
+      (user as any).isSuperAdmin = bodyIsSuperAdmin;
+    }
+
+    /** Super admins use a virtual org list in API responses; do not persist client-sent org graphs. */
+    const skipOrgWrites = !!user.isSuperAdmin;
 
     // Prevent editing self via this admin endpoint
     if (user._id.toString() === (req as any).user._id.toString()) {
@@ -152,7 +159,7 @@ export const updateUser = async (req: Request, res: Response) => {
     }
 
     if (name) user.name = name;
-    if (roles) {
+    if (roles && !skipOrgWrites) {
       // Backward compat: when a caller only sends flat roles (+ optional single org),
       // keep existing behaviour by syncing the target org role entry.
       if (!Array.isArray(organisationRoles)) {
@@ -174,7 +181,7 @@ export const updateUser = async (req: Request, res: Response) => {
     }
 
     // Preferred multi-org contract: explicit role mapping per organisation.
-    if (Array.isArray(organisationRoles)) {
+    if (!skipOrgWrites && Array.isArray(organisationRoles)) {
       for (const entry of organisationRoles) {
         const orgId = entry?.organisation;
         if (!orgId) {
@@ -200,7 +207,7 @@ export const updateUser = async (req: Request, res: Response) => {
     }
 
     // Multi-org: if `organisations` array is provided, use it directly
-    if (organisations !== undefined) {
+    if (!skipOrgWrites && organisations !== undefined) {
       if (Array.isArray(organisations)) {
         // Validate all org IDs exist
         for (const orgId of organisations) {
@@ -241,7 +248,7 @@ export const updateUser = async (req: Request, res: Response) => {
           );
         }
       }
-    } else if (organisation !== undefined) {
+    } else if (!skipOrgWrites && organisation !== undefined) {
       // Legacy single-org handling (backward compat)
       if (organisation === null) {
         // Remove from all current org "All Members" groups

@@ -139,7 +139,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
   };
 
   const isAdmin =
-    roles?.includes(UserRole.GLOBAL_ADMIN) ||
+    currentUser?.isSuperAdmin ||
     roles?.includes(UserRole.ORGANIZATION_ADMIN);
 
   const canSeeOrgStats =

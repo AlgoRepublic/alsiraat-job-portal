@@ -18,11 +18,13 @@ import {
   inviteUser,
   getInvitationDetails,
   switchOrganisation,
+  getOrgScopedRoles,
+  buildPermissionListForUser,
+  buildOrgPayload,
 } from "../controllers/authController.js";
 import { authenticate, requirePermission } from "../middleware/rbac.js";
 import { upload } from "../middleware/upload.js";
-import { hasPermissionAsync, Permission } from "../config/permissions.js";
-import { UserRole } from "../models/User.js";
+import { Permission } from "../config/permissions.js";
 import Group from "../models/Group.js";
 import "../config/passport.js";
 
@@ -48,56 +50,16 @@ router.post("/login", (req, res, next) => {
 
       const selectedOrgId = user.organisations?.[0]?.toString?.() ?? null;
 
-      // Get current permissions for the roles
       (async () => {
-        const permissions: string[] = [];
-        let rolesArray = (user.organisationRoles || [])
-          .flatMap((entry: any) => entry.roles || []) as UserRole[];
-        rolesArray = Array.from(new Set(rolesArray));
-
-        if (selectedOrgId) {
-          const orgRoleEntry = (user.organisationRoles ?? []).find(
-            (o: any) => o.organisation?.toString() === selectedOrgId,
-          );
-          if (orgRoleEntry?.roles?.length) {
-            rolesArray = orgRoleEntry.roles as UserRole[];
-          } else {
-            const isGlobalAdmin = rolesArray.some(
-              (r: string) =>
-                r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
-            );
-            if (!isGlobalAdmin) {
-              rolesArray = [UserRole.APPLICANT];
-            }
-          }
-        }
-
-        // Final fallback when user has no mapped role for selected org
-        if (!rolesArray || rolesArray.length === 0) {
-          rolesArray = [UserRole.APPLICANT];
-        }
-
-        for (const p of Object.values(Permission)) {
-          for (const r of rolesArray) {
-            if (await hasPermissionAsync(r, p)) {
-              if (!permissions.includes(p)) {
-                permissions.push(p);
-              }
-            }
-          }
-        }
+        const rolesArray = getOrgScopedRoles(user, selectedOrgId);
+        const permissions = await buildPermissionListForUser(user, rolesArray);
 
         const groups = await Group.find({ members: user._id })
           .select("_id")
           .lean();
         const _groupIds = groups.map((g: any) => g._id.toString());
 
-
-        await user.populate("organisations", "name logo");
-        const activeOrg =
-          (user.organisations ?? []).find(
-            (o: any) => o._id?.toString() === selectedOrgId,
-          ) ?? null;
+        const orgPayload = await buildOrgPayload(user, selectedOrgId);
 
         const token = generateToken(user, selectedOrgId, rolesArray);
 
@@ -110,6 +72,7 @@ router.post("/login", (req, res, next) => {
             lastName: user.lastName,
             email: user.email,
             roles: rolesArray,
+            isSuperAdmin: !!user.isSuperAdmin,
             skills: user.skills || [],
             about: user.about || "",
             avatar: user.avatar,
@@ -117,15 +80,9 @@ router.post("/login", (req, res, next) => {
             gender: user.gender,
             resumeUrl: user.resumeUrl,
             resumeOriginalName: user.resumeOriginalName,
-            organisation: activeOrg,
-            activeOrganisation: activeOrg,
-            organisations: (user.organisations ?? []).map((o: any) => ({
-              _id: o._id,
-              name: o.name,
-              logo: o.logo,
-            })),
             permissions,
             _groupIds,
+            ...orgPayload,
           },
         });
       })();

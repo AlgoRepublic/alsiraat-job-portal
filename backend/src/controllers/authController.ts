@@ -52,8 +52,19 @@ export const generateToken = (
 
 /**
  * Build organisation fields for auth responses.
+ * Super admins receive a virtual org graph (all organisations + synthetic organisationRoles); not persisted.
  */
-async function buildOrgPayload(user: any, selectedOrgId?: string | null) {
+export async function buildOrgPayload(user: any, selectedOrgId?: string | null) {
+  if (user.isSuperAdmin) {
+    const { buildVirtualOrgPayload } = await import("../utils/superAdmin.js");
+    const v = await buildVirtualOrgPayload(selectedOrgId);
+    return {
+      organisation: v.organisation,
+      activeOrganisation: v.activeOrganisation,
+      organisations: v.organisations,
+      organisationRoles: v.organisationRoles,
+    };
+  }
   await user.populate("organisations", "name logo");
   const active = (user.organisations ?? []).find(
     (o: any) => o._id?.toString() === selectedOrgId?.toString(),
@@ -84,7 +95,15 @@ async function ensureOrganisationMembership(user: any): Promise<void> {
   await user.save();
 }
 
-function getOrgScopedRoles(user: any, selectedOrgId?: string | null): UserRole[] {
+export function getOrgScopedRoles(user: any, selectedOrgId?: string | null): UserRole[] {
+  if (user.isSuperAdmin) {
+    if (!selectedOrgId) return [UserRole.ORGANIZATION_ADMIN];
+    const orgEntry = (user.organisationRoles || []).find(
+      (o: any) => o.organisation?.toString() === selectedOrgId.toString(),
+    );
+    if (orgEntry?.roles?.length) return orgEntry.roles as UserRole[];
+    return [UserRole.ORGANIZATION_ADMIN];
+  }
   const allRoles = Array.from(
     new Set(
       (user.organisationRoles || []).flatMap((entry: any) => entry.roles || []),
@@ -97,10 +116,23 @@ function getOrgScopedRoles(user: any, selectedOrgId?: string | null): UserRole[]
   if (orgRoleEntry?.roles?.length) {
     return orgRoleEntry.roles as UserRole[];
   }
-  const isGlobalAdmin = allRoles.some(
-    (r: string) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
-  );
-  return isGlobalAdmin ? allRoles : [UserRole.APPLICANT];
+  return [UserRole.APPLICANT];
+}
+
+export async function buildPermissionListForUser(
+  user: any,
+  rolesArray: UserRole[],
+): Promise<string[]> {
+  if (user.isSuperAdmin) return Object.values(Permission) as string[];
+  const permissions: string[] = [];
+  for (const p of Object.values(Permission)) {
+    for (const r of rolesArray) {
+      if (await hasPermissionAsync(r, p)) {
+        if (!permissions.includes(p)) permissions.push(p);
+      }
+    }
+  }
+  return permissions;
 }
 
 /**
@@ -253,17 +285,9 @@ export const verifyOtp = async (req: Request, res: Response) => {
     user.otpExpires = undefined;
     await user.save();
 
-    // Build permissions
     const permissionOrgId = (req as any).orgId || null;
-    const permissions: string[] = [];
     const rolesArray = getOrgScopedRoles(user, permissionOrgId);
-    for (const p of Object.values(Permission)) {
-      for (const r of rolesArray) {
-        if (await hasPermissionAsync(r, p)) {
-          if (!permissions.includes(p)) permissions.push(p);
-        }
-      }
-    }
+    const permissions = await buildPermissionListForUser(user, rolesArray);
 
     const selectedOrgId =
       permissionOrgId || (user.organisations?.[0]?.toString?.() ?? null);
@@ -286,6 +310,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
         lastName: user.lastName,
         email: user.email,
         roles: rolesArray,
+        isSuperAdmin: !!user.isSuperAdmin,
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,
@@ -327,19 +352,9 @@ export const signup = async (req: Request, res: Response) => {
       ...(contactNumber ? { contactNumber } : {}),
     });
 
-    // Get current permissions for the roles
     const permissionOrgId = (req as any).orgId || null;
-    const permissions: string[] = [];
     const rolesArray = getOrgScopedRoles(user, permissionOrgId);
-    for (const p of Object.values(Permission)) {
-      for (const r of rolesArray) {
-        if (await hasPermissionAsync(r, p)) {
-          if (!permissions.includes(p)) {
-            permissions.push(p);
-          }
-        }
-      }
-    }
+    const permissions = await buildPermissionListForUser(user, rolesArray);
 
     const selectedOrgId =
       permissionOrgId || user.organisations?.[0]?.toString?.() || null;
@@ -362,6 +377,7 @@ export const signup = async (req: Request, res: Response) => {
         lastName: user.lastName,
         email: user.email,
         roles: rolesArray,
+        isSuperAdmin: !!user.isSuperAdmin,
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,
@@ -455,18 +471,8 @@ export const getMe = async (req: Request, res: Response) => {
     // await ensureOrganisationMembership(user);
 
     const selectedOrgId = (req as any).orgId || user.organisations?.[0]?.toString?.() || null;
-    const permissions: string[] = [];
     const rolesArray = getOrgScopedRoles(user, selectedOrgId);
-
-    for (const p of Object.values(Permission)) {
-      for (const r of rolesArray) {
-        if (await hasPermissionAsync(r, p)) {
-          if (!permissions.includes(p)) {
-            permissions.push(p);
-          }
-        }
-      }
-    }
+    const permissions = await buildPermissionListForUser(user, rolesArray);
 
     const groups = await Group.find({ members: user._id }).select("_id").lean();
     const _groupIds = groups.map((g: any) => g._id.toString());
@@ -481,6 +487,7 @@ export const getMe = async (req: Request, res: Response) => {
         lastName: user.lastName,
         email: user.email,
         roles: rolesArray,
+        isSuperAdmin: !!user.isSuperAdmin,
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,
@@ -505,22 +512,11 @@ export const impersonate = async (req: Request, res: Response) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const selectedOrgId = user.organisations?.[0]?.toString?.() ?? null;
-    // Get current permissions for the roles
-    const permissions: string[] = [];
     const rolesArray = getOrgScopedRoles(user, selectedOrgId);
-
-    for (const p of Object.values(Permission)) {
-      for (const r of rolesArray) {
-        if (await hasPermissionAsync(r, p)) {
-          if (!permissions.includes(p)) {
-            permissions.push(p);
-          }
-        }
-      }
-    }
+    const permissions = await buildPermissionListForUser(user, rolesArray);
 
     const groups = await Group.find({ members: user._id }).select("_id").lean();
-    const _groupIds = groups.map((g) => g._id.toString());
+    const _groupIds = groups.map((g: any) => g._id.toString());
 
     const token = generateToken(user, selectedOrgId);
     const orgPayload = await buildOrgPayload(user, selectedOrgId);
@@ -533,6 +529,7 @@ export const impersonate = async (req: Request, res: Response) => {
         lastName: user.lastName,
         email: user.email,
         roles: rolesArray,
+        isSuperAdmin: !!user.isSuperAdmin,
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,
@@ -540,11 +537,9 @@ export const impersonate = async (req: Request, res: Response) => {
         gender: user.gender,
         resumeUrl: user.resumeUrl,
         resumeOriginalName: user.resumeOriginalName,
-        organisation: orgPayload.organisation,
-        activeOrganisation: orgPayload.activeOrganisation,
-        organisations: orgPayload.organisations,
         permissions,
         _groupIds,
+        ...orgPayload,
       },
     });
   } catch (err: any) {
@@ -687,18 +682,8 @@ export const updateProfile = async (req: Request, res: Response) => {
     await user.save();
 
     const selectedOrgId = (req as any).orgId || null;
-    // Get current permissions for the roles
-    const permissions: string[] = [];
     const rolesArray = getOrgScopedRoles(user, selectedOrgId);
-    for (const p of Object.values(Permission)) {
-      for (const r of rolesArray) {
-        if (await hasPermissionAsync(r, p)) {
-          if (!permissions.includes(p)) {
-            permissions.push(p);
-          }
-        }
-      }
-    }
+    const permissions = await buildPermissionListForUser(user, rolesArray);
 
     const groups = await Group.find({ members: user._id }).select("_id").lean();
     const _groupIds = groups.map((g) => g._id.toString());
@@ -714,6 +699,7 @@ export const updateProfile = async (req: Request, res: Response) => {
         lastName: user.lastName,
         email: user.email,
         roles: rolesArray,
+        isSuperAdmin: !!user.isSuperAdmin,
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,
@@ -855,7 +841,7 @@ export const inviteUser = async (req: any, res: Response) => {
     if (!email) return res.status(400).json({ message: "Email is required" });
 
     // Validate permission
-    const isGlobalAdmin = (req.orgRoles || []).includes(UserRole.GLOBAL_ADMIN);
+    const superCaller = !!(req as any).user?.isSuperAdmin;
     const targetOrgId = organisationId || req.orgId;
 
     if (!targetOrgId) {
@@ -865,7 +851,7 @@ export const inviteUser = async (req: any, res: Response) => {
     }
 
     if (
-      !isGlobalAdmin &&
+      !superCaller &&
       req.orgId?.toString() !== targetOrgId.toString()
     ) {
       return res.status(403).json({
@@ -973,12 +959,7 @@ export const switchOrganisation = async (req: Request, res: Response) => {
     const user = await User.findById(reqUser._id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Global Admins can switch to any org
-    const isGlobalAdmin = ((req as any).orgRoles ?? getOrgScopedRoles(user, null)).some(
-      (r: any) => r.toLowerCase() === "global admin",
-    );
-
-    if (!isGlobalAdmin) {
+    if (!user.isSuperAdmin) {
       // Must be a member
       const isMember = (user.organisations ?? []).some(
         (o: any) => o.toString() === organisationId.toString(),
@@ -1003,15 +984,8 @@ export const switchOrganisation = async (req: Request, res: Response) => {
       // no-op; org-scoped roles resolved below
     }
 
-    const permissions: string[] = [];
     const rolesArray = getOrgScopedRoles(user, organisationId);
-    for (const p of Object.values(Permission)) {
-      for (const r of rolesArray) {
-        if (await hasPermissionAsync(r, p)) {
-          if (!permissions.includes(p)) permissions.push(p);
-        }
-      }
-    }
+    const permissions = await buildPermissionListForUser(user, rolesArray);
 
     const groups = await Group.find({ members: user._id }).select("_id").lean();
     const _groupIds = groups.map((g: any) => g._id.toString());
@@ -1028,6 +1002,7 @@ export const switchOrganisation = async (req: Request, res: Response) => {
         lastName: user.lastName,
         email: user.email,
         roles: rolesArray,
+        isSuperAdmin: !!user.isSuperAdmin,
         skills: user.skills || [],
         about: user.about || "",
         avatar: user.avatar,

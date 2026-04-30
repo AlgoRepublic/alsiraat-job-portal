@@ -56,7 +56,7 @@ const SKILL_STYLES: Record<string, string> = {
 };
 
 const ROLE_COLOUR: Record<string, string> = {
-  "Global Admin": "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+  "Super Admin": "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
   "Organisation Admin":
     "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
   "Task Manager":

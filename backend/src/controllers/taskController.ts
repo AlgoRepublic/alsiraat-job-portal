@@ -172,10 +172,7 @@ export const updateTask = async (req: any, res: Response) => {
     }
 
     // Check permissions
-    const userRoles = (req.orgRoles || []) as string[];
-    const isGlobalAdmin = userRoles.some(
-      (r) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
-    );
+    const isGlobalAdmin = !!req.user?.isSuperAdmin;
     const isCreator = task.createdBy.toString() === req.user._id.toString();
 
     // Permission logic:
@@ -256,9 +253,7 @@ export const getTasks = async (req: any, res: Response) => {
     const user = req.user;
     const { roles, _id: userId } = user || {};
     const organisation = req.orgId;
-    const hasGlobalAdminRole = roles?.some(
-      (r: string) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
-    );
+    const hasGlobalAdminRole = !!user?.isSuperAdmin;
     const { search, includeExpired, createdByMe } = req.query;
     let query: any = {};
 
@@ -618,13 +613,10 @@ export const approveTask = async (req: any, res: Response) => {
     if (!task) return res.status(404).json({ message: "Task not found" });
 
     // Ensure approver is from the same org (or is a global admin)
-    const userRoles = (req.orgRoles || []) as string[];
-    const isGlobalAdmin = userRoles.some(
-      (r) => r.toLowerCase() === UserRole.GLOBAL_ADMIN.toLowerCase(),
-    );
+    const isGlobalAdmin = !!req.user?.isSuperAdmin;
 
     if (!isGlobalAdmin) {
-      // For non-global-admins, check organization match
+      // For non-super-admins, check organization match
       const taskOrgId = task.organisation ? String(task.organisation) : null;
       const userOrgId = req.orgId
         ? String(req.orgId)
@@ -754,7 +746,7 @@ export const repostTask = async (req: any, res: Response) => {
 
     if (
       task.createdBy.toString() !== req.user._id.toString() &&
-      !(req.orgRoles || []).includes(UserRole.GLOBAL_ADMIN)
+      !req.user?.isSuperAdmin
     ) {
       return res
         .status(403)

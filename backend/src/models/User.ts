@@ -50,6 +50,8 @@ export interface IUser extends Document {
   resetPasswordExpires?: Date | undefined;
   otpToken?: string | undefined;
   otpExpires?: Date | undefined;
+  /** Platform operator; org lists in API may be virtual (see superAdmin utils). */
+  isSuperAdmin?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -118,6 +120,7 @@ const UserSchema: Schema = new Schema(
     resetPasswordExpires: { type: Date },
     otpToken: { type: String },
     otpExpires: { type: Date },
+    isSuperAdmin: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
