@@ -425,18 +425,18 @@ export const getTasks = async (req: any, res: Response) => {
         });
       }
 
-      if (canViewAll) {
-        // Super permissions (e.g. Global Admin) - can essentially see everything
-        // But for consistency we still use the conditions unless it's truly "view all"
-        // If they have all view permissions, we could just empty the query,
-        // but let's stick to the granular conditions for now as they are safer.
-        if (canViewInternal && canViewPending) {
-          if (hasGlobalAdminRole) {
-            // Keep super admins org-scoped when active org is selected.
-            query = organisation ? { organisation } : {};
-          } else {
-            query = { $or: conditions };
-          }
+      if (canViewAll && canViewInternal && canViewPending) {
+        // Task managers/admins should see all non-archived tasks for the active org.
+        // Falling back to granular $or conditions undercounts the task list.
+        if (hasGlobalAdminRole) {
+          query = organisation
+            ? { organisation, status: { $ne: TaskStatus.ARCHIVED } }
+            : { status: { $ne: TaskStatus.ARCHIVED } };
+        } else if (organisation) {
+          query = {
+            organisation,
+            status: { $ne: TaskStatus.ARCHIVED },
+          };
         } else {
           query = { $or: conditions };
         }
