@@ -36,15 +36,15 @@ export const getDashboardStats = async (req: any, res: Response) => {
     );
 
     // ── Task stats ──
-    // Scope: org tasks if org admin, all tasks if global admin, else personal
+    // Scope: org tasks for admins with active org context, else personal
     let taskFilter: any = {};
 
     if (canManageTasks && canViewPending && canViewInternal) {
-      // Global/Organisation admin: see all org tasks
+      // Organisation admins/super admins: see all org tasks when org context exists
       if (orgId) {
         taskFilter = { organisation: orgId };
       }
-      // Global admin without org restriction: leave empty (all tasks)
+      // Without org context this remains unscoped
     } else if (canViewInternal && orgId) {
       taskFilter = {
         organisation: orgId,

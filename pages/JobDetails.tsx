@@ -295,7 +295,7 @@ export const JobDetails: React.FC = () => {
         currentUser.organisation ?? (currentUser as { organization?: unknown }).organization,
       ) ?? organisationIdToString(currentUser.activeOrganisation);
 
-    // Context-aware check: Global Admin can approve any task
+    // Context-aware check: Super Admin can approve any task
     if (currentUser.isSuperAdmin) {
       return true;
     }
@@ -310,7 +310,7 @@ export const JobDetails: React.FC = () => {
       return true;
     }
 
-    // No organisation match = no approval (unless Global Admin)
+    // No organisation match = no approval (unless Super Admin)
     return false;
   })();
 

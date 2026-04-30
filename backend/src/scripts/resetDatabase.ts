@@ -415,7 +415,7 @@ async function resetDatabase() {
         createdBy: principalUser._id,
         attachments: [],
       },
-      // Pending Global Task (Only Global Admin can approve)
+      // Pending Global Task (Only Super Admin can approve cross-organisation)
       {
         title: "Community Cleanup Drive",
         description:
@@ -499,7 +499,7 @@ async function resetDatabase() {
         createdBy: teacherUser._id,
         attachments: [],
       },
-      // Published Global Task created by Global Admin
+      // Published Global Task created by Super Admin
       {
         title: "Charity Fundraiser Event",
         description:

@@ -108,13 +108,13 @@ export const assignTask = async (req: any, res: Response) => {
     if (!targetUser) return res.status(404).json({ message: "User not found" });
 
     // Permission scope check
-    const isGlobalAdmin = !!req.user?.isSuperAdmin;
+    const isSuperAdmin = !!req.user?.isSuperAdmin;
     const isAdvertiser = req.orgRoles?.some(
       (r: string) =>
         r.toLowerCase() === UserRole.TASK_ADVERTISER.toLowerCase(),
     );
 
-    if (!isGlobalAdmin && isAdvertiser) {
+    if (!isSuperAdmin && isAdvertiser) {
       // Advertisers can only assign tasks they created
       const creatorId =
         (task.createdBy as any)._id?.toString() || task.createdBy.toString();
@@ -123,7 +123,7 @@ export const assignTask = async (req: any, res: Response) => {
           message: "You can only directly assign tasks that you created",
         });
       }
-    } else if (!isGlobalAdmin) {
+    } else if (!isSuperAdmin) {
       // Task Managers / Organisation Admins: must be same org
       const taskOrg = task.organisation?.toString();
       const userOrg = req.orgId?.toString();

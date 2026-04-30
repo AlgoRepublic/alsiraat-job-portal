@@ -1338,9 +1338,7 @@ export const UserManagement: React.FC = () => {
                             }}
                             className="text-sm font-semibold bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1.5 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-primary outline-none transition-all"
                           >
-                            {roles
-                              .filter((r) => r.code !== "global_admin")
-                              .map((r) => (
+                            {roles.map((r) => (
                                 <option key={r._id} value={r.name}>{r.name}</option>
                               ))}
                           </select>

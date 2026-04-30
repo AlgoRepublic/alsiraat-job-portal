@@ -172,14 +172,14 @@ export const updateTask = async (req: any, res: Response) => {
     }
 
     // Check permissions
-    const isGlobalAdmin = !!req.user?.isSuperAdmin;
+    const isSuperAdmin = !!req.user?.isSuperAdmin;
     const isCreator = task.createdBy.toString() === req.user._id.toString();
 
     // Permission logic:
-    // 1. Global Admin can edit any task
+    // 1. Super Admin can edit any task
     // 2. Creator can edit task ONLY if it is PENDING
     // 3. Others cannot edit
-    if (!isGlobalAdmin) {
+    if (!isSuperAdmin) {
       if (!isCreator) {
         return res
           .status(403)
@@ -253,7 +253,7 @@ export const getTasks = async (req: any, res: Response) => {
     const user = req.user;
     const { roles, _id: userId } = user || {};
     const organisation = req.orgId;
-    const hasGlobalAdminRole = !!user?.isSuperAdmin;
+    const hasSuperAdminRole = !!user?.isSuperAdmin;
     const { search, includeExpired, createdByMe } = req.query;
     let query: any = {};
 
@@ -428,7 +428,7 @@ export const getTasks = async (req: any, res: Response) => {
       if (canViewAll && canViewInternal && canViewPending) {
         // Task managers/admins should see all non-archived tasks for the active org.
         // Falling back to granular $or conditions undercounts the task list.
-        if (hasGlobalAdminRole) {
+          if (hasSuperAdminRole) {
           query = organisation
             ? { organisation, status: { $ne: TaskStatus.ARCHIVED } }
             : { status: { $ne: TaskStatus.ARCHIVED } };
@@ -479,7 +479,7 @@ export const getTasks = async (req: any, res: Response) => {
     }
 
     // Filter out expired tasks by default (unless admin requests includeExpired)
-    const isAdmin = hasGlobalAdminRole;
+    const isAdmin = hasSuperAdminRole;
     const shouldIncludeExpired = includeExpired === "true" && isAdmin;
 
     if (!shouldIncludeExpired) {
@@ -609,10 +609,10 @@ export const approveTask = async (req: any, res: Response) => {
     const task = await Task.findById(taskId);
     if (!task) return res.status(404).json({ message: "Task not found" });
 
-    // Ensure approver is from the same org (or is a global admin)
-    const isGlobalAdmin = !!req.user?.isSuperAdmin;
+    // Ensure approver is from the same org (or is a super admin)
+    const isSuperAdmin = !!req.user?.isSuperAdmin;
 
-    if (!isGlobalAdmin) {
+    if (!isSuperAdmin) {
       // For non-super-admins, check organization match
       const taskOrgId = task.organisation ? String(task.organisation) : null;
       const userOrgId = req.orgId

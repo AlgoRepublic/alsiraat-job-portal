@@ -185,7 +185,7 @@ export async function hasPermissionAsync(
     // Import Role model dynamically to avoid circular dependencies
     const { default: Role } = await import("../models/Role.js");
 
-    // Map UserRole enum to role code (e.g., "Global Admin" -> "global_admin")
+    // Map UserRole enum to role code (e.g., "Organisation Admin" -> "organization_admin")
     // Use BOTH name (exact match) and code (with underscores) for maximum compatibility
     const roleCode = role.toLowerCase().replace(/ /g, "_");
 
