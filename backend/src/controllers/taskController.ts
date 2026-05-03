@@ -643,17 +643,11 @@ export const getSearchTasks = async (req: any, res: Response) => {
       );
 
       const conditions: any[] = [];
-      // Browse list: own tasks that are already on the board (drafts/pending live under /tab/my-ads).
+      // Creators always see their own tasks on Search (incl. Pending), even without task:view_pending.
+      // My Ads remains the dedicated advertiser hub; this avoids hiding submissions awaiting approval.
       conditions.push({
         createdBy: userId,
-        status: {
-          $in: [
-            TaskStatus.APPROVED,
-            TaskStatus.PUBLISHED,
-            TaskStatus.CLOSED,
-            TaskStatus.COMPLETED,
-          ],
-        },
+        status: { $ne: TaskStatus.ARCHIVED },
       });
       conditions.push({
         visibility: TaskVisibility.CENTRAL,
