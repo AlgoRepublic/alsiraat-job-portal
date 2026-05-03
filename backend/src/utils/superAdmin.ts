@@ -6,6 +6,7 @@
 import mongoose from "mongoose";
 import Organization from "../models/Organization.js";
 import { UserRole } from "../models/UserRole.js";
+import { OrgMemberKind } from "../models/User.js";
 
 export function isSuperAdminUser(
   user: { isSuperAdmin?: boolean } | null | undefined,
@@ -25,10 +26,15 @@ export async function loadAllOrganisationsLean() {
 
 export function buildVirtualOrganisationRoles(
   orgDocs: Array<{ _id: unknown }>,
-): { organisation: mongoose.Types.ObjectId; roles: UserRole[] }[] {
+): {
+  organisation: mongoose.Types.ObjectId;
+  roles: UserRole[];
+  memberKind: typeof OrgMemberKind.INTERNAL;
+}[] {
   return orgDocs.map((o) => ({
     organisation: o._id as mongoose.Types.ObjectId,
     roles: [...VIRTUAL_ORG_ROLES],
+    memberKind: OrgMemberKind.INTERNAL,
   }));
 }
 
@@ -49,6 +55,7 @@ export type VirtualOrgPayload = {
   organisationRoles: {
     organisation: mongoose.Types.ObjectId;
     roles: UserRole[];
+    memberKind: typeof OrgMemberKind.INTERNAL;
   }[];
 };
 

@@ -4,7 +4,7 @@ import { Strategy as LocalStrategy } from "passport-local";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { Strategy as OpenIDConnectStrategy, Profile as OpenIDConnectProfile, VerifyCallback as OpenIDConnectVerifyCallback } from "passport-openidconnect";
 import bcrypt from "bcryptjs";
-import User, { UserRole } from "../models/User.js";
+import User, { UserRole, OrgMemberKind } from "../models/User.js";
 import Role from "../models/Role.js";
 import Organization from "../models/Organization.js";
 import { fetchOIDCConfiguration } from "./oidcDiscovery.js";
@@ -96,7 +96,11 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
                 ...(defaultOrg
                   ? {
                       organisationRoles: [
-                        { organisation: defaultOrg._id, roles: [UserRole.APPLICANT] },
+                        {
+                          organisation: defaultOrg._id,
+                          roles: [UserRole.APPLICANT],
+                          memberKind: OrgMemberKind.INTERNAL,
+                        },
                       ],
                     }
                   : {}),
@@ -212,7 +216,11 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                     } else {
                       user.organisationRoles = [
                         ...(user.organisationRoles ?? []),
-                        { organisation: targetOrgId, roles: mappedRoles },
+                        {
+                          organisation: targetOrgId,
+                          roles: mappedRoles,
+                          memberKind: OrgMemberKind.INTERNAL,
+                        },
                       ] as any;
                     }
                   }
@@ -250,7 +258,11 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                       } else {
                         existingUser.organisationRoles = [
                           ...(existingUser.organisationRoles ?? []),
-                          { organisation: targetOrgId, roles: mappedRoles },
+                          {
+                            organisation: targetOrgId,
+                            roles: mappedRoles,
+                            memberKind: OrgMemberKind.INTERNAL,
+                          },
                         ] as any;
                       }
                     }
@@ -284,6 +296,7 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                                 mappedRoles.length > 0
                                   ? mappedRoles
                                   : [UserRole.APPLICANT],
+                              memberKind: OrgMemberKind.INTERNAL,
                             },
                           ],
                         }

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import User, { UserRole } from "../models/User.js";
+import User, { UserRole, normalizeOrgMemberKind } from "../models/User.js";
 import Group from "../models/Group.js";
 import dotenv from "dotenv";
 import crypto from "crypto";
@@ -54,6 +54,14 @@ export const generateToken = (
  * Build organisation fields for auth responses.
  * Super admins receive a virtual org graph (all organisations + synthetic organisationRoles); not persisted.
  */
+function serializeOrganisationRolesForPayload(user: any) {
+  return (user.organisationRoles ?? []).map((e: any) => ({
+    organisation: e.organisation?._id ?? e.organisation,
+    roles: Array.isArray(e.roles) ? e.roles : [],
+    memberKind: normalizeOrgMemberKind(e.memberKind),
+  }));
+}
+
 export async function buildOrgPayload(user: any, selectedOrgId?: string | null) {
   if (user.isSuperAdmin) {
     const { buildVirtualOrgPayload } = await import("../utils/superAdmin.js");
@@ -77,6 +85,7 @@ export async function buildOrgPayload(user: any, selectedOrgId?: string | null) 
       name: o.name,
       logo: o.logo,
     })),
+    organisationRoles: serializeOrganisationRolesForPayload(user),
   };
 }
 
@@ -264,7 +273,11 @@ export const verifyOtp = async (req: Request, res: Response) => {
         const invitationRoles: UserRole[] = [assignedRole];
         user.organisationRoles = [
           ...(user.organisationRoles ?? []),
-          { organisation: orgId, roles: invitationRoles }
+          {
+            organisation: orgId,
+            roles: invitationRoles,
+            memberKind: normalizeOrgMemberKind(invitation.memberKind),
+          },
         ];
         invitation.status = "Accepted";
         await invitation.save();

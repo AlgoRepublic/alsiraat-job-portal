@@ -334,7 +334,7 @@ export const checkImpersonation = async (
 
 /**
  * Context-aware middleware for task approval
- * - Platform super admin can approve ANY task (Internal or Global)
+ * - Platform super admin can approve ANY task (Internal, External, or Central)
  * - Organisation Admin and Task Manager can approve INTERNAL tasks from their org only
  * - All other roles cannot approve
  */
@@ -373,7 +373,7 @@ export const requireTaskApproval = async (
   );
 
   if (!allowed) {
-    // Fallback when permission check fails unexpectedly for Global tasks
+    // Fallback when permission check fails unexpectedly for Central/External tasks
     return res.status(403).json({
       message: "Insufficient permissions to approve this task",
       roles: req.orgRoles,
@@ -381,8 +381,7 @@ export const requireTaskApproval = async (
   }
 
   // Cross-organisation check is already handled inside canWithContext via context.organizationId
-  // but if it's Global Visibility, we need to ensure they have the permission to approve Global tasks
-  // Let's add that specific check if visibility is Global
+  // Non-internal tasks (Central, External) from another org require platform super admin
   const organisationId = task.organisation?.toString();
   const userOrganisationId = req.orgId || null;
 
@@ -393,7 +392,7 @@ export const requireTaskApproval = async (
   ) {
     return res.status(403).json({
       message:
-        "Only platform administrators can approve Global tasks from other organisations. You can only approve tasks from your own organisation.",
+        "Only platform administrators can approve Central or External tasks from other organisations. You can only approve tasks from your own organisation.",
     });
   }
 

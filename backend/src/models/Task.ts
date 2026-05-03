@@ -15,7 +15,7 @@ export type TaskStatus = (typeof TaskStatus)[keyof typeof TaskStatus];
 export const TaskVisibility = {
   INTERNAL: "Internal",
   EXTERNAL: "External",
-  GLOBAL: "Global",
+  CENTRAL: "Central",
 } as const;
 export type TaskVisibility =
   (typeof TaskVisibility)[keyof typeof TaskVisibility];

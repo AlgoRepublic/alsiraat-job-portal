@@ -40,7 +40,7 @@ import {
 import { Loading } from "../components/Loading";
 import { CustomDropdown } from "../components/CustomUI";
 import { UserProfileDrawer } from "../components/UserProfileDrawer";
-import { Permission, UserRole } from "../types";
+import { OrgMemberKind, Permission, UserRole } from "../types";
 import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
 
 interface EditForm {
@@ -48,6 +48,8 @@ interface EditForm {
   email: string;
   password?: string;
   roles: string[];
+  /** Parallel to organisationIds: Internal vs External for each org membership. */
+  memberKinds: OrgMemberKind[];
   organisationIds: string[]; // multi-org: array of selected org IDs
 }
 
@@ -389,6 +391,7 @@ export const UserManagement: React.FC = () => {
     email: "",
     password: "",
     roles: [],
+    memberKinds: [],
     organisationIds: [],
   });
   const [isCreating, setIsCreating] = useState(false);
@@ -471,10 +474,24 @@ export const UserManagement: React.FC = () => {
       }
       return orgRolesMap[oidStr] ?? (user.roles?.[0] ?? "Applicant");
     });
+    const orgMemberKindMap: Record<string, OrgMemberKind> = {};
+    (user.organisationRoles ?? []).forEach((or: any) => {
+      const oid = (or.organisation?._id ?? or.organisation)?.toString();
+      if (oid && (or.memberKind === "External" || or.memberKind === "Internal")) {
+        orgMemberKindMap[oid] = or.memberKind;
+      } else if (oid) {
+        orgMemberKindMap[oid] = "Internal";
+      }
+    });
+    const alignedMemberKinds = orgIds.map((oid: string) => {
+      const oidStr = oid.toString();
+      return orgMemberKindMap[oidStr] ?? "Internal";
+    });
     setEditForm({
       name: user.name || "",
       email: user.email || "",
       roles: alignedRoles,
+      memberKinds: alignedMemberKinds,
       organisationIds: orgIds,
     });
   };
@@ -486,6 +503,7 @@ export const UserManagement: React.FC = () => {
       email: "",
       password: "",
       roles: ["Applicant"],
+      memberKinds: [],
       organisationIds: [],
     });
   };
@@ -516,6 +534,7 @@ export const UserManagement: React.FC = () => {
       const organisationRoles = editForm.organisationIds.map((orgId, idx) => ({
         organisation: orgId,
         roles: [editForm.roles[idx] ?? "Applicant"],
+        memberKind: editForm.memberKinds[idx] ?? "Internal",
       }));
       const created = await db.adminCreateUser({
         firstName,
@@ -555,6 +574,7 @@ export const UserManagement: React.FC = () => {
       const organisationRoles = editForm.organisationIds.map((orgId, idx) => ({
         organisation: orgId,
         roles: [editForm.roles[idx] ?? "Applicant"],
+        memberKind: editForm.memberKinds[idx] ?? "Internal",
       }));
       // Keep global role in sync with the "Central" organisation selection.
       const systemOrgIndex = editForm.organisationIds.findIndex((orgId) => {
@@ -1279,10 +1299,15 @@ export const UserManagement: React.FC = () => {
                             currentIdx > -1
                               ? editForm.roles.filter((_, idx) => idx !== currentIdx)
                               : [...editForm.roles, "Applicant"];
+                          const nextMemberKinds =
+                            currentIdx > -1
+                              ? editForm.memberKinds.filter((_, idx) => idx !== currentIdx)
+                              : [...editForm.memberKinds, "Internal" as OrgMemberKind];
                           setEditForm({
                             ...editForm,
                             organisationIds: nextOrganisationIds,
                             roles: nextRoles,
+                            memberKinds: nextMemberKinds,
                           });
                         }}
                         className={`flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all ${
@@ -1313,41 +1338,62 @@ export const UserManagement: React.FC = () => {
                 </div>
               </div>
 
-              {/* Per-Organisation Role Picker */}
+              {/* Per-organisation role and internal / external membership */}
               {editForm.organisationIds.length > 0 && (
                 <div>
                   <label className="block text-xs font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest mb-2">
-                    Role Per Organisation
+                    Role &amp; member type per organisation
                   </label>
                   <div className="space-y-2 p-2 bg-zinc-50 dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700">
                     {editForm.organisationIds.map((orgId) => {
                       const org = organisations.find((o: any) => (o._id ?? o.id) === orgId);
-                      const currentRole = editForm.roles[editForm.organisationIds.indexOf(orgId)] ?? "Applicant";
+                      const idx = editForm.organisationIds.indexOf(orgId);
+                      const currentRole = editForm.roles[idx] ?? "Applicant";
+                      const currentKind = editForm.memberKinds[idx] ?? "Internal";
                       return (
-                        <div key={orgId} className="flex items-center justify-between gap-3 px-3 py-2 bg-white dark:bg-zinc-900 rounded-lg">
-                          <span className="text-sm font-bold text-zinc-800 dark:text-zinc-200 truncate flex-1">
+                        <div
+                          key={orgId}
+                          className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-3 py-2 bg-white dark:bg-zinc-900 rounded-lg"
+                        >
+                          <span className="text-sm font-bold text-zinc-800 dark:text-zinc-200 truncate sm:flex-1">
                             {org?.name ?? orgId}
                           </span>
-                          <select
-                            value={currentRole}
-                            onChange={(e) => {
-                              const updatedRoles = [...editForm.roles];
-                              const idx = editForm.organisationIds.indexOf(orgId);
-                              updatedRoles[idx] = e.target.value;
-                              setEditForm({ ...editForm, roles: updatedRoles });
-                            }}
-                            className="text-sm font-semibold bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1.5 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-primary outline-none transition-all"
-                          >
-                            {roles.map((r) => (
-                                <option key={r._id} value={r.name}>{r.name}</option>
+                          <div className="flex flex-wrap gap-2 shrink-0">
+                            <select
+                              value={currentRole}
+                              onChange={(e) => {
+                                const updatedRoles = [...editForm.roles];
+                                updatedRoles[idx] = e.target.value;
+                                setEditForm({ ...editForm, roles: updatedRoles });
+                              }}
+                              className="text-sm font-semibold bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1.5 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-primary outline-none transition-all"
+                            >
+                              {roles.map((r) => (
+                                <option key={r._id} value={r.name}>
+                                  {r.name}
+                                </option>
                               ))}
-                          </select>
+                            </select>
+                            <select
+                              value={currentKind}
+                              onChange={(e) => {
+                                const next = [...editForm.memberKinds];
+                                next[idx] = e.target.value as OrgMemberKind;
+                                setEditForm({ ...editForm, memberKinds: next });
+                              }}
+                              className="text-sm font-semibold bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1.5 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-primary outline-none transition-all"
+                              aria-label="Member type"
+                            >
+                              <option value="Internal">Internal</option>
+                              <option value="External">External</option>
+                            </select>
+                          </div>
                         </div>
                       );
                     })}
                   </div>
                   <p className="text-[10px] text-zinc-400 mt-1.5 font-medium">
-                    Each organisation can have a different role for this user.
+                    Internal is staff and students; External is partners or others outside the main body.
                   </p>
                 </div>
               )}

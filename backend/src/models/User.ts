@@ -3,6 +3,25 @@ import mongoose, { Schema, Document } from "mongoose";
 import { UserRole, normalizeUserRole } from "./UserRole.js";
 export { UserRole };
 
+/** Whether the user is an internal or external member for a given organisation. */
+export const OrgMemberKind = {
+  INTERNAL: "Internal",
+  EXTERNAL: "External",
+} as const;
+export type OrgMemberKind =
+  (typeof OrgMemberKind)[keyof typeof OrgMemberKind];
+
+export function normalizeOrgMemberKind(value: unknown): OrgMemberKind {
+  const v = typeof value === "string" ? value.trim() : "";
+  if (
+    v === OrgMemberKind.EXTERNAL ||
+    v.toLowerCase() === "external"
+  ) {
+    return OrgMemberKind.EXTERNAL;
+  }
+  return OrgMemberKind.INTERNAL;
+}
+
 export interface ISkill {
   id: string;
   name: string;
@@ -23,6 +42,8 @@ export interface IExperience {
 export interface IOrganisationRole {
   organisation: mongoose.Types.ObjectId;
   roles: UserRole[];
+  /** Internal = staff/student body; External = partner or non-staff access for that org. */
+  memberKind?: OrgMemberKind;
 }
 
 export interface IUser extends Document {
@@ -102,6 +123,11 @@ const UserSchema: Schema = new Schema(
             set: normalizeUserRole,
           },
         ],
+        memberKind: {
+          type: String,
+          enum: Object.values(OrgMemberKind),
+          default: OrgMemberKind.INTERNAL,
+        },
       },
     ],
     avatar: { type: String },

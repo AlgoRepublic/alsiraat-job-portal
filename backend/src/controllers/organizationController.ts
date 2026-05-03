@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import crypto from "crypto";
 import Organization from "../models/Organization.js";
-import User, { UserRole } from "../models/User.js";
+import User, { UserRole, normalizeOrgMemberKind } from "../models/User.js";
 import Invitation from "../models/Invitation.js";
 import { sendEmail } from "../services/notificationService.js";
 import { onboardingInvitationEmail } from "../services/emailTemplates.js";
@@ -63,7 +63,13 @@ export const createOrganization = async (req: Request, res: Response) => {
     }
     owner.organisationRoles = [
       ...(owner.organisationRoles ?? []),
-      { organisation: org._id as any, roles: [UserRole.ORGANIZATION_ADMIN] },
+      {
+        organisation: org._id as any,
+        roles: [UserRole.ORGANIZATION_ADMIN],
+        memberKind: normalizeOrgMemberKind(
+          (req as any).body?.ownerMemberKind,
+        ),
+      },
     ];
     await owner.save();
 
@@ -103,7 +109,7 @@ export const getOrganizations = async (req: Request, res: Response) => {
 export const addMember = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { email, role } = req.body;
+    const { email, role, memberKind } = req.body;
 
     const organization = await Organization.findById(id);
     if (!organization) {
@@ -133,12 +139,18 @@ export const addMember = async (req: Request, res: Response) => {
       const orgRoleIndex = (user.organisationRoles ?? []).findIndex(
         (o: any) => o.organisation.toString() === (organization._id as any).toString()
       );
+      const kind = normalizeOrgMemberKind(memberKind);
       if (orgRoleIndex > -1 && user.organisationRoles) {
         (user.organisationRoles as any)[orgRoleIndex].roles = [role];
+        (user.organisationRoles as any)[orgRoleIndex].memberKind = kind;
       } else {
         user.organisationRoles = [
           ...(user.organisationRoles ?? []),
-          { organisation: organization._id as any, roles: [role] }
+          {
+            organisation: organization._id as any,
+            roles: [role],
+            memberKind: kind,
+          },
         ];
       }
     }
@@ -165,8 +177,16 @@ export const addMember = async (req: Request, res: Response) => {
  */
 export const inviteOrganisation = async (req: any, res: Response) => {
   try {
-    const { name, domain, about, type, ownerEmail, organisationId, role } =
-      req.body;
+    const {
+      name,
+      domain,
+      about,
+      type,
+      ownerEmail,
+      organisationId,
+      role,
+      memberKind,
+    } = req.body;
 
     if (!ownerEmail) {
       return res.status(400).json({
@@ -254,6 +274,7 @@ export const inviteOrganisation = async (req: any, res: Response) => {
         email: ownerEmail,
         organisation: targetOrgId,
         role: role || UserRole.ORGANIZATION_ADMIN, // Default to Organisation Admin
+        memberKind: normalizeOrgMemberKind(memberKind),
         token,
         invitedBy: req.user._id,
         expiresAt,

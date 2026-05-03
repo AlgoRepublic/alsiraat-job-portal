@@ -15,15 +15,7 @@ import { Pagination } from "../components/Pagination";
 
 const PAGE_SIZE = 10;
 
-// Only show application-phase statuses — tasks that become assigned move to "My Tasks"
-const APPLICATION_PHASE_STATUSES = [
-  "Pending",
-  "Reviewing",
-  "Shortlisted",
-  "Rejected",
-  "Declined",
-].join(",");
-
+// Server enforces phases when list=my-applications (see GET /api/applications).
 export default function MyApplications() {
   const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +36,7 @@ export default function MyApplications() {
     try {
       setLoading(true);
       const data = await db.getApplicationsPaged(
-        { status: APPLICATION_PHASE_STATUSES, applicant: "me" },
+        { applicant: "me", list: "my-applications" },
         page,
         PAGE_SIZE,
       );

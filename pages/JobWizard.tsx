@@ -35,6 +35,42 @@ import { generateJobDescription } from "../services/geminiService";
 import { db } from "../services/database";
 import { api } from "../services/api";
 
+function getActiveOrganisationNameFromUser(user: any): string | null {
+  if (!user) return null;
+  const ao = user.activeOrganisation;
+  if (ao && typeof ao === "object" && typeof ao.name === "string") {
+    const t = ao.name.trim();
+    if (t) return t;
+  }
+  const o = user.organisation;
+  if (o && typeof o === "object" && typeof o.name === "string") {
+    const t = o.name.trim();
+    if (t) return t;
+  }
+  const arr = user.organisations;
+  if (
+    Array.isArray(arr) &&
+    arr[0] &&
+    typeof arr[0] === "object" &&
+    typeof (arr[0] as { name?: string }).name === "string"
+  ) {
+    const t = String((arr[0] as { name: string }).name).trim();
+    if (t) return t;
+  }
+  return null;
+}
+
+function readActiveOrganisationNameFromStorage(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem("user_data");
+    if (!raw) return null;
+    return getActiveOrganisationNameFromUser(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
 // ─── Accordion Section ────────────────────────────────────────────────────────
 interface AccordionProps {
   id: string;
@@ -136,13 +172,13 @@ export const JobWizard: React.FC = () => {
   const [skillInput, setSkillInput] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Accordion open state — Step 1
+  // Accordion open state (step 1)
   const [openS1, setOpenS1] = useState<Record<string, boolean>>({
     basic: true,
     schedule: true,
   });
 
-  // Accordion open state — Step 2
+  // Accordion open state (step 2)
   const [openS2, setOpenS2] = useState<Record<string, boolean>>({
     requirements: false,
     reward: true,
@@ -154,6 +190,9 @@ export const JobWizard: React.FC = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
+  const [activeOrgName, setActiveOrgName] = useState<string | null>(() =>
+    readActiveOrganisationNameFromStorage(),
+  );
 
   const [formData, setFormData] = useState<Partial<Job>>({
     title: "",
@@ -174,6 +213,19 @@ export const JobWizard: React.FC = () => {
     allowedGroups: [],
     status: JobStatus.DRAFT,
   });
+
+  React.useEffect(() => {
+    db.getCurrentUser().then((u) => {
+      const fromUser = u ? getActiveOrganisationNameFromUser(u) : null;
+      setActiveOrgName(fromUser ?? readActiveOrganisationNameFromStorage());
+    });
+  }, []);
+
+  React.useEffect(() => {
+    if (openS2.reward) {
+      setActiveOrgName(readActiveOrganisationNameFromStorage());
+    }
+  }, [openS2.reward]);
 
   // Fetch data on mount
   React.useEffect(() => {
@@ -208,6 +260,8 @@ export const JobWizard: React.FC = () => {
               visibility: job.visibility,
               attachments: [],
               status: job.status,
+              allowedGroups: job.allowedGroups ?? [],
+              allowedRoles: job.allowedRoles ?? [],
             });
           }
         } catch (err) {
@@ -238,6 +292,40 @@ export const JobWizard: React.FC = () => {
     setOpenS1((p) => ({ ...p, [key]: !p[key] }));
   const toggleS2 = (key: string) =>
     setOpenS2((p) => ({ ...p, [key]: !p[key] }));
+
+  const orgScopeLabel = (
+    activeOrgName?.trim() || "your active organisation"
+  ).replace(/\s+/g, " ");
+
+  const visibilityOptions = React.useMemo(() => {
+    const named = activeOrgName?.trim();
+    const afterOrg = named ? " " : ", ";
+    const centralDesc =
+      "Your organisation lists this on public Central. Open browsing.";
+    return [
+      {
+        value: Visibility.INTERNAL,
+        label: "Internal",
+        description: `For ${orgScopeLabel}${afterOrg}Internal users e.g. staff, students & parents. Sign-in only.`,
+        icon: "🏛️",
+        disabled: false,
+      },
+      {
+        value: Visibility.EXTERNAL,
+        label: "External",
+        description: `For ${orgScopeLabel}${afterOrg}External users e.g. community, musallees & word-of-mouth. Sign-in only.`,
+        icon: "🌐",
+        disabled: false,
+      },
+      {
+        value: Visibility.CENTRAL,
+        label: "Central",
+        description: centralDesc,
+        icon: "✨",
+        disabled: false,
+      },
+    ];
+  }, [activeOrgName, orgScopeLabel]);
 
   const handleAddSkill = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && skillInput.trim()) {
@@ -356,7 +444,14 @@ export const JobWizard: React.FC = () => {
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      const submissionData = { ...formData, status: "Pending" };
+      const submissionData = {
+        ...formData,
+        status: "Pending",
+        allowedGroups:
+          formData.visibility === Visibility.INTERNAL
+            ? formData.allowedGroups ?? []
+            : [],
+      };
 
       if (id) {
         if (uploadedFiles.length > 0) {
@@ -408,7 +503,7 @@ export const JobWizard: React.FC = () => {
         </p>
       </div>
 
-      {/* Step Indicator — click to jump freely between steps */}
+      {/* Step indicator: click to jump freely between steps */}
       <div className="flex items-center gap-0">
         {[
           { num: 1, label: "Task Information" },
@@ -452,7 +547,7 @@ export const JobWizard: React.FC = () => {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════ */}
-      {/* STEP 1 — Task Information                                   */}
+      {/* STEP 1: Task information */}
       {/* ═══════════════════════════════════════════════════════════ */}
       {step === 1 && (
         <div className="space-y-4 animate-fade-in">
@@ -509,7 +604,7 @@ export const JobWizard: React.FC = () => {
               </div>
             </div>
 
-            {/* Description inside Basic — with AI button */}
+            {/* Description inside Basic, with AI button */}
             <div className="space-y-1.5">
               <div className="flex justify-between items-center">
                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
@@ -659,7 +754,7 @@ export const JobWizard: React.FC = () => {
       )}
 
       {/* ═══════════════════════════════════════════════════════════ */}
-      {/* STEP 2 — Requirements & Publish                             */}
+      {/* STEP 2: Requirements & publish */}
       {/* ═══════════════════════════════════════════════════════════ */}
       {step === 2 && (
         <div className="space-y-4 animate-fade-in">
@@ -726,7 +821,7 @@ export const JobWizard: React.FC = () => {
           <AccordionSection
             id="reward"
             title="Reward & Visibility"
-            subtitle="Compensation type and who can see this task"
+            subtitle="Rewards and who can see the task"
             icon={<Award className="w-4 h-4" />}
             isOpen={openS2.reward}
             onToggle={() => toggleS2("reward")}
@@ -816,30 +911,8 @@ export const JobWizard: React.FC = () => {
                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
                   Task Visibility *
                 </label>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    {
-                      value: Visibility.INTERNAL,
-                      label: "Internal",
-                      description: "Organisation members only",
-                      icon: "🏛️",
-                      disabled: false,
-                    },
-                    {
-                      value: Visibility.EXTERNAL,
-                      label: "External",
-                      description: "Open to anyone",
-                      icon: "🌐",
-                      disabled: false,
-                    },
-                    {
-                      value: Visibility.GLOBAL,
-                      label: "Global",
-                      description: "Published globally",
-                      icon: "✨",
-                      disabled: false,
-                    },
-                  ].map((opt) => {
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-stretch">
+                  {visibilityOptions.map((opt) => {
                     const isSelected = formData.visibility === opt.value;
                     return (
                       <button
@@ -848,11 +921,30 @@ export const JobWizard: React.FC = () => {
                         disabled={opt.disabled}
                         onClick={() => {
                           if (opt.disabled) return;
-                          updateField("visibility", opt.value);
+                          const nextVis = opt.value;
+                          setFormData((prev) => {
+                            let nextGroups = prev.allowedGroups ?? [];
+                            if (nextVis !== Visibility.INTERNAL) {
+                              nextGroups = [];
+                            } else if (nextGroups.length === 0) {
+                              const allMembers = groups.find(
+                                (g: any) =>
+                                  g.name?.toLowerCase() === "all members",
+                              );
+                              if (allMembers?._id) {
+                                nextGroups = [allMembers._id];
+                              }
+                            }
+                            return {
+                              ...prev,
+                              visibility: nextVis,
+                              allowedGroups: nextGroups,
+                            };
+                          });
                           if (errors.visibility)
                             setErrors((p) => ({ ...p, visibility: "" }));
                         }}
-                        className={`p-3.5 rounded-xl border-2 text-left transition-all duration-200 relative ${
+                        className={`px-3.5 pt-4 pb-3.5 rounded-xl border-2 text-left transition-all duration-200 relative h-full flex flex-col ${
                           opt.disabled
                             ? "opacity-40 cursor-not-allowed bg-zinc-100 dark:bg-zinc-800/20 border-zinc-200 dark:border-zinc-700"
                             : isSelected
@@ -869,8 +961,8 @@ export const JobWizard: React.FC = () => {
                             Soon
                           </span>
                         )}
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-base">{opt.icon}</span>
+                        <div className="flex items-center justify-between mb-1 shrink-0">
+                          <span className="text-base leading-none">{opt.icon}</span>
                           <div
                             className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
                               isSelected
@@ -884,7 +976,7 @@ export const JobWizard: React.FC = () => {
                           </div>
                         </div>
                         <p
-                          className={`font-black text-xs tracking-tight ${
+                          className={`font-black text-xs tracking-tight leading-tight shrink-0 ${
                             isSelected
                               ? "text-primary"
                               : "text-zinc-800 dark:text-zinc-200"
@@ -892,9 +984,13 @@ export const JobWizard: React.FC = () => {
                         >
                           {opt.label}
                         </p>
-                        <p className="text-[10px] text-zinc-400 mt-0.5 leading-tight">
+                        <p className="text-[10px] text-zinc-400 mt-1 leading-snug shrink-0">
                           {opt.description}
                         </p>
+                        <div
+                          className="flex-1 min-h-0 basis-0 shrink-0"
+                          aria-hidden="true"
+                        />
                       </button>
                     );
                   })}
@@ -903,6 +999,13 @@ export const JobWizard: React.FC = () => {
                 {errors.visibility && (
                   <p className="text-red-500 text-xs font-bold">{errors.visibility}</p>
                 )}
+                <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium leading-relaxed">
+                  For{" "}
+                  <span className="font-bold text-zinc-700 dark:text-zinc-300">
+                    {orgScopeLabel}
+                  </span>
+                  : Internal &amp; External: sign-in, on your organisation. Central: the public Central organisation; open browsing.
+                </p>
               </div>
 
               {formData.visibility === Visibility.INTERNAL &&
@@ -913,7 +1016,11 @@ export const JobWizard: React.FC = () => {
                         Allowed Groups
                       </label>
                       <p className="text-xs text-zinc-500 mt-0.5">
-                        "All Members" is pre-selected by default. Deselect or choose specific groups to restrict visibility.
+                        Defaults to All Members for{" "}
+                        <span className="font-semibold text-zinc-600 dark:text-zinc-400">
+                          {orgScopeLabel}
+                        </span>
+                        ; pick groups to narrow who can see this task.
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -995,7 +1102,7 @@ export const JobWizard: React.FC = () => {
                   Click to select files
                 </p>
                 <p className="text-xs text-zinc-400 mt-1">
-                  PDF, Word, Excel, Images — max 10MB each, up to 5 files
+                  PDF, Word, Excel, Images. Max 10MB each, up to 5 files
                 </p>
                 <input
                   type="file"
@@ -1070,7 +1177,7 @@ export const JobWizard: React.FC = () => {
       )}
 
       {/* ═══════════════════════════════════════════════════════════ */}
-      {/* STEP 3 — Review & Submit                                    */}
+      {/* STEP 3: Review & submit */}
       {/* ═══════════════════════════════════════════════════════════ */}
       {step === 3 && (
         <div className="space-y-6 animate-fade-in">
@@ -1101,20 +1208,23 @@ export const JobWizard: React.FC = () => {
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 {[
-                  { label: "Title", value: formData.title || "—" },
-                  { label: "Category", value: formData.category || "—" },
-                  { label: "Location", value: formData.location || "—" },
+                  { label: "Title", value: formData.title || "-" },
+                  { label: "Category", value: formData.category || "-" },
+                  { label: "Location", value: formData.location || "-" },
                   {
                     label: "Duration",
-                    value: formData.hoursRequired ? `${formData.hoursRequired}h` : "—",
+                    value: formData.hoursRequired ? `${formData.hoursRequired}h` : "-",
                   },
                   { label: "Start Date", value: formData.startDate || "ASAP" },
-                  { label: "End Date", value: formData.endDate || "—" },
+                  { label: "End Date", value: formData.endDate || "-" },
                   {
                     label: "Reward",
-                    value: `${formData.rewardType || "—"}${formData.rewardValue ? ` · ${formData.rewardValue}` : ""}`,
+                    value: `${formData.rewardType || "-"}${formData.rewardValue ? ` · ${formData.rewardValue}` : ""}`,
                   },
-                  { label: "Visibility", value: formData.visibility || "—" },
+                  {
+                    label: "Visibility",
+                    value: formData.visibility || "-",
+                  },
                 ].map((item) => (
                   <div key={item.label} className="bg-zinc-50 dark:bg-zinc-800/40 rounded-xl p-3">
                     <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">

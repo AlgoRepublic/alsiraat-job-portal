@@ -40,10 +40,13 @@ export const RewardType = {
 } as const;
 export type RewardType = (typeof RewardType)[keyof typeof RewardType];
 
+/**
+ * Task visibility. Internal/External are org-scoped (sign-in). Central = listed on the public Central organisation (platform-wide open browsing).
+ */
 export const Visibility = {
   INTERNAL: "Internal",
   EXTERNAL: "External",
-  GLOBAL: "Global",
+  CENTRAL: "Central",
 } as const;
 export type Visibility = (typeof Visibility)[keyof typeof Visibility];
 
@@ -109,6 +112,9 @@ export interface Job {
   organisation?: string;
   organization?: string;
 }
+
+/** Per-organisation membership: staff/student body vs external partner. */
+export type OrgMemberKind = "Internal" | "External";
 
 export interface OrgContext {
   _id: string;

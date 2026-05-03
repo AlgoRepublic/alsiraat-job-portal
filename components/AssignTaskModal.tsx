@@ -269,7 +269,7 @@ export const AssignTaskModal: React.FC<AssignTaskModalProps> = ({
               Assign Task Directly
             </h2>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-              Skip the application queue — assign a task straight to a user.
+              Skip the application queue and assign a task straight to a user.
             </p>
           </div>
           <button
@@ -317,7 +317,9 @@ export const AssignTaskModal: React.FC<AssignTaskModalProps> = ({
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-zinc-800 dark:text-zinc-100 truncate">{t.title}</p>
-                        <p className="text-xs text-zinc-400">{t.hoursRequired}h • {t.visibility}</p>
+                        <p className="text-xs text-zinc-400">
+                          {t.hoursRequired}h • {t.visibility}
+                        </p>
                       </div>
                       <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${statusColor(t.status)}`}>
                         {t.status}

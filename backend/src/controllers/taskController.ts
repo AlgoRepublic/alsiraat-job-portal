@@ -31,6 +31,27 @@ const parseArrayField = (value: any): string[] => {
   return [];
 };
 
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Accepts API values; maps legacy `"Global"` to Central visibility. */
+const normalizeIncomingTaskVisibility = (value: unknown): TaskVisibility => {
+  const v = typeof value === "string" ? value.trim() : "";
+  if (
+    v === "Global" ||
+    v === TaskVisibility.CENTRAL ||
+    v === "Central"
+  ) {
+    return TaskVisibility.CENTRAL;
+  }
+  if (v === TaskVisibility.EXTERNAL || v === "External") {
+    return TaskVisibility.EXTERNAL;
+  }
+  if (v === TaskVisibility.INTERNAL || v === "Internal") {
+    return TaskVisibility.INTERNAL;
+  }
+  return TaskVisibility.INTERNAL;
+};
+
 export const createTask = async (req: any, res: Response) => {
   try {
     const {
@@ -88,7 +109,7 @@ export const createTask = async (req: any, res: Response) => {
       rewardType,
       rewardValue,
       eligibility: parseArrayField(eligibility),
-      visibility: visibility || TaskVisibility.INTERNAL,
+      visibility: normalizeIncomingTaskVisibility(visibility),
       allowedRoles: parseArrayField(req.body.allowedRoles),
       allowedGroups: parseArrayField(req.body.allowedGroups),
       status: taskStatus,
@@ -224,7 +245,7 @@ export const updateTask = async (req: any, res: Response) => {
     if (rewardType) task.rewardType = rewardType;
     if (rewardValue) task.rewardValue = rewardValue;
     if (eligibility) task.eligibility = parseArrayField(eligibility);
-    if (visibility) task.visibility = visibility;
+    if (visibility) task.visibility = normalizeIncomingTaskVisibility(visibility);
     if (req.body.allowedRoles !== undefined)
       (task as any).allowedRoles = parseArrayField(req.body.allowedRoles);
     if (req.body.allowedGroups !== undefined)
@@ -328,10 +349,10 @@ export const getTasks = async (req: any, res: Response) => {
 
     // Dynamic Visibility Logic
     if (!user) {
-      // Guest: Only see Published Global tasks
+      // Guest: Only see Published Central tasks
       query = {
         status: TaskStatus.PUBLISHED,
-        visibility: TaskVisibility.GLOBAL,
+        visibility: TaskVisibility.CENTRAL,
       };
     } else {
       const { allowed: canViewAll } = await checkPermissionAsync(
@@ -355,16 +376,16 @@ export const getTasks = async (req: any, res: Response) => {
         status: { $ne: TaskStatus.ARCHIVED },
       });
 
-      // 2. Published Global tasks
+      // 2. Published Central tasks
       conditions.push({
-        visibility: TaskVisibility.GLOBAL,
+        visibility: TaskVisibility.CENTRAL,
         status: TaskStatus.PUBLISHED,
       });
 
-      // 3. Pending Global tasks (if user has permission to view pending)
+      // 3. Pending Central tasks (if user has permission to view pending)
       if (canViewPending) {
         conditions.push({
-          visibility: TaskVisibility.GLOBAL,
+          visibility: TaskVisibility.CENTRAL,
           status: TaskStatus.PENDING,
         });
       }
@@ -452,11 +473,7 @@ export const getTasks = async (req: any, res: Response) => {
     if (search && typeof search === "string" && search.trim().length > 0) {
       const searchRegex = new RegExp(search.trim(), "i");
       additionalFilters.push({
-        $or: [
-          { title: searchRegex },
-          { description: searchRegex },
-          { category: searchRegex },
-        ],
+        $or: [{ title: searchRegex }, { description: searchRegex }],
       });
     }
 
@@ -466,6 +483,33 @@ export const getTasks = async (req: any, res: Response) => {
     if (req.query.status) additionalFilters.push({ status: req.query.status });
     if (req.query.reward)
       additionalFilters.push({ rewardType: req.query.reward });
+
+    if (req.query.dateFrom) {
+      const df = new Date(String(req.query.dateFrom));
+      if (!Number.isNaN(df.getTime())) {
+        df.setHours(0, 0, 0, 0);
+        additionalFilters.push({
+          $or: [
+            { endDate: { $exists: false } },
+            { endDate: null },
+            { endDate: { $gte: df } },
+          ],
+        });
+      }
+    }
+    if (req.query.dateTo) {
+      const dt = new Date(String(req.query.dateTo));
+      if (!Number.isNaN(dt.getTime())) {
+        dt.setHours(23, 59, 59, 999);
+        additionalFilters.push({
+          $or: [
+            { startDate: { $exists: false } },
+            { startDate: null },
+            { startDate: { $lte: dt } },
+          ],
+        });
+      }
+    }
 
     // Apply all filters joined by $AND
     if (additionalFilters.length > 0) {
@@ -559,89 +603,32 @@ export const getTasks = async (req: any, res: Response) => {
 };
 
 /**
- * Tab API: Search Tasks
- * Intentionally delegates to the default listing logic so existing visibility
- * and filtering semantics remain consistent.
+ * Tab API: Search Tasks (`/jobs` browse). Use `/tab/my-ads` for tasks you created.
  */
 export const getSearchTasks = async (req: any, res: Response) => {
   try {
-    const user = req.user;
-    const { roles, _id: userId } = user || {};
-    const organisation = req.orgId;
-    const hasSuperAdminRole = !!user?.isSuperAdmin;
-    const { search, includeExpired, createdByMe } = req.query;
-    let query: any = {};
-
-    // If createdByMe is true, only return tasks created by this user
-    if (createdByMe === "true" && user) {
-      query = {
-        createdBy: userId,
-        status: { $ne: TaskStatus.ARCHIVED },
-      };
-
-      // Apply search filter if provided
-      if (search && typeof search === "string" && search.trim().length > 0) {
-        const searchRegex = new RegExp(search.trim(), "i");
-        query.$and = [
-          { createdBy: userId },
-          { status: { $ne: TaskStatus.ARCHIVED } },
-          {
-            $or: [{ title: searchRegex }, { description: searchRegex }],
-          },
-        ];
-        delete query.createdBy;
-        delete query.status;
-      }
-
-      const total = await Task.countDocuments(query);
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 10;
-      const skip = (page - 1) * limit;
-
-      const tasks = await Task.find(query)
-        .populate("category", "name code icon")
-        .populate("rewardType", "name code")
-        .populate("organisation", "name slug")
-        .populate("createdBy", "name email")
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit);
-
-      const taskIds = tasks.map((t) => t._id);
-      const counts = await Application.aggregate([
-        { $match: { task: { $in: taskIds } } },
-        { $group: { _id: "$task", count: { $sum: 1 } } },
-      ]);
-      const countMap = new Map(counts.map((c) => [c._id.toString(), c.count]));
-
-      const tasksMapped = tasks.map((task) => ({
-        ...task.toObject(),
-        applicantsCount: countMap.get(task._id.toString()) || 0,
-      }));
-
-      if (!req.query.page && !req.query.limit) {
-        return res.json(tasksMapped);
-      }
-
-      return res.json({
-        tasks: tasksMapped,
-        pagination: {
-          total,
-          page,
-          limit,
-          pages: Math.ceil(total / limit),
-        },
+    if (String(req.query.createdByMe || "") === "true") {
+      return res.status(400).json({
+        message:
+          "Use GET /api/tasks/tab/my-ads to list tasks you created (or GET /api/tasks?createdByMe=true).",
       });
     }
+
+    const user = req.user;
+    const organisation = req.orgId;
+    const hasSuperAdminRole = !!user?.isSuperAdmin;
+    const { search, includeExpired } = req.query;
+    let query: any = {};
 
     const { checkPermissionAsync } = await import("../middleware/rbac.js");
 
     if (!user) {
       query = {
         status: TaskStatus.PUBLISHED,
-        visibility: TaskVisibility.GLOBAL,
+        visibility: TaskVisibility.CENTRAL,
       };
     } else {
+      const userId = user._id;
       const { allowed: canViewAll } = await checkPermissionAsync(
         user,
         Permission.TASK_READ,
@@ -656,17 +643,25 @@ export const getSearchTasks = async (req: any, res: Response) => {
       );
 
       const conditions: any[] = [];
+      // Browse list: own tasks that are already on the board (drafts/pending live under /tab/my-ads).
       conditions.push({
         createdBy: userId,
-        status: { $ne: TaskStatus.ARCHIVED },
+        status: {
+          $in: [
+            TaskStatus.APPROVED,
+            TaskStatus.PUBLISHED,
+            TaskStatus.CLOSED,
+            TaskStatus.COMPLETED,
+          ],
+        },
       });
       conditions.push({
-        visibility: TaskVisibility.GLOBAL,
+        visibility: TaskVisibility.CENTRAL,
         status: TaskStatus.PUBLISHED,
       });
       if (canViewPending) {
         conditions.push({
-          visibility: TaskVisibility.GLOBAL,
+          visibility: TaskVisibility.CENTRAL,
           status: TaskStatus.PENDING,
         });
       }
@@ -718,7 +713,7 @@ export const getSearchTasks = async (req: any, res: Response) => {
         if (hasSuperAdminRole) {
           query = organisation
             ? { organisation, status: { $ne: TaskStatus.ARCHIVED } }
-            : { status: { $ne: TaskStatus.ARCHIVED } };
+            : { $or: conditions };
         } else if (organisation) {
           query = {
             organisation,
@@ -734,18 +729,41 @@ export const getSearchTasks = async (req: any, res: Response) => {
 
     const additionalFilters: any[] = [];
     if (search && typeof search === "string" && search.trim().length > 0) {
-      const searchRegex = new RegExp(search.trim(), "i");
+      const searchRegex = new RegExp(escapeRegExp(search.trim()), "i");
       additionalFilters.push({
-        $or: [
-          { title: searchRegex },
-          { description: searchRegex },
-          { category: searchRegex },
-        ],
+        $or: [{ title: searchRegex }, { description: searchRegex }],
       });
     }
     if (req.query.category) additionalFilters.push({ category: req.query.category });
     if (req.query.status) additionalFilters.push({ status: req.query.status });
     if (req.query.reward) additionalFilters.push({ rewardType: req.query.reward });
+
+    if (req.query.dateFrom) {
+      const df = new Date(String(req.query.dateFrom));
+      if (!Number.isNaN(df.getTime())) {
+        df.setHours(0, 0, 0, 0);
+        additionalFilters.push({
+          $or: [
+            { endDate: { $exists: false } },
+            { endDate: null },
+            { endDate: { $gte: df } },
+          ],
+        });
+      }
+    }
+    if (req.query.dateTo) {
+      const dt = new Date(String(req.query.dateTo));
+      if (!Number.isNaN(dt.getTime())) {
+        dt.setHours(23, 59, 59, 999);
+        additionalFilters.push({
+          $or: [
+            { startDate: { $exists: false } },
+            { startDate: null },
+            { startDate: { $lte: dt } },
+          ],
+        });
+      }
+    }
 
     if (additionalFilters.length > 0) {
       if (Object.keys(query).length > 0) {
@@ -780,6 +798,8 @@ export const getSearchTasks = async (req: any, res: Response) => {
 
     const total = await Task.countDocuments(query);
     const tasks = await Task.find(query)
+      .populate("category", "name code icon")
+      .populate("rewardType", "name code")
       .populate("organisation", "name")
       .populate("createdBy", "name")
       .sort({ createdAt: -1 })
@@ -797,7 +817,7 @@ export const getSearchTasks = async (req: any, res: Response) => {
     if (user) {
       const userApplications = await Application.find({
         task: { $in: taskIds },
-        applicant: userId,
+        applicant: user._id,
       }).select("task");
       appliedTaskIds = new Set(userApplications.map((app) => app.task.toString()));
     }
@@ -838,15 +858,22 @@ export const getMyAdsTasks = async (req: any, res: Response) => {
 
     const userId = req.user._id;
     const search = req.query.search;
+    const includeArchived = String(req.query.includeArchived || "") === "true";
     let query: any = {
       createdBy: userId,
     };
 
+    if (!includeArchived) {
+      query = {
+        $and: [query, { status: { $ne: TaskStatus.ARCHIVED } }],
+      };
+    }
+
     if (search && typeof search === "string" && search.trim().length > 0) {
-      const searchRegex = new RegExp(search.trim(), "i");
+      const searchRegex = new RegExp(escapeRegExp(search.trim()), "i");
       query = {
         $and: [
-          { createdBy: userId },
+          ...(query.$and || [query]),
           { $or: [{ title: searchRegex }, { description: searchRegex }] },
         ],
       };
@@ -860,6 +887,43 @@ export const getMyAdsTasks = async (req: any, res: Response) => {
     }
     if (req.query.reward) {
       query = { $and: [query, { rewardType: req.query.reward }] };
+    }
+
+    if (req.query.dateFrom) {
+      const df = new Date(String(req.query.dateFrom));
+      if (!Number.isNaN(df.getTime())) {
+        df.setHours(0, 0, 0, 0);
+        query = {
+          $and: [
+            query,
+            {
+              $or: [
+                { endDate: { $exists: false } },
+                { endDate: null },
+                { endDate: { $gte: df } },
+              ],
+            },
+          ],
+        };
+      }
+    }
+    if (req.query.dateTo) {
+      const dt = new Date(String(req.query.dateTo));
+      if (!Number.isNaN(dt.getTime())) {
+        dt.setHours(23, 59, 59, 999);
+        query = {
+          $and: [
+            query,
+            {
+              $or: [
+                { startDate: { $exists: false } },
+                { startDate: null },
+                { startDate: { $lte: dt } },
+              ],
+            },
+          ],
+        };
+      }
     }
 
     const page = parseInt(req.query.page as string) || 1;
@@ -921,27 +985,27 @@ export const getPendingApprovalTasks = async (req: any, res: Response) => {
     const hasSuperAdminRole = !!user?.isSuperAdmin;
     const search = req.query.search;
 
-    // Pending approvals are organization-scoped unless super admin has no active org.
+    // Pending + changes requested (needs re-review after edits).
+    const pendingReviewStatuses = [
+      TaskStatus.PENDING,
+      TaskStatus.CHANGES_REQUESTED,
+    ];
     let query: any;
     if (hasSuperAdminRole && !organisation) {
-      query = { status: TaskStatus.PENDING };
+      query = { status: { $in: pendingReviewStatuses } };
     } else if (organisation) {
-      query = { organisation, status: TaskStatus.PENDING };
+      query = { organisation, status: { $in: pendingReviewStatuses } };
     } else {
-      query = { status: TaskStatus.PENDING };
+      query = { status: { $in: pendingReviewStatuses } };
     }
 
     if (search && typeof search === "string" && search.trim().length > 0) {
-      const searchRegex = new RegExp(search.trim(), "i");
+      const searchRegex = new RegExp(escapeRegExp(search.trim()), "i");
       query = {
         $and: [
           query,
           {
-            $or: [
-              { title: searchRegex },
-              { description: searchRegex },
-              { category: searchRegex },
-            ],
+            $or: [{ title: searchRegex }, { description: searchRegex }],
           },
         ],
       };
@@ -963,6 +1027,8 @@ export const getPendingApprovalTasks = async (req: any, res: Response) => {
 
     const total = await Task.countDocuments(query);
     const tasks = await Task.find(query)
+      .populate("category", "name code icon")
+      .populate("rewardType", "name code")
       .populate("organisation", "name slug")
       .populate("createdBy", "name email")
       .sort({ createdAt: -1 })
@@ -1110,7 +1176,7 @@ export const approveTask = async (req: any, res: Response) => {
 
       // Notify members about new task
       if (
-        task.visibility === TaskVisibility.GLOBAL ||
+        task.visibility === TaskVisibility.CENTRAL ||
         task.visibility === TaskVisibility.EXTERNAL
       ) {
         await sendNotificationToAll(
@@ -1208,6 +1274,10 @@ export const repostTask = async (req: any, res: Response) => {
 
     clonedTaskData.startDate = new Date();
     clonedTaskData.endDate = new Date(endDate);
+
+    if (clonedTaskData.visibility === "Global") {
+      clonedTaskData.visibility = TaskVisibility.CENTRAL;
+    }
 
     const { canAutoPublishAsync } = await import("../config/permissions.js");
     let isAutoPublish = false;

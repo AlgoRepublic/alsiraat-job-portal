@@ -20,15 +20,7 @@ import { Application, Job } from "../types";
 
 const PAGE_SIZE = 10;
 
-// Status groups that qualify as "My Tasks"
-const MY_TASK_STATUSES = [
-  "Offered",
-  "Accepted",
-  "Approved",
-  "Completion Requested",
-  "Completion Rejected",
-  "Completed",
-];
+// Server enforces assignment/workflow statuses when list=my-tasks (GET /api/applications).
 
 const getStatusConfig = (status: string) => {
   switch (status.toLowerCase()) {
@@ -100,7 +92,7 @@ export const MyAssignedTasks: React.FC = () => {
     try {
       setLoading(true);
       const data = await db.getApplicationsPaged(
-        { status: MY_TASK_STATUSES, applicant: "me" },
+        { applicant: "me", list: "my-tasks" },
         page,
         PAGE_SIZE,
       );

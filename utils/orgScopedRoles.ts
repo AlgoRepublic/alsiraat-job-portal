@@ -41,3 +41,29 @@ export const getUserRolesForActiveOrg = (
   const roles = Array.isArray(matched?.roles) ? matched.roles : [];
   return Array.from(new Set(roles));
 };
+
+/** Internal vs External membership for the active (or first resolvable) organisation. */
+export const getMemberKindForActiveOrg = (
+  user: any,
+  activeOrgId?: string | null,
+): "Internal" | "External" => {
+  const orgRoleEntries = Array.isArray(user?.organisationRoles)
+    ? user.organisationRoles
+    : [];
+  if (orgRoleEntries.length === 0) return "Internal";
+
+  const targetOrgId =
+    activeOrgId ||
+    getOrgId(user?.activeOrganisation) ||
+    getActiveOrgIdFromStorage() ||
+    getOrgId(user?.organisations?.[0]) ||
+    getOrgId(orgRoleEntries[0]?.organisation);
+  if (!targetOrgId) return "Internal";
+
+  const matched = orgRoleEntries.find(
+    (entry: any) => getOrgId(entry?.organisation) === targetOrgId,
+  );
+  const kind = matched?.memberKind;
+  if (kind === "External") return "External";
+  return "Internal";
+};

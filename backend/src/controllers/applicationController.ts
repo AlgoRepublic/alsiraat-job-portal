@@ -18,6 +18,8 @@ import {
 import { checkPermissionAsync, Permission } from "../middleware/rbac.js";
 import { buildApplicationQuery } from "./applicationQueryBuilder.js";
 
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 function taskCreatedById(task: { createdBy?: unknown }): string {
   const cb = task?.createdBy as { _id?: unknown } | string | null | undefined;
   if (cb == null) return "";
@@ -385,7 +387,7 @@ export const getApplications = async (req: any, res: Response) => {
     }
 
     const udoc = (req.user as any).toObject?.() ?? req.user;
-    const query = await buildApplicationQuery(
+    let query: any = await buildApplicationQuery(
       { ...udoc, orgId: req.orgId, isSuperAdmin: !!(req.user as any).isSuperAdmin },
       taskId,
       {
@@ -395,24 +397,82 @@ export const getApplications = async (req: any, res: Response) => {
       { TaskModel: Task },
     );
 
-    // Apply additional filters
-    const status = req.query.status as string;
-    if (status) {
-      if (status.includes(",")) {
-        query.status = { $in: status.split(",") };
-      } else {
-        query.status = status;
-      }
-    }
-    
-    // Explicit applicant filtering (for "My Tasks" / "My Profile History")
-    const applicantFilter = req.query.applicant as string;
+    const applicantFilter = String(req.query.applicant || "");
     if (applicantFilter) {
       if (applicantFilter === "me") {
         query.applicant = req.user._id;
       } else {
+        if (!hasFullAccess.allowed) {
+          return res.status(403).json({
+            message: "You can only use applicant=me without application read access",
+          });
+        }
         query.applicant = applicantFilter;
       }
+    }
+
+    const list = String(req.query.list || "").toLowerCase();
+    if (list === "my-applications") {
+      if (applicantFilter !== "me") {
+        return res.status(400).json({
+          message: "list=my-applications requires applicant=me",
+        });
+      }
+      query.status = {
+        $in: [
+          ApplicationStatus.PENDING,
+          ApplicationStatus.REVIEWING,
+          ApplicationStatus.SHORTLISTED,
+          ApplicationStatus.REJECTED,
+          ApplicationStatus.DECLINED,
+        ],
+      };
+    } else if (list === "my-tasks") {
+      if (applicantFilter !== "me") {
+        return res.status(400).json({
+          message: "list=my-tasks requires applicant=me",
+        });
+      }
+      query.status = {
+        $in: [
+          ApplicationStatus.OFFERED,
+          ApplicationStatus.APPROVED,
+          ApplicationStatus.ACCEPTED,
+          ApplicationStatus.COMPLETION_REQUESTED,
+          ApplicationStatus.COMPLETION_REJECTED,
+          ApplicationStatus.COMPLETED,
+        ],
+      };
+    } else {
+      const status = req.query.status as string;
+      if (status) {
+        if (status.includes(",")) {
+          query.status = {
+            $in: status.split(",").map((s) => s.trim()).filter(Boolean),
+          };
+        } else {
+          query.status = status;
+        }
+      }
+    }
+
+    const search = req.query.search;
+    if (search && typeof search === "string" && search.trim().length > 0) {
+      const r = new RegExp(escapeRegExp(search.trim()), "i");
+      const hits = await Task.find({
+        $or: [{ title: r }, { description: r }],
+      })
+        .select("_id")
+        .limit(400)
+        .lean();
+      const taskIds = hits.map((h: any) => h._id);
+      const taskScope = taskIds.length
+        ? { task: { $in: taskIds } }
+        : { task: { $in: [] } };
+      query =
+        Object.keys(query).length > 0
+          ? { $and: [query, taskScope] }
+          : taskScope;
     }
 
     const total = await Application.countDocuments(query);

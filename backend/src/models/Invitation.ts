@@ -4,6 +4,8 @@ export interface IInvitation extends Document {
   email: string;
   organisation: mongoose.Types.ObjectId;
   role: string;
+  /** When the invite is accepted, the user is linked with this org member kind. */
+  memberKind?: "Internal" | "External";
   token: string;
   invitedBy: mongoose.Types.ObjectId;
   status: "Pending" | "Accepted" | "Expired";
@@ -21,6 +23,11 @@ const InvitationSchema: Schema = new Schema(
       required: true,
     },
     role: { type: String, default: "Applicant" },
+    memberKind: {
+      type: String,
+      enum: ["Internal", "External"],
+      default: "Internal",
+    },
     token: { type: String, required: true, unique: true },
     invitedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
     status: {

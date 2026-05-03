@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
-import User from "../models/User.js";
+import User, { normalizeOrgMemberKind } from "../models/User.js";
 import Organization from "../models/Organization.js";
 import Group from "../models/Group.js";
 import Role from "../models/Role.js";
@@ -102,10 +102,20 @@ export const updateUserRole = async (req: Request, res: Response) => {
       );
       if (orgRoleIndex > -1 && user.organisationRoles) {
         (user.organisationRoles as any)[orgRoleIndex].roles = roles;
+        if ((req as any).body?.memberKind !== undefined) {
+          (user.organisationRoles as any)[orgRoleIndex].memberKind =
+            normalizeOrgMemberKind((req as any).body.memberKind);
+        }
       } else {
         user.organisationRoles = [
           ...(user.organisationRoles ?? []),
-          { organisation: currentOrgId as any, roles },
+          {
+            organisation: currentOrgId as any,
+            roles,
+            memberKind: normalizeOrgMemberKind(
+              (req as any).body?.memberKind,
+            ),
+          },
         ];
       }
       await user.save();
@@ -169,10 +179,20 @@ export const updateUser = async (req: Request, res: Response) => {
           );
           if (orgRoleIndex > -1 && user.organisationRoles) {
             (user.organisationRoles as any)[orgRoleIndex].roles = roles;
+            if ((req as any).body?.memberKind !== undefined) {
+              (user.organisationRoles as any)[orgRoleIndex].memberKind =
+                normalizeOrgMemberKind((req as any).body.memberKind);
+            }
           } else {
             user.organisationRoles = [
               ...(user.organisationRoles ?? []),
-              { organisation: targetOrg as any, roles }
+              {
+                organisation: targetOrg as any,
+                roles,
+                memberKind: normalizeOrgMemberKind(
+                  (req as any).body?.memberKind,
+                ),
+              },
             ];
           }
         }
@@ -202,6 +222,7 @@ export const updateUser = async (req: Request, res: Response) => {
           Array.isArray(entry.roles) && entry.roles.length > 0
             ? entry.roles
             : [UserRole.APPLICANT],
+        memberKind: normalizeOrgMemberKind(entry.memberKind),
       })) as any;
     }
 
@@ -537,7 +558,13 @@ export const importUsers = async (req: Request, res: Response) => {
           };
           if (organisationId) {
             userObj.organisations = [organisationId];
-            userObj.organisationRoles = [{ organisation: organisationId, roles: rolesArray }];
+            userObj.organisationRoles = [
+              {
+                organisation: organisationId,
+                roles: rolesArray,
+                memberKind: normalizeOrgMemberKind(row.member_kind),
+              },
+            ];
           }
           user = new User(userObj);
           await user.save();

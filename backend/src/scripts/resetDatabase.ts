@@ -26,7 +26,8 @@ const TaskStatus = {
 
 const TaskVisibility = {
   INTERNAL: "Internal",
-  GLOBAL: "Global",
+  EXTERNAL: "External",
+  CENTRAL: "Central",
 };
 
 const MONGODB_URI =
@@ -415,7 +416,7 @@ async function resetDatabase() {
         createdBy: principalUser._id,
         attachments: [],
       },
-      // Pending Global Task (Only Super Admin can approve cross-organisation)
+      // Pending Central task (only Super Admin can approve cross-organisation)
       {
         title: "Community Cleanup Drive",
         description:
@@ -430,7 +431,7 @@ async function resetDatabase() {
         rewardType: "VIA Hours",
         rewardValue: 3,
         eligibility: ["Students", "Parents", "Staff", "Public"],
-        visibility: TaskVisibility.GLOBAL,
+        visibility: TaskVisibility.CENTRAL,
         organisation: organization._id,
         status: TaskStatus.PENDING,
         createdBy: coordinatorUser._id,
@@ -457,7 +458,7 @@ async function resetDatabase() {
         createdBy: teacherUser._id,
         attachments: [],
       },
-      // Published Global Task (Visible to everyone)
+      // Published Central task (visible college-wide)
       {
         title: "Sports Day Volunteer",
         description:
@@ -472,7 +473,7 @@ async function resetDatabase() {
         rewardType: "Community service recognition",
         rewardValue: 1,
         eligibility: ["Students", "Parents", "Staff", "Public"],
-        visibility: TaskVisibility.GLOBAL,
+        visibility: TaskVisibility.CENTRAL,
         organisation: organization._id,
         status: TaskStatus.PUBLISHED,
         createdBy: coordinatorUser._id,
@@ -499,7 +500,7 @@ async function resetDatabase() {
         createdBy: teacherUser._id,
         attachments: [],
       },
-      // Published Global Task created by Super Admin
+      // Published Central task created by Super Admin
       {
         title: "Charity Fundraiser Event",
         description:
@@ -515,7 +516,7 @@ async function resetDatabase() {
         rewardType: "VIA Hours",
         rewardValue: 4,
         eligibility: ["Students", "Parents", "Staff", "Public"],
-        visibility: TaskVisibility.GLOBAL,
+        visibility: TaskVisibility.CENTRAL,
         organisation: centralOrganization._id,
         status: TaskStatus.PUBLISHED,
         createdBy: teacherUser._id,
@@ -569,8 +570,8 @@ async function resetDatabase() {
     console.log(`   Password for all users: ${password}`);
 
     console.log("\n📝 Sample Tasks Created:");
-    console.log("   - 3 Pending tasks (2 Internal, 1 Global)");
-    console.log("   - 3 Published tasks (1 Internal, 2 Global)");
+    console.log("   - 3 Pending tasks (2 Internal, 1 Central)");
+    console.log("   - 3 Published tasks (1 Internal, 2 Central)");
   } catch (error) {
     console.error("\n❌ Error resetting database:", error);
     throw error;

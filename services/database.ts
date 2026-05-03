@@ -2,6 +2,7 @@ import {
   Job,
   User,
   UserRole,
+  OrgMemberKind,
   Application,
   ApplicantProfile,
   JobStatus,
@@ -13,7 +14,15 @@ import { api, ApiError, API_BASE_URL, LOGIN_SOURCE_KEY } from "./api";
 
 // Helper to map Backend Task to Frontend Job
 
-// Helper to map Backend Task to Frontend Job
+const mapApiVisibilityToJob = (raw: unknown): Visibility => {
+  const v = typeof raw === "string" ? raw : "";
+  if (v === "Central" || v === "Global") return Visibility.CENTRAL;
+  if (v === "External") return Visibility.EXTERNAL;
+  if (v === "Internal") return Visibility.INTERNAL;
+  if (v === "Public") return Visibility.CENTRAL;
+  return Visibility.INTERNAL;
+};
+
 const mapTaskToJob = (task: any): Job => {
   return {
     id: task._id,
@@ -37,10 +46,7 @@ const mapTaskToJob = (task: any): Job => {
     rewardType: task.rewardType,
     rewardValue: task.rewardValue,
     eligibility: task.eligibility || [],
-    visibility:
-      task.visibility === "Public" || task.visibility === "Global"
-        ? Visibility.GLOBAL
-        : Visibility.INTERNAL,
+    visibility: mapApiVisibilityToJob(task.visibility),
     attachments: Array.isArray(task.attachments)
       ? task.attachments.map((a: any) => ({
           id: a.filename,
@@ -330,6 +336,7 @@ class DatabaseService {
     };
   }
 
+  /** Search Tasks page: `GET /api/tasks/tab/search` via `api.getSearchTasks`. */
   async getSearchJobsPaged(
     filters: any = {},
     page = 1,
@@ -404,7 +411,7 @@ class DatabaseService {
       ...job,
       estimatedHours: job.hoursRequired,
       publishTo: job.eligibility,
-      scope: job.visibility === Visibility.GLOBAL ? "global" : "internal",
+      scope: job.visibility === Visibility.CENTRAL ? "global" : "internal",
     };
     return await api.createTask(backendData);
   }
@@ -625,7 +632,11 @@ class DatabaseService {
       roles?: string[];
       organisation?: string | null;
       organisations?: string[];
-      organisationRoles?: { organisation: string; roles: string[] }[];
+      organisationRoles?: {
+        organisation: string;
+        roles: string[];
+        memberKind?: OrgMemberKind;
+      }[];
     },
   ): Promise<any> {
     return api.put(`/users/${id}`, data);

@@ -195,7 +195,8 @@ export const MyAds: React.FC = () => {
                             {task.title}
                           </p>
                           <p className="text-xs text-zinc-500 font-medium uppercase tracking-widest mt-1">
-                            {task.visibility} • {task.hoursRequired}h
+                            {task.visibility} •{" "}
+                            {task.hoursRequired}h
                           </p>
                           {task.status === JobStatus.CHANGES_REQUESTED &&
                             task.rejectionReason && (

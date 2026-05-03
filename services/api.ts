@@ -399,6 +399,7 @@ class ApiService {
     return this.request<any>(`/tasks?${query}`);
   }
 
+  /** Search Tasks (`/jobs`): `GET /api/tasks/tab/search` */
   async getSearchTasks(filters: any = {}): Promise<any> {
     const query = new URLSearchParams(filters).toString();
     return this.request<any>(`/tasks/tab/search?${query}`);

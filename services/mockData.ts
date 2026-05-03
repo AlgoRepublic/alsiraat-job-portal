@@ -51,7 +51,7 @@ export const MOCK_JOBS: Job[] = [
     startDate: "2025-11-25",
     endDate: "2026-05-30",
     eligibility: ["Community"],
-    visibility: Visibility.GLOBAL,
+    visibility: Visibility.CENTRAL,
     attachments: [],
     status: JobStatus.PENDING, // Pending for Manager to approve
     createdBy: "Nasir",
