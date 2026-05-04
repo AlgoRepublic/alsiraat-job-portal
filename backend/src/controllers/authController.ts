@@ -173,6 +173,8 @@ export const sendOtp = async (req: Request, res: Response) => {
     const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
     const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
+    console.log("[auth/send-otp]", { email, otp, otpToken: hashedOtp });
+
     if (existing) {
       // Update OTP on pending record
       existing.otpToken = hashedOtp;
