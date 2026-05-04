@@ -43,6 +43,14 @@ export const getUserRolesForActiveOrg = (
 };
 
 /** Internal vs External membership for the active (or first resolvable) organisation. */
+/** Dispatched after the user switches organisation (same-tab; `storage` alone is not enough). */
+export const ACTIVE_ORG_CHANGED_EVENT = "taskunity:active-org-changed";
+
+export function dispatchActiveOrgChanged(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(ACTIVE_ORG_CHANGED_EVENT));
+}
+
 export const getMemberKindForActiveOrg = (
   user: any,
   activeOrgId?: string | null,

@@ -2,6 +2,37 @@ import { Request, Response } from "express";
 import Role, { IRole } from "../models/Role.js";
 import Permission, { IPermission } from "../models/Permission.js";
 import User from "../models/User.js";
+import { isSuperAdminUser } from "../utils/superAdmin.js";
+
+/** Roles visible in admin for the current JWT organisation context. */
+function buildRoleReadFilter(req: any): Record<string, unknown> {
+  const orgId = req.orgId?.toString?.() ?? null;
+  if (orgId) {
+    return {
+      $or: [
+        { isSystem: true },
+        { organisation: orgId },
+        { organisation: null, isSystem: false },
+        { organisation: { $exists: false }, isSystem: false },
+      ],
+    };
+  }
+  if (!isSuperAdminUser(req.user)) {
+    return { isSystem: true };
+  }
+  return {};
+}
+
+function assertRoleMutableForOrgSession(role: any, req: any) {
+  const orgId = req.orgId?.toString?.() ?? null;
+  if (role.isSystem) return;
+  const ro = role.organisation?.toString?.() ?? null;
+  if (orgId && ro && ro !== orgId) {
+    const err: any = new Error("This role belongs to another organisation");
+    err.status = 403;
+    throw err;
+  }
+}
 
 // ============================================================================
 // PERMISSION CONTROLLERS
@@ -107,7 +138,8 @@ export const deletePermission = async (req: Request, res: Response) => {
 
 export const getRoles = async (req: Request, res: Response) => {
   try {
-    const roles = await Role.find().sort({ isSystem: -1, name: 1 });
+    const filter = buildRoleReadFilter(req as any);
+    const roles = await Role.find(filter).sort({ isSystem: -1, name: 1 });
     res.json(roles);
   } catch (err: any) {
     res.status(500).json({ message: err.message });
@@ -121,8 +153,8 @@ export const getRoles = async (req: Request, res: Response) => {
  */
 export const getRolesPublic = async (req: Request, res: Response) => {
   try {
-    // Return only essential fields for public consumption
-    const roles = await Role.find({ isActive: true })
+    const filter = buildRoleReadFilter(req as any);
+    const roles = await Role.find({ isActive: true, ...filter })
       .select("_id name code color description isSystem")
       .sort({ isSystem: -1, name: 1 });
     res.json(roles);
@@ -134,7 +166,10 @@ export const getRolesPublic = async (req: Request, res: Response) => {
 export const getRole = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const role = await Role.findById(id);
+    const readFilter = buildRoleReadFilter(req as any);
+    const role = await Role.findOne({
+      $and: [{ _id: id }, readFilter],
+    });
 
     if (!role) {
       return res.status(404).json({ message: "Role not found" });
@@ -149,21 +184,28 @@ export const getRole = async (req: Request, res: Response) => {
 export const createRole = async (req: Request, res: Response) => {
   try {
     const { name, code, description, permissions, color, oidcMapping } = req.body;
+    const orgId = (req as any).orgId?.toString?.() ?? null;
+    const codeLower = code.toLowerCase();
 
-    const existing = await Role.findOne({ code: code.toLowerCase() });
+    const dupFilter: Record<string, unknown> = { code: codeLower };
+    if (orgId) {
+      dupFilter.$or = [{ organisation: orgId }, { isSystem: true }];
+    }
+    const existing = await Role.findOne(dupFilter);
     if (existing) {
       return res.status(400).json({ message: "Role code already exists" });
     }
 
     const role = await Role.create({
       name,
-      code: code.toLowerCase(),
+      code: codeLower,
       description,
       permissions: permissions || [],
       color: color || "#6B7280",
       oidcMapping: Array.isArray(oidcMapping) ? oidcMapping.map((v: string) => v.trim()).filter(Boolean) : [],
       isSystem: false,
       isActive: true,
+      organisation: orgId || null,
     });
 
     res.status(201).json(role);
@@ -180,6 +222,15 @@ export const updateRole = async (req: Request, res: Response) => {
     const role = await Role.findById(id);
     if (!role) {
       return res.status(404).json({ message: "Role not found" });
+    }
+
+    try {
+      assertRoleMutableForOrgSession(role, req);
+    } catch (e: any) {
+      if (e.status === 403) {
+        return res.status(403).json({ message: e.message });
+      }
+      throw e;
     }
 
     // System roles can update permissions but not code/isSystem
@@ -222,6 +273,15 @@ export const deleteRole = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Cannot delete system role" });
     }
 
+    try {
+      assertRoleMutableForOrgSession(role, req);
+    } catch (e: any) {
+      if (e.status === 403) {
+        return res.status(403).json({ message: e.message });
+      }
+      throw e;
+    }
+
     // Check if any users have this role
     const usersWithRole = await User.countDocuments({ role: role.name });
     if (usersWithRole > 0) {
@@ -251,6 +311,15 @@ export const assignPermissionToRole = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Role not found" });
     }
 
+    try {
+      assertRoleMutableForOrgSession(role, req);
+    } catch (e: any) {
+      if (e.status === 403) {
+        return res.status(403).json({ message: e.message });
+      }
+      throw e;
+    }
+
     const permission = await Permission.findOne({ code: permissionCode });
     if (!permission) {
       return res.status(404).json({ message: "Permission not found" });
@@ -274,6 +343,15 @@ export const removePermissionFromRole = async (req: Request, res: Response) => {
     const role = await Role.findById(roleId);
     if (!role) {
       return res.status(404).json({ message: "Role not found" });
+    }
+
+    try {
+      assertRoleMutableForOrgSession(role, req);
+    } catch (e: any) {
+      if (e.status === 403) {
+        return res.status(403).json({ message: e.message });
+      }
+      throw e;
     }
 
     role.permissions = role.permissions.filter((p) => p !== permissionCode);

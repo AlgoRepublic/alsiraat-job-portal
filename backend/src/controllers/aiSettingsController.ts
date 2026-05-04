@@ -1,17 +1,55 @@
 import { Request, Response } from "express";
+import mongoose from "mongoose";
 import AiSettings from "../models/AiSettings.js";
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 
+async function resolveAiSettingsDoc(req: Request) {
+  const orgId = (req as any).orgId?.toString?.() ?? null;
+  if (orgId) {
+    let doc = await AiSettings.findOne({
+      organisation: new mongoose.Types.ObjectId(orgId),
+    });
+    if (doc) return doc;
+    doc = await AiSettings.create({
+      provider: "gemini",
+      apiKey: "",
+      organisation: new mongoose.Types.ObjectId(orgId),
+    } as any);
+    return doc;
+  }
+  let legacy = await AiSettings.findOne({
+    $or: [{ organisation: null }, { organisation: { $exists: false } }],
+  });
+  if (!legacy) {
+    legacy = await AiSettings.create({
+      provider: "gemini",
+      apiKey: "",
+      organisation: null,
+    } as any);
+  }
+  return legacy;
+}
+
+async function resolveAiSettingsForGenerate(req: Request) {
+  const orgId = (req as any).orgId?.toString?.() ?? null;
+  if (orgId) {
+    const scoped = await AiSettings.findOne({
+      organisation: new mongoose.Types.ObjectId(orgId),
+    });
+    if (scoped?.apiKey) return scoped;
+  }
+  const legacy = await AiSettings.findOne({
+    $or: [{ organisation: null }, { organisation: { $exists: false } }],
+  });
+  return legacy;
+}
+
 export const getAiSettings = async (req: Request, res: Response) => {
   try {
-    let settings = await AiSettings.findOne();
-    if (!settings) {
-      settings = await AiSettings.create({ provider: "gemini", apiKey: "" });
-    }
-    
-    // Mask the API key, returning only if it exists
+    const settings = await resolveAiSettingsDoc(req);
+
     res.json({
       provider: settings.provider,
       hasApiKey: !!settings.apiKey,
@@ -24,35 +62,41 @@ export const getAiSettings = async (req: Request, res: Response) => {
 export const updateAiSettings = async (req: Request, res: Response) => {
   try {
     const { provider, apiKey } = req.body;
-    
-    let settings = await AiSettings.findOne();
-    if (!settings) {
-      settings = await AiSettings.create({ provider, apiKey });
-    } else {
-      if (provider) settings.provider = provider;
-      if (apiKey !== undefined && apiKey !== "HIDDEN") {
-        settings.apiKey = apiKey;
-      }
-      await settings.save();
+
+    const settings = await resolveAiSettingsDoc(req);
+    if (provider) settings.provider = provider;
+    if (apiKey !== undefined && apiKey !== "HIDDEN") {
+      settings.apiKey = apiKey;
     }
-    
+    await settings.save();
+
     res.json({ message: "AI Settings updated successfully" });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
 };
 
-export const generateJobDescription = async (req: Request, res: Response): Promise<void> => {
+export const generateJobDescription = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const { title, category, keyPoints } = req.body;
-    let settings = await AiSettings.findOne();
+    let settings = await resolveAiSettingsForGenerate(req);
 
     if (!settings || !settings.apiKey) {
       if (process.env.VITE_GEMINI_API_KEY) {
-        // Fallback to env var for backward compatibility
-        settings = { apiKey: process.env.VITE_GEMINI_API_KEY, provider: "gemini" } as any;
+        settings = {
+          apiKey: process.env.VITE_GEMINI_API_KEY,
+          provider: "gemini",
+        } as any;
       } else {
-        res.status(400).json({ message: "AI is not configured. Please add an API key in Admin Settings." });
+        res
+          .status(400)
+          .json({
+            message:
+              "AI is not configured. Please add an API key in Admin Settings.",
+          });
         return;
       }
     }
@@ -89,9 +133,9 @@ export const generateJobDescription = async (req: Request, res: Response): Promi
       } else if (settings?.provider === "anthropic") {
         const anthropic = new Anthropic({ apiKey: settings.apiKey });
         const response = await anthropic.messages.create({
-          model: "claude-3-5-haiku-latest", 
+          model: "claude-3-5-haiku-latest",
           max_tokens: 1000,
-          messages: [{ role: "user", content: prompt }]
+          messages: [{ role: "user", content: prompt }],
         });
         if (response.content?.[0]?.type === "text") {
           result = response.content[0].text;
@@ -99,7 +143,11 @@ export const generateJobDescription = async (req: Request, res: Response): Promi
       }
     } catch (apiError: any) {
       console.error("AI API Error:", apiError);
-      res.status(502).json({ message: "Error from AI provider. Check your API key or connection." });
+      res
+        .status(502)
+        .json({
+          message: "Error from AI provider. Check your API key or connection.",
+        });
       return;
     }
 

@@ -182,7 +182,9 @@ const authHeaders = () => ({
 });
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export const EmailNotificationSettings: React.FC = () => {
+export const EmailNotificationSettings: React.FC<{
+  scopeRevision?: number;
+}> = ({ scopeRevision = 0 }) => {
   const { showSuccess, showError } = useToast();
 
   // Provider and master switch
@@ -235,10 +237,10 @@ export const EmailNotificationSettings: React.FC = () => {
   const brandLogoRef = useRef<HTMLInputElement>(null);
   const [brandLogoUploading, setBrandLogoUploading] = useState(false);
 
-  // ── Load data on mount ──
+  // ── Load data on mount / when active organisation changes ──
   useEffect(() => {
     loadSettings();
-  }, []);
+  }, [scopeRevision]);
 
   const loadSettings = useCallback(async () => {
     setLoading(true);

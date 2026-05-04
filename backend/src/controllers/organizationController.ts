@@ -97,6 +97,15 @@ export const createOrganization = async (req: Request, res: Response) => {
 
 export const getOrganizations = async (req: Request, res: Response) => {
   try {
+    const orgId = (req as any).orgId as string | null | undefined;
+    if (orgId) {
+      const org = await Organization.findById(orgId).populate(
+        "owner",
+        "name email",
+      );
+      return res.json(org ? [org] : []);
+    }
+
     const orgs = await Organization.find()
       .populate("owner", "name email")
       .sort({ name: 1 });
@@ -319,6 +328,7 @@ export const inviteOrganisation = async (req: any, res: Response) => {
  */
 export const listOrgInvitations = async (req: Request, res: Response) => {
   try {
+    // Onboarding invitations are platform-wide (new organisations), not tied to the viewer’s active org.
     const invitations = await Invitation.find({ status: "Pending" })
       .populate("organisation", "name slug type")
       .populate("invitedBy", "name email")

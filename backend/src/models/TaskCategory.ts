@@ -8,6 +8,8 @@ export interface ITaskCategory extends Document {
   isActive: boolean;
   color: string; // For UI display
   icon: string; // Icon name for UI
+  /** null = platform-wide defaults; set for organisation-specific categories */
+  organisation?: mongoose.Types.ObjectId | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -17,9 +19,13 @@ const TaskCategorySchema: Schema = new Schema(
     code: {
       type: String,
       required: true,
-      unique: true,
       trim: true,
       lowercase: true,
+    },
+    organisation: {
+      type: Schema.Types.ObjectId,
+      ref: "Organization",
+      default: null,
     },
     name: {
       type: String,
@@ -49,6 +55,8 @@ const TaskCategorySchema: Schema = new Schema(
   },
   { timestamps: true },
 );
+
+TaskCategorySchema.index({ organisation: 1, code: 1 }, { unique: true });
 
 export default mongoose.model<ITaskCategory>(
   "TaskCategory",

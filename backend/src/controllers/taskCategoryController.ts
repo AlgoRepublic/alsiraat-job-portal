@@ -1,12 +1,46 @@
 import { Request, Response } from "express";
+import mongoose from "mongoose";
 import TaskCategory from "../models/TaskCategory.js";
+
+function categoryReadFilter(req: any): Record<string, unknown> {
+  const orgId = req.orgId?.toString?.() ?? null;
+  const base = orgId
+    ? {
+        $or: [
+          { organisation: null },
+          { organisation: { $exists: false } },
+          { organisation: new mongoose.Types.ObjectId(orgId) },
+        ],
+      }
+    : {
+        $or: [
+          { organisation: null },
+          { organisation: { $exists: false } },
+        ],
+      };
+  return base;
+}
+
+function assertCategoryMutableForOrg(category: any, req: any) {
+  if (category.isSystem) return;
+  const orgId = req.orgId?.toString?.() ?? null;
+  const co = category.organisation?.toString?.() ?? null;
+  if (orgId && co && co !== orgId) {
+    const err: any = new Error("This category belongs to another organisation");
+    err.status = 403;
+    throw err;
+  }
+}
 
 // Get all task categories
 export const getTaskCategories = async (req: Request, res: Response) => {
   try {
     // `?all=true` is used by the admin panel to include inactive categories
     const includeInactive = req.query.all === "true";
-    const filter = includeInactive ? {} : { isActive: true };
+    const orgFilter = categoryReadFilter(req as any);
+    const filter = includeInactive
+      ? orgFilter
+      : { isActive: true, ...orgFilter };
     const categories = await TaskCategory.find(filter).sort({ name: 1 });
     res.json(categories);
   } catch (err: any) {
@@ -18,7 +52,10 @@ export const getTaskCategories = async (req: Request, res: Response) => {
 export const getTaskCategory = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const category = await TaskCategory.findById(id);
+    const readFilter = categoryReadFilter(req as any);
+    const category = await TaskCategory.findOne({
+      $and: [{ _id: id }, readFilter],
+    });
 
     if (!category) {
       return res.status(404).json({ message: "Category not found" });
@@ -34,6 +71,7 @@ export const getTaskCategory = async (req: Request, res: Response) => {
 export const createTaskCategory = async (req: Request, res: Response) => {
   try {
     const { code, name, description, color, icon } = req.body;
+    const orgId = (req as any).orgId?.toString?.() ?? null;
 
     const category = await TaskCategory.create({
       code,
@@ -43,6 +81,7 @@ export const createTaskCategory = async (req: Request, res: Response) => {
       icon,
       isSystem: false,
       isActive: true,
+      organisation: orgId ? new mongoose.Types.ObjectId(orgId) : null,
     });
 
     res.status(201).json(category);
@@ -63,6 +102,15 @@ export const updateTaskCategory = async (req: Request, res: Response) => {
     const category = await TaskCategory.findById(id);
     if (!category) {
       return res.status(404).json({ message: "Category not found" });
+    }
+
+    try {
+      assertCategoryMutableForOrg(category, req);
+    } catch (e: any) {
+      if (e.status === 403) {
+        return res.status(403).json({ message: e.message });
+      }
+      throw e;
     }
 
     // Update only allowed fields
@@ -87,6 +135,15 @@ export const deleteTaskCategory = async (req: Request, res: Response) => {
 
     if (!category) {
       return res.status(404).json({ message: "Category not found" });
+    }
+
+    try {
+      assertCategoryMutableForOrg(category, req);
+    } catch (e: any) {
+      if (e.status === 403) {
+        return res.status(403).json({ message: e.message });
+      }
+      throw e;
     }
 
     if (category.isSystem) {
@@ -187,10 +244,14 @@ export const seedDefaultCategories = async (req: Request, res: Response) => {
     ];
 
     for (const category of defaultCategories) {
-      await TaskCategory.findOneAndUpdate({ code: category.code }, category, {
-        upsert: true,
-        new: true,
-      });
+      await TaskCategory.findOneAndUpdate(
+        { code: category.code, organisation: null },
+        { ...category, organisation: null },
+        {
+          upsert: true,
+          new: true,
+        },
+      );
     }
 
     res.json({

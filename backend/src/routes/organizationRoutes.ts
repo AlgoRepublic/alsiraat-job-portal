@@ -11,7 +11,11 @@ import {
   removeLogo,
   markOrganisationActive,
 } from "../controllers/organizationController.js";
-import { authenticate, requirePermission } from "../middleware/rbac.js";
+import {
+  authenticate,
+  optionalAuthenticate,
+  requirePermission,
+} from "../middleware/rbac.js";
 import { upload } from "../middleware/upload.js";
 import { Permission } from "../config/permissions.js";
 
@@ -25,8 +29,8 @@ router.post(
   createOrganization,
 );
 
-// Public: list organizations (for signup dropdown)
-router.get("/", getOrganizations);
+// List organisations: optional auth — with JWT + active org returns only that org (admin); without auth returns all (e.g. signup)
+router.get("/", optionalAuthenticate, getOrganizations);
 
 // Owner/Admin: add member to organization
 router.post(

@@ -381,7 +381,9 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
   );
 };
 
-export const GroupManagement: React.FC = () => {
+export const GroupManagement: React.FC<{
+  scopeRevision?: number;
+}> = ({ scopeRevision = 0 }) => {
   const [groups, setGroups] = useState<Group[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -394,7 +396,7 @@ export const GroupManagement: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [scopeRevision]);
 
   const fetchData = async () => {
     try {

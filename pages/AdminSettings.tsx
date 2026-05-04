@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Edit2,
   Shield,
@@ -27,6 +27,10 @@ import { UserManagement } from "./UserManagement";
 import { EmailNotificationSettings } from "./EmailNotificationSettings";
 import { OrganisationManagement } from "./OrganisationManagement";
 import { ArrowLeft } from "lucide-react";
+import {
+  ACTIVE_ORG_CHANGED_EVENT,
+} from "../utils/orgScopedRoles";
+import { db } from "../services/database";
 
 interface Permission {
   _id: string;
@@ -49,7 +53,9 @@ interface Role {
   oidcMapping: string[];
 }
 
-const AiSettingsPanel: React.FC = () => {
+const AiSettingsPanel: React.FC<{ reloadKey?: number }> = ({
+  reloadKey = 0,
+}) => {
   const { showSuccess, showError } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -57,6 +63,7 @@ const AiSettingsPanel: React.FC = () => {
   const [hasKey, setHasKey] = useState(false);
 
   useEffect(() => {
+    setLoading(true);
     fetch(`${API_BASE_URL}/ai`, {
       headers: { Authorization: `Bearer ${localStorage.getItem("auth_token")}` },
     })
@@ -67,7 +74,7 @@ const AiSettingsPanel: React.FC = () => {
       })
       .catch(() => showError("Failed to load AI settings"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [reloadKey, showError]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -103,7 +110,8 @@ const AiSettingsPanel: React.FC = () => {
           AI Settings
         </h2>
         <p className="text-zinc-500 font-medium mt-1">
-          Configure the AI provider and API keys used for generation features.
+          Configure the AI provider and API keys for the active organisation.
+          Switch organisation in the sidebar to manage another community.
         </p>
       </div>
 
@@ -227,10 +235,36 @@ export const AdminSettings: React.FC = () => {
     icon: "📋",
   });
 
+  const [adminOrgSync, setAdminOrgSync] = useState(0);
+  const [activeOrgName, setActiveOrgName] = useState("");
+
+  const refreshActiveOrgLabel = useCallback(async () => {
+    try {
+      const user = await db.getCurrentUser();
+      setActiveOrgName(
+        typeof user?.activeOrganisation === "object"
+          ? (user?.activeOrganisation as any)?.name || ""
+          : "",
+      );
+    } catch {
+      setActiveOrgName("");
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshActiveOrgLabel();
+  }, [adminOrgSync, refreshActiveOrgLabel]);
+
+  useEffect(() => {
+    const bump = () => setAdminOrgSync((n) => n + 1);
+    window.addEventListener(ACTIVE_ORG_CHANGED_EVENT, bump);
+    return () => window.removeEventListener(ACTIVE_ORG_CHANGED_EVENT, bump);
+  }, []);
+
   useEffect(() => {
     loadData();
     loadCategories();
-  }, []);
+  }, [adminOrgSync]);
 
   const loadCategories = async () => {
     setCatLoading(true);
@@ -498,7 +532,17 @@ export const AdminSettings: React.FC = () => {
               Role Management
             </h2>
             <p className="text-zinc-500 font-medium mt-1">
-              Define and configure access levels for your system
+              {activeOrgName ? (
+                <>
+                  System roles apply everywhere. Custom roles are managed for{" "}
+                  <span className="font-bold text-zinc-800 dark:text-zinc-100">
+                    {activeOrgName}
+                  </span>
+                  .
+                </>
+              ) : (
+                "Select an organisation in the sidebar to tie custom roles to that community."
+              )}
             </p>
           </div>
           <div className="flex gap-3">
@@ -878,7 +922,16 @@ export const AdminSettings: React.FC = () => {
               Permissions
             </h2>
             <p className="text-zinc-500 font-medium mt-1">
-              Manage individual actions and access rights
+              Permission codes are platform-wide (they define what the app can do).{" "}
+              {activeOrgName ? (
+                <>
+                  You are viewing them while administering{" "}
+                  <span className="font-bold text-zinc-800 dark:text-zinc-100">
+                    {activeOrgName}
+                  </span>
+                  .
+                </>
+              ) : null}
             </p>
           </div>
           <div className="flex gap-3">
@@ -1196,7 +1249,17 @@ export const AdminSettings: React.FC = () => {
             Category Management
           </h2>
           <p className="text-zinc-500 font-medium mt-1">
-            Organise and classify task categories shown on the homepage
+            {activeOrgName ? (
+              <>
+                Platform default categories plus any added for{" "}
+                <span className="font-bold text-zinc-800 dark:text-zinc-100">
+                  {activeOrgName}
+                </span>
+                . Switch organisation in the sidebar to manage another community.
+              </>
+            ) : (
+              "Select an organisation to add categories for that community (defaults still apply everywhere)."
+            )}
           </p>
         </div>
         <div className="flex gap-3">
@@ -1603,14 +1666,20 @@ export const AdminSettings: React.FC = () => {
         </div>
 
         <div className="md:col-span-3">
-          {activeTab === "organisations" && <OrganisationManagement />}
+          {activeTab === "organisations" && (
+            <OrganisationManagement scopeRevision={adminOrgSync} />
+          )}
           {activeTab === "users" && <UserManagement />}
           {activeTab === "roles" && renderRoles()}
           {activeTab === "permissions" && renderPermissions()}
           {activeTab === "categories" && renderCategories()}
-          {activeTab === "groups" && <GroupManagement />}
-          {activeTab === "email" && <EmailNotificationSettings />}
-          {activeTab === "ai" && <AiSettingsPanel />}
+          {activeTab === "groups" && (
+            <GroupManagement scopeRevision={adminOrgSync} />
+          )}
+          {activeTab === "email" && (
+            <EmailNotificationSettings scopeRevision={adminOrgSync} />
+          )}
+          {activeTab === "ai" && <AiSettingsPanel reloadKey={adminOrgSync} />}
         </div>
       </div>
     </div>

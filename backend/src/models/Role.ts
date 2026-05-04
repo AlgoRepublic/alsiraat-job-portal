@@ -9,6 +9,8 @@ export interface IRole extends Document {
   isActive: boolean;
   color: string; // For UI display
   oidcMapping: string[]; // ADFS claim values that auto-assign this role on SSO login
+  /** When set, this custom role is visible only in that organisation’s admin. System roles omit this. */
+  organisation?: mongoose.Types.ObjectId | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -23,8 +25,12 @@ const RoleSchema = new Schema<IRole>(
     code: {
       type: String,
       required: true,
-      unique: true,
       trim: true,
+    },
+    organisation: {
+      type: Schema.Types.ObjectId,
+      ref: "Organization",
+      default: null,
     },
     description: {
       type: String,
@@ -52,5 +58,7 @@ const RoleSchema = new Schema<IRole>(
   },
   { timestamps: true },
 );
+
+RoleSchema.index({ organisation: 1, code: 1 }, { unique: true });
 
 export default mongoose.model<IRole>("Role", RoleSchema);

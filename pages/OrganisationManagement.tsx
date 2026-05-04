@@ -48,7 +48,10 @@ const authHeader = () => ({
   "Content-Type": "application/json",
 });
 
-export const OrganisationManagement: React.FC = () => {
+export const OrganisationManagement: React.FC<{
+  /** Increment when the user switches active organisation so lists refetch. */
+  scopeRevision?: number;
+}> = ({ scopeRevision = 0 }) => {
   const { showSuccess, showError } = useToast();
 
   const [orgs, setOrgs] = useState<Organisation[]>([]);
@@ -70,7 +73,7 @@ export const OrganisationManagement: React.FC = () => {
   useEffect(() => {
     loadOrgs();
     loadInvitations();
-  }, []);
+  }, [scopeRevision]);
 
   const loadOrgs = async () => {
     setLoading(true);
@@ -242,8 +245,23 @@ export const OrganisationManagement: React.FC = () => {
             Organisations
           </h2>
           <p className="text-zinc-500 font-medium mt-1">
-            Onboard new organisations by sending them an invitation email. They
-            register themselves through the secure link.
+            {!loading && orgs.length === 1 ? (
+              <>
+                You are editing{" "}
+                <span className="font-bold text-zinc-800 dark:text-zinc-100">
+                  {orgs[0]?.name}
+                </span>{" "}
+                (the organisation selected in the sidebar). Use the other
+                administration sections for members, groups, and settings. The
+                onboarding flow below is for adding additional organisations to the
+                platform.
+              </>
+            ) : (
+              <>
+                Onboard new organisations by sending them an invitation email. They
+                register themselves through the secure link.
+              </>
+            )}
           </p>
         </div>
         {!showForm && (

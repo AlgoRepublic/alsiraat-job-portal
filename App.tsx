@@ -10,6 +10,7 @@ import { Layers } from "lucide-react";
 import { ToastProvider } from "./components/Toast";
 import { User, UserRole, Permission } from "./types";
 import { db } from "./services/database";
+import { dispatchActiveOrgChanged } from "./utils/orgScopedRoles";
 
 import { Loading } from "./components/Loading";
 import { ThemeToggle } from "./components/ThemeToggle";
@@ -162,6 +163,7 @@ const App: React.FC = () => {
       // Refresh user from localStorage (already updated by api.ts)
       const user = await db.getCurrentUser();
       setCurrentUser(user);
+      dispatchActiveOrgChanged();
     } catch (err) {
       console.error("Failed to switch organisation:", err);
     }
