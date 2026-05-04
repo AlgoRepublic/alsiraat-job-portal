@@ -1,6 +1,11 @@
 import { Request, Response } from "express";
 import Task, { TaskStatus, TaskVisibility } from "../models/Task.js";
-import User, { UserRole } from "../models/User.js";
+import Organization from "../models/Organization.js";
+import User, {
+  UserRole,
+  OrgMemberKind,
+  normalizeOrgMemberKind,
+} from "../models/User.js";
 import { Permission } from "../config/permissions.js";
 import Application from "../models/Application.js";
 import {
@@ -32,6 +37,30 @@ const parseArrayField = (value: any): string[] => {
 };
 
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Active org is the Central hub (browse tab shows Central visibility tasks only). */
+async function isCentralOrganisation(
+  orgId: string | undefined | null,
+): Promise<boolean> {
+  if (!orgId) return false;
+  const org = await Organization.findById(orgId).select("name slug").lean();
+  if (!org) return false;
+  const slug = String((org as { slug?: string }).slug || "")
+    .toLowerCase()
+    .trim();
+  const name = String((org as { name?: string }).name || "")
+    .toLowerCase()
+    .trim();
+  return slug === "central" || name === "central";
+}
+
+function getMemberKindForOrg(user: any, orgId: string): OrgMemberKind {
+  const roles = user?.organisationRoles || [];
+  const entry = roles.find(
+    (o: any) => String(o.organisation?._id || o.organisation) === String(orgId),
+  );
+  return normalizeOrgMemberKind(entry?.memberKind);
+}
 
 /** Accepts API values; maps legacy `"Global"` to Central visibility. */
 const normalizeIncomingTaskVisibility = (value: unknown): TaskVisibility => {
@@ -642,6 +671,19 @@ export const getSearchTasks = async (req: any, res: Response) => {
         Permission.TASK_VIEW_PENDING,
       );
 
+      /** Search tab: one visibility lane per viewer (own tasks always kept). */
+      let searchTabVisibility: TaskVisibility | null = null;
+      if (organisation && !hasSuperAdminRole) {
+        if (await isCentralOrganisation(organisation)) {
+          searchTabVisibility = TaskVisibility.CENTRAL;
+        } else {
+          searchTabVisibility =
+            getMemberKindForOrg(user, organisation) === OrgMemberKind.EXTERNAL
+              ? TaskVisibility.EXTERNAL
+              : TaskVisibility.INTERNAL;
+        }
+      }
+
       const conditions: any[] = [];
       // Creators always see their own tasks on Search (incl. Pending), even without task:view_pending.
       // My Ads remains the dedicated advertiser hub; this avoids hiding submissions awaiting approval.
@@ -703,6 +745,16 @@ export const getSearchTasks = async (req: any, res: Response) => {
         });
       }
 
+      if (searchTabVisibility !== null) {
+        const uidStr = String(userId);
+        const kept = conditions.filter((c: any) => {
+          if (c.createdBy && String(c.createdBy) === uidStr) return true;
+          return c.visibility === searchTabVisibility;
+        });
+        conditions.length = 0;
+        conditions.push(...kept);
+      }
+
       if (canViewAll && canViewInternal && canViewPending) {
         if (hasSuperAdminRole) {
           query = organisation
@@ -712,6 +764,9 @@ export const getSearchTasks = async (req: any, res: Response) => {
           query = {
             organisation,
             status: { $ne: TaskStatus.ARCHIVED },
+            ...(searchTabVisibility !== null
+              ? { visibility: searchTabVisibility }
+              : {}),
           };
         } else {
           query = { $or: conditions };
