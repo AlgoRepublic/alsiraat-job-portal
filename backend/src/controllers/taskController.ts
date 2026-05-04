@@ -691,15 +691,21 @@ export const getSearchTasks = async (req: any, res: Response) => {
         createdBy: userId,
         status: { $ne: TaskStatus.ARCHIVED },
       });
-      conditions.push({
+      const centralPublishedCond: Record<string, unknown> = {
         visibility: TaskVisibility.CENTRAL,
         status: TaskStatus.PUBLISHED,
-      });
+      };
+      const centralPendingCond: Record<string, unknown> = {
+        visibility: TaskVisibility.CENTRAL,
+        status: TaskStatus.PENDING,
+      };
+      if (organisation) {
+        centralPublishedCond.organisation = organisation;
+        centralPendingCond.organisation = organisation;
+      }
+      conditions.push(centralPublishedCond);
       if (canViewPending) {
-        conditions.push({
-          visibility: TaskVisibility.CENTRAL,
-          status: TaskStatus.PENDING,
-        });
+        conditions.push(centralPendingCond);
       }
 
       const Group = (await import("../models/Group.js")).default;
@@ -747,9 +753,22 @@ export const getSearchTasks = async (req: any, res: Response) => {
 
       if (searchTabVisibility !== null) {
         const uidStr = String(userId);
+        const orgScopedCentral = (c: any) =>
+          !!organisation &&
+          c.visibility === TaskVisibility.CENTRAL &&
+          c.organisation &&
+          String(c.organisation) === String(organisation);
         const kept = conditions.filter((c: any) => {
           if (c.createdBy && String(c.createdBy) === uidStr) return true;
-          return c.visibility === searchTabVisibility;
+          if (c.visibility === searchTabVisibility) return true;
+          if (
+            (searchTabVisibility === TaskVisibility.INTERNAL ||
+              searchTabVisibility === TaskVisibility.EXTERNAL) &&
+            orgScopedCentral(c)
+          ) {
+            return true;
+          }
+          return false;
         });
         conditions.length = 0;
         conditions.push(...kept);
@@ -761,11 +780,18 @@ export const getSearchTasks = async (req: any, res: Response) => {
             ? { organisation, status: { $ne: TaskStatus.ARCHIVED } }
             : { $or: conditions };
         } else if (organisation) {
+          const searchTabVisibilityIn =
+            searchTabVisibility === TaskVisibility.INTERNAL ||
+            searchTabVisibility === TaskVisibility.EXTERNAL
+              ? [searchTabVisibility, TaskVisibility.CENTRAL]
+              : searchTabVisibility !== null
+                ? [searchTabVisibility]
+                : [];
           query = {
             organisation,
             status: { $ne: TaskStatus.ARCHIVED },
-            ...(searchTabVisibility !== null
-              ? { visibility: searchTabVisibility }
+            ...(searchTabVisibilityIn.length > 0
+              ? { visibility: { $in: searchTabVisibilityIn } }
               : {}),
           };
         } else {
