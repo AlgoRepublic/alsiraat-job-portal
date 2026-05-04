@@ -5,31 +5,25 @@ import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 
-async function resolveAiSettingsDoc(req: Request) {
+/** Admin GET/PUT: always scoped to JWT active organisation. */
+async function resolveAiSettingsDocForAdmin(req: Request, res: Response) {
   const orgId = (req as any).orgId?.toString?.() ?? null;
-  if (orgId) {
-    let doc = await AiSettings.findOne({
-      organisation: new mongoose.Types.ObjectId(orgId),
+  if (!orgId) {
+    res.status(400).json({
+      message: "Select an organisation to manage AI settings",
     });
-    if (doc) return doc;
-    doc = await AiSettings.create({
-      provider: "gemini",
-      apiKey: "",
-      organisation: new mongoose.Types.ObjectId(orgId),
-    } as any);
-    return doc;
+    return null;
   }
-  let legacy = await AiSettings.findOne({
-    $or: [{ organisation: null }, { organisation: { $exists: false } }],
+  let doc = await AiSettings.findOne({
+    organisation: new mongoose.Types.ObjectId(orgId),
   });
-  if (!legacy) {
-    legacy = await AiSettings.create({
-      provider: "gemini",
-      apiKey: "",
-      organisation: null,
-    } as any);
-  }
-  return legacy;
+  if (doc) return doc;
+  doc = await AiSettings.create({
+    provider: "gemini",
+    apiKey: "",
+    organisation: new mongoose.Types.ObjectId(orgId),
+  } as any);
+  return doc;
 }
 
 async function resolveAiSettingsForGenerate(req: Request) {
@@ -48,7 +42,8 @@ async function resolveAiSettingsForGenerate(req: Request) {
 
 export const getAiSettings = async (req: Request, res: Response) => {
   try {
-    const settings = await resolveAiSettingsDoc(req);
+    const settings = await resolveAiSettingsDocForAdmin(req, res);
+    if (!settings) return;
 
     res.json({
       provider: settings.provider,
@@ -63,7 +58,8 @@ export const updateAiSettings = async (req: Request, res: Response) => {
   try {
     const { provider, apiKey } = req.body;
 
-    const settings = await resolveAiSettingsDoc(req);
+    const settings = await resolveAiSettingsDocForAdmin(req, res);
+    if (!settings) return;
     if (provider) settings.provider = provider;
     if (apiKey !== undefined && apiKey !== "HIDDEN") {
       settings.apiKey = apiKey;

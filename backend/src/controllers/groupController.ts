@@ -1,12 +1,27 @@
 import { Request, Response } from "express";
+import mongoose from "mongoose";
 import Group from "../models/Group.js";
 import User from "../models/User.js";
+
+function requireOrgId(req: any, res: Response): string | null {
+  const orgId = req.orgId?.toString?.() ?? null;
+  if (!orgId) {
+    res.status(400).json({
+      message: "Select an organisation to view and manage groups",
+    });
+    return null;
+  }
+  return orgId;
+}
 
 // GET /api/groups - list all groups
 export const getGroups = async (req: Request, res: Response) => {
   try {
+    const orgId = requireOrgId(req as any, res);
+    if (!orgId) return;
+
     const { search } = req.query;
-    let query: any = {};
+    let query: any = { organisation: orgId };
 
     if (search) {
       query.name = { $regex: search, $options: "i" };
@@ -27,7 +42,10 @@ export const getGroups = async (req: Request, res: Response) => {
 // GET /api/groups/public - lightweight list for dropdowns (no auth restrictions)
 export const getGroupsPublic = async (req: Request, res: Response) => {
   try {
-    const groups = await Group.find({ isActive: true })
+    const orgId = requireOrgId(req as any, res);
+    if (!orgId) return;
+
+    const groups = await Group.find({ isActive: true, organisation: orgId })
       .select("name description color members")
       .sort({ name: 1 });
 
@@ -40,7 +58,14 @@ export const getGroupsPublic = async (req: Request, res: Response) => {
 // GET /api/groups/:id - get single group
 export const getGroup = async (req: Request, res: Response) => {
   try {
-    const group = await Group.findById(req.params.id)
+    const orgId = requireOrgId(req as any, res);
+    if (!orgId) return;
+
+    const groupId = new mongoose.Types.ObjectId(String(req.params.id));
+    const group = await Group.findOne({
+      _id: groupId,
+      organisation: orgId,
+    })
       .populate("members", "name email avatar role roles organisation")
       .populate("createdBy", "name email")
       .populate("organisation", "name");
@@ -55,6 +80,9 @@ export const getGroup = async (req: Request, res: Response) => {
 // POST /api/groups - create group
 export const createGroup = async (req: any, res: Response) => {
   try {
+    const orgId = requireOrgId(req, res);
+    if (!orgId) return;
+
     const { name, description, color, members, oidcMapping } = req.body;
 
     if (!name?.trim()) {
@@ -77,7 +105,7 @@ export const createGroup = async (req: any, res: Response) => {
       color: color || "#6B7280",
       members: members || [],
       oidcMapping: Array.isArray(oidcMapping) ? oidcMapping.map((v: string) => String(v).trim()).filter(Boolean) : [],
-      organisation: req.orgId,
+      organisation: orgId,
       createdBy: req.user._id,
     });
 
@@ -93,9 +121,16 @@ export const createGroup = async (req: any, res: Response) => {
 // PUT /api/groups/:id - update group
 export const updateGroup = async (req: any, res: Response) => {
   try {
+    const orgId = requireOrgId(req, res);
+    if (!orgId) return;
+
     const { name, description, color, isActive, oidcMapping } = req.body;
 
-    const group = await Group.findById(req.params.id);
+    const groupId = new mongoose.Types.ObjectId(String(req.params.id));
+    const group = await Group.findOne({
+      _id: groupId,
+      organisation: orgId,
+    });
     if (!group) return res.status(404).json({ message: "Group not found" });
 
     if (name !== undefined) group.name = name.trim();
@@ -118,7 +153,14 @@ export const updateGroup = async (req: any, res: Response) => {
 // DELETE /api/groups/:id - delete group
 export const deleteGroup = async (req: Request, res: Response) => {
   try {
-    const group = await Group.findById(req.params.id);
+    const orgId = requireOrgId(req as any, res);
+    if (!orgId) return;
+
+    const groupId = new mongoose.Types.ObjectId(String(req.params.id));
+    const group = await Group.findOne({
+      _id: groupId,
+      organisation: orgId,
+    });
     if (!group) return res.status(404).json({ message: "Group not found" });
 
     await group.deleteOne();
@@ -131,13 +173,20 @@ export const deleteGroup = async (req: Request, res: Response) => {
 // POST /api/groups/:id/members - add members to group
 export const addMembers = async (req: Request, res: Response) => {
   try {
+    const orgId = requireOrgId(req as any, res);
+    if (!orgId) return;
+
     const { userIds } = req.body;
 
     if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
       return res.status(400).json({ message: "userIds array is required" });
     }
 
-    const group = await Group.findById(req.params.id);
+    const groupId = new mongoose.Types.ObjectId(String(req.params.id));
+    const group = await Group.findOne({
+      _id: groupId,
+      organisation: orgId,
+    });
     if (!group) return res.status(404).json({ message: "Group not found" });
 
     // Validate users exist
@@ -163,9 +212,16 @@ export const addMembers = async (req: Request, res: Response) => {
 // DELETE /api/groups/:id/members/:userId - remove member from group
 export const removeMember = async (req: Request, res: Response) => {
   try {
+    const orgId = requireOrgId(req as any, res);
+    if (!orgId) return;
+
     const { userId } = req.params;
 
-    const group = await Group.findById(req.params.id);
+    const groupId = new mongoose.Types.ObjectId(String(req.params.id));
+    const group = await Group.findOne({
+      _id: groupId,
+      organisation: orgId,
+    });
     if (!group) return res.status(404).json({ message: "Group not found" });
 
     group.members = group.members.filter((m) => m.toString() !== userId) as any;

@@ -72,6 +72,11 @@ export const createTaskCategory = async (req: Request, res: Response) => {
   try {
     const { code, name, description, color, icon } = req.body;
     const orgId = (req as any).orgId?.toString?.() ?? null;
+    if (!orgId) {
+      return res.status(400).json({
+        message: "Select an organisation to create task categories",
+      });
+    }
 
     const category = await TaskCategory.create({
       code,
@@ -81,7 +86,7 @@ export const createTaskCategory = async (req: Request, res: Response) => {
       icon,
       isSystem: false,
       isActive: true,
-      organisation: orgId ? new mongoose.Types.ObjectId(orgId) : null,
+      organisation: new mongoose.Types.ObjectId(orgId),
     });
 
     res.status(201).json(category);

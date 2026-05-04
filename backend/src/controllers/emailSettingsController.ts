@@ -176,10 +176,12 @@ export const getEmailSettings = async (req: any, res: Response) => {
     );
     if (!allowed) return res.status(403).json({ message: "Permission denied" });
 
-    // Global admin can get global settings; org admin gets org-scoped
-    const orgId = req.user?.isSuperAdmin
-      ? null
-      : req.orgId?.toString() || null;
+    const orgId = req.orgId?.toString() || null;
+    if (!orgId) {
+      return res.status(400).json({
+        message: "Select an organisation to manage email settings",
+      });
+    }
 
     let settings = await EmailSettings.findOne({ organisation: orgId });
 
@@ -194,7 +196,7 @@ export const getEmailSettings = async (req: any, res: Response) => {
     res.json({
       settings: settingsPayload,
       defaultTemplates: DEFAULT_TEMPLATES,
-      isGlobal: !!req.user?.isSuperAdmin,
+      isGlobal: false,
     });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
@@ -210,9 +212,12 @@ export const saveEmailSettings = async (req: any, res: Response) => {
     );
     if (!allowed) return res.status(403).json({ message: "Permission denied" });
 
-    const orgId = req.user?.isSuperAdmin
-      ? null
-      : req.orgId?.toString() || null;
+    const orgId = req.orgId?.toString() || null;
+    if (!orgId) {
+      return res.status(400).json({
+        message: "Select an organisation to manage email settings",
+      });
+    }
 
     const {
       emailProvider,
@@ -296,9 +301,12 @@ export const testSmtpConnection = async (req: any, res: Response) => {
     );
     if (!allowed) return res.status(403).json({ message: "Permission denied" });
 
-    const orgId = req.user?.isSuperAdmin
-      ? null
-      : req.orgId?.toString() || null;
+    const orgId = req.orgId?.toString() || null;
+    if (!orgId) {
+      return res.status(400).json({
+        message: "Select an organisation to manage email settings",
+      });
+    }
 
     const {
       provider: requestedProvider,

@@ -7,18 +7,21 @@ import { isSuperAdminUser } from "../utils/superAdmin.js";
 /** Roles visible in admin for the current JWT organisation context. */
 function buildRoleReadFilter(req: any): Record<string, unknown> {
   const orgId = req.orgId?.toString?.() ?? null;
+  const orgScopeOr = [
+    { organisation: orgId },
+    { organisation: null },
+    { organisation: { $exists: false } },
+  ] as const;
   if (orgId) {
-    return {
-      $or: [
-        { isSystem: true },
-        { organisation: orgId },
-        { organisation: null, isSystem: false },
-        { organisation: { $exists: false }, isSystem: false },
-      ],
-    };
+    return { $or: [...orgScopeOr] };
   }
   if (!isSuperAdminUser(req.user)) {
-    return { isSystem: true };
+    return {
+      $or: [
+        { organisation: null },
+        { organisation: { $exists: false } },
+      ],
+    };
   }
   return {};
 }
@@ -139,7 +142,7 @@ export const deletePermission = async (req: Request, res: Response) => {
 export const getRoles = async (req: Request, res: Response) => {
   try {
     const filter = buildRoleReadFilter(req as any);
-    const roles = await Role.find(filter).sort({ isSystem: -1, name: 1 });
+    const roles = await Role.find(filter).sort({ name: 1 });
     res.json(roles);
   } catch (err: any) {
     res.status(500).json({ message: err.message });
@@ -156,7 +159,7 @@ export const getRolesPublic = async (req: Request, res: Response) => {
     const filter = buildRoleReadFilter(req as any);
     const roles = await Role.find({ isActive: true, ...filter })
       .select("_id name code color description isSystem")
-      .sort({ isSystem: -1, name: 1 });
+      .sort({ name: 1 });
     res.json(roles);
   } catch (err: any) {
     res.status(500).json({ message: err.message });
@@ -185,13 +188,17 @@ export const createRole = async (req: Request, res: Response) => {
   try {
     const { name, code, description, permissions, color, oidcMapping } = req.body;
     const orgId = (req as any).orgId?.toString?.() ?? null;
+    if (!orgId) {
+      return res.status(400).json({
+        message: "Select an organisation to create roles",
+      });
+    }
     const codeLower = code.toLowerCase();
 
-    const dupFilter: Record<string, unknown> = { code: codeLower };
-    if (orgId) {
-      dupFilter.$or = [{ organisation: orgId }, { isSystem: true }];
-    }
-    const existing = await Role.findOne(dupFilter);
+    const existing = await Role.findOne({
+      code: codeLower,
+      organisation: orgId,
+    });
     if (existing) {
       return res.status(400).json({ message: "Role code already exists" });
     }
@@ -205,7 +212,7 @@ export const createRole = async (req: Request, res: Response) => {
       oidcMapping: Array.isArray(oidcMapping) ? oidcMapping.map((v: string) => v.trim()).filter(Boolean) : [],
       isSystem: false,
       isActive: true,
-      organisation: orgId || null,
+      organisation: orgId,
     });
 
     res.status(201).json(role);
@@ -748,10 +755,14 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
     ];
 
     for (const role of defaultRoles) {
-      await Role.findOneAndUpdate({ code: role.code }, role, {
-        upsert: true,
-        new: true,
-      });
+      await Role.findOneAndUpdate(
+        { code: role.code, organisation: null },
+        { ...role, organisation: null },
+        {
+          upsert: true,
+          new: true,
+        },
+      );
     }
 
     // Cleanup old roles
