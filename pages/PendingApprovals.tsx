@@ -69,6 +69,9 @@ export const PendingApprovals: React.FC = () => {
                   Task
                 </th>
                 <th className="px-8 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
+                  Created By
+                </th>
+                <th className="px-8 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
                   Created Date
                 </th>
                 <th className="px-8 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
@@ -89,6 +92,9 @@ export const PendingApprovals: React.FC = () => {
                     <p className="text-xs text-zinc-500 font-medium uppercase tracking-widest mt-1">
                       {task.category} • {task.visibility}
                     </p>
+                  </td>
+                  <td className="px-8 py-8 whitespace-nowrap text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+                    {task.createdBy || "—"}
                   </td>
                   <td className="px-8 py-8 whitespace-nowrap text-sm font-semibold text-zinc-500 dark:text-zinc-400">
                     {task.createdAt && !isNaN(new Date(task.createdAt).getTime())
@@ -118,7 +124,7 @@ export const PendingApprovals: React.FC = () => {
               ))}
               {tasks.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-10 py-24 text-center text-zinc-500 italic">
+                  <td colSpan={5} className="px-10 py-24 text-center text-zinc-500 italic">
                     No pending tasks right now.
                   </td>
                 </tr>
