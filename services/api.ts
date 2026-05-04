@@ -182,13 +182,9 @@ class ApiService {
     });
   }
 
-  async inviteUser(
-    email: string,
-    organisationId?: string,
-  ): Promise<{ message: string }> {
+  async inviteUser(email: string): Promise<{ message: string }> {
     return this.post<{ message: string }>("/auth/invite", {
       email,
-      organisationId,
     });
   }
 
@@ -367,7 +363,16 @@ class ApiService {
         },
       });
 
-      if (!response.ok) throw new Error("Failed to download CSV");
+      if (!response.ok) {
+        let msg = "Failed to download CSV";
+        try {
+          const j = await response.json();
+          if (j?.message) msg = j.message;
+        } catch {
+          /* non-JSON error body */
+        }
+        throw new Error(msg);
+      }
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);

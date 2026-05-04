@@ -41,7 +41,11 @@ import { Loading } from "../components/Loading";
 import { CustomDropdown } from "../components/CustomUI";
 import { UserProfileDrawer } from "../components/UserProfileDrawer";
 import { OrgMemberKind, Permission, UserRole } from "../types";
-import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
+import {
+  getActiveOrgIdFromStorage,
+  getOrgId,
+  getUserRolesForActiveOrg,
+} from "../utils/orgScopedRoles";
 
 interface EditForm {
   name: string;
@@ -368,7 +372,6 @@ const InfoPill: React.FC<{
 /* ═══════════════════════════════ Main Component ════════════════════════════ */
 export const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
-  const [organisations, setOrganisations] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -410,13 +413,16 @@ export const UserManagement: React.FC = () => {
   );
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
+  const activeOrgId =
+    getOrgId(currentUser?.activeOrganisation) || getActiveOrgIdFromStorage();
+
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, roleFilter]);
+  }, [searchTerm, roleFilter, activeOrgId]);
 
   useEffect(() => {
     fetchData();
-  }, [searchTerm, roleFilter, currentPage]);
+  }, [searchTerm, roleFilter, currentPage, activeOrgId]);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -432,79 +438,66 @@ export const UserManagement: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [pagedResult, rolesData, orgsData] = await Promise.all([
+      const [pagedResult, rolesData] = await Promise.all([
         db.getUsersPaged(searchTerm, roleFilter, currentPage, PAGE_SIZE),
         db.getRoles(),
-        db.getOrganizations(),
       ]);
       setUsers(pagedResult.users);
       setTotalUsers(pagedResult.pagination.total);
       setTotalPages(pagedResult.pagination.pages);
       setRoles(rolesData);
-      setOrganisations(orgsData);
-    } catch (err) {
-      showError("Failed to fetch users or roles");
+    } catch (err: any) {
+      showError(
+        err?.message ||
+          err?.data?.message ||
+          "Failed to fetch users or roles",
+      );
+      setUsers([]);
+      setTotalUsers(0);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
   };
 
   const openEditModal = (user: any) => {
+    const oid =
+      getOrgId(currentUser?.activeOrganisation) || getActiveOrgIdFromStorage();
+    if (!oid) {
+      showError("Select an organisation in the sidebar first");
+      return;
+    }
     setEditingUser(user);
-    const orgIds = (user.organisations ?? [])
-      .map((o: any) => o._id ?? o.id ?? o)
-      .filter(Boolean);
-    const systemOrgIds = new Set(
-      (user.organisations ?? [])
-        .filter((o: any) => (o?.name ?? "").trim().toLowerCase() === "central")
-        .map((o: any) => (o._id ?? o.id ?? o)?.toString())
-        .filter(Boolean),
+    const orEntry = (user.organisationRoles ?? []).find(
+      (entry: any) =>
+        (entry.organisation?._id ?? entry.organisation)?.toString() === oid,
     );
-    // Build roles aligned with orgIds: look up per-org role from organisationRoles array
-    const orgRolesMap: Record<string, string> = {};
-    (user.organisationRoles ?? []).forEach((or: any) => {
-      const oid = (or.organisation?._id ?? or.organisation)?.toString();
-      if (oid) orgRolesMap[oid] = or.roles?.[0] ?? "Applicant";
-    });
-    const alignedRoles = orgIds.map((oid: string) => {
-      const oidStr = oid.toString();
-      // "Central" organisation represents the user's global role.
-      if (systemOrgIds.has(oidStr)) {
-        return user.roles?.[0] ?? orgRolesMap[oidStr] ?? "Applicant";
-      }
-      return orgRolesMap[oidStr] ?? (user.roles?.[0] ?? "Applicant");
-    });
-    const orgMemberKindMap: Record<string, OrgMemberKind> = {};
-    (user.organisationRoles ?? []).forEach((or: any) => {
-      const oid = (or.organisation?._id ?? or.organisation)?.toString();
-      if (oid && (or.memberKind === "External" || or.memberKind === "Internal")) {
-        orgMemberKindMap[oid] = or.memberKind;
-      } else if (oid) {
-        orgMemberKindMap[oid] = "Internal";
-      }
-    });
-    const alignedMemberKinds = orgIds.map((oid: string) => {
-      const oidStr = oid.toString();
-      return orgMemberKindMap[oidStr] ?? "Internal";
-    });
     setEditForm({
       name: user.name || "",
       email: user.email || "",
-      roles: alignedRoles,
-      memberKinds: alignedMemberKinds,
-      organisationIds: orgIds,
+      roles: [orEntry?.roles?.[0] ?? "Applicant"],
+      memberKinds: [
+        orEntry?.memberKind === "External" ? "External" : "Internal",
+      ],
+      organisationIds: [oid],
     });
   };
 
   const openCreateModal = () => {
+    const oid =
+      getOrgId(currentUser?.activeOrganisation) || getActiveOrgIdFromStorage();
+    if (!oid) {
+      showError("Select an organisation in the sidebar first");
+      return;
+    }
     setIsCreating(true);
     setEditForm({
       name: "",
       email: "",
       password: "",
       roles: ["Applicant"],
-      memberKinds: [],
-      organisationIds: [],
+      memberKinds: ["Internal"],
+      organisationIds: [oid],
     });
   };
 
@@ -517,41 +510,36 @@ export const UserManagement: React.FC = () => {
   const handleCreateUser = async () => {
     setSaving(true);
     try {
+      const orgId = editForm.organisationIds[0];
+      if (!orgId) {
+        showError("Select an organisation in the sidebar first");
+        return;
+      }
       const names = editForm.name.trim().split(" ");
       const firstName = names[0] || "New";
       const lastName = names.slice(1).join(" ") || "User";
-      const systemOrgIndex = editForm.organisationIds.findIndex((orgId) => {
-        const org = organisations.find((o: any) => (o._id ?? o.id) === orgId);
-        return (org?.name ?? "").trim().toLowerCase() === "central";
-      });
-      const flatRolesSource =
-        systemOrgIndex > -1
-          ? [editForm.roles[systemOrgIndex] ?? "Applicant"]
-          : editForm.roles;
-      const flatRoles = flatRolesSource
+      const flatRoles = [editForm.roles[0] ?? "Applicant"]
         .filter((r): r is string => typeof r === "string" && r.trim().length > 0)
         .filter((r, idx, arr) => arr.indexOf(r) === idx);
-      const organisationRoles = editForm.organisationIds.map((orgId, idx) => ({
-        organisation: orgId,
-        roles: [editForm.roles[idx] ?? "Applicant"],
-        memberKind: editForm.memberKinds[idx] ?? "Internal",
-      }));
+      const organisationRoles = [
+        {
+          organisation: orgId,
+          roles: [editForm.roles[0] ?? "Applicant"],
+          memberKind: editForm.memberKinds[0] ?? "Internal",
+        },
+      ];
       const created = await db.adminCreateUser({
         firstName,
         lastName,
         email: editForm.email,
         password: editForm.password,
         roles: flatRoles.length > 0 ? flatRoles : ["Applicant"],
-        organisations: editForm.organisationIds,
-        organisationRoles,
       });
 
-      // Attach the new user to selected organisations so org-scoped lists can see it.
       const createdUserId = created?.user?._id || created?.user?.id;
-      if (createdUserId && editForm.organisationIds.length > 0) {
+      if (createdUserId) {
         await db.updateUser(createdUserId, {
           roles: flatRoles.length > 0 ? flatRoles : ["Applicant"],
-          organisations: editForm.organisationIds,
           organisationRoles,
         });
       }
@@ -570,29 +558,25 @@ export const UserManagement: React.FC = () => {
     if (!editingUser) return;
     setSaving(true);
     try {
-      // Build per-org role map aligned with organisationIds
-      const organisationRoles = editForm.organisationIds.map((orgId, idx) => ({
-        organisation: orgId,
-        roles: [editForm.roles[idx] ?? "Applicant"],
-        memberKind: editForm.memberKinds[idx] ?? "Internal",
-      }));
-      // Keep global role in sync with the "Central" organisation selection.
-      const systemOrgIndex = editForm.organisationIds.findIndex((orgId) => {
-        const org = organisations.find((o: any) => (o._id ?? o.id) === orgId);
-        return (org?.name ?? "").trim().toLowerCase() === "central";
-      });
-      const flatRolesSource =
-        systemOrgIndex > -1
-          ? [editForm.roles[systemOrgIndex] ?? "Applicant"]
-          : editForm.roles;
-      const flatRoles = flatRolesSource
+      const orgId = editForm.organisationIds[0];
+      if (!orgId) {
+        showError("Select an organisation in the sidebar first");
+        return;
+      }
+      const organisationRoles = [
+        {
+          organisation: orgId,
+          roles: [editForm.roles[0] ?? "Applicant"],
+          memberKind: editForm.memberKinds[0] ?? "Internal",
+        },
+      ];
+      const flatRoles = [editForm.roles[0] ?? "Applicant"]
         .filter((r): r is string => typeof r === "string" && r.trim().length > 0)
         .filter((r, idx, arr) => arr.indexOf(r) === idx);
       await db.updateUser(editingUser._id, {
         name: editForm.name,
         email: editForm.email,
         roles: flatRoles,
-        organisations: editForm.organisationIds,
         organisationRoles,
       });
       showSuccess("User updated successfully");
@@ -606,9 +590,11 @@ export const UserManagement: React.FC = () => {
   };
 
   const handleDeleteUser = async (userId: string) => {
+    const orgName =
+      (currentUser?.activeOrganisation as any)?.name?.trim() || "this organisation";
     if (
       !window.confirm(
-        "Are you sure you want to delete this user? This action cannot be undone.",
+        `Remove this user from ${orgName}? If they belong only to this organisation, their account will be deleted. This cannot be undone.`,
       )
     )
       return;
@@ -665,8 +651,8 @@ export const UserManagement: React.FC = () => {
   const sortedUsers = [...users].sort((a, b) => {
     let av = "";
     let bv = "";
-    const aRoles = getUserRolesForActiveOrg(a, currentUser?.activeOrganisation?._id);
-    const bRoles = getUserRolesForActiveOrg(b, currentUser?.activeOrganisation?._id);
+      const aRoles = getUserRolesForActiveOrg(a, activeOrgId);
+      const bRoles = getUserRolesForActiveOrg(b, activeOrgId);
     if (sortBy === "name") {
       av = a.name?.toLowerCase() ?? "";
       bv = b.name?.toLowerCase() ?? "";
@@ -683,11 +669,7 @@ export const UserManagement: React.FC = () => {
   const handleInviteUser = async (email: string) => {
     setIsInviting(true);
     try {
-      const orgId =
-        currentUser?.activeOrganisation?._id ||
-        (currentUser?.activeOrganisation as any)?.id ||
-        currentUser?.activeOrganisation;
-      const response = await db.inviteUser(email, orgId);
+      const response = await db.inviteUser(email);
       showSuccess(response.message);
       setIsInviteModalOpen(false);
     } catch (err: any) {
@@ -717,7 +699,17 @@ export const UserManagement: React.FC = () => {
             User Management
           </h2>
           <p className="text-zinc-500 font-medium mt-1">
-            View all user information and manage community profiles
+            {currentUser?.activeOrganisation?.name ? (
+              <>
+                Members of{" "}
+                <span className="text-zinc-800 dark:text-zinc-200 font-bold">
+                  {currentUser.activeOrganisation.name}
+                </span>
+                . Switch organisation in the sidebar to manage another community.
+              </>
+            ) : (
+              "Select an organisation in the sidebar to view and manage its members."
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2 px-4 py-2.5 bg-primary/10 rounded-xl">
@@ -740,7 +732,7 @@ export const UserManagement: React.FC = () => {
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                disabled={importing || saving}
+                disabled={importing || saving || !activeOrgId}
                 className="flex items-center gap-2 px-5 py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 rounded-xl font-bold text-sm hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all disabled:opacity-50"
               >
                 {importing ? (
@@ -758,7 +750,7 @@ export const UserManagement: React.FC = () => {
 
               <button
                 onClick={() => setIsInviteModalOpen(true)}
-                disabled={saving}
+                disabled={saving || !activeOrgId}
                 className="flex items-center gap-2 px-5 py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primaryHover transition-all shadow-lg shadow-primary/20 hover:-translate-y-0.5 active:translate-y-0"
               >
                 <Mail className="w-4 h-4" />
@@ -767,7 +759,7 @@ export const UserManagement: React.FC = () => {
 
               <button
                 onClick={handleDownloadCsv}
-                disabled={exporting || saving}
+                disabled={exporting || saving || !activeOrgId}
                 className="flex items-center gap-2 px-5 py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 rounded-xl font-bold text-sm hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all disabled:opacity-50"
               >
                 {exporting ? (
@@ -788,7 +780,7 @@ export const UserManagement: React.FC = () => {
             currentUser?.isSuperAdmin) && (
             <button
               onClick={openCreateModal}
-              disabled={saving}
+              disabled={saving || !activeOrgId}
               className="flex items-center gap-2 px-5 py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primaryHover transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
             >
               <Plus className="w-4 h-4" />
@@ -842,9 +834,6 @@ export const UserManagement: React.FC = () => {
                   >
                     User <SortIcon col="name" />
                   </th>
-                  <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                    Organisation
-                  </th>
                   <th
                     className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400 cursor-pointer select-none hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
                     onClick={() => toggleSort("role")}
@@ -892,33 +881,12 @@ export const UserManagement: React.FC = () => {
                         </div>
                       </td>
 
-                      {/* Organisation */}
-                      <td className="px-6 py-5">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <Building2 className="w-3.5 h-3.5 flex-shrink-0 text-zinc-400" />
-                          {(user as any).organisations?.length > 0 ? (
-                            (user as any).organisations.map((o: any) => (
-                              <span
-                                key={o._id ?? o}
-                                className="text-xs font-bold text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-lg truncate max-w-[120px]"
-                              >
-                                {o.name ?? o}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-sm font-bold text-zinc-400">
-                              Central
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
                       {/* Role */}
                       <td className="px-6 py-5">
                         {(() => {
                           const displayRoles = getUserRolesForActiveOrg(
                             user,
-                            currentUser?.activeOrganisation?._id,
+                            activeOrgId,
                           );
                           return (
                         <div className="flex flex-wrap gap-1">
@@ -988,7 +956,7 @@ export const UserManagement: React.FC = () => {
                     {/* ── Inline Expanded Row ── */}
                     {expandedRow === user._id && (
                       <tr className="bg-primary/5 dark:bg-primary/10 border-b border-zinc-100 dark:border-zinc-800">
-                        <td colSpan={4} className="px-6 py-5">
+                        <td colSpan={3} className="px-6 py-5">
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             {/* Contact Info */}
                             <div className="space-y-2">
@@ -1209,8 +1177,10 @@ export const UserManagement: React.FC = () => {
                   </h3>
                   <p className="text-xs text-zinc-400 font-medium">
                     {isCreating
-                      ? "Add a new member to the system"
-                      : "Update profile details and roles"}
+                      ? currentUser?.activeOrganisation?.name
+                        ? `Adds them to ${currentUser.activeOrganisation.name}`
+                        : "Select an organisation in the sidebar"
+                      : "Update profile details and roles for this organisation"}
                   </p>
                 </div>
               </div>
@@ -1271,132 +1241,60 @@ export const UserManagement: React.FC = () => {
                 </div>
               )}
 
-              {/* Organisation Multi-Select Picker */}
-              <div>
-                <label className="block text-xs font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest mb-2">
-                  Organisations
-                  {editForm.organisationIds.length > 0 && (
-                    <span className="ml-2 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-[10px] font-black">
-                      {editForm.organisationIds.length} selected
-                    </span>
-                  )}
-                </label>
-                <div className="grid grid-cols-1 gap-1.5 p-2 bg-zinc-50 dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 max-h-44 overflow-y-auto">
-                  {organisations.map((org: any) => {
-                    const orgId = org._id ?? org.id;
-                    const isSelected = editForm.organisationIds.includes(orgId);
-                    return (
-                      <button
-                        key={orgId}
-                        type="button"
-                        onClick={() => {
-                          const currentIdx = editForm.organisationIds.indexOf(orgId);
-                          const nextOrganisationIds =
-                            currentIdx > -1
-                              ? editForm.organisationIds.filter((id) => id !== orgId)
-                              : [...editForm.organisationIds, orgId];
-                          const nextRoles =
-                            currentIdx > -1
-                              ? editForm.roles.filter((_, idx) => idx !== currentIdx)
-                              : [...editForm.roles, "Applicant"];
-                          const nextMemberKinds =
-                            currentIdx > -1
-                              ? editForm.memberKinds.filter((_, idx) => idx !== currentIdx)
-                              : [...editForm.memberKinds, "Internal" as OrgMemberKind];
-                          setEditForm({
-                            ...editForm,
-                            organisationIds: nextOrganisationIds,
-                            roles: nextRoles,
-                            memberKinds: nextMemberKinds,
-                          });
-                        }}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all ${
-                          isSelected
-                            ? "bg-primary text-white shadow-md shadow-primary/20"
-                            : "bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                        }`}
-                      >
-                        <span className="w-4 h-4 flex items-center justify-center shrink-0">
-                          {isSelected ? (
-                            <BadgeCheck className="w-4 h-4" />
-                          ) : (
-                            <div className="w-3.5 h-3.5 rounded border-2 border-zinc-300 dark:border-zinc-600" />
-                          )}
-                        </span>
-                        <span className="text-sm font-bold truncate">
-                          {org.name}
-                        </span>
-                      </button>
-                    );
-                  })}
-
-                  {organisations.length === 0 && (
-                    <p className="text-xs text-zinc-400 px-3 py-2 italic">
-                      No organisations found
+              {currentUser?.activeOrganisation?.name && (
+                <div className="flex items-start gap-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/80 px-4 py-3">
+                  <Building2 className="w-4 h-4 text-zinc-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                      Organisation
                     </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Per-organisation role and internal / external membership */}
-              {editForm.organisationIds.length > 0 && (
-                <div>
-                  <label className="block text-xs font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest mb-2">
-                    Role &amp; member type per organisation
-                  </label>
-                  <div className="space-y-2 p-2 bg-zinc-50 dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700">
-                    {editForm.organisationIds.map((orgId) => {
-                      const org = organisations.find((o: any) => (o._id ?? o.id) === orgId);
-                      const idx = editForm.organisationIds.indexOf(orgId);
-                      const currentRole = editForm.roles[idx] ?? "Applicant";
-                      const currentKind = editForm.memberKinds[idx] ?? "Internal";
-                      return (
-                        <div
-                          key={orgId}
-                          className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-3 py-2 bg-white dark:bg-zinc-900 rounded-lg"
-                        >
-                          <span className="text-sm font-bold text-zinc-800 dark:text-zinc-200 truncate sm:flex-1">
-                            {org?.name ?? orgId}
-                          </span>
-                          <div className="flex flex-wrap gap-2 shrink-0">
-                            <select
-                              value={currentRole}
-                              onChange={(e) => {
-                                const updatedRoles = [...editForm.roles];
-                                updatedRoles[idx] = e.target.value;
-                                setEditForm({ ...editForm, roles: updatedRoles });
-                              }}
-                              className="text-sm font-semibold bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1.5 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-primary outline-none transition-all"
-                            >
-                              {roles.map((r) => (
-                                <option key={r._id} value={r.name}>
-                                  {r.name}
-                                </option>
-                              ))}
-                            </select>
-                            <select
-                              value={currentKind}
-                              onChange={(e) => {
-                                const next = [...editForm.memberKinds];
-                                next[idx] = e.target.value as OrgMemberKind;
-                                setEditForm({ ...editForm, memberKinds: next });
-                              }}
-                              className="text-sm font-semibold bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1.5 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-primary outline-none transition-all"
-                              aria-label="Member type"
-                            >
-                              <option value="Internal">Internal</option>
-                              <option value="External">External</option>
-                            </select>
-                          </div>
-                        </div>
-                      );
-                    })}
+                    <p className="text-sm font-bold text-zinc-800 dark:text-zinc-100">
+                      {currentUser.activeOrganisation.name}
+                    </p>
                   </div>
-                  <p className="text-[10px] text-zinc-400 mt-1.5 font-medium">
-                    Internal is staff and students; External is partners or others outside the main body.
-                  </p>
                 </div>
               )}
+
+              <div>
+                <label className="block text-xs font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest mb-2">
+                  Role &amp; member type
+                </label>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 p-3 bg-zinc-50 dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                  <select
+                    value={editForm.roles[0] ?? "Applicant"}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        roles: [e.target.value],
+                      })
+                    }
+                    className="flex-1 text-sm font-semibold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-2 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-primary outline-none transition-all"
+                  >
+                    {roles.map((r) => (
+                      <option key={r._id} value={r.name}>
+                        {r.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={editForm.memberKinds[0] ?? "Internal"}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        memberKinds: [e.target.value as OrgMemberKind],
+                      })
+                    }
+                    className="flex-1 text-sm font-semibold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-2 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-primary outline-none transition-all"
+                    aria-label="Member type"
+                  >
+                    <option value="Internal">Internal</option>
+                    <option value="External">External</option>
+                  </select>
+                </div>
+                <p className="text-[10px] text-zinc-400 mt-1.5 font-medium">
+                  Internal is staff and students; External is partners or others outside the main body.
+                </p>
+              </div>
             </div>
 
             {/* Footer */}
@@ -1411,6 +1309,7 @@ export const UserManagement: React.FC = () => {
                 onClick={isCreating ? handleCreateUser : handleSaveUser}
                 disabled={
                   saving ||
+                  !activeOrgId ||
                   !editForm.name ||
                   !editForm.email ||
                   (isCreating && !editForm.password) ||

@@ -1,4 +1,4 @@
-const getOrgId = (org: any): string | null => {
+export const getOrgId = (org: any): string | null => {
   if (!org) return null;
   if (typeof org === "string") return org;
   return org._id?.toString?.() ?? org.id?.toString?.() ?? null;

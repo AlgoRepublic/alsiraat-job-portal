@@ -782,10 +782,19 @@ export const removeResume = async (req: Request, res: Response) => {
  */
 export const exportUsersCsv = async (req: Request, res: Response) => {
   try {
-    const users = await User.find(
-      { roles: { $exists: true, $not: { $size: 0 } } }, // skip OTP-pending temp users
-    )
-      .select("name firstName lastName email roles contactNumber gender organisations createdAt")
+    const orgId = (req as any).orgId as string | null | undefined;
+    if (!orgId) {
+      return res.status(400).json({
+        message: "Select an organisation to export users",
+      });
+    }
+
+    const filter: any = { organisations: orgId };
+
+    const users = await User.find(filter)
+      .select(
+        "name firstName lastName email contactNumber gender organisations organisationRoles createdAt",
+      )
       .populate("organisations", "name")
       .lean();
 
@@ -810,15 +819,26 @@ export const exportUsersCsv = async (req: Request, res: Response) => {
       "Joined",
     ];
 
-    const rows = users.map((u: any) => [
+    const rows = users.map((u: any) => {
+      const orgEntry = (u.organisationRoles || []).find(
+        (or: any) =>
+          (or.organisation?.toString?.() ?? or.organisation) ===
+          orgId.toString(),
+      );
+      const roleLabels = (orgEntry?.roles || []).join("; ");
+      const orgName =
+        (u.organisations || []).find(
+          (o: any) => (o._id ?? o)?.toString?.() === orgId.toString(),
+        )?.name ?? "";
+      return [
       escape(u.name),
       escape(u.firstName),
       escape(u.lastName),
       escape(u.email),
-      escape((u.roles || []).join("; ")),
+      escape(roleLabels),
       escape(u.contactNumber),
       escape(u.gender),
-      escape(u.organisations?.[0]?.name),
+      escape(orgName),
       escape(
         u.createdAt
           ? new Date(u.createdAt).toLocaleDateString("en-AU", {
@@ -828,7 +848,8 @@ export const exportUsersCsv = async (req: Request, res: Response) => {
             })
           : "",
       ),
-    ]);
+    ];
+    });
 
     const csv =
       [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
@@ -851,26 +872,15 @@ export const exportUsersCsv = async (req: Request, res: Response) => {
  */
 export const inviteUser = async (req: any, res: Response) => {
   try {
-    const { email, organisationId, role } = req.body;
+    const { email, role } = req.body;
 
     if (!email) return res.status(400).json({ message: "Email is required" });
 
-    // Validate permission
-    const superCaller = !!(req as any).user?.isSuperAdmin;
-    const targetOrgId = organisationId || req.orgId;
+    const targetOrgId = req.orgId;
 
     if (!targetOrgId) {
       return res.status(400).json({
-        message: "Organisation ID is required for invitation",
-      });
-    }
-
-    if (
-      !superCaller &&
-      req.orgId?.toString() !== targetOrgId.toString()
-    ) {
-      return res.status(403).json({
-        message: "Not authorized to invite to this organisation",
+        message: "Select an organisation before sending invitations",
       });
     }
 

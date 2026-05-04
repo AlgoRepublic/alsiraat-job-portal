@@ -292,11 +292,8 @@ class DatabaseService {
     return response.user;
   }
 
-  async inviteUser(
-    email: string,
-    organisationId?: string,
-  ): Promise<{ message: string }> {
-    return await api.inviteUser(email, organisationId);
+  async inviteUser(email: string): Promise<{ message: string }> {
+    return await api.inviteUser(email);
   }
 
   async getInvitationDetails(

@@ -9,7 +9,6 @@ import Papa from "papaparse";
 import bcrypt from "bcryptjs";
 import { UserRole, normalizeUserRole } from "../models/UserRole.js";
 import { isSuperAdminUser } from "../utils/superAdmin.js";
-import { normalizeOrgName, slugifyOrgName } from "./organizationController.js";
 import Task from "../models/Task.js";
 import Application from "../models/Application.js";
 
@@ -28,12 +27,30 @@ export const getUsers = async (req: Request, res: Response) => {
 
     let query: any = {};
 
-    // Always scope by active organisation when org context exists.
-    if ((req as any).orgId) {
-      query.organisations = (req as any).orgId;
+    const orgId = (req as any).orgId as string | null | undefined;
+    // User directory is always organisation-scoped; super admins must pick an active org in the app.
+    if (orgId) {
+      query.organisations = orgId;
+      if (role) {
+        query.organisationRoles = {
+          $elemMatch: {
+            organisation: new mongoose.Types.ObjectId(String(orgId)),
+            roles: role,
+          },
+        };
+      }
     } else if (!isSuperAdminUser(caller)) {
       // Non-admin with no active org → can only see themselves
       query._id = caller?._id;
+      if (role) {
+        query.organisationRoles = {
+          $elemMatch: { roles: role },
+        };
+      }
+    } else {
+      return res.status(400).json({
+        message: "Select an organisation to view and manage users",
+      });
     }
 
     if (search) {
@@ -41,10 +58,6 @@ export const getUsers = async (req: Request, res: Response) => {
         { name: { $regex: search, $options: "i" } },
         { email: { $regex: search, $options: "i" } },
       ];
-    }
-
-    if (role) {
-      query.roles = role;
     }
 
     const [users, total] = await Promise.all([
@@ -78,6 +91,15 @@ export const getUserById = async (req: Request, res: Response) => {
       .select("-password");
 
     if (!user) return res.status(404).json({ message: "User not found" });
+
+    const orgId = (req as any).orgId as string | null | undefined;
+    if (orgId) {
+      const inOrg = (user.organisations ?? []).some(
+        (o: any) => o.toString() === orgId.toString(),
+      );
+      if (!inOrg) return res.status(404).json({ message: "User not found" });
+    }
+
     res.json(user);
   } catch (err: any) {
     res.status(500).json({ message: err.message });
@@ -168,11 +190,21 @@ export const updateUser = async (req: Request, res: Response) => {
     }
 
     if (name) user.name = name;
+
+    const reqOrgId = (req as any).orgId?.toString?.() ?? null;
+    if (reqOrgId && !skipOrgWrites && organisations !== undefined) {
+      return res.status(400).json({
+        message:
+          "Organisation membership cannot be changed from this view; switch organisation in the sidebar to manage another organisation",
+      });
+    }
+
     if (roles && !skipOrgWrites) {
       // Backward compat: when a caller only sends flat roles (+ optional single org),
       // keep existing behaviour by syncing the target org role entry.
       if (!Array.isArray(organisationRoles)) {
-        const targetOrg = organisation || (user.organisations?.[0] as any);
+        const targetOrg =
+          reqOrgId || organisation || (user.organisations?.[0] as any);
         if (targetOrg) {
           const orgRoleIndex = (user.organisationRoles ?? []).findIndex(
             (o: any) => o.organisation.toString() === targetOrg.toString()
@@ -208,6 +240,11 @@ export const updateUser = async (req: Request, res: Response) => {
             .status(400)
             .json({ message: "Each organisationRoles entry must include organisation" });
         }
+        if (reqOrgId && orgId.toString() !== reqOrgId) {
+          return res.status(400).json({
+            message: "Cannot modify roles for another organisation from this view",
+          });
+        }
         const exists = await Organization.findById(orgId);
         if (!exists) {
           return res
@@ -216,7 +253,7 @@ export const updateUser = async (req: Request, res: Response) => {
         }
       }
 
-      user.organisationRoles = organisationRoles.map((entry: any) => ({
+      const normalized = organisationRoles.map((entry: any) => ({
         organisation: entry.organisation,
         roles:
           Array.isArray(entry.roles) && entry.roles.length > 0
@@ -224,10 +261,29 @@ export const updateUser = async (req: Request, res: Response) => {
             : [UserRole.APPLICANT],
         memberKind: normalizeOrgMemberKind(entry.memberKind),
       })) as any;
+
+      if (reqOrgId) {
+        const other = (user.organisationRoles ?? []).filter(
+          (o: any) => o.organisation.toString() !== reqOrgId,
+        );
+        user.organisationRoles = [...other, ...normalized] as any;
+        const hasOrg = (user.organisations ?? []).some(
+          (o: any) => o.toString() === reqOrgId,
+        );
+        if (!hasOrg) {
+          user.organisations = [...(user.organisations ?? []), reqOrgId] as any;
+          await Group.findOneAndUpdate(
+            { organisation: reqOrgId, name: "All Members" },
+            { $addToSet: { members: user._id } },
+          );
+        }
+      } else {
+        user.organisationRoles = normalized;
+      }
     }
 
     // Multi-org: if `organisations` array is provided, use it directly
-    if (!skipOrgWrites && organisations !== undefined) {
+    if (!skipOrgWrites && organisations !== undefined && !reqOrgId) {
       if (Array.isArray(organisations)) {
         // Validate all org IDs exist
         for (const orgId of organisations) {
@@ -269,6 +325,20 @@ export const updateUser = async (req: Request, res: Response) => {
         }
       }
     } else if (!skipOrgWrites && organisation !== undefined) {
+      if (reqOrgId && organisation === null) {
+        return res.status(400).json({
+          message: "Removing all organisation memberships is not available from this view",
+        });
+      }
+      if (
+        reqOrgId &&
+        organisation &&
+        organisation.toString() !== reqOrgId
+      ) {
+        return res.status(400).json({
+          message: "Cannot assign a different organisation from this view",
+        });
+      }
       // Legacy single-org handling (backward compat)
       if (organisation === null) {
         // Remove from all current org "All Members" groups
@@ -320,7 +390,11 @@ export const updateUser = async (req: Request, res: Response) => {
 export const getUserTasks = async (req: Request, res: Response) => {
   try {
     const userId = new mongoose.Types.ObjectId(String(req.params.id));
-    const tasks = await Task.find({ createdBy: userId })
+    const taskFilter: any = { createdBy: userId };
+    if ((req as any).orgId) {
+      taskFilter.organisation = (req as any).orgId;
+    }
+    const tasks = await Task.find(taskFilter)
       .populate("category", "name code icon")
       .populate("rewardType", "name code")
       .populate("organisation", "name slug")
@@ -352,7 +426,14 @@ export const getUserTasks = async (req: Request, res: Response) => {
 export const getUserApplications = async (req: Request, res: Response) => {
   try {
     const userId = new mongoose.Types.ObjectId(String(req.params.id));
-    const apps = await Application.find({ applicant: userId })
+    const appFilter: any = { applicant: userId };
+    if ((req as any).orgId) {
+      const orgTaskIds = await Task.distinct("_id", {
+        organisation: (req as any).orgId,
+      });
+      appFilter.task = { $in: orgTaskIds };
+    }
+    const apps = await Application.find(appFilter)
       .populate("task", "title status category organisation startDate endDate")
       .populate("applicant", "name email")
       .sort({ createdAt: -1 });
@@ -374,6 +455,34 @@ export const deleteUser = async (req: Request, res: Response) => {
         .json({ message: "Cannot delete your own account" });
     }
 
+    const orgId = (req as any).orgId as string | null | undefined;
+    if (orgId) {
+      const inOrg = (user.organisations ?? []).some(
+        (o: any) => o.toString() === orgId.toString(),
+      );
+      if (!inOrg) return res.status(404).json({ message: "User not found" });
+
+      const remaining = (user.organisations ?? []).filter(
+        (o: any) => o.toString() !== orgId.toString(),
+      );
+      user.organisations = remaining as any;
+      user.organisationRoles = (user.organisationRoles ?? []).filter(
+        (o: any) => o.organisation.toString() !== orgId.toString(),
+      ) as any;
+
+      await Group.findOneAndUpdate(
+        { organisation: orgId, name: "All Members" },
+        { $pull: { members: user._id } },
+      );
+
+      if (remaining.length === 0) {
+        await user.deleteOne();
+        return res.json({ message: "User removed and account deleted" });
+      }
+      await user.save();
+      return res.json({ message: "User removed from this organisation" });
+    }
+
     await user.deleteOne();
     res.json({ message: "User deleted successfully" });
   } catch (err: any) {
@@ -381,75 +490,20 @@ export const deleteUser = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * Resolve an organisation ObjectId from:
- *   1. A column value in the CSV row (school / organisation / org / company)
- *   2. The email domain matched against Organization.domain
- *   3. Falling back to a configured default org name via IMPORT_DEFAULT_ORG env var
- */
-async function resolveOrganisation(
-  row: any,
-  email: string,
-): Promise<import("mongoose").Types.ObjectId | undefined> {
-  // ── 1. Explicit column in CSV ──
-  const explicitName: string | undefined =
-    row.organisation ||
-    row.organization ||
-    row.school ||
-    row.company ||
-    row.org ||
-    undefined;
-
-  if (explicitName && explicitName.trim()) {
-    const nameSearch = normalizeOrgName(explicitName);
-    const org = await Organization.findOne({
-      name: {
-        $regex: new RegExp(
-          `^${nameSearch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
-          "i",
-        ),
-      },
-    });
-    if (org) return org._id as import("mongoose").Types.ObjectId;
-
-    // Org with that name doesn't exist — create it lazily
-    const slug = slugifyOrgName(nameSearch);
-    try {
-      const newOrg = await Organization.create({ name: nameSearch, slug });
-      return newOrg._id as import("mongoose").Types.ObjectId;
-    } catch (e: any) {
-      // Duplicate slug — find existing and use it
-      const existing = await Organization.findOne({ slug });
-      if (existing) return existing._id as import("mongoose").Types.ObjectId;
-    }
-  }
-
-  // ── 2. Email domain match ──
-  const emailDomain = email.split("@")[1]?.toLowerCase();
-  if (emailDomain) {
-    const org = await Organization.findOne({
-      domain: { $regex: new RegExp(`^${emailDomain}$`, "i") },
-    });
-    if (org) return org._id as import("mongoose").Types.ObjectId;
-  }
-
-  // ── 3. Default org from env ──
-  const defaultOrgName = process.env.IMPORT_DEFAULT_ORG;
-  if (defaultOrgName) {
-    const org = await Organization.findOne({
-      name: { $regex: new RegExp(`^${defaultOrgName}$`, "i") },
-    });
-    if (org) return org._id as import("mongoose").Types.ObjectId;
-  }
-
-  return undefined;
-}
-
 export const importUsers = async (req: Request, res: Response) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: "No CSV file uploaded" });
     }
+
+    if (!(req as any).orgId) {
+      return res.status(400).json({
+        message: "Select an organisation to import users into",
+      });
+    }
+    const importOrgId = new mongoose.Types.ObjectId(
+      String((req as any).orgId),
+    );
 
     let rawContent = fs.readFileSync(req.file.path, "utf8");
     // Remove BOM if present
@@ -532,8 +586,7 @@ export const importUsers = async (req: Request, res: Response) => {
           rolesArray = [UserRole.APPLICANT];
         }
 
-        // Resolve organisation dynamically from CSV column or email domain
-        const organisationId = await resolveOrganisation(row, email);
+        const organisationId = importOrgId;
 
         const mappedGender =
           row.gender?.toUpperCase() === "M"
@@ -552,43 +605,53 @@ export const importUsers = async (req: Request, res: Response) => {
             name,
             email,
             password: hashedPassword,
-            roles: rolesArray,
             ...(mappedGender && { gender: mappedGender }),
             ...(row.year_level && { yearLevel: row.year_level }),
+            organisations: [organisationId],
+            organisationRoles: [
+              {
+                organisation: organisationId,
+                roles: rolesArray,
+                memberKind: normalizeOrgMemberKind(row.member_kind),
+              },
+            ],
           };
-          if (organisationId) {
-            userObj.organisations = [organisationId];
-            userObj.organisationRoles = [
+          user = new User(userObj);
+          await user.save();
+          await Group.findOneAndUpdate(
+            { organisation: organisationId, name: "All Members" },
+            { $addToSet: { members: user._id } },
+          );
+          imported++;
+        } else {
+          let dirty = false;
+          const userIsSAML = !!user.oidcId;
+          const alreadyInImportOrg = (user.organisations ?? []).some(
+            (o: any) => o.toString() === organisationId.toString(),
+          );
+
+          if (!alreadyInImportOrg && !userIsSAML) {
+            user.organisations = [...(user.organisations ?? []), organisationId as any];
+            user.organisationRoles = [
+              ...(user.organisationRoles ?? []),
               {
                 organisation: organisationId,
                 roles: rolesArray,
                 memberKind: normalizeOrgMemberKind(row.member_kind),
               },
             ];
-          }
-          user = new User(userObj);
-          await user.save();
-          imported++;
-        } else {
-          // Update organisation if not yet set (or if SAML org already set, respect it)
-          let dirty = false;
-
-          // Only assign organisation if:
-          //   (a) user doesn't have one, OR
-          //   (b) user is NOT an OIDC/SAML user (oidcId not set)
-          const userHasOrg = (user.organisations?.length ?? 0) > 0;
-          const userIsSAML = !!user.oidcId;
-
-          if (organisationId && !userHasOrg && !userIsSAML) {
-            user.organisations = [...(user.organisations ?? []), organisationId as any];
             dirty = true;
           }
 
           if (dirty) {
+            await Group.findOneAndUpdate(
+              { organisation: organisationId, name: "All Members" },
+              { $addToSet: { members: user._id } },
+            );
             await user.save();
             updated++;
           } else {
-            console.log(`Skipping duplicate user: ${email}`);
+            console.log(`Skipping user (already in organisation or SAML): ${email}`);
             errors++;
           }
         }
