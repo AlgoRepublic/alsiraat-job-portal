@@ -142,6 +142,10 @@ export const deleteTaskCategory = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Category not found" });
     }
 
+    if (category.isSystem) {
+      return res.status(403).json({ message: "Cannot delete system category" });
+    }
+
     try {
       assertCategoryMutableForOrg(category, req);
     } catch (e: any) {
@@ -149,10 +153,6 @@ export const deleteTaskCategory = async (req: Request, res: Response) => {
         return res.status(403).json({ message: e.message });
       }
       throw e;
-    }
-
-    if (category.isSystem) {
-      return res.status(403).json({ message: "Cannot delete system category" });
     }
 
     await TaskCategory.findByIdAndDelete(id);

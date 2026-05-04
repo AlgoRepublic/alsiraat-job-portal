@@ -393,6 +393,11 @@ export const AdminSettings: React.FC = () => {
   };
 
   const handleDeleteRole = async (roleId: string) => {
+    const role = roles.find((r) => r._id === roleId);
+    if (role?.isSystem) {
+      showError("System roles cannot be deleted");
+      return;
+    }
     if (!confirm("Are you sure you want to delete this role?")) return;
     try {
       const response = await fetch(`${API_BASE_URL}/roles/${roleId}`, {
@@ -475,6 +480,11 @@ export const AdminSettings: React.FC = () => {
   };
 
   const handleDeletePermission = async (permissionId: string) => {
+    const perm = permissions.find((p) => p._id === permissionId);
+    if (perm?.isSystem) {
+      showError("System permissions cannot be deleted");
+      return;
+    }
     if (!confirm("Are you sure you want to delete this permission?")) return;
     try {
       const response = await fetch(

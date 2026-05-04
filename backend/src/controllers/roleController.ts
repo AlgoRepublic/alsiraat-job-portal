@@ -118,7 +118,7 @@ export const deletePermission = async (req: Request, res: Response) => {
 
     if (permission.isSystem) {
       return res
-        .status(400)
+        .status(403)
         .json({ message: "Cannot delete system permission" });
     }
 
@@ -277,7 +277,7 @@ export const deleteRole = async (req: Request, res: Response) => {
     }
 
     if (role.isSystem) {
-      return res.status(400).json({ message: "Cannot delete system role" });
+      return res.status(403).json({ message: "Cannot delete system role" });
     }
 
     try {
