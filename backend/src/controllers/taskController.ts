@@ -792,10 +792,6 @@ export const getSearchTasks = async (req: any, res: Response) => {
         visibility: TaskVisibility.CENTRAL,
         status: TaskStatus.PENDING,
       };
-      if (organisation) {
-        centralPublishedCond.organisation = organisation;
-        centralPendingCond.organisation = organisation;
-      }
       conditions.push(centralPublishedCond);
       if (canViewPending) {
         conditions.push(centralPendingCond);
@@ -820,10 +816,7 @@ export const getSearchTasks = async (req: any, res: Response) => {
       if (searchTabAudience !== null) {
         const uidStr = String(userId);
         const orgScopedCentral = (c: any) =>
-          !!organisation &&
-          c.visibility === TaskVisibility.CENTRAL &&
-          c.organisation &&
-          String(c.organisation) === String(organisation);
+          c.visibility === TaskVisibility.CENTRAL;
         const privateMatchesLane = (c: any) => {
           if (c.visibility !== TaskVisibility.PRIVATE) return false;
           const rawAudiences = Array.isArray(c.privateAudiences)
