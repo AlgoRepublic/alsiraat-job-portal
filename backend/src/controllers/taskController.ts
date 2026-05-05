@@ -1288,7 +1288,7 @@ export const getTaskById = async (req: any, res: Response) => {
 
       const createdById = typeof task.createdBy === "object" && task.createdBy !== null
         ? task.createdBy._id?.toString?.() || ""
-        : task.createdBy?.toString?.() || "";
+        : (task.createdBy as any)?.toString?.() || "";
       const isOwner = createdById === req.user._id.toString();
       const hasInternalAccess =
         userMemberKind === OrgMemberKind.INTERNAL && allowsInternal;
