@@ -398,27 +398,27 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap gap-1 mb-1 max-h-11 overflow-hidden">
+                      {(() => {
+                        const displayRoles = getUserRolesForActiveOrg(user);
+                        return displayRoles.length > 0
+                          ? displayRoles.map((r: string) => (
+                              <span
+                                key={r}
+                                className="text-[10px] font-black uppercase tracking-widest text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded-lg"
+                              >
+                                {r}
+                              </span>
+                            ))
+                          : null;
+                      })()}
+                    </div>
                     <p className="font-bold text-sm text-zinc-900 dark:text-white truncate">
                       {user.name}
                     </p>
                     <p className="text-xs text-zinc-400 truncate">
                       {user.email}
                     </p>
-                  </div>
-                  <div className="flex flex-wrap gap-1 flex-shrink-0">
-                    {(() => {
-                      const displayRoles = getUserRolesForActiveOrg(user);
-                      return displayRoles.length > 0
-                        ? displayRoles.map((r: string) => (
-                            <span
-                              key={r}
-                              className="text-[10px] font-black uppercase tracking-widest text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded-lg"
-                            >
-                              {r}
-                            </span>
-                          ))
-                        : null;
-                    })()}
                   </div>
                   {isSelected && (
                     <Check className="w-4 h-4 text-primary flex-shrink-0" />
