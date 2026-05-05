@@ -826,9 +826,12 @@ export const getSearchTasks = async (req: any, res: Response) => {
           String(c.organisation) === String(organisation);
         const privateMatchesLane = (c: any) => {
           if (c.visibility !== TaskVisibility.PRIVATE) return false;
-          const privateAudiences = Array.isArray(c.privateAudiences)
-            ? c.privateAudiences.map((v: any) => String(v))
-            : [];
+          const rawAudiences = Array.isArray(c.privateAudiences)
+            ? c.privateAudiences
+            : Array.isArray(c.privateAudiences?.$in)
+              ? c.privateAudiences.$in
+              : [];
+          const privateAudiences = rawAudiences.map((v: any) => String(v));
           return privateAudiences.includes(searchTabAudience);
         };
         const kept = conditions.filter((c: any) => {
