@@ -38,6 +38,13 @@ const parseArrayField = (value: any): string[] => {
 
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+const normalizePrivateAudiences = (value: unknown): TaskVisibility[] => {
+  return parseArrayField(value).filter(
+    (v): v is TaskVisibility =>
+      v === TaskVisibility.INTERNAL || v === TaskVisibility.EXTERNAL,
+  );
+};
+
 /** Active org is the Central hub (browse tab shows Central visibility tasks only). */
 async function isCentralOrganisation(
   orgId: string | undefined | null,
@@ -72,6 +79,9 @@ const normalizeIncomingTaskVisibility = (value: unknown): TaskVisibility => {
   ) {
     return TaskVisibility.CENTRAL;
   }
+  if (v === TaskVisibility.PRIVATE || v === "Private") {
+    return TaskVisibility.PRIVATE;
+  }
   if (v === TaskVisibility.EXTERNAL || v === "External") {
     return TaskVisibility.EXTERNAL;
   }
@@ -80,6 +90,60 @@ const normalizeIncomingTaskVisibility = (value: unknown): TaskVisibility => {
   }
   return TaskVisibility.INTERNAL;
 };
+
+function appendPrivateAudienceConditions(
+  conditions: any[],
+  args: {
+    organisation: string | undefined | null;
+    userMemberKind: OrgMemberKind | null;
+    userGroupIds: any[];
+    canViewPending: boolean;
+  },
+) {
+  const { organisation, userMemberKind, userGroupIds, canViewPending } = args;
+  if (!organisation || !userMemberKind) return;
+
+  if (userMemberKind === OrgMemberKind.INTERNAL) {
+    conditions.push({
+      visibility: TaskVisibility.PRIVATE,
+      organisation,
+      status: TaskStatus.PUBLISHED,
+      privateAudiences: { $in: [TaskVisibility.INTERNAL] },
+      $or: [
+        { allowedGroups: { $exists: false } },
+        { allowedGroups: { $size: 0 } },
+        { allowedGroups: { $in: userGroupIds } },
+      ],
+    });
+
+    if (canViewPending) {
+      conditions.push({
+        visibility: TaskVisibility.PRIVATE,
+        organisation,
+        status: TaskStatus.PENDING,
+        privateAudiences: { $in: [TaskVisibility.INTERNAL] },
+      });
+    }
+  }
+
+  if (userMemberKind === OrgMemberKind.EXTERNAL) {
+    conditions.push({
+      visibility: TaskVisibility.PRIVATE,
+      organisation,
+      status: TaskStatus.PUBLISHED,
+      privateAudiences: { $in: [TaskVisibility.EXTERNAL] },
+    });
+
+    if (canViewPending) {
+      conditions.push({
+        visibility: TaskVisibility.PRIVATE,
+        organisation,
+        status: TaskStatus.PENDING,
+        privateAudiences: { $in: [TaskVisibility.EXTERNAL] },
+      });
+    }
+  }
+}
 
 export const createTask = async (req: any, res: Response) => {
   try {
@@ -97,6 +161,7 @@ export const createTask = async (req: any, res: Response) => {
       rewardValue,
       eligibility,
       visibility,
+      privateAudiences,
     } = req.body;
 
     // All tasks start as PENDING and require explicit approval
@@ -139,6 +204,13 @@ export const createTask = async (req: any, res: Response) => {
       rewardValue,
       eligibility: parseArrayField(eligibility),
       visibility: normalizeIncomingTaskVisibility(visibility),
+      privateAudiences:
+        normalizeIncomingTaskVisibility(visibility) === TaskVisibility.PRIVATE
+          ? (() => {
+              const audiences = normalizePrivateAudiences(privateAudiences);
+              return audiences.length > 0 ? audiences : [TaskVisibility.INTERNAL];
+            })()
+          : [],
       allowedRoles: parseArrayField(req.body.allowedRoles),
       allowedGroups: parseArrayField(req.body.allowedGroups),
       status: taskStatus,
@@ -214,6 +286,7 @@ export const updateTask = async (req: any, res: Response) => {
       rewardValue,
       eligibility,
       visibility,
+      privateAudiences,
     } = req.body;
 
     const task = await Task.findById(id);
@@ -275,6 +348,16 @@ export const updateTask = async (req: any, res: Response) => {
     if (rewardValue) task.rewardValue = rewardValue;
     if (eligibility) task.eligibility = parseArrayField(eligibility);
     if (visibility) task.visibility = normalizeIncomingTaskVisibility(visibility);
+    if (privateAudiences !== undefined) {
+      (task as any).privateAudiences =
+        normalizeIncomingTaskVisibility(visibility || task.visibility) ===
+        TaskVisibility.PRIVATE
+          ? (() => {
+              const audiences = normalizePrivateAudiences(privateAudiences);
+              return audiences.length > 0 ? audiences : [TaskVisibility.INTERNAL];
+            })()
+          : [];
+    }
     if (req.body.allowedRoles !== undefined)
       (task as any).allowedRoles = parseArrayField(req.body.allowedRoles);
     if (req.body.allowedGroups !== undefined)
@@ -426,6 +509,9 @@ export const getTasks = async (req: any, res: Response) => {
         ? await Group.find({ members: userId }).select("_id")
         : [];
       const userGroupIds = userGroups.map((g) => g._id);
+      const userMemberKind = organisation
+        ? getMemberKindForOrg(user, organisation)
+        : null;
 
       if (canViewInternal && organisation) {
         // Published internal tasks remain group-restricted for normal browsing.
@@ -462,6 +548,13 @@ export const getTasks = async (req: any, res: Response) => {
           allowedGroups: { $in: userGroupIds },
         });
       }
+
+      appendPrivateAudienceConditions(conditions, {
+        organisation,
+        userMemberKind,
+        userGroupIds,
+        canViewPending,
+      });
 
       // 5. External tasks from same organisation
       // External tasks are visible to users from the same org + public
@@ -713,6 +806,9 @@ export const getSearchTasks = async (req: any, res: Response) => {
         ? await Group.find({ members: userId }).select("_id")
         : [];
       const userGroupIds = userGroups.map((g) => g._id);
+      const userMemberKind = organisation
+        ? getMemberKindForOrg(user, organisation)
+        : null;
 
       if (canViewInternal && organisation) {
         conditions.push({
@@ -741,6 +837,13 @@ export const getSearchTasks = async (req: any, res: Response) => {
         });
       }
 
+      appendPrivateAudienceConditions(conditions, {
+        organisation,
+        userMemberKind,
+        userGroupIds,
+        canViewPending,
+      });
+
       if (organisation) {
         conditions.push({
           visibility: TaskVisibility.EXTERNAL,
@@ -758,9 +861,17 @@ export const getSearchTasks = async (req: any, res: Response) => {
           c.visibility === TaskVisibility.CENTRAL &&
           c.organisation &&
           String(c.organisation) === String(organisation);
+        const privateMatchesLane = (c: any) => {
+          if (c.visibility !== TaskVisibility.PRIVATE) return false;
+          const privateAudiences = Array.isArray(c.privateAudiences)
+            ? c.privateAudiences.map((v: any) => String(v))
+            : [];
+          return privateAudiences.includes(searchTabVisibility);
+        };
         const kept = conditions.filter((c: any) => {
           if (c.createdBy && String(c.createdBy) === uidStr) return true;
           if (c.visibility === searchTabVisibility) return true;
+          if (privateMatchesLane(c)) return true;
           if (
             (searchTabVisibility === TaskVisibility.INTERNAL ||
               searchTabVisibility === TaskVisibility.EXTERNAL) &&
@@ -783,7 +894,11 @@ export const getSearchTasks = async (req: any, res: Response) => {
           const searchTabVisibilityIn =
             searchTabVisibility === TaskVisibility.INTERNAL ||
             searchTabVisibility === TaskVisibility.EXTERNAL
-              ? [searchTabVisibility, TaskVisibility.CENTRAL]
+              ? [
+                  searchTabVisibility,
+                  TaskVisibility.PRIVATE,
+                  TaskVisibility.CENTRAL,
+                ]
               : searchTabVisibility !== null
                 ? [searchTabVisibility]
                 : [];
@@ -1145,10 +1260,57 @@ export const getTaskById = async (req: any, res: Response) => {
     const { id } = req.params;
     const task = await Task.findById(id)
       .populate("organisation", "name")
-      .populate("createdBy", "name");
+      .populate("createdBy", "_id name");
 
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
+    }
+
+    if (task.visibility === TaskVisibility.PRIVATE) {
+      if (!req.user) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+
+      const userMemberKind = task.organisation
+        ? getMemberKindForOrg(req.user, String(task.organisation))
+        : null;
+      const privateAudiences = Array.isArray((task as any).privateAudiences)
+        ? (task as any).privateAudiences.map(String)
+        : [];
+      const allowsInternal = privateAudiences.includes(TaskVisibility.INTERNAL);
+      const allowsExternal = privateAudiences.includes(TaskVisibility.EXTERNAL);
+
+      const Group = (await import("../models/Group.js")).default;
+      const userGroups = await Group.find({ members: req.user._id }).select(
+        "_id",
+      );
+      const userGroupIds = userGroups.map((g: any) => g._id.toString());
+
+      const createdById = typeof task.createdBy === "object" && task.createdBy !== null
+        ? task.createdBy._id?.toString?.() || ""
+        : task.createdBy?.toString?.() || "";
+      const isOwner = createdById === req.user._id.toString();
+      const hasInternalAccess =
+        userMemberKind === OrgMemberKind.INTERNAL && allowsInternal;
+      const hasExternalAccess =
+        userMemberKind === OrgMemberKind.EXTERNAL && allowsExternal;
+
+      if (!isOwner && !hasInternalAccess && !hasExternalAccess) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+
+      if (!isOwner && hasInternalAccess) {
+        const allowedGroups = Array.isArray((task as any).allowedGroups)
+          ? (task as any).allowedGroups.map((gid: any) => String(gid))
+          : [];
+        const hasGroupAccess =
+          allowedGroups.length === 0 ||
+          allowedGroups.some((gid: string) => userGroupIds.includes(gid));
+
+        if (!hasGroupAccess) {
+          return res.status(404).json({ message: "Task not found" });
+        }
+      }
     }
 
     // Get applicants count
@@ -1269,6 +1431,18 @@ export const approveTask = async (req: any, res: Response) => {
           task.organisation.toString(),
           "📢 New Internal Task",
           `A new internal task "${task.title}" has been posted.`,
+          "info",
+          `/jobs/${task._id}`,
+          task.createdBy.toString(),
+        );
+      } else if (
+        task.visibility === TaskVisibility.PRIVATE &&
+        task.organisation
+      ) {
+        await sendNotificationToOrganization(
+          task.organisation.toString(),
+          "📢 New Private Task",
+          `A new private task "${task.title}" has been posted.`,
           "info",
           `/jobs/${task._id}`,
           task.createdBy.toString(),

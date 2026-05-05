@@ -16,6 +16,7 @@ import { api, ApiError, API_BASE_URL, LOGIN_SOURCE_KEY } from "./api";
 
 const mapApiVisibilityToJob = (raw: unknown): Visibility => {
   const v = typeof raw === "string" ? raw : "";
+  if (v === "Private") return Visibility.PRIVATE;
   if (v === "Central" || v === "Global") return Visibility.CENTRAL;
   if (v === "External") return Visibility.EXTERNAL;
   if (v === "Internal") return Visibility.INTERNAL;
@@ -47,6 +48,9 @@ const mapTaskToJob = (task: any): Job => {
     rewardValue: task.rewardValue,
     eligibility: task.eligibility || [],
     visibility: mapApiVisibilityToJob(task.visibility),
+    privateAudiences: Array.isArray(task.privateAudiences)
+      ? task.privateAudiences
+      : [],
     attachments: Array.isArray(task.attachments)
       ? task.attachments.map((a: any) => ({
           id: a.filename,

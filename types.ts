@@ -41,9 +41,10 @@ export const RewardType = {
 export type RewardType = (typeof RewardType)[keyof typeof RewardType];
 
 /**
- * Task visibility. Internal/External are org-scoped (sign-in). Central = listed on the public Central organisation (platform-wide open browsing).
+ * Task visibility. Private is org-scoped and can target Internal, External, or both. Central = listed on the public Central organisation (platform-wide open browsing).
  */
 export const Visibility = {
+  PRIVATE: "Private",
   INTERNAL: "Internal",
   EXTERNAL: "External",
   CENTRAL: "Central",
@@ -100,6 +101,7 @@ export interface Job {
   rewardValue?: number;
   eligibility: string[]; // e.g., ['Students', 'Parents']
   visibility: Visibility;
+  privateAudiences?: Visibility[];
   allowedRoles?: string[];
   allowedGroups?: string[]; // Array of Group IDs
   attachments: Attachment[];

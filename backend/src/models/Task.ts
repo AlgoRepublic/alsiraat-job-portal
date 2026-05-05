@@ -13,6 +13,7 @@ export const TaskStatus = {
 export type TaskStatus = (typeof TaskStatus)[keyof typeof TaskStatus];
 
 export const TaskVisibility = {
+  PRIVATE: "Private",
   INTERNAL: "Internal",
   EXTERNAL: "External",
   CENTRAL: "Central",
@@ -34,6 +35,7 @@ export interface ITask extends Document {
   rewardValue?: number | undefined;
   eligibility: string[];
   visibility: TaskVisibility;
+  privateAudiences?: TaskVisibility[] | undefined;
   allowedRoles?: string[] | undefined;
   allowedGroups?: mongoose.Types.ObjectId[] | undefined;
   status: TaskStatus;
@@ -73,6 +75,7 @@ const TaskSchema: Schema = new Schema(
       enum: Object.values(TaskVisibility),
       default: TaskVisibility.INTERNAL,
     },
+    privateAudiences: [{ type: String, enum: [TaskVisibility.INTERNAL, TaskVisibility.EXTERNAL] }],
     allowedRoles: [{ type: String }],
     allowedGroups: [{ type: Schema.Types.ObjectId, ref: "Group" }],
     status: {

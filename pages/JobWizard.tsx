@@ -71,6 +71,26 @@ function readActiveOrganisationNameFromStorage(): string | null {
   }
 }
 
+const normalizeVisibilityMode = (value?: string): Visibility => {
+  if (
+    value === Visibility.PRIVATE ||
+    value === Visibility.INTERNAL ||
+    value === Visibility.EXTERNAL
+  ) {
+    return Visibility.PRIVATE;
+  }
+  if (value === Visibility.CENTRAL) return Visibility.CENTRAL;
+  return Visibility.PRIVATE;
+};
+
+const normalizePrivateAudiences = (value: unknown): Visibility[] => {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (item): item is Visibility =>
+      item === Visibility.INTERNAL || item === Visibility.EXTERNAL,
+  );
+};
+
 // ─── Accordion Section ────────────────────────────────────────────────────────
 interface AccordionProps {
   id: string;
@@ -207,7 +227,8 @@ export const JobWizard: React.FC = () => {
     rewardType: RewardType.VOLUNTEER,
     rewardValue: 0,
     eligibility: [],
-    visibility: Visibility.INTERNAL,
+    visibility: Visibility.PRIVATE,
+    privateAudiences: [Visibility.INTERNAL],
     attachments: [],
     allowedRoles: [],
     allowedGroups: [],
@@ -244,6 +265,17 @@ export const JobWizard: React.FC = () => {
         try {
           const job = await db.getJob(id);
           if (job) {
+            const jobVisibility = normalizeVisibilityMode(job.visibility);
+            const jobPrivateAudiences =
+              job.visibility === Visibility.INTERNAL
+                ? [Visibility.INTERNAL]
+                : job.visibility === Visibility.EXTERNAL
+                  ? [Visibility.EXTERNAL]
+                  : job.visibility === Visibility.PRIVATE
+                    ? normalizePrivateAudiences(job.privateAudiences).length > 0
+                      ? normalizePrivateAudiences(job.privateAudiences)
+                      : [Visibility.INTERNAL]
+                    : [];
             setFormData({
               title: job.title,
               category: job.category as any,
@@ -257,7 +289,8 @@ export const JobWizard: React.FC = () => {
               rewardType: job.rewardType,
               rewardValue: job.rewardValue,
               eligibility: job.eligibility,
-              visibility: job.visibility,
+              visibility: jobVisibility,
+              privateAudiences: jobPrivateAudiences,
               attachments: [],
               status: job.status,
               allowedGroups: job.allowedGroups ?? [],
@@ -298,23 +331,16 @@ export const JobWizard: React.FC = () => {
   ).replace(/\s+/g, " ");
 
   const visibilityOptions = React.useMemo(() => {
-    const named = activeOrgName?.trim();
-    const afterOrg = named ? " " : ", ";
+    const privateDesc =
+      "Choose who can see this task inside your organisation. Select Internal, External, or both.";
     const centralDesc =
       "Your organisation lists this on public Central. Open browsing.";
     return [
       {
-        value: Visibility.INTERNAL,
-        label: "Internal",
-        description: `For ${orgScopeLabel}${afterOrg}Internal users e.g. staff, students & parents. Sign-in only.`,
-        icon: "🏛️",
-        disabled: false,
-      },
-      {
-        value: Visibility.EXTERNAL,
-        label: "External",
-        description: `For ${orgScopeLabel}${afterOrg}External users e.g. community, musallees & word-of-mouth. Sign-in only.`,
-        icon: "🌐",
+        value: Visibility.PRIVATE,
+        label: "Private",
+        description: privateDesc,
+        icon: "🔒",
         disabled: false,
       },
       {
@@ -402,6 +428,13 @@ export const JobWizard: React.FC = () => {
       newErrors.rewardValue = "Reward value must be greater than 0";
     if (!formData.visibility)
       newErrors.visibility = "Task Visibility is required";
+    if (
+      formData.visibility === Visibility.PRIVATE &&
+      normalizePrivateAudiences(formData.privateAudiences).length === 0
+    ) {
+      newErrors.visibility =
+        "Select Internal, External, or both for Private tasks";
+    }
     return newErrors;
   };
 
@@ -444,11 +477,22 @@ export const JobWizard: React.FC = () => {
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
+      const selectedPrivateAudiences =
+        formData.visibility === Visibility.PRIVATE
+          ? (() => {
+              const audiences = normalizePrivateAudiences(
+                formData.privateAudiences,
+              );
+              return audiences.length > 0 ? audiences : [Visibility.INTERNAL];
+            })()
+          : [];
       const submissionData = {
         ...formData,
         status: "Pending",
+        privateAudiences: selectedPrivateAudiences,
         allowedGroups:
-          formData.visibility === Visibility.INTERNAL
+          formData.visibility === Visibility.PRIVATE &&
+          selectedPrivateAudiences.includes(Visibility.INTERNAL)
             ? formData.allowedGroups ?? []
             : [],
       };
@@ -906,12 +950,12 @@ export const JobWizard: React.FC = () => {
                 )}
               </div>
 
-              {/* Visibility Radio Chips */}
+              {/* Visibility Chips */}
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
                   Task Visibility *
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-stretch">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-stretch">
                   {visibilityOptions.map((opt) => {
                     const isSelected = formData.visibility === opt.value;
                     return (
@@ -924,20 +968,33 @@ export const JobWizard: React.FC = () => {
                           const nextVis = opt.value;
                           setFormData((prev) => {
                             let nextGroups = prev.allowedGroups ?? [];
-                            if (nextVis !== Visibility.INTERNAL) {
-                              nextGroups = [];
-                            } else if (nextGroups.length === 0) {
-                              const allMembers = groups.find(
-                                (g: any) =>
-                                  g.name?.toLowerCase() === "all members",
-                              );
-                              if (allMembers?._id) {
-                                nextGroups = [allMembers._id];
+                            let nextPrivateAudiences =
+                              prev.privateAudiences ?? [Visibility.INTERNAL];
+
+                            if (nextVis === Visibility.PRIVATE) {
+                              if (nextPrivateAudiences.length === 0) {
+                                nextPrivateAudiences = [Visibility.INTERNAL];
                               }
+                              if (
+                                nextPrivateAudiences.includes(Visibility.INTERNAL) &&
+                                nextGroups.length === 0
+                              ) {
+                                const allMembers = groups.find(
+                                  (g: any) =>
+                                    g.name?.toLowerCase() === "all members",
+                                );
+                                if (allMembers?._id) {
+                                  nextGroups = [allMembers._id];
+                                }
+                              }
+                            } else {
+                              nextPrivateAudiences = [];
+                              nextGroups = [];
                             }
                             return {
                               ...prev,
                               visibility: nextVis,
+                              privateAudiences: nextPrivateAudiences,
                               allowedGroups: nextGroups,
                             };
                           });
@@ -1004,11 +1061,74 @@ export const JobWizard: React.FC = () => {
                   <span className="font-bold text-zinc-700 dark:text-zinc-300">
                     {orgScopeLabel}
                   </span>
-                  : Internal &amp; External: sign-in, on your organisation. Central: the public Central organisation; open browsing.
+                  : Private: sign-in, on your organisation. Central: the public Central organisation; open browsing.
                 </p>
               </div>
 
-              {formData.visibility === Visibility.INTERNAL &&
+              {formData.visibility === Visibility.PRIVATE && (
+                <div className="space-y-4 animate-fade-in bg-zinc-50 dark:bg-zinc-800/30 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+                  <div>
+                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                      Private Audience
+                    </label>
+                    <p className="text-xs text-zinc-500 mt-0.5">
+                      Choose one or both audiences. Internal can still be narrowed with groups.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {[Visibility.INTERNAL, Visibility.EXTERNAL].map((audience) => {
+                      const isSelected = (formData.privateAudiences || []).includes(audience);
+                      return (
+                        <button
+                          key={audience}
+                          type="button"
+                          onClick={() => {
+                            const current = formData.privateAudiences || [];
+                            const next = isSelected
+                              ? current.filter((item) => item !== audience)
+                              : [...current, audience];
+                            updateField("privateAudiences", next);
+
+                            if (audience === Visibility.INTERNAL && !isSelected) {
+                              const currentGroups = formData.allowedGroups || [];
+                              if (currentGroups.length === 0) {
+                                const allMembers = groups.find(
+                                  (g: any) =>
+                                    g.name?.toLowerCase() === "all members",
+                                );
+                                if (allMembers?._id) {
+                                  updateField("allowedGroups", [allMembers._id]);
+                                }
+                              }
+                            }
+
+                            if (audience === Visibility.INTERNAL && isSelected) {
+                              updateField("allowedGroups", []);
+                            }
+
+                            if (errors.visibility) {
+                              setErrors((p) => ({ ...p, visibility: "" }));
+                            }
+                          }}
+                          className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all border-2 flex items-center gap-2 ${
+                            isSelected
+                              ? "border-primary bg-primary text-white shadow-md"
+                              : "bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-primary/50"
+                          }`}
+                        >
+                          <span className="text-sm leading-none">
+                            {audience === Visibility.INTERNAL ? "🏛️" : "🌐"}
+                          </span>
+                          {audience}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {formData.visibility === Visibility.PRIVATE &&
+                (formData.privateAudiences || []).includes(Visibility.INTERNAL) &&
                 groups.length > 0 && (
                   <div className="space-y-3 animate-fade-in bg-zinc-50 dark:bg-zinc-800/30 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800">
                     <div>
@@ -1223,7 +1343,10 @@ export const JobWizard: React.FC = () => {
                   },
                   {
                     label: "Visibility",
-                    value: formData.visibility || "-",
+                    value:
+                      formData.visibility === Visibility.PRIVATE
+                        ? `Private · ${(formData.privateAudiences || []).join(", ") || "Internal"}`
+                        : formData.visibility || "-",
                   },
                 ].map((item) => (
                   <div key={item.label} className="bg-zinc-50 dark:bg-zinc-800/40 rounded-xl p-3">
