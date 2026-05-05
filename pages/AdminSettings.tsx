@@ -51,6 +51,37 @@ interface Role {
   isActive: boolean;
   color: string;
   oidcMapping: string[];
+  organisation?: string | { _id: string } | null;
+}
+
+function withOrganisationQuery(url: string, organisationId: string): string {
+  if (!organisationId) return url;
+  const joiner = url.includes("?") ? "&" : "?";
+  return `${url}${joiner}organisation=${encodeURIComponent(organisationId)}`;
+}
+
+function organisationParamFromRole(
+  role: Role | undefined,
+  activeOrgId: string,
+): string {
+  const raw = role?.organisation;
+  if (raw && typeof raw === "object" && "_id" in raw) {
+    return String((raw as { _id: string })._id);
+  }
+  if (typeof raw === "string") return raw;
+  return activeOrgId;
+}
+
+function organisationParamFromCategory(
+  cat: { organisation?: string | { _id: string } | null },
+  activeOrgId: string,
+): string {
+  const raw = cat?.organisation;
+  if (raw && typeof raw === "object" && "_id" in raw) {
+    return String((raw as { _id: string })._id);
+  }
+  if (typeof raw === "string") return raw;
+  return activeOrgId;
 }
 
 const AiSettingsPanel: React.FC<{ reloadKey?: number }> = ({
@@ -237,17 +268,22 @@ export const AdminSettings: React.FC = () => {
 
   const [adminOrgSync, setAdminOrgSync] = useState(0);
   const [activeOrgName, setActiveOrgName] = useState("");
+  const [activeOrgId, setActiveOrgId] = useState("");
 
   const refreshActiveOrgLabel = useCallback(async () => {
     try {
       const user = await db.getCurrentUser();
-      setActiveOrgName(
-        typeof user?.activeOrganisation === "object"
-          ? (user?.activeOrganisation as any)?.name || ""
-          : "",
-      );
+      const org = user?.activeOrganisation;
+      if (typeof org === "object" && org && "_id" in org) {
+        setActiveOrgName((org as { name?: string }).name || "");
+        setActiveOrgId(String((org as { _id: string })._id));
+      } else {
+        setActiveOrgName("");
+        setActiveOrgId("");
+      }
     } catch {
       setActiveOrgName("");
+      setActiveOrgId("");
     }
   }, []);
 
@@ -326,14 +362,23 @@ export const AdminSettings: React.FC = () => {
 
   const handleSeedDefaults = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/roles/seed`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+      const response = await fetch(
+        withOrganisationQuery(`${API_BASE_URL}/roles/seed`, activeOrgId),
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          },
         },
-      });
-      if (!response.ok) throw new Error("Failed to seed defaults");
-      showSuccess("Default roles and permissions loaded successfully");
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to seed defaults");
+      }
+      showSuccess(
+        data.message ||
+          "Default permissions and system roles updated successfully.",
+      );
       loadData();
     } catch (err: any) {
       showError(err.message);
@@ -343,14 +388,17 @@ export const AdminSettings: React.FC = () => {
   // Role CRUD operations
   const handleCreateRole = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/roles`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-          "Content-Type": "application/json",
+      const response = await fetch(
+        withOrganisationQuery(`${API_BASE_URL}/roles`, activeOrgId),
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(newRole),
         },
-        body: JSON.stringify(newRole),
-      });
+      );
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.message);
@@ -372,14 +420,20 @@ export const AdminSettings: React.FC = () => {
 
   const handleUpdateRole = async (role: Role) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/roles/${role._id}`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-          "Content-Type": "application/json",
+      const response = await fetch(
+        withOrganisationQuery(
+          `${API_BASE_URL}/roles/${role._id}`,
+          organisationParamFromRole(role, activeOrgId),
+        ),
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(role),
         },
-        body: JSON.stringify(role),
-      });
+      );
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.message);
@@ -400,12 +454,18 @@ export const AdminSettings: React.FC = () => {
     }
     if (!confirm("Are you sure you want to delete this role?")) return;
     try {
-      const response = await fetch(`${API_BASE_URL}/roles/${roleId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+      const response = await fetch(
+        withOrganisationQuery(
+          `${API_BASE_URL}/roles/${roleId}`,
+          organisationParamFromRole(role, activeOrgId),
+        ),
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          },
         },
-      });
+      );
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.message);
@@ -548,10 +608,12 @@ export const AdminSettings: React.FC = () => {
                   <span className="font-bold text-zinc-800 dark:text-zinc-100">
                     {activeOrgName}
                   </span>
-                  .
+                  . Reset Defaults refreshes permission definitions and shared system
+                  roles; legacy cleanup runs only when no organisation is active in the
+                  sidebar (platform maintenance).
                 </>
               ) : (
-                "Select an organisation in the sidebar to tie custom roles to that community."
+                "Select an organisation in the sidebar to tie custom roles to that community. Without an active organisation, Reset Defaults also runs platform-wide legacy role cleanup."
               )}
             </p>
           </div>
@@ -1166,14 +1228,17 @@ export const AdminSettings: React.FC = () => {
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, "_")
           .replace(/^_|_$/g, "");
-      const res = await fetch(`${API_BASE_URL}/task-categories`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-          "Content-Type": "application/json",
+      const res = await fetch(
+        withOrganisationQuery(`${API_BASE_URL}/task-categories`, activeOrgId),
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ ...newCat, code: autoCode }),
         },
-        body: JSON.stringify({ ...newCat, code: autoCode }),
-      });
+      );
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
       showSuccess("Category created");
@@ -1193,14 +1258,20 @@ export const AdminSettings: React.FC = () => {
 
   const handleUpdateCategory = async (cat: any) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/task-categories/${cat._id}`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-          "Content-Type": "application/json",
+      const res = await fetch(
+        withOrganisationQuery(
+          `${API_BASE_URL}/task-categories/${cat._id}`,
+          organisationParamFromCategory(cat, activeOrgId),
+        ),
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(cat),
         },
-        body: JSON.stringify(cat),
-      });
+      );
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
       showSuccess("Category updated");
@@ -1219,12 +1290,18 @@ export const AdminSettings: React.FC = () => {
     if (cat.isSystem) return showError("System categories cannot be deleted");
     if (!confirm(`Delete category "${cat.name}"?`)) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/task-categories/${cat._id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+      const res = await fetch(
+        withOrganisationQuery(
+          `${API_BASE_URL}/task-categories/${cat._id}`,
+          organisationParamFromCategory(cat, activeOrgId),
+        ),
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          },
         },
-      });
+      );
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
       showSuccess("Category deleted");
@@ -1236,14 +1313,23 @@ export const AdminSettings: React.FC = () => {
 
   const handleSeedCategories = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/task-categories/seed/defaults`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+      const res = await fetch(
+        withOrganisationQuery(
+          `${API_BASE_URL}/task-categories/seed/defaults`,
+          activeOrgId,
+        ),
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          },
         },
-      });
-      if (!res.ok) throw new Error("Seed failed");
-      showSuccess("Default categories loaded");
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || "Seed failed");
+      showSuccess(
+        data.message || "Default categories seeded successfully.",
+      );
       loadCategories();
     } catch (err: any) {
       showError(err.message);
@@ -1261,14 +1347,16 @@ export const AdminSettings: React.FC = () => {
           <p className="text-zinc-500 font-medium mt-1">
             {activeOrgName ? (
               <>
-                Platform default categories plus any added for{" "}
+                Seed Defaults creates categories for{" "}
                 <span className="font-bold text-zinc-800 dark:text-zinc-100">
                   {activeOrgName}
                 </span>
-                . Switch organisation in the sidebar to manage another community.
+                ; lists prefer your organisation’s row when it shares a code with a
+                platform default. Switch organisation in the sidebar to manage another
+                community.
               </>
             ) : (
-              "Select an organisation to add categories for that community (defaults still apply everywhere)."
+              "Select an organisation in the sidebar, then use Seed Defaults to load the standard category set for that community."
             )}
           </p>
         </div>
@@ -1423,8 +1511,8 @@ export const AdminSettings: React.FC = () => {
                     colSpan={4}
                     className="px-6 py-12 text-center text-sm text-zinc-400"
                   >
-                    No categories yet. Click "Seed Defaults" to load the
-                    standard set.
+                    No categories yet. Select an organisation, then click
+                    “Seed Defaults” to load the standard set.
                   </td>
                 </tr>
               )}

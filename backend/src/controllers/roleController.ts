@@ -3,6 +3,10 @@ import Role, { IRole } from "../models/Role.js";
 import Permission, { IPermission } from "../models/Permission.js";
 import User from "../models/User.js";
 import { isSuperAdminUser } from "../utils/superAdmin.js";
+import {
+  assertResourceOrganisationScope,
+  resolveMutationOrganisation,
+} from "../utils/orgMutationScope.js";
 
 /** Roles visible in admin for the current JWT organisation context. */
 function buildRoleReadFilter(req: any): Record<string, unknown> {
@@ -27,12 +31,18 @@ function buildRoleReadFilter(req: any): Record<string, unknown> {
 }
 
 function assertRoleMutableForOrgSession(role: any, req: any) {
-  const orgId = req.orgId?.toString?.() ?? null;
   if (role.isSystem) return;
   const ro = role.organisation?.toString?.() ?? null;
-  if (orgId && ro && ro !== orgId) {
-    const err: any = new Error("This role belongs to another organisation");
-    err.status = 403;
+  if (ro) {
+    assertResourceOrganisationScope(req, ro);
+    return;
+  }
+  const effective = resolveMutationOrganisation(req);
+  if (!effective) {
+    const err: any = new Error(
+      "Pass organisation query parameter or select an active organisation",
+    );
+    err.status = 400;
     throw err;
   }
 }
@@ -186,6 +196,14 @@ export const getRole = async (req: Request, res: Response) => {
 
 export const createRole = async (req: Request, res: Response) => {
   try {
+    try {
+      resolveMutationOrganisation(req);
+    } catch (e: any) {
+      if (e.status === 403 || e.status === 400) {
+        return res.status(e.status).json({ message: e.message });
+      }
+      throw e;
+    }
     const { name, code, description, permissions, color, oidcMapping } = req.body;
     const orgId = (req as any).orgId?.toString?.() ?? null;
     if (!orgId) {
@@ -223,6 +241,14 @@ export const createRole = async (req: Request, res: Response) => {
 
 export const updateRole = async (req: Request, res: Response) => {
   try {
+    try {
+      resolveMutationOrganisation(req);
+    } catch (e: any) {
+      if (e.status === 403 || e.status === 400) {
+        return res.status(e.status).json({ message: e.message });
+      }
+      throw e;
+    }
     const { id } = req.params;
     const { name, description, permissions, color, isActive, oidcMapping } = req.body;
 
@@ -234,8 +260,8 @@ export const updateRole = async (req: Request, res: Response) => {
     try {
       assertRoleMutableForOrgSession(role, req);
     } catch (e: any) {
-      if (e.status === 403) {
-        return res.status(403).json({ message: e.message });
+      if (e.status === 403 || e.status === 400) {
+        return res.status(e.status).json({ message: e.message });
       }
       throw e;
     }
@@ -269,6 +295,14 @@ export const updateRole = async (req: Request, res: Response) => {
 
 export const deleteRole = async (req: Request, res: Response) => {
   try {
+    try {
+      resolveMutationOrganisation(req);
+    } catch (e: any) {
+      if (e.status === 403 || e.status === 400) {
+        return res.status(e.status).json({ message: e.message });
+      }
+      throw e;
+    }
     const { id } = req.params;
 
     const role = await Role.findById(id);
@@ -283,8 +317,8 @@ export const deleteRole = async (req: Request, res: Response) => {
     try {
       assertRoleMutableForOrgSession(role, req);
     } catch (e: any) {
-      if (e.status === 403) {
-        return res.status(403).json({ message: e.message });
+      if (e.status === 403 || e.status === 400) {
+        return res.status(e.status).json({ message: e.message });
       }
       throw e;
     }
@@ -310,6 +344,14 @@ export const deleteRole = async (req: Request, res: Response) => {
 
 export const assignPermissionToRole = async (req: Request, res: Response) => {
   try {
+    try {
+      resolveMutationOrganisation(req);
+    } catch (e: any) {
+      if (e.status === 403 || e.status === 400) {
+        return res.status(e.status).json({ message: e.message });
+      }
+      throw e;
+    }
     const { roleId } = req.params;
     const { permissionCode } = req.body;
 
@@ -321,8 +363,8 @@ export const assignPermissionToRole = async (req: Request, res: Response) => {
     try {
       assertRoleMutableForOrgSession(role, req);
     } catch (e: any) {
-      if (e.status === 403) {
-        return res.status(403).json({ message: e.message });
+      if (e.status === 403 || e.status === 400) {
+        return res.status(e.status).json({ message: e.message });
       }
       throw e;
     }
@@ -345,6 +387,14 @@ export const assignPermissionToRole = async (req: Request, res: Response) => {
 
 export const removePermissionFromRole = async (req: Request, res: Response) => {
   try {
+    try {
+      resolveMutationOrganisation(req);
+    } catch (e: any) {
+      if (e.status === 403 || e.status === 400) {
+        return res.status(e.status).json({ message: e.message });
+      }
+      throw e;
+    }
     const { roleId, permissionCode } = req.params;
 
     const role = await Role.findById(roleId);
@@ -355,8 +405,8 @@ export const removePermissionFromRole = async (req: Request, res: Response) => {
     try {
       assertRoleMutableForOrgSession(role, req);
     } catch (e: any) {
-      if (e.status === 403) {
-        return res.status(403).json({ message: e.message });
+      if (e.status === 403 || e.status === 400) {
+        return res.status(e.status).json({ message: e.message });
       }
       throw e;
     }
@@ -376,6 +426,16 @@ export const removePermissionFromRole = async (req: Request, res: Response) => {
 
 export const seedDefaultPermissions = async (req: Request, res: Response) => {
   try {
+    try {
+      resolveMutationOrganisation(req);
+    } catch (e: any) {
+      if (e.status === 403 || e.status === 400) {
+        return res.status(e.status).json({ message: e.message });
+      }
+      throw e;
+    }
+    const hasOrgContext = !!(req as any).orgId?.toString?.();
+
     // ── Normalize legacy category names in existing permissions ──────────────
     // When resetDatabase.ts ran, it used raw enum prefix as category (e.g. "TASK",
     // "APPLICATION"). We consolidate those into the canonical plural display names.
@@ -765,59 +825,54 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
       );
     }
 
-    // Cleanup old roles
-    const newRoleCodes = defaultRoles.map((r) => r.code);
-    // Delete roles that are system roles but NOT in the new list
-    // OR just delete specific old standard roles if they exist
-    const oldRoleCodes = [
-      "admin",
-      "owner",
-      "approver",
-      "member",
-      "global_admin",
-    ];
+    // Platform-wide legacy cleanup (destructive): only when no JWT organisation context.
+    if (!hasOrgContext) {
+      const oldRoleCodes = [
+        "admin",
+        "owner",
+        "approver",
+        "member",
+        "global_admin",
+      ];
 
-    // Migrate existing users to new roles
-    const roleMapping: Record<string, string> = {
-      admin: "Organisation Admin",
-      owner: "Organisation Admin",
-      approver: "Task Manager",
-      member: "Task Advertiser",
-    };
+      const roleMapping: Record<string, string> = {
+        admin: "Organisation Admin",
+        owner: "Organisation Admin",
+        approver: "Task Manager",
+        member: "Task Advertiser",
+      };
 
-    for (const [oldRole, newRole] of Object.entries(roleMapping)) {
+      for (const [oldRole, newRole] of Object.entries(roleMapping)) {
+        await User.updateMany(
+          { role: { $regex: new RegExp(`^${oldRole}$`, "i") } },
+          { role: newRole },
+        );
+      }
+
       await User.updateMany(
-        { role: { $regex: new RegExp(`^${oldRole}$`, "i") } },
-        { role: newRole },
+        { role: { $regex: /^school admin$/i } },
+        { role: "Organisation Admin" },
+      );
+      await Role.deleteMany({ code: "school_admin" });
+      await Role.deleteMany({ name: { $regex: /^global admin$/i } });
+
+      await Role.deleteMany({ code: { $in: oldRoleCodes } });
+
+      const deprecatedPermCodes = ["task:view_internal"];
+      await Permission.deleteMany({ code: { $in: deprecatedPermCodes } });
+      await Role.updateMany(
+        { permissions: { $in: deprecatedPermCodes } },
+        { $pull: { permissions: { $in: deprecatedPermCodes } } },
       );
     }
 
-    await User.updateMany(
-      { role: { $regex: /^school admin$/i } },
-      { role: "Organisation Admin" },
-    );
-    await Role.deleteMany({ code: "school_admin" });
-    await Role.deleteMany({ name: { $regex: /^global admin$/i } });
-
-    // We only delete them if they are NOT in the new codes (which they aren't)
-    // And to be safe, we might check if they are system roles or just delete by code
-    await Role.deleteMany({ code: { $in: oldRoleCodes } });
-
-    // ── Cleanup deprecated permissions ────────────────────────
-    // Remove task:view_internal — internal visibility is now governed by task:read
-    const deprecatedPermCodes = ["task:view_internal"];
-    await Permission.deleteMany({ code: { $in: deprecatedPermCodes } });
-    // Remove from all roles that might still reference them
-    await Role.updateMany(
-      { permissions: { $in: deprecatedPermCodes } },
-      { $pull: { permissions: { $in: deprecatedPermCodes } } }
-    );
-
     res.json({
-      message:
-        "Default permissions and roles seeded successfully. Old roles and deprecated permissions removed.",
+      message: hasOrgContext
+        ? "Default permissions and system roles updated. Platform-wide legacy cleanup was skipped while an organisation is selected."
+        : "Default permissions and roles seeded successfully. Old roles and deprecated permissions removed.",
       permissions: defaultPermissions.length,
       roles: defaultRoles.length,
+      organisationScoped: hasOrgContext,
     });
   } catch (err: any) {
     res.status(500).json({ message: err.message });

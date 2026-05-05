@@ -1,6 +1,10 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
 import TaskCategory from "../models/TaskCategory.js";
+import {
+  assertResourceOrganisationScope,
+  resolveMutationOrganisation,
+} from "../utils/orgMutationScope.js";
 
 function categoryReadFilter(req: any): Record<string, unknown> {
   const orgId = req.orgId?.toString?.() ?? null;
@@ -23,13 +27,47 @@ function categoryReadFilter(req: any): Record<string, unknown> {
 
 function assertCategoryMutableForOrg(category: any, req: any) {
   if (category.isSystem) return;
-  const orgId = req.orgId?.toString?.() ?? null;
   const co = category.organisation?.toString?.() ?? null;
-  if (orgId && co && co !== orgId) {
-    const err: any = new Error("This category belongs to another organisation");
-    err.status = 403;
+  if (co) {
+    assertResourceOrganisationScope(req, co);
+    return;
+  }
+  const effective = resolveMutationOrganisation(req);
+  if (!effective) {
+    const err: any = new Error(
+      "Pass organisation query parameter or select an active organisation",
+    );
+    err.status = 400;
     throw err;
   }
+}
+
+/** Prefer organisation-specific categories over platform defaults when both share the same code. */
+function dedupeCategoriesPreferOrg(categories: any[], preferredOrgId: string) {
+  const byCode = new Map<string, any>();
+  const orgStr = (doc: any) => doc.organisation?.toString?.() ?? null;
+
+  for (const c of categories) {
+    const code = c.code;
+    if (!code) continue;
+    const prev = byCode.get(code);
+    if (!prev) {
+      byCode.set(code, c);
+      continue;
+    }
+    const prevO = orgStr(prev);
+    const curO = orgStr(c);
+    const nextWins =
+      curO === preferredOrgId && prevO !== preferredOrgId;
+    const prevWins =
+      prevO === preferredOrgId && curO !== preferredOrgId;
+    if (nextWins) byCode.set(code, c);
+    else if (!prevWins) byCode.set(code, prev);
+  }
+
+  return Array.from(byCode.values()).sort((a, b) =>
+    (a.name || "").localeCompare(b.name || ""),
+  );
 }
 
 // Get all task categories
@@ -42,7 +80,12 @@ export const getTaskCategories = async (req: Request, res: Response) => {
       ? orgFilter
       : { isActive: true, ...orgFilter };
     const categories = await TaskCategory.find(filter).sort({ name: 1 });
-    res.json(categories);
+    const orgId = (req as any).orgId?.toString?.() ?? null;
+    const payload =
+      orgId && categories.length > 0
+        ? dedupeCategoriesPreferOrg(categories, orgId)
+        : categories;
+    res.json(payload);
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -70,6 +113,12 @@ export const getTaskCategory = async (req: Request, res: Response) => {
 // Create category
 export const createTaskCategory = async (req: Request, res: Response) => {
   try {
+    try {
+      resolveMutationOrganisation(req);
+    } catch (e: any) {
+      if (e.status) return res.status(e.status).json({ message: e.message });
+      throw e;
+    }
     const { code, name, description, color, icon } = req.body;
     const orgId = (req as any).orgId?.toString?.() ?? null;
     if (!orgId) {
@@ -101,6 +150,12 @@ export const createTaskCategory = async (req: Request, res: Response) => {
 // Update category
 export const updateTaskCategory = async (req: Request, res: Response) => {
   try {
+    try {
+      resolveMutationOrganisation(req);
+    } catch (e: any) {
+      if (e.status) return res.status(e.status).json({ message: e.message });
+      throw e;
+    }
     const { id } = req.params;
     const { name, description, isActive, color, icon } = req.body;
 
@@ -112,8 +167,8 @@ export const updateTaskCategory = async (req: Request, res: Response) => {
     try {
       assertCategoryMutableForOrg(category, req);
     } catch (e: any) {
-      if (e.status === 403) {
-        return res.status(403).json({ message: e.message });
+      if (e.status === 403 || e.status === 400) {
+        return res.status(e.status).json({ message: e.message });
       }
       throw e;
     }
@@ -135,6 +190,12 @@ export const updateTaskCategory = async (req: Request, res: Response) => {
 // Delete category
 export const deleteTaskCategory = async (req: Request, res: Response) => {
   try {
+    try {
+      resolveMutationOrganisation(req);
+    } catch (e: any) {
+      if (e.status) return res.status(e.status).json({ message: e.message });
+      throw e;
+    }
     const { id } = req.params;
     const category = await TaskCategory.findById(id);
 
@@ -149,8 +210,8 @@ export const deleteTaskCategory = async (req: Request, res: Response) => {
     try {
       assertCategoryMutableForOrg(category, req);
     } catch (e: any) {
-      if (e.status === 403) {
-        return res.status(403).json({ message: e.message });
+      if (e.status === 403 || e.status === 400) {
+        return res.status(e.status).json({ message: e.message });
       }
       throw e;
     }
@@ -165,6 +226,12 @@ export const deleteTaskCategory = async (req: Request, res: Response) => {
 // Seed default categories
 export const seedDefaultCategories = async (req: Request, res: Response) => {
   try {
+    try {
+      resolveMutationOrganisation(req);
+    } catch (e: any) {
+      if (e.status) return res.status(e.status).json({ message: e.message });
+      throw e;
+    }
     const defaultCategories = [
       {
         code: "events",
@@ -248,10 +315,18 @@ export const seedDefaultCategories = async (req: Request, res: Response) => {
       },
     ];
 
+    const orgIdRaw = (req as any).orgId?.toString?.() ?? null;
+    if (!orgIdRaw) {
+      return res.status(400).json({
+        message: "Select an organisation to seed default categories",
+      });
+    }
+    const organisation = new mongoose.Types.ObjectId(orgIdRaw);
+
     for (const category of defaultCategories) {
       await TaskCategory.findOneAndUpdate(
-        { code: category.code, organisation: null },
-        { ...category, organisation: null },
+        { code: category.code, organisation },
+        { ...category, organisation },
         {
           upsert: true,
           new: true,
@@ -260,7 +335,7 @@ export const seedDefaultCategories = async (req: Request, res: Response) => {
     }
 
     res.json({
-      message: "Default categories seeded successfully",
+      message: "Default categories seeded for the active organisation",
       count: defaultCategories.length,
     });
   } catch (err: any) {
