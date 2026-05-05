@@ -54,13 +54,10 @@ interface Role {
   organisation?: string | { _id: string } | null;
 }
 
-function withActiveOrganisationQuery(
-  url: string,
-  activeOrganisationId: string,
-): string {
-  if (!activeOrganisationId) return url;
+function withOrganisationQuery(url: string, organisationId: string): string {
+  if (!organisationId) return url;
   const joiner = url.includes("?") ? "&" : "?";
-  return `${url}${joiner}activeOrganisationId=${encodeURIComponent(activeOrganisationId)}`;
+  return `${url}${joiner}organisation=${encodeURIComponent(organisationId)}`;
 }
 
 function organisationParamFromRole(
@@ -366,7 +363,7 @@ export const AdminSettings: React.FC = () => {
   const handleSeedDefaults = async () => {
     try {
       const response = await fetch(
-        withActiveOrganisationQuery(`${API_BASE_URL}/roles/seed`, activeOrgId),
+        withOrganisationQuery(`${API_BASE_URL}/roles/seed`, activeOrgId),
         {
           method: "POST",
           headers: {
@@ -392,7 +389,7 @@ export const AdminSettings: React.FC = () => {
   const handleCreateRole = async () => {
     try {
       const response = await fetch(
-        withActiveOrganisationQuery(`${API_BASE_URL}/roles`, activeOrgId),
+        withOrganisationQuery(`${API_BASE_URL}/roles`, activeOrgId),
         {
           method: "POST",
           headers: {
@@ -424,7 +421,7 @@ export const AdminSettings: React.FC = () => {
   const handleUpdateRole = async (role: Role) => {
     try {
       const response = await fetch(
-        withActiveOrganisationQuery(
+        withOrganisationQuery(
           `${API_BASE_URL}/roles/${role._id}`,
           organisationParamFromRole(role, activeOrgId),
         ),
@@ -458,7 +455,7 @@ export const AdminSettings: React.FC = () => {
     if (!confirm("Are you sure you want to delete this role?")) return;
     try {
       const response = await fetch(
-        withActiveOrganisationQuery(
+        withOrganisationQuery(
           `${API_BASE_URL}/roles/${roleId}`,
           organisationParamFromRole(role, activeOrgId),
         ),
@@ -1232,7 +1229,7 @@ export const AdminSettings: React.FC = () => {
           .replace(/[^a-z0-9]+/g, "_")
           .replace(/^_|_$/g, "");
       const res = await fetch(
-        withActiveOrganisationQuery(`${API_BASE_URL}/task-categories`, activeOrgId),
+        withOrganisationQuery(`${API_BASE_URL}/task-categories`, activeOrgId),
         {
           method: "POST",
           headers: {
@@ -1262,7 +1259,7 @@ export const AdminSettings: React.FC = () => {
   const handleUpdateCategory = async (cat: any) => {
     try {
       const res = await fetch(
-        withActiveOrganisationQuery(
+        withOrganisationQuery(
           `${API_BASE_URL}/task-categories/${cat._id}`,
           organisationParamFromCategory(cat, activeOrgId),
         ),
@@ -1294,7 +1291,7 @@ export const AdminSettings: React.FC = () => {
     if (!confirm(`Delete category "${cat.name}"?`)) return;
     try {
       const res = await fetch(
-        withActiveOrganisationQuery(
+        withOrganisationQuery(
           `${API_BASE_URL}/task-categories/${cat._id}`,
           organisationParamFromCategory(cat, activeOrgId),
         ),
@@ -1317,7 +1314,7 @@ export const AdminSettings: React.FC = () => {
   const handleSeedCategories = async () => {
     try {
       const res = await fetch(
-        withActiveOrganisationQuery(
+        withOrganisationQuery(
           `${API_BASE_URL}/task-categories/seed/defaults`,
           activeOrgId,
         ),

@@ -40,7 +40,7 @@ function assertRoleMutableForOrgSession(role: any, req: any) {
   const effective = resolveMutationOrganisation(req);
   if (!effective) {
     const err: any = new Error(
-      "Pass activeOrganisationId query parameter or select an active organisation",
+      "Pass organisation query parameter or select an active organisation",
     );
     err.status = 400;
     throw err;

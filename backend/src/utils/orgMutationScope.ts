@@ -10,15 +10,15 @@ function firstOrgQueryString(query: unknown): string | null {
 
 /**
  * Resolve organisation scope for mutating requests.
- * Optional `?activeOrganisationId=` must match the JWT active organisation when both are present.
+ * Optional `?organisation=` must match the JWT active organisation when both are present.
  * Returns query id if provided, otherwise JWT org id.
  */
 export function resolveMutationOrganisation(req: Request | any): string | null {
-  const fromQuery = firstOrgQueryString(req.query?.activeOrganisationId);
+  const fromQuery = firstOrgQueryString(req.query?.organisation);
   const fromJwt = req.orgId?.toString?.() ?? null;
   if (fromQuery && fromJwt && fromQuery !== fromJwt) {
     const err: any = new Error(
-      "activeOrganisationId query parameter does not match the active organisation",
+      "Organisation query parameter does not match the active organisation",
     );
     err.status = 403;
     throw err;
@@ -34,7 +34,7 @@ export function assertResourceOrganisationScope(
   const effective = resolveMutationOrganisation(req);
   if (!effective) {
     const err: any = new Error(
-      "Pass activeOrganisationId query parameter or select an active organisation",
+      "Pass organisation query parameter or select an active organisation",
     );
     err.status = 400;
     throw err;
