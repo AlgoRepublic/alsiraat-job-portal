@@ -608,9 +608,7 @@ export const AdminSettings: React.FC = () => {
                   <span className="font-bold text-zinc-800 dark:text-zinc-100">
                     {activeOrgName}
                   </span>
-                  . Reset Defaults refreshes permission definitions and shared system
-                  roles; legacy cleanup runs only when no organisation is active in the
-                  sidebar (platform maintenance).
+                  .
                 </>
               ) : (
                 "Select an organisation in the sidebar to tie custom roles to that community. Without an active organisation, Reset Defaults also runs platform-wide legacy role cleanup."
