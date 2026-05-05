@@ -814,20 +814,15 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
       },
     ];
 
-    // System role *definitions* (organisation: null) are shared platform templates used
-    // by every tenant. Only upsert them during platform maintenance — not when an admin
-    // has an active organisation selected (tenant reset should not rewrite global rows).
-    if (!hasOrgContext) {
-      for (const role of defaultRoles) {
-        await Role.findOneAndUpdate(
-          { code: role.code, organisation: null },
-          { ...role, organisation: null },
-          {
-            upsert: true,
-            new: true,
-          },
-        );
-      }
+    for (const role of defaultRoles) {
+      await Role.findOneAndUpdate(
+        { code: role.code, organisation: null },
+        { ...role, organisation: null },
+        {
+          upsert: true,
+          new: true,
+        },
+      );
     }
 
     // Platform-wide legacy cleanup (destructive): only when no JWT organisation context.
@@ -873,11 +868,10 @@ export const seedDefaultPermissions = async (req: Request, res: Response) => {
 
     res.json({
       message: hasOrgContext
-        ? "Permission catalog updated. Shared system role templates (organisation-wide defaults) were not modified — clear the active organisation and run again for full platform seed."
+        ? "Default permissions and system roles updated. Platform-wide legacy cleanup was skipped while an organisation is selected."
         : "Default permissions and roles seeded successfully. Old roles and deprecated permissions removed.",
       permissions: defaultPermissions.length,
       roles: defaultRoles.length,
-      systemRolesUpsertedToPlatform: !hasOrgContext ? defaultRoles.length : 0,
       organisationScoped: hasOrgContext,
     });
   } catch (err: any) {
