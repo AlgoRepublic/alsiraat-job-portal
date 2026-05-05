@@ -35,7 +35,7 @@ function assertCategoryMutableForOrg(category: any, req: any) {
   const effective = resolveMutationOrganisation(req);
   if (!effective) {
     const err: any = new Error(
-      "Pass organisation query parameter or select an active organisation",
+      "Pass activeOrganisationId query parameter or select an active organisation",
     );
     err.status = 400;
     throw err;
