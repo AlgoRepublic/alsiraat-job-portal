@@ -24,7 +24,7 @@ export const getUserRolesForActiveOrg = (
     ? user.organisationRoles
     : [];
   if (orgRoleEntries.length === 0) {
-    return Array.isArray(user?.roles) ? user.roles : [];
+    return [];
   }
 
   const targetOrgId =
@@ -33,12 +33,24 @@ export const getUserRolesForActiveOrg = (
     getActiveOrgIdFromStorage() ||
     getOrgId(user?.organisations?.[0]) ||
     getOrgId(orgRoleEntries[0]?.organisation);
-  if (!targetOrgId) return [];
+  if (!targetOrgId) {
+    const fallbackOrgRoles = Array.isArray(orgRoleEntries[0]?.roles)
+      ? orgRoleEntries[0].roles
+      : [];
+    return Array.from(new Set(fallbackOrgRoles));
+  }
 
   const matched = orgRoleEntries.find(
     (entry: any) => getOrgId(entry?.organisation) === targetOrgId,
   );
-  const roles = Array.isArray(matched?.roles) ? matched.roles : [];
+  const matchedRoles = Array.isArray(matched?.roles) ? matched.roles : [];
+  const fallbackOrgRoles = Array.isArray(orgRoleEntries[0]?.roles)
+    ? orgRoleEntries[0].roles
+    : [];
+  const roles =
+    matchedRoles.length > 0
+      ? matchedRoles
+      : fallbackOrgRoles;
   return Array.from(new Set(roles));
 };
 
