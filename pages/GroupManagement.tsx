@@ -240,11 +240,18 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
   const [removedMemberIds, setRemovedMemberIds] = useState<string[]>([]);
 
   const existingMembers = group.members
-    .map((member: any) =>
-      typeof member === "string"
-        ? allUsers.find((user) => user._id === member)
-        : member,
-    )
+    .map((member: any) => {
+      const memberId = typeof member === "string" ? member : member?._id;
+      const fullUser =
+        memberId && allUsers.length > 0
+          ? allUsers.find((user) => user._id === memberId)
+          : null;
+      if (fullUser) {
+        // Prefer full user payload so role chips can resolve from organisationRoles.
+        return { ...member, ...fullUser };
+      }
+      return typeof member === "string" ? null : member;
+    })
     .filter(Boolean)
     .filter((member: any) => !removedMemberIds.includes(member._id));
 
