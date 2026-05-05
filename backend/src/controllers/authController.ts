@@ -789,7 +789,10 @@ export const exportUsersCsv = async (req: Request, res: Response) => {
       });
     }
 
-    const filter: any = { organisations: orgId };
+    const filter: any = {
+      organisations: orgId,
+      isSuperAdmin: { $ne: true },
+    };
 
     const users = await User.find(filter)
       .select(

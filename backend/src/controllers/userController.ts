@@ -53,6 +53,8 @@ export const getUsers = async (req: Request, res: Response) => {
       });
     }
 
+    query.isSuperAdmin = { $ne: true };
+
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: "i" } },
