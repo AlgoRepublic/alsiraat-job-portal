@@ -10,20 +10,33 @@ function firstOrgQueryString(query: unknown): string | null {
 
 /**
  * Resolve organisation scope for mutating requests.
- * Optional `?organisation=` must match the JWT active organisation when both are present.
- * Returns query id if provided, otherwise JWT org id.
+ * When the JWT has an active organisation (`req.orgId`), `?organisation=` is required
+ * and must equal that id (explicit scope — no JWT-only fallback).
+ * When there is no JWT organisation context, `?organisation=` is optional (platform flows).
  */
 export function resolveMutationOrganisation(req: Request | any): string | null {
   const fromQuery = firstOrgQueryString(req.query?.organisation);
   const fromJwt = req.orgId?.toString?.() ?? null;
-  if (fromQuery && fromJwt && fromQuery !== fromJwt) {
-    const err: any = new Error(
-      "Organisation query parameter does not match the active organisation",
-    );
-    err.status = 403;
-    throw err;
+
+  if (fromJwt) {
+    if (!fromQuery) {
+      const err: any = new Error(
+        "Organisation query parameter is required",
+      );
+      err.status = 400;
+      throw err;
+    }
+    if (fromQuery !== fromJwt) {
+      const err: any = new Error(
+        "Organisation query parameter does not match the active organisation",
+      );
+      err.status = 403;
+      throw err;
+    }
+    return fromQuery;
   }
-  return fromQuery || fromJwt;
+
+  return fromQuery || null;
 }
 
 /** Ensures mutation targets a resource owned by `resourceOrgId` (non-empty string). */
