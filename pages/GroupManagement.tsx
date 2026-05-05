@@ -223,6 +223,7 @@ interface AddMembersModalProps {
   allUsers: any[];
   onClose: () => void;
   onAdd: (userIds: string[]) => Promise<void>;
+  onRemove: (userId: string) => Promise<void>;
 }
 
 const AddMembersModal: React.FC<AddMembersModalProps> = ({
@@ -230,12 +231,24 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
   allUsers,
   onClose,
   onAdd,
+  onRemove,
 }) => {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [removedMemberIds, setRemovedMemberIds] = useState<string[]>([]);
 
-  const existingMemberIds = group.members.map((m: any) => m._id || m);
+  const existingMembers = group.members
+    .map((member: any) =>
+      typeof member === "string"
+        ? allUsers.find((user) => user._id === member)
+        : member,
+    )
+    .filter(Boolean)
+    .filter((member: any) => !removedMemberIds.includes(member._id));
+
+  const existingMemberIds = existingMembers.map((m: any) => m._id);
 
   const filtered = allUsers.filter(
     (u) =>
@@ -258,6 +271,17 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
       onClose();
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleRemove = async (userId: string) => {
+    setRemovingId(userId);
+    try {
+      await onRemove(userId);
+      setSelected((prev) => prev.filter((id) => id !== userId));
+      setRemovedMemberIds((prev) => [...prev, userId]);
+    } finally {
+      setRemovingId(null);
     }
   };
 
@@ -296,12 +320,58 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
           />
         </div>
 
-        <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {existingMembers.length > 0 && (
+            <div className="mb-4">
+              <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2 px-1">
+                Existing Members ({existingMembers.length})
+              </p>
+              <div className="space-y-1">
+                {existingMembers.map((user: any) => (
+                  <div
+                    key={user._id}
+                    className="w-full flex items-center gap-3 p-3 rounded-2xl border border-zinc-100 dark:border-zinc-800"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden flex-shrink-0">
+                      {user.avatar ? (
+                        <img
+                          src={user.avatar}
+                          alt={user.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <UserCircle className="w-5 h-5 text-zinc-400" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-sm text-zinc-900 dark:text-white truncate">
+                        {user.name}
+                      </p>
+                      <p className="text-xs text-zinc-400 truncate">{user.email}</p>
+                    </div>
+                    <button
+                      onClick={() => handleRemove(user._id)}
+                      disabled={removingId === user._id || saving}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 disabled:opacity-50 transition-all"
+                      title="Remove from group"
+                    >
+                      <X className="w-3 h-3" />
+                      {removingId === user._id ? "Removing..." : "Remove"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-1">
           {filtered.length === 0 ? (
             <div className="py-12 text-center text-zinc-400 font-medium text-sm">
               {search
                 ? "No users match your search"
-                : "All users are already in this group"}
+                : existingMembers.length > 0
+                  ? "No additional users available to add"
+                  : "All users are already in this group"}
             </div>
           ) : (
             filtered.map((user) => {
@@ -357,6 +427,7 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
               );
             })
           )}
+          </div>
         </div>
 
         <div className="flex gap-3 mt-6 pt-4 border-t border-zinc-100 dark:border-zinc-800">
@@ -828,6 +899,9 @@ export const GroupManagement: React.FC<{
           allUsers={allUsers}
           onClose={() => setAddMembersGroup(null)}
           onAdd={handleAddMembers}
+          onRemove={(userId: string) =>
+            handleRemoveMember(addMembersGroup._id, userId)
+          }
         />
       )}
     </div>
