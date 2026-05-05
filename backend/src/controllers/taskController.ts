@@ -764,13 +764,13 @@ export const getSearchTasks = async (req: any, res: Response) => {
         Permission.TASK_VIEW_PENDING,
       );
 
-      /** Search tab: one visibility lane per viewer (own tasks always kept). */
-      let searchTabVisibility: TaskVisibility | null = null;
+      /** Search tab audience lane per viewer (own tasks always kept). */
+      let searchTabAudience: TaskVisibility | null = null;
       if (organisation && !hasSuperAdminRole) {
         if (await isCentralOrganisation(organisation)) {
-          searchTabVisibility = TaskVisibility.CENTRAL;
+          searchTabAudience = TaskVisibility.CENTRAL;
         } else {
-          searchTabVisibility =
+          searchTabAudience =
             getMemberKindForOrg(user, organisation) === OrgMemberKind.EXTERNAL
               ? TaskVisibility.EXTERNAL
               : TaskVisibility.INTERNAL;
@@ -810,33 +810,6 @@ export const getSearchTasks = async (req: any, res: Response) => {
         ? getMemberKindForOrg(user, organisation)
         : null;
 
-      if (canViewInternal && organisation) {
-        conditions.push({
-          visibility: TaskVisibility.INTERNAL,
-          organisation: organisation,
-          status: TaskStatus.PUBLISHED,
-          $or: [
-            { allowedGroups: { $exists: false } },
-            { allowedGroups: { $size: 0 } },
-            { allowedGroups: { $in: userGroupIds } },
-          ],
-        });
-        if (canViewPending) {
-          conditions.push({
-            visibility: TaskVisibility.INTERNAL,
-            organisation: organisation,
-            status: TaskStatus.PENDING,
-          });
-        }
-      } else if (organisation && userGroupIds.length > 0) {
-        conditions.push({
-          visibility: TaskVisibility.INTERNAL,
-          organisation: organisation,
-          status: TaskStatus.PUBLISHED,
-          allowedGroups: { $in: userGroupIds },
-        });
-      }
-
       appendPrivateAudienceConditions(conditions, {
         organisation,
         userMemberKind,
@@ -844,17 +817,7 @@ export const getSearchTasks = async (req: any, res: Response) => {
         canViewPending,
       });
 
-      if (organisation) {
-        conditions.push({
-          visibility: TaskVisibility.EXTERNAL,
-          organisation: organisation,
-          status: canViewPending
-            ? { $in: [TaskStatus.PUBLISHED, TaskStatus.PENDING] }
-            : TaskStatus.PUBLISHED,
-        });
-      }
-
-      if (searchTabVisibility !== null) {
+      if (searchTabAudience !== null) {
         const uidStr = String(userId);
         const orgScopedCentral = (c: any) =>
           !!organisation &&
@@ -866,15 +829,20 @@ export const getSearchTasks = async (req: any, res: Response) => {
           const privateAudiences = Array.isArray(c.privateAudiences)
             ? c.privateAudiences.map((v: any) => String(v))
             : [];
-          return privateAudiences.includes(searchTabVisibility);
+          return privateAudiences.includes(searchTabAudience);
         };
         const kept = conditions.filter((c: any) => {
           if (c.createdBy && String(c.createdBy) === uidStr) return true;
-          if (c.visibility === searchTabVisibility) return true;
+          if (
+            searchTabAudience === TaskVisibility.CENTRAL &&
+            c.visibility === TaskVisibility.CENTRAL
+          ) {
+            return true;
+          }
           if (privateMatchesLane(c)) return true;
           if (
-            (searchTabVisibility === TaskVisibility.INTERNAL ||
-              searchTabVisibility === TaskVisibility.EXTERNAL) &&
+            (searchTabAudience === TaskVisibility.INTERNAL ||
+              searchTabAudience === TaskVisibility.EXTERNAL) &&
             orgScopedCentral(c)
           ) {
             return true;
@@ -889,26 +857,7 @@ export const getSearchTasks = async (req: any, res: Response) => {
         if (hasSuperAdminRole) {
           query = organisation
             ? { organisation, status: { $ne: TaskStatus.ARCHIVED } }
-            : { $or: conditions };
-        } else if (organisation) {
-          const searchTabVisibilityIn =
-            searchTabVisibility === TaskVisibility.INTERNAL ||
-            searchTabVisibility === TaskVisibility.EXTERNAL
-              ? [
-                  searchTabVisibility,
-                  TaskVisibility.PRIVATE,
-                  TaskVisibility.CENTRAL,
-                ]
-              : searchTabVisibility !== null
-                ? [searchTabVisibility]
-                : [];
-          query = {
-            organisation,
-            status: { $ne: TaskStatus.ARCHIVED },
-            ...(searchTabVisibilityIn.length > 0
-              ? { visibility: { $in: searchTabVisibilityIn } }
-              : {}),
-          };
+            : { status: { $ne: TaskStatus.ARCHIVED } };
         } else {
           query = { $or: conditions };
         }
