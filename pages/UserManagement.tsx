@@ -965,26 +965,28 @@ export const UserManagement: React.FC = () => {
                     {expandedRow === user._id && (
                       <tr className="bg-primary/5 dark:bg-primary/10 border-b border-zinc-100 dark:border-zinc-800">
                         <td colSpan={3} className="px-6 py-5">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                             {/* Contact Info */}
-                            <div className="space-y-2">
+                            <div className="space-y-2 min-w-0">
                               <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
                                 Contact
                               </p>
-                              <p className="text-sm font-medium text-zinc-700 dark:text-zinc-200 flex items-center gap-1.5">
-                                <Mail className="w-3.5 h-3.5 text-zinc-400" />
-                                {user.email}
+                              <p className="text-sm font-medium text-zinc-700 dark:text-zinc-200 flex items-start gap-1.5 min-w-0">
+                                <Mail className="w-3.5 h-3.5 text-zinc-400 mt-0.5 shrink-0" />
+                                <span className="min-w-0 break-all">{user.email}</span>
                               </p>
                               {user.contactNumber && (
-                                <p className="text-sm font-medium text-zinc-700 dark:text-zinc-200 flex items-center gap-1.5">
-                                  <Phone className="w-3.5 h-3.5 text-zinc-400" />
-                                  {user.contactNumber}
+                                <p className="text-sm font-medium text-zinc-700 dark:text-zinc-200 flex items-start gap-1.5 min-w-0">
+                                  <Phone className="w-3.5 h-3.5 text-zinc-400 mt-0.5 shrink-0" />
+                                  <span className="min-w-0 break-all">
+                                    {user.contactNumber}
+                                  </span>
                                 </p>
                               )}
                             </div>
 
                             {/* Personal */}
-                            <div className="space-y-2">
+                            <div className="space-y-2 min-w-0">
                               <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
                                 Personal
                               </p>
@@ -997,7 +999,7 @@ export const UserManagement: React.FC = () => {
                             </div>
 
                             {/* Skills */}
-                            <div className="space-y-2">
+                            <div className="space-y-2 min-w-0">
                               <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
                                 Skills
                               </p>
@@ -1027,7 +1029,7 @@ export const UserManagement: React.FC = () => {
                             </div>
 
                             {/* Resume & About */}
-                            <div className="space-y-2">
+                            <div className="space-y-2 min-w-0">
                               <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
                                 Profile
                               </p>
