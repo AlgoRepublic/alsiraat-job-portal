@@ -352,11 +352,18 @@ export const signup = async (req: Request, res: Response) => {
         .json({ message: "First name and last name are required" });
     }
 
+
     let user = await User.findOne({ email });
     if (user) return res.status(400).json({ message: "User already exists" });
 
     const hashedPassword = await bcrypt.hash(password, 12);
     const fullName = `${firstName.trim()} ${lastName.trim()}`;
+
+    // Find Central Organisation by slug
+    const centralOrg = await Organization.findOne({ slug: "central" });
+    if (!centralOrg) {
+      return res.status(500).json({ message: "Central Organisation not found" });
+    }
 
     user = await User.create({
       name: fullName,
@@ -365,6 +372,14 @@ export const signup = async (req: Request, res: Response) => {
       email,
       password: hashedPassword,
       ...(contactNumber ? { contactNumber } : {}),
+      organisations: [centralOrg._id],
+      organisationRoles: [
+        {
+          organisation: centralOrg._id,
+          roles: [UserRole.APPLICANT],
+          memberKind: "Internal",
+        },
+      ],
     });
 
     const permissionOrgId = (req as any).orgId || null;
