@@ -13,7 +13,7 @@ import jwt from "jsonwebtoken";
 import { extractRoles, mapAdfsRolesToUserRoles, extractGroups, mapAdfsGroupsToGroupIds } from "./adfsClaims.js";
 import Group from "../models/Group.js";
 
-const buildDefaultOrgQuery = () => {
+export const buildDefaultOrgQuery = () => {
   const envName = process.env.OIDC_DEFAULT_ORG?.trim();
   if (envName) {
     return { name: envName };
