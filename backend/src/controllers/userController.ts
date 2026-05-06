@@ -53,8 +53,6 @@ export const getUsers = async (req: Request, res: Response) => {
       });
     }
 
-    query.isSuperAdmin = { $ne: true };
-
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: "i" } },
@@ -449,6 +447,12 @@ export const deleteUser = async (req: Request, res: Response) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (user.isSuperAdmin) {
+      return res.status(403).json({
+        message: "Super admin accounts cannot be deleted from this endpoint",
+      });
+    }
 
     // Prevent deleting self
     if (user._id.toString() === (req as any).user._id.toString()) {

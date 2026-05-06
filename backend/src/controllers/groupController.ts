@@ -28,7 +28,7 @@ export const getGroups = async (req: Request, res: Response) => {
     }
 
     const groups = await Group.find(query)
-      .populate("members", "name email avatar role roles")
+      .populate("members", "name email avatar role roles organisationRoles isSuperAdmin")
       .populate("createdBy", "name email")
       .populate("organisation", "name")
       .sort({ createdAt: -1 });
@@ -66,7 +66,10 @@ export const getGroup = async (req: Request, res: Response) => {
       _id: groupId,
       organisation: orgId,
     })
-      .populate("members", "name email avatar role roles organisation")
+      .populate(
+        "members",
+        "name email avatar role roles organisation organisationRoles isSuperAdmin",
+      )
       .populate("createdBy", "name email")
       .populate("organisation", "name");
 
@@ -110,7 +113,10 @@ export const createGroup = async (req: any, res: Response) => {
     });
 
     await group.save();
-    await group.populate("members", "name email avatar role roles");
+    await group.populate(
+      "members",
+      "name email avatar role roles organisationRoles isSuperAdmin",
+    );
 
     res.status(201).json(group);
   } catch (err: any) {
@@ -142,7 +148,10 @@ export const updateGroup = async (req: any, res: Response) => {
     }
 
     await group.save();
-    await group.populate("members", "name email avatar role roles");
+    await group.populate(
+      "members",
+      "name email avatar role roles organisationRoles isSuperAdmin",
+    );
 
     res.json(group);
   } catch (err: any) {
@@ -201,7 +210,10 @@ export const addMembers = async (req: Request, res: Response) => {
     group.members.push(...newIds);
 
     await group.save();
-    await group.populate("members", "name email avatar role roles");
+    await group.populate(
+      "members",
+      "name email avatar role roles organisationRoles isSuperAdmin",
+    );
 
     res.json(group);
   } catch (err: any) {
@@ -226,7 +238,10 @@ export const removeMember = async (req: Request, res: Response) => {
 
     group.members = group.members.filter((m) => m.toString() !== userId) as any;
     await group.save();
-    await group.populate("members", "name email avatar role roles");
+    await group.populate(
+      "members",
+      "name email avatar role roles organisationRoles isSuperAdmin",
+    );
 
     res.json(group);
   } catch (err: any) {

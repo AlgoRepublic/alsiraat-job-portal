@@ -665,6 +665,7 @@ export const UserManagement: React.FC = () => {
     }
     return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
   });
+  const canDeleteUser = (user: any) => !user?.isSuperAdmin;
 
   const handleInviteUser = async (email: string) => {
     setIsInviting(true);
@@ -942,13 +943,15 @@ export const UserManagement: React.FC = () => {
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => handleDeleteUser(user._id)}
-                            className="p-2 text-zinc-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
-                            title="Delete User"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {canDeleteUser(user) && (
+                            <button
+                              onClick={() => handleDeleteUser(user._id)}
+                              className="p-2 text-zinc-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                              title="Delete User"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

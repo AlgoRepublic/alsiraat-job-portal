@@ -238,6 +238,7 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
   const [saving, setSaving] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [removedMemberIds, setRemovedMemberIds] = useState<string[]>([]);
+  const canRemoveOrDeleteUser = (user: any) => !user?.isSuperAdmin;
 
   const existingMembers = group.members
     .map((member: any) => {
@@ -371,15 +372,17 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
                         })()}
                       </div>
                     </div>
-                    <button
-                      onClick={() => handleRemove(user._id)}
-                      disabled={removingId === user._id || saving}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 disabled:opacity-50 transition-all"
-                      title="Remove from group"
-                    >
-                      <X className="w-3 h-3" />
-                      {removingId === user._id ? "Removing..." : "Remove"}
-                    </button>
+                    {canRemoveOrDeleteUser(user) && (
+                      <button
+                        onClick={() => handleRemove(user._id)}
+                        disabled={removingId === user._id || saving}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 disabled:opacity-50 transition-all"
+                        title="Remove from group"
+                      >
+                        <X className="w-3 h-3" />
+                        {removingId === user._id ? "Removing..." : "Remove"}
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -567,6 +570,7 @@ export const GroupManagement: React.FC<{
   const filteredGroups = groups.filter((g) =>
     g.name.toLowerCase().includes(searchTerm.toLowerCase()),
   );
+  const canRemoveOrDeleteUser = (user: any) => !user?.isSuperAdmin;
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -805,18 +809,20 @@ export const GroupManagement: React.FC<{
                                       </div>
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                      <button
-                                        onClick={() =>
-                                          handleRemoveMember(
-                                            group._id,
-                                            member._id,
-                                          )
-                                        }
-                                        className="p-2 text-zinc-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
-                                        title="Remove from group"
-                                      >
-                                        <X className="w-4 h-4" />
-                                      </button>
+                                      {canRemoveOrDeleteUser(member) && (
+                                        <button
+                                          onClick={() =>
+                                            handleRemoveMember(
+                                              group._id,
+                                              member._id,
+                                            )
+                                          }
+                                          className="p-2 text-zinc-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                                          title="Remove from group"
+                                        >
+                                          <X className="w-4 h-4" />
+                                        </button>
+                                      )}
                                     </td>
                                   </tr>
                                 ))}
