@@ -48,6 +48,8 @@ interface Notification {
   createdAt: string;
 }
 
+const MAX_VISIBLE_SIDEBAR_ROLES = 1;
+
 const COLORS = [
   {
     name: "AlSiraat",
@@ -760,18 +762,30 @@ export const Layout: React.FC<LayoutProps> = ({
                   <p className="text-sm font-bold text-zinc-900 dark:text-white truncate group-hover:text-primary transition-colors">
                     {currentUser.name}
                   </p>
-                  <div className="flex flex-wrap gap-0.5 mt-0.5">
-                    {currentUser.roles && currentUser.roles.length > 0 ? (
-                      currentUser.roles.map((r: string) => (
+                  {currentUser.roles && currentUser.roles.length > 0 ? (
+                    <div className="flex flex-wrap items-center gap-0.5 mt-0.5">
+                      {currentUser.roles
+                        .slice(0, MAX_VISIBLE_SIDEBAR_ROLES)
+                        .map((r: string) => (
+                          <span
+                            key={r}
+                            className="text-[9px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-tighter border border-zinc-200 dark:border-zinc-700 px-1 rounded bg-zinc-50/50 dark:bg-white/5"
+                          >
+                            {r}
+                          </span>
+                        ))}
+                      {currentUser.roles.length > MAX_VISIBLE_SIDEBAR_ROLES && (
                         <span
-                          key={r}
                           className="text-[9px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-tighter border border-zinc-200 dark:border-zinc-700 px-1 rounded bg-zinc-50/50 dark:bg-white/5"
+                          title={currentUser.roles
+                            .slice(MAX_VISIBLE_SIDEBAR_ROLES)
+                            .join(", ")}
                         >
-                          {r}
+                          +{currentUser.roles.length - MAX_VISIBLE_SIDEBAR_ROLES} more
                         </span>
-                      ))
-                    ) : null}
-                  </div>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
                 <button
                   onClick={(e) => {
