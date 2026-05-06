@@ -66,7 +66,11 @@ const mapTaskToJob = (task: any): Job => {
     status: mapStatus(task.status),
     rejectionReason: task.rejectionReason,
     createdBy:
-      typeof task.createdBy === "object" ? task.createdBy.name : "Unknown",
+      task.createdBy &&
+      typeof task.createdBy === "object" &&
+      typeof task.createdBy.name === "string"
+        ? task.createdBy.name
+        : "Unknown",
     createdAt: task.createdAt,
     applicantsCount: task.applicantsCount || 0,
     hasApplied: task.hasApplied || false,
