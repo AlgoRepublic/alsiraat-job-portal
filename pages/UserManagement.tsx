@@ -82,6 +82,7 @@ const ROLE_COLOUR: Record<string, string> = {
 const getRoleColour = (role: string) =>
   ROLE_COLOUR[role] ??
   "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary";
+const MAX_VISIBLE_ROLE_BADGES = 2;
 
 const formatDate = (d?: string | Date) => {
   if (!d) return "—";
@@ -892,22 +893,40 @@ export const UserManagement: React.FC = () => {
                             user,
                             activeOrgId,
                           );
+                          const visibleRoles = displayRoles.slice(
+                            0,
+                            MAX_VISIBLE_ROLE_BADGES,
+                          );
+                          const hiddenRoleCount = Math.max(
+                            0,
+                            displayRoles.length - visibleRoles.length,
+                          );
                           return (
-                        <div className="flex flex-wrap gap-1">
-                          {displayRoles.map((r: string) => (
-                            <span
-                              key={r}
-                              className={`px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-wider ${getRoleColour(r)}`}
-                            >
-                              {r}
-                            </span>
-                          ))}
-                          {displayRoles.length === 0 && (
-                            <span className="px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-wider bg-zinc-100 text-zinc-400">
-                              No Role
-                            </span>
-                          )}
-                        </div>
+                            <div className="flex flex-wrap items-center gap-1">
+                              {visibleRoles.map((r: string) => (
+                                <span
+                                  key={r}
+                                  className={`px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-wider ${getRoleColour(r)}`}
+                                >
+                                  {r}
+                                </span>
+                              ))}
+                              {hiddenRoleCount > 0 && (
+                                <span
+                                  className="px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-wider bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300"
+                                  title={displayRoles
+                                    .slice(MAX_VISIBLE_ROLE_BADGES)
+                                    .join(", ")}
+                                >
+                                  +{hiddenRoleCount} more
+                                </span>
+                              )}
+                              {displayRoles.length === 0 && (
+                                <span className="px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-wider bg-zinc-100 text-zinc-400">
+                                  No Role
+                                </span>
+                              )}
+                            </div>
                           );
                         })()}
                       </td>
