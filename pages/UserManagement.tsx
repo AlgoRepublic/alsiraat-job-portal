@@ -331,16 +331,18 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
           >
             Close
           </button>
-          <button
-            onClick={() => {
-              onClose();
-              onEdit(user);
-            }}
-            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primaryHover shadow-lg shadow-primary/20 transition-all"
-          >
-            <Pencil className="w-4 h-4" />
-            Edit User
-          </button>
+          {!user?.isSuperAdmin && (
+            <button
+              onClick={() => {
+                onClose();
+                onEdit(user);
+              }}
+              className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primaryHover shadow-lg shadow-primary/20 transition-all"
+            >
+              <Pencil className="w-4 h-4" />
+              Edit User
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -665,6 +667,7 @@ export const UserManagement: React.FC = () => {
     }
     return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
   });
+  const canEditUser = (user: any) => !user?.isSuperAdmin;
   const canDeleteUser = (user: any) => !user?.isSuperAdmin;
 
   const handleInviteUser = async (email: string) => {
@@ -936,13 +939,15 @@ export const UserManagement: React.FC = () => {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => openEditModal(user)}
-                            className="p-2 text-zinc-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
-                            title="Edit User"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
+                          {canEditUser(user) && (
+                            <button
+                              onClick={() => openEditModal(user)}
+                              className="p-2 text-zinc-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
+                              title="Edit User"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                          )}
                           {canDeleteUser(user) && (
                             <button
                               onClick={() => handleDeleteUser(user._id)}
