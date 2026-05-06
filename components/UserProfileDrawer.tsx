@@ -770,7 +770,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
           >
             Close
           </button>
-          {onEdit && (
+          {onEdit && !user?.isSuperAdmin && (
             <button
               onClick={() => {
                 onClose();
