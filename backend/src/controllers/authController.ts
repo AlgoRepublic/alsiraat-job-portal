@@ -66,11 +66,37 @@ export async function buildOrgPayload(user: any, selectedOrgId?: string | null) 
   if (user.isSuperAdmin) {
     const { buildVirtualOrgPayload } = await import("../utils/superAdmin.js");
     const v = await buildVirtualOrgPayload(selectedOrgId);
+    const persistedOrgRoles = serializeOrganisationRolesForPayload(user);
+    if (persistedOrgRoles.length === 0) {
+      return {
+        organisation: v.organisation,
+        activeOrganisation: v.activeOrganisation,
+        organisations: v.organisations,
+        organisationRoles: v.organisationRoles,
+      };
+    }
+
+    const persistedByOrgId = new Map(
+      persistedOrgRoles.map((entry: any) => [entry.organisation?.toString(), entry]),
+    );
+
+    const mergedVirtualRoles = (v.organisationRoles || []).map((entry: any) => {
+      const orgId = entry?.organisation?.toString?.();
+      return (orgId && persistedByOrgId.get(orgId)) || entry;
+    });
+
+    const mergedOrgIds = new Set(
+      mergedVirtualRoles.map((entry: any) => entry?.organisation?.toString?.()),
+    );
+    const extraPersistedRoles = persistedOrgRoles.filter(
+      (entry: any) => !mergedOrgIds.has(entry?.organisation?.toString?.()),
+    );
+
     return {
       organisation: v.organisation,
       activeOrganisation: v.activeOrganisation,
       organisations: v.organisations,
-      organisationRoles: v.organisationRoles,
+      organisationRoles: [...mergedVirtualRoles, ...extraPersistedRoles],
     };
   }
   await user.populate("organisations", "name logo");
