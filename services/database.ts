@@ -569,9 +569,9 @@ class DatabaseService {
   }
 
   // --- Task Categories ---
-  async getTaskCategories(): Promise<any[]> {
+  async getTaskCategories(organisation?: string): Promise<any[]> {
     try {
-      return await api.getTaskCategories();
+      return await api.getTaskCategories(organisation);
     } catch (err) {
       console.warn("Failed to fetch task categories", err);
       return [];

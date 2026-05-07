@@ -11,6 +11,7 @@ import {
   UserRound,
   ShieldHalf,
 } from "lucide-react";
+import { CENTRAL_ORGANISATION_NAME } from "../services/api";
 import { db } from "../services/database";
 import { Job, JobStatus } from "../types";
 
@@ -35,7 +36,7 @@ export const Home: React.FC = () => {
 
     const fetchCategories = async () => {
       try {
-        const cats = await db.getTaskCategories();
+        const cats = await db.getTaskCategories(CENTRAL_ORGANISATION_NAME);
         setCategories(cats);
       } catch (err) {
         console.error("Failed to fetch categories", err);

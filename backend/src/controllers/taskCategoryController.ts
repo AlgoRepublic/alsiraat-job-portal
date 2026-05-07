@@ -1,13 +1,45 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
 import TaskCategory from "../models/TaskCategory.js";
+import Organization from "../models/Organization.js";
 import {
   assertResourceOrganisationScope,
+  firstOrgQueryString,
   resolveMutationOrganisation,
 } from "../utils/orgMutationScope.js";
 
-function categoryReadFilter(req: any): Record<string, unknown> {
-  const orgId = req.orgId?.toString?.() ?? null;
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Public reads may pass `?organisation=` as ObjectId, slug, or name (e.g. Central).
+ * When present, it scopes category listing to that org plus platform defaults.
+ */
+async function resolveEffectiveOrgIdForCategoryRead(
+  req: any,
+): Promise<string | null> {
+  const raw = firstOrgQueryString(req.query?.organisation);
+  if (raw) {
+    if (/^[a-fA-F0-9]{24}$/.test(raw)) {
+      const byId = await Organization.findById(raw).select("_id").lean();
+      if (byId?._id) return String(byId._id);
+    }
+    const bySlug = await Organization.findOne({ slug: raw.toLowerCase() })
+      .select("_id")
+      .lean();
+    if (bySlug?._id) return String(bySlug._id);
+    const byName = await Organization.findOne({
+      name: new RegExp(`^${escapeRegex(raw)}$`, "i"),
+    })
+      .select("_id")
+      .lean();
+    if (byName?._id) return String(byName._id);
+  }
+  return req.orgId?.toString?.() ?? null;
+}
+
+function categoryReadFilter(orgId: string | null): Record<string, unknown> {
   const base = orgId
     ? {
         $or: [
@@ -75,15 +107,17 @@ export const getTaskCategories = async (req: Request, res: Response) => {
   try {
     // `?all=true` is used by the admin panel to include inactive categories
     const includeInactive = req.query.all === "true";
-    const orgFilter = categoryReadFilter(req as any);
+    const effectiveOrgId = await resolveEffectiveOrgIdForCategoryRead(
+      req as any,
+    );
+    const orgFilter = categoryReadFilter(effectiveOrgId);
     const filter = includeInactive
       ? orgFilter
       : { isActive: true, ...orgFilter };
     const categories = await TaskCategory.find(filter).sort({ name: 1 });
-    const orgId = (req as any).orgId?.toString?.() ?? null;
     const payload =
-      orgId && categories.length > 0
-        ? dedupeCategoriesPreferOrg(categories, orgId)
+      effectiveOrgId && categories.length > 0
+        ? dedupeCategoriesPreferOrg(categories, effectiveOrgId)
         : categories;
     res.json(payload);
   } catch (err: any) {
@@ -95,7 +129,10 @@ export const getTaskCategories = async (req: Request, res: Response) => {
 export const getTaskCategory = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const readFilter = categoryReadFilter(req as any);
+    const effectiveOrgId = await resolveEffectiveOrgIdForCategoryRead(
+      req as any,
+    );
+    const readFilter = categoryReadFilter(effectiveOrgId);
     const category = await TaskCategory.findOne({
       $and: [{ _id: id }, readFilter],
     });

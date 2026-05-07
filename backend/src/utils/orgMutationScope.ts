@@ -1,6 +1,6 @@
 import type { Request } from "express";
 
-function firstOrgQueryString(query: unknown): string | null {
+export function firstOrgQueryString(query: unknown): string | null {
   if (typeof query === "string" && query.trim()) return query.trim();
   if (Array.isArray(query) && typeof query[0] === "string" && query[0].trim()) {
     return query[0].trim();

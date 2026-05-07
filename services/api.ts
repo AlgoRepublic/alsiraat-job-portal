@@ -11,6 +11,9 @@ export const API_BASE_URL =
   (import.meta.env.VITE_API_URL as string) ||
   (import.meta.env.PROD ? "/api" : "http://localhost:5001/api");
 
+/** Display name of the platform Central organisation (seed `Organization.name`). */
+export const CENTRAL_ORGANISATION_NAME = "Central";
+
 /** localStorage key for how the user signed in: "email" | "google" | "sso" */
 export const LOGIN_SOURCE_KEY = "login_source";
 
@@ -499,8 +502,13 @@ class ApiService {
   }
 
   // --- Task Categories ---
-  async getTaskCategories(): Promise<any[]> {
-    return this.request<any[]>("/task-categories");
+  /** Pass organisation id, slug, or display name for scoped public reads (e.g. Central). */
+  async getTaskCategories(organisation?: string): Promise<any[]> {
+    const q =
+      organisation !== undefined && organisation !== ""
+        ? `?organisation=${encodeURIComponent(organisation)}`
+        : "";
+    return this.request<any[]>(`/task-categories${q}`);
   }
 
   // --- Roles ---
