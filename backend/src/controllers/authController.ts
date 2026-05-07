@@ -115,6 +115,36 @@ export async function buildOrgPayload(user: any, selectedOrgId?: string | null) 
   };
 }
 
+function applyOrgVisibilityConstraint(user: any, orgPayload: any) {
+  // TODO: Temporary org visibility constraint for non-super-admin users; remove in future.
+  if (user?.isSuperAdmin || !Array.isArray(orgPayload?.organisations)) return;
+
+  const normalized = (value: unknown) =>
+    String(value || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+  const orgs = orgPayload.organisations;
+  const preferred =
+    orgs.find((org: any) => normalized(org?.name).includes("al siraat")) ||
+    orgs.find((org: any) => {
+      const n = normalized(org?.name);
+      return n.includes("central organisation") || n === "central";
+    }) ||
+    null;
+  orgPayload.organisations = preferred ? [preferred] : [];
+  orgPayload.activeOrganisation = preferred;
+  orgPayload.organisation = preferred;
+  if (Array.isArray(orgPayload.organisationRoles)) {
+    const preferredOrgId = preferred?._id?.toString?.() || null;
+    orgPayload.organisationRoles = preferredOrgId
+      ? orgPayload.organisationRoles.filter(
+          (entry: any) => entry?.organisation?.toString?.() === preferredOrgId,
+        )
+      : [];
+  }
+}
+
 async function ensureOrganisationMembership(user: any): Promise<void> {
   const hasOrgs = Array.isArray(user.organisations) && user.organisations.length > 0;
   if (hasOrgs) return;
@@ -649,34 +679,7 @@ export const getMe = async (req: Request, res: Response) => {
     const _groupIds = groups.map((g: any) => g._id.toString());
 
     const orgPayload = await buildOrgPayload(user, selectedOrgId);
-    // TODO: Temporary org visibility constraint for non-super-admin users; remove in future.
-    if (!user.isSuperAdmin && Array.isArray(orgPayload.organisations)) {
-      const normalized = (value: unknown) =>
-        String(value || "")
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, " ")
-          .trim();
-      const orgs = orgPayload.organisations;
-      const preferred =
-        orgs.find((org: any) => normalized(org?.name).includes("al siraat")) ||
-        orgs.find((org: any) => {
-          const n = normalized(org?.name);
-          return n.includes("central organisation") || n === "central";
-        }) ||
-        null;
-      orgPayload.organisations = preferred ? [preferred] : [];
-      orgPayload.activeOrganisation = preferred;
-      orgPayload.organisation = preferred;
-      if (Array.isArray(orgPayload.organisationRoles)) {
-        const preferredOrgId = preferred?._id?.toString?.() || null;
-        orgPayload.organisationRoles = preferredOrgId
-          ? orgPayload.organisationRoles.filter(
-              (entry: any) =>
-                entry?.organisation?.toString?.() === preferredOrgId,
-            )
-          : [];
-      }
-    }
+    applyOrgVisibilityConstraint(user, orgPayload);
 
     res.json({
       user: {
@@ -1249,6 +1252,7 @@ export const switchOrganisation = async (req: Request, res: Response) => {
     const _groupIds = groups.map((g: any) => g._id.toString());
 
     const orgPayload = await buildOrgPayload(user, organisationId);
+    applyOrgVisibilityConstraint(user, orgPayload);
     const token = generateToken(user, organisationId, rolesArray);
 
     res.json({
