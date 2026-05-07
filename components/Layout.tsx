@@ -610,16 +610,16 @@ export const Layout: React.FC<LayoutProps> = ({
           </Link>
 
           {/* ── Org Switcher ──────────────────────────────────────────────────── */}
-          {currentUser && (currentUser.organisations?.length ?? 0) > 0 && (
+          {currentUser && (currentUser.organisations?.length ?? 0) > 1 && (
             <div className="mx-4 mt-2 mb-1 relative">
               <button
                 onClick={() => {
-                  if ((currentUser.organisations?.length ?? 0) > 0) {
+                  if ((currentUser.organisations?.length ?? 0) > 1) {
                     setShowOrgSwitcher((v) => !v);
                   }
                 }}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-white/20 dark:border-white/5 transition-all text-left ${
-                  (currentUser.organisations?.length ?? 0) > 0
+                  (currentUser.organisations?.length ?? 0) > 1
                     ? "bg-white/20 dark:bg-zinc-800/40 hover:bg-white/40 dark:hover:bg-zinc-700/50"
                     : "bg-white/10 dark:bg-zinc-800/20 cursor-not-allowed opacity-70"
                 }`}
@@ -639,7 +639,7 @@ export const Layout: React.FC<LayoutProps> = ({
                 />
               </button>
 
-              {showOrgSwitcher && (currentUser.organisations?.length ?? 0) > 0 && (
+              {showOrgSwitcher && (currentUser.organisations?.length ?? 0) > 1 && (
                 <div className="absolute top-full mt-1 left-0 right-0 z-50 glass-card rounded-xl shadow-xl border border-white/20 dark:border-white/5 overflow-hidden animate-slide-up">
                   {currentUser.organisations.map((org) => {
                     const activeId =

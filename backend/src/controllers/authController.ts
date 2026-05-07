@@ -523,6 +523,25 @@ export const getMe = async (req: Request, res: Response) => {
     const _groupIds = groups.map((g: any) => g._id.toString());
 
     const orgPayload = await buildOrgPayload(user, selectedOrgId);
+    // TODO: Temporary org visibility constraint for non-super-admin users; remove in future.
+    if (!user.isSuperAdmin && Array.isArray(orgPayload.organisations)) {
+      const normalized = (value: unknown) =>
+        String(value || "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, " ")
+          .trim();
+      const orgs = orgPayload.organisations;
+      const preferred =
+        orgs.find((org: any) => normalized(org?.name).includes("al siraat")) ||
+        orgs.find((org: any) => {
+          const n = normalized(org?.name);
+          return n.includes("central organisation") || n === "central";
+        }) ||
+        null;
+      orgPayload.organisations = preferred ? [preferred] : [];
+      orgPayload.activeOrganisation = preferred;
+      orgPayload.organisation = preferred;
+    }
 
     res.json({
       user: {
