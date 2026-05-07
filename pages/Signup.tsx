@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   Mail,
   Lock,
   User as UserIcon,
-  Shield,
   AlertCircle,
   ArrowLeft,
   Building2,
@@ -48,6 +47,8 @@ export const Signup: React.FC = () => {
   const [contactNumber, setContactNumber] = useState("");
   const [error, setError] = useState("");
   const [invitationOrg, setInvitationOrg] = useState<string | null>(null);
+  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const OTP_LENGTH = 6;
 
   useEffect(() => {
     if (invitationToken) {
@@ -68,6 +69,51 @@ export const Signup: React.FC = () => {
       fetchInvitation();
     }
   }, [invitationToken]);
+
+  useEffect(() => {
+    if (step === "OTP") {
+      const t = window.setTimeout(() => otpInputRefs.current[0]?.focus(), 150);
+      return () => window.clearTimeout(t);
+    }
+  }, [step]);
+
+  const handleOtpBoxChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, "");
+    if (raw.length > 1) {
+      setOtp(raw.slice(0, OTP_LENGTH));
+      otpInputRefs.current[Math.min(raw.length, OTP_LENGTH - 1)]?.focus();
+      return;
+    }
+    const next =
+      otp.slice(0, index) + (raw || "") + otp.slice(index + 1);
+    setOtp(next.slice(0, OTP_LENGTH));
+    if (raw && index < OTP_LENGTH - 1) {
+      otpInputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpBoxKeyDown = (
+    index: number,
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (e.key !== "Backspace") return;
+    if (otp[index] || e.currentTarget.value) return;
+    e.preventDefault();
+    if (index === 0) return;
+    setOtp(otp.slice(0, index - 1) + otp.slice(index));
+    otpInputRefs.current[index - 1]?.focus();
+  };
+
+  const handleOtpPaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const text = e.clipboardData
+      .getData("text")
+      .replace(/\D/g, "")
+      .slice(0, OTP_LENGTH);
+    setOtp(text);
+    const focusIdx = Math.min(Math.max(text.length - 1, 0), OTP_LENGTH - 1);
+    otpInputRefs.current[focusIdx]?.focus();
+  };
 
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -240,20 +286,35 @@ export const Signup: React.FC = () => {
               </>
             ) : (
               <>
-                <div className="relative group">
-                  <Shield className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
-                  <input
-                    type="text"
-                    required
-                    placeholder="Verification Code (6-digits)"
-                    value={otp}
-                    onChange={(e) =>
-                      setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
-                    }
-                    className="w-full pl-12 pr-4 py-4 bg-primary/10 dark:bg-primary/20 border-2 border-primary/30 dark:border-primary/40 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-xl font-black tracking-[0.5em] text-center dark:text-white transition-all backdrop-blur-md"
-                  />
-                  <p className="text-[10px] text-zinc-400 font-bold mt-2 text-center uppercase tracking-widest">
-                    Enter the code sent to your email
+                <div className="space-y-3">
+                  <p className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 text-center">
+                    Verification code
+                  </p>
+                  <div
+                    className="flex gap-2 sm:gap-3 justify-center"
+                    onPaste={handleOtpPaste}
+                  >
+                    {Array.from({ length: OTP_LENGTH }, (_, i) => (
+                      <input
+                        key={i}
+                        ref={(el) => {
+                          otpInputRefs.current[i] = el;
+                        }}
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete={i === 0 ? "one-time-code" : "off"}
+                        maxLength={1}
+                        required
+                        aria-label={`Verification code digit ${i + 1} of ${OTP_LENGTH}`}
+                        value={otp[i] ?? ""}
+                        onChange={(e) => handleOtpBoxChange(i, e)}
+                        onKeyDown={(e) => handleOtpBoxKeyDown(i, e)}
+                        className="w-10 h-12 sm:w-11 sm:h-14 shrink-0 rounded-xl border-2 border-primary/35 dark:border-primary/45 bg-primary/10 dark:bg-primary/15 text-center text-xl font-bold tabular-nums tracking-normal text-zinc-900 dark:text-white outline-none transition-all focus:border-primary focus:ring-4 focus:ring-primary/20 focus:bg-white dark:focus:bg-zinc-900/80"
+                      />
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium pt-1 text-center uppercase tracking-wide leading-relaxed">
+                    Enter the 6-digit code sent to your email
                   </p>
                 </div>
 
