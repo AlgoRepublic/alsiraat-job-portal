@@ -13,6 +13,7 @@ import {
   sendNotificationToAll,
   sendNotificationToOrganization,
 } from "../services/notificationService.js";
+import { isSuperAdminUser } from "../utils/superAdmin.js";
 import {
   taskChangesRequestedEmail,
   taskArchivedEmail,
@@ -69,6 +70,23 @@ function getMemberKindForOrg(user: any, orgId: string): OrgMemberKind {
   return normalizeOrgMemberKind(entry?.memberKind);
 }
 
+/** Roles the user holds specifically for `organisationId` (not merged across orgs). */
+function getRolesForOrganisation(
+  user: any,
+  organisationId: string,
+): UserRole[] {
+  const oid = String(organisationId);
+  const entry = (user?.organisationRoles || []).find((o: any) => {
+    const raw = o.organisation;
+    const entryOrg =
+      raw != null && typeof raw === "object" && "_id" in raw
+        ? String((raw as { _id: unknown })._id)
+        : String(raw);
+    return entryOrg === oid;
+  });
+  return (entry?.roles || []) as UserRole[];
+}
+
 /** Accepts API values; maps legacy `"Global"` to Central visibility. */
 const normalizeIncomingTaskVisibility = (value: unknown): TaskVisibility => {
   const v = typeof value === "string" ? value.trim() : "";
@@ -123,6 +141,12 @@ function appendPrivateAudienceConditions(
         status: TaskStatus.PENDING,
         privateAudiences: { $in: [TaskVisibility.INTERNAL] },
       });
+      conditions.push({
+        visibility: TaskVisibility.PRIVATE,
+        organisation,
+        status: TaskStatus.CHANGES_REQUESTED,
+        privateAudiences: { $in: [TaskVisibility.INTERNAL] },
+      });
     }
   }
 
@@ -139,6 +163,12 @@ function appendPrivateAudienceConditions(
         visibility: TaskVisibility.PRIVATE,
         organisation,
         status: TaskStatus.PENDING,
+        privateAudiences: { $in: [TaskVisibility.EXTERNAL] },
+      });
+      conditions.push({
+        visibility: TaskVisibility.PRIVATE,
+        organisation,
+        status: TaskStatus.CHANGES_REQUESTED,
         privateAudiences: { $in: [TaskVisibility.EXTERNAL] },
       });
     }
@@ -1252,7 +1282,26 @@ export const getTaskById = async (req: any, res: Response) => {
           allowedGroups.length === 0 ||
           allowedGroups.some((gid: string) => userGroupIds.includes(gid));
 
-        if (!hasGroupAccess) {
+        const taskOrgId =
+          typeof task.organisation === "object" &&
+          task.organisation !== null &&
+          "_id" in task.organisation
+            ? String((task.organisation as { _id: unknown })._id)
+            : String(task.organisation ?? "");
+
+        // Group targeting limits who may apply / browse as an applicant — same as pending internal tasks in `getTasks`.
+        let bypassGroupForStaff = isSuperAdminUser(req.user);
+        if (!bypassGroupForStaff && taskOrgId) {
+          const rolesInTaskOrg = getRolesForOrganisation(req.user, taskOrgId);
+          const { hasPermissionMultiAsync } =
+            await import("../config/permissions.js");
+          bypassGroupForStaff = await hasPermissionMultiAsync(
+            rolesInTaskOrg,
+            Permission.TASK_VIEW_PENDING,
+          );
+        }
+
+        if (!hasGroupAccess && !bypassGroupForStaff) {
           return res.status(404).json({ message: "Task not found" });
         }
       }
