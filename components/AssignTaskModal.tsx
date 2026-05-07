@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { api } from "../services/api";
 import { useToast } from "./Toast";
+import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Types
@@ -355,9 +356,9 @@ export const AssignTaskModal: React.FC<AssignTaskModalProps> = ({
                         <p className="text-sm font-bold text-zinc-800 dark:text-zinc-100 truncate">{u.name}</p>
                         <p className="text-xs text-zinc-400 truncate">{u.email}</p>
                       </div>
-                      {u.roles && (
+                      {getUserRolesForActiveOrg(u).length > 0 && (
                         <span className="text-[10px] text-zinc-400 font-semibold truncate max-w-[80px]">
-                          {Array.isArray(u.roles) ? u.roles[0] : u.roles}
+                          {getUserRolesForActiveOrg(u)[0]}
                         </span>
                       )}
                     </>

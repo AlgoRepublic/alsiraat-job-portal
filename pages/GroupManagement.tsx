@@ -790,12 +790,7 @@ export const GroupManagement: React.FC<{
                                     </td>
                                     <td className="px-6 py-4">
                                       <div className="flex flex-wrap gap-1">
-                                        {(Array.isArray(member.roles) && member.roles.length > 0
-                                          ? member.roles
-                                          : member.role
-                                            ? [member.role]
-                                            : []
-                                        ).map((r: string) => (
+                                        {getUserRolesForActiveOrg(member).map((r: string) => (
                                           <span
                                             key={r}
                                             className="px-2 py-1 text-[10px] font-black uppercase tracking-widest bg-zinc-100 dark:bg-zinc-800 text-zinc-500 rounded-lg"
@@ -803,7 +798,7 @@ export const GroupManagement: React.FC<{
                                             {r}
                                           </span>
                                         ))}
-                                        {!(Array.isArray(member.roles) && member.roles.length > 0) && !member.role && (
+                                        {getUserRolesForActiveOrg(member).length === 0 && (
                                           <span className="text-xs text-zinc-400">—</span>
                                         )}
                                       </div>

@@ -1,6 +1,7 @@
 import React from "react";
 import { Navigate } from "react-router-dom";
 import { User } from "../types";
+import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
 
 // For public routes (Home, About, etc.) - anyone can access
 export const PublicRoute: React.FC<{ children: React.ReactNode }> = ({
@@ -30,7 +31,9 @@ export const RoleRoute: React.FC<{
     return <Navigate to="/login" replace />;
   }
 
-  if (!user.roles?.some((role) => allowedRoles.includes(role))) {
+  if (
+    !getUserRolesForActiveOrg(user).some((role) => allowedRoles.includes(role))
+  ) {
     return <Navigate to="/" replace />;
   }
 

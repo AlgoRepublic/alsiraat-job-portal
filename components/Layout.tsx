@@ -28,6 +28,7 @@ import {
 import { UserRole, User, Job, Permission } from "../types";
 import { SnowBackground } from "./SnowBackground";
 import { api, API_BASE_URL, LOGIN_SOURCE_KEY } from "../services/api";
+import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -557,6 +558,10 @@ export const Layout: React.FC<LayoutProps> = ({
     window.location.reload();
   };
 
+  const currentUserRoles = currentUser
+    ? getUserRolesForActiveOrg(currentUser as any)
+    : [];
+
   return (
     <div className="flex h-screen overflow-hidden font-sans text-zinc-900 dark:text-zinc-100 transition-colors duration-300 relative">
       <SnowBackground isDarkMode={isDarkMode} />
@@ -762,9 +767,9 @@ export const Layout: React.FC<LayoutProps> = ({
                   <p className="text-sm font-bold text-zinc-900 dark:text-white truncate group-hover:text-primary transition-colors">
                     {currentUser.name}
                   </p>
-                  {currentUser.roles && currentUser.roles.length > 0 ? (
+                  {currentUserRoles.length > 0 ? (
                     <div className="flex flex-wrap items-center gap-0.5 mt-0.5">
-                      {currentUser.roles
+                      {currentUserRoles
                         .slice(0, MAX_VISIBLE_SIDEBAR_ROLES)
                         .map((r: string) => (
                           <span
@@ -774,14 +779,14 @@ export const Layout: React.FC<LayoutProps> = ({
                             {r}
                           </span>
                         ))}
-                      {currentUser.roles.length > MAX_VISIBLE_SIDEBAR_ROLES && (
+                      {currentUserRoles.length > MAX_VISIBLE_SIDEBAR_ROLES && (
                         <span
                           className="text-[9px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-tighter border border-zinc-200 dark:border-zinc-700 px-1 rounded bg-zinc-50/50 dark:bg-white/5"
-                          title={currentUser.roles
+                          title={currentUserRoles
                             .slice(MAX_VISIBLE_SIDEBAR_ROLES)
                             .join(", ")}
                         >
-                          +{currentUser.roles.length - MAX_VISIBLE_SIDEBAR_ROLES} more
+                          +{currentUserRoles.length - MAX_VISIBLE_SIDEBAR_ROLES} more
                         </span>
                       )}
                     </div>

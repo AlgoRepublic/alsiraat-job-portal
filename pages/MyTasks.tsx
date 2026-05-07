@@ -16,6 +16,7 @@ import { AssignTaskModal } from "../components/AssignTaskModal";
 import { Permission, hasAnyPermission } from "../services/permissions";
 import { UserRole } from "../types";
 import { Pagination } from "../components/Pagination";
+import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
 
 const PAGE_SIZE = 10;
 
@@ -74,7 +75,7 @@ export const MyAds: React.FC = () => {
 
   // ── Permission check ──────────────────────────────────────────────────────
   const canAssign =
-    currentUser?.roles?.some((r: string) =>
+    getUserRolesForActiveOrg(currentUser).some((r: string) =>
       hasAnyPermission(r as UserRole, [Permission.APPLICATION_ASSIGN_DIRECT, Permission.TASK_ASSIGN]),
     ) ?? false;
 

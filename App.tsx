@@ -10,7 +10,10 @@ import { Layers } from "lucide-react";
 import { ToastProvider } from "./components/Toast";
 import { User, UserRole, Permission } from "./types";
 import { db } from "./services/database";
-import { dispatchActiveOrgChanged } from "./utils/orgScopedRoles";
+import {
+  dispatchActiveOrgChanged,
+  getUserRolesForActiveOrg,
+} from "./utils/orgScopedRoles";
 
 import { Loading } from "./components/Loading";
 import { ThemeToggle } from "./components/ThemeToggle";
@@ -283,7 +286,7 @@ const App: React.FC = () => {
                             path="/dashboard"
                             element={
                               <Dashboard
-                                roles={currentUser.roles}
+                                roles={getUserRolesForActiveOrg(currentUser) as UserRole[]}
                               />
                             }
                           />

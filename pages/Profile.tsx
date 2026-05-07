@@ -22,6 +22,7 @@ import { UserAvatar } from "../components/UserAvatar";
 import { db } from "../services/database";
 import { api } from "../services/api";
 import { CustomDropdown } from "../components/CustomUI";
+import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
 
 interface ProfileProps {
   user: User;
@@ -186,6 +187,7 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
   };
 
   const [isUploadingResume, setIsUploadingResume] = useState(false);
+  const profileRoles = getUserRolesForActiveOrg(profile as any);
 
   const handleResumeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -341,8 +343,8 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
                 </span>
               )}
               <div className="flex flex-wrap gap-2">
-                {profile.roles && profile.roles.length > 0 ? (
-                  profile.roles.map((r: string) => (
+                {profileRoles.length > 0 ? (
+                  profileRoles.map((r: string) => (
                     <span
                       key={r}
                       className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary"

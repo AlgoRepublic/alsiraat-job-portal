@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 
 import { Loading, LoadingOverlay } from "../components/Loading";
+import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
 
 // Build absolute URL for resume downloads
 const buildFileUrl = (relativePath: string): string => {
@@ -298,7 +299,8 @@ export const ApplicationReview: React.FC = () => {
     job?.createdBy === currentUser?.id ||
     job?.createdBy === currentUser?._id;
   const advertiserOwnsTask =
-    isTaskCreator && currentUser?.roles?.includes(UserRole.TASK_ADVERTISER);
+    isTaskCreator &&
+    getUserRolesForActiveOrg(currentUser).includes(UserRole.TASK_ADVERTISER);
 
   const canShortlist =
     orgScopeAllows &&

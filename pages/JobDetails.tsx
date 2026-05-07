@@ -29,6 +29,7 @@ import {
   Permission,
 } from "../types";
 import { useToast } from "../components/Toast";
+import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
 
 /** Auth returns populated `organisation` objects; tasks use string ids — compare as strings. */
 function organisationIdToString(value: unknown): string | undefined {
@@ -87,9 +88,10 @@ export const JobDetails: React.FC = () => {
                 const appList = await db.getApplicationsForJob(id);
 
                 // For internal users, this shows all applicants
+                const activeOrgRoles = getUserRolesForActiveOrg(user);
                 const isInternal =
                   !!user.isSuperAdmin ||
-                  user.roles?.some((r: string) =>
+                  activeOrgRoles.some((r: string) =>
                     (
                       [
                         UserRole.ORGANIZATION_ADMIN,
