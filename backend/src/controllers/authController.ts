@@ -640,6 +640,15 @@ export const getMe = async (req: Request, res: Response) => {
       orgPayload.organisations = preferred ? [preferred] : [];
       orgPayload.activeOrganisation = preferred;
       orgPayload.organisation = preferred;
+      if (Array.isArray(orgPayload.organisationRoles)) {
+        const preferredOrgId = preferred?._id?.toString?.() || null;
+        orgPayload.organisationRoles = preferredOrgId
+          ? orgPayload.organisationRoles.filter(
+              (entry: any) =>
+                entry?.organisation?.toString?.() === preferredOrgId,
+            )
+          : [];
+      }
     }
 
     res.json({
