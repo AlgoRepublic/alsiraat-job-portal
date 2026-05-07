@@ -12,6 +12,18 @@ import {
 } from "../types";
 import { api, ApiError, API_BASE_URL, LOGIN_SOURCE_KEY } from "./api";
 
+const ORG_CONTEXT_REFRESH_KEY = "org_context_refreshed_token";
+
+const extractOrgId = (value: unknown): string | null => {
+  if (!value) return null;
+  if (typeof value === "string") return value;
+  if (typeof value === "object" && value !== null && "_id" in value) {
+    const raw = (value as { _id?: unknown })._id;
+    return raw ? String(raw) : null;
+  }
+  return String(value);
+};
+
 // Helper to map Backend Task to Frontend Job
 
 const mapApiVisibilityToJob = (raw: unknown): Visibility => {
@@ -207,6 +219,22 @@ class DatabaseService {
       // Fetch fresh user data to ensure roles, permissions, and status are up to date
       const data = await api.getMe();
       if (data && data.user) {
+        const activeOrgId = extractOrgId(data.user.activeOrganisation);
+        const refreshedForToken = localStorage.getItem(ORG_CONTEXT_REFRESH_KEY);
+        if (activeOrgId && refreshedForToken !== token) {
+          try {
+            const switched = await this.switchOrganisation(activeOrgId);
+            localStorage.setItem(ORG_CONTEXT_REFRESH_KEY, token);
+            return {
+              ...switched,
+              skills: switched.skills || [],
+              about: switched.about || "",
+              avatar: switched.avatar || undefined,
+            } as User;
+          } catch (switchErr) {
+            console.warn("Failed to refresh organisation-scoped session", switchErr);
+          }
+        }
         localStorage.setItem("user_data", JSON.stringify(data.user));
         return {
           ...data.user,
