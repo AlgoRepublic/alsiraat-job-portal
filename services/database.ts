@@ -75,9 +75,17 @@ const mapTaskToJob = (task: any): Job => {
     applicantsCount: task.applicantsCount || 0,
     hasApplied: task.hasApplied || false,
     organisation:
-      typeof task.organisation === "object"
-        ? task.organisation?._id
-        : task.organisation,
+      typeof task.organisation === "object" && task.organisation != null
+        ? task.organisation._id?.toString?.() ?? task.organisation._id
+        : task.organisation != null
+          ? String(task.organisation)
+          : undefined,
+    organisationName:
+      typeof task.organisation === "object" &&
+      task.organisation != null &&
+      typeof task.organisation.name === "string"
+        ? task.organisation.name
+        : undefined,
     allowedGroups: task.allowedGroups || [],
   };
 };

@@ -112,6 +112,8 @@ export interface Job {
   applicantsCount: number;
   hasApplied?: boolean;
   organisation?: string;
+  /** Populated display name when API returns organisation as an object */
+  organisationName?: string;
   organization?: string;
 }
 

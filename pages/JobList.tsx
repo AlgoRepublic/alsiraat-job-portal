@@ -4,13 +4,13 @@ import {
   Search,
   MapPin,
   Clock,
-  Filter,
   ArrowRight,
   Calendar,
   SlidersHorizontal,
   X,
   RotateCcw,
   ClipboardList,
+  Building2,
 } from "lucide-react";
 import { JobStatus, RewardType, Job } from "../types";
 import { db } from "../services/database";
@@ -389,7 +389,10 @@ export const JobList: React.FC = () => {
       </div>
 
       <div className="grid gap-6">
-        {jobs.map((job) => (
+        {jobs.map((job) => {
+          const orgLabel = job.organisationName?.trim();
+
+          return (
           <div
             key={job.id}
             onClick={() => navigate(`/jobs/${job.id}`)}
@@ -406,6 +409,15 @@ export const JobList: React.FC = () => {
                   <span className="px-3 py-1.5 glass bg-white/20 text-zinc-600 dark:text-zinc-400 text-[10px] font-black rounded-xl uppercase tracking-widest">
                     {job.category}
                   </span>
+                  {orgLabel && (
+                    <span
+                      title={orgLabel}
+                      className="inline-flex items-center gap-1.5 max-w-[min(100%,14rem)] px-3 py-1.5 rounded-xl border border-zinc-200/80 dark:border-zinc-600/80 bg-white/40 dark:bg-zinc-800/40 text-zinc-600 dark:text-zinc-300 text-[10px] font-bold uppercase tracking-wide"
+                    >
+                      <Building2 className="w-3.5 h-3.5 shrink-0 text-primary opacity-90" aria-hidden />
+                      <span className="truncate">{orgLabel}</span>
+                    </span>
+                  )}
                   {job.rewardType !== RewardType.VOLUNTEER && (
                     <span className="px-3 py-1.5 bg-primary text-white text-[10px] font-black rounded-xl uppercase tracking-widest shadow-lg shadow-primary/20">
                       {job.rewardType}
@@ -443,7 +455,8 @@ export const JobList: React.FC = () => {
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
 
         {jobs.length === 0 && (
           <div className="text-center py-24 glass-card rounded-[3rem] border-dashed border-2 border-zinc-200 dark:border-zinc-800">
