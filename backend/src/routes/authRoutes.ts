@@ -22,7 +22,11 @@ import {
   buildPermissionListForUser,
   buildOrgPayload,
 } from "../controllers/authController.js";
-import { authenticate, requirePermission } from "../middleware/rbac.js";
+import {
+  authenticate,
+  optionalAuthenticate,
+  requirePermission,
+} from "../middleware/rbac.js";
 import { upload } from "../middleware/upload.js";
 import { Permission } from "../config/permissions.js";
 import Group from "../models/Group.js";
@@ -33,7 +37,7 @@ const router: Router = express.Router();
 // Local Auth
 router.post("/send-otp", sendOtp);       // Step 1: request OTP
 router.post("/verify-otp", verifyOtp);   // Step 2: verify OTP + complete signup
-router.post("/signup", signup);           // Internal / admin-created users (no OTP)
+router.post("/signup", optionalAuthenticate, signup); // Internal / admin-created users (no OTP)
 router.post("/login", (req, res, next) => {
   passport.authenticate(
     "local",

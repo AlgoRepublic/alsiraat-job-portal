@@ -373,8 +373,16 @@ export const verifyOtp = async (req: Request, res: Response) => {
 
 export const signup = async (req: Request, res: Response) => {
   try {
-    const { firstName, lastName, email, password, roles, contactNumber } =
-      req.body;
+    const {
+      firstName,
+      lastName,
+      email,
+      password,
+      roles,
+      contactNumber,
+      memberKind,
+      memberKinds,
+    } = req.body;
 
     if (!firstName || !lastName) {
       return res
@@ -383,7 +391,99 @@ export const signup = async (req: Request, res: Response) => {
     }
 
     let user = await User.findOne({ email });
-    if (user) return res.status(400).json({ message: "User already exists" });
+    const authenticatedActor = (req as any).user || null;
+    const permissionOrgId = (req as any).orgId || null;
+
+    if (user) {
+      if (!authenticatedActor || !permissionOrgId) {
+        return res.status(400).json({ message: "User already exists" });
+      }
+
+      const actorOrgRoles = ((req as any).orgRoles || []) as UserRole[];
+      let canCreateUsers = !!authenticatedActor.isSuperAdmin;
+      if (!canCreateUsers) {
+        for (const r of actorOrgRoles) {
+          if (await hasPermissionAsync(r, Permission.USER_CREATE)) {
+            canCreateUsers = true;
+            break;
+          }
+        }
+      }
+      if (!canCreateUsers) {
+        return res.status(403).json({
+          message: "You don't have permission to create users",
+        });
+      }
+
+      const alreadyMember = (user.organisations ?? []).some(
+        (o: any) => o.toString() === permissionOrgId.toString(),
+      );
+      if (alreadyMember) {
+        return res.status(400).json({
+          message: "User is already a member of this organisation",
+        });
+      }
+
+      user.organisations = [...(user.organisations ?? []), permissionOrgId];
+
+      const requestedRoles = Array.isArray(roles) && roles.length > 0 ? roles : [];
+      const nextRoles = (requestedRoles.length > 0
+        ? requestedRoles
+        : [UserRole.APPLICANT]) as UserRole[];
+      const nextMemberKind = normalizeOrgMemberKind(
+        memberKind ?? memberKinds?.[0],
+      );
+      const orgRoleIndex = (user.organisationRoles ?? []).findIndex(
+        (entry: any) =>
+          entry.organisation?.toString() === permissionOrgId.toString(),
+      );
+      if (orgRoleIndex > -1 && user.organisationRoles) {
+        (user.organisationRoles as any)[orgRoleIndex].roles = nextRoles;
+        (user.organisationRoles as any)[orgRoleIndex].memberKind =
+          nextMemberKind;
+      } else {
+        user.organisationRoles = [
+          ...(user.organisationRoles ?? []),
+          {
+            organisation: permissionOrgId,
+            roles: nextRoles,
+            memberKind: nextMemberKind,
+          },
+        ];
+      }
+
+      await user.save();
+      await Group.findOneAndUpdate(
+        { organisation: permissionOrgId, name: "All Members" },
+        { $addToSet: { members: user._id } },
+      );
+
+      const rolesArray = getOrgScopedRoles(user, permissionOrgId);
+      const permissions = await buildPermissionListForUser(user, rolesArray);
+      const token = generateToken(user, permissionOrgId, rolesArray);
+      const orgPayload = await buildOrgPayload(user, permissionOrgId);
+
+      return res.status(200).json({
+        token,
+        user: {
+          id: user._id,
+          name: user.name,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          roles: rolesArray,
+          isSuperAdmin: !!user.isSuperAdmin,
+          skills: user.skills || [],
+          about: user.about || "",
+          avatar: user.avatar,
+          contactNumber: user.contactNumber,
+          gender: user.gender,
+          permissions,
+          _groupIds: [],
+          ...orgPayload,
+        },
+      });
+    }
 
     const hashedPassword = await bcrypt.hash(password, 12);
     const fullName = `${firstName.trim()} ${lastName.trim()}`;
@@ -397,7 +497,6 @@ export const signup = async (req: Request, res: Response) => {
       ...(contactNumber ? { contactNumber } : {}),
     });
 
-    const permissionOrgId = (req as any).orgId || null;
     const rolesArray = getOrgScopedRoles(user, permissionOrgId);
     const permissions = await buildPermissionListForUser(user, rolesArray);
 
@@ -924,7 +1023,7 @@ export const exportUsersCsv = async (req: Request, res: Response) => {
  */
 export const inviteUser = async (req: any, res: Response) => {
   try {
-    const { email, role } = req.body;
+    const { email, role, memberKind } = req.body;
 
     if (!email) return res.status(400).json({ message: "Email is required" });
 
@@ -936,12 +1035,58 @@ export const inviteUser = async (req: any, res: Response) => {
       });
     }
 
-    // Check if user already exists
+    // If the user already exists globally, add them to this org directly
+    // instead of blocking with a global "already exists" error.
     const existingUser = await User.findOne({ email });
-    if (existingUser)
-      return res
-        .status(400)
-        .json({ message: "User with this email already exists" });
+    if (existingUser) {
+      const alreadyMember = (existingUser.organisations ?? []).some(
+        (o: any) => o.toString() === targetOrgId.toString(),
+      );
+      if (alreadyMember) {
+        return res.status(400).json({
+          message: "User is already a member of this organisation",
+        });
+      }
+
+      existingUser.organisations = [
+        ...(existingUser.organisations ?? []),
+        targetOrgId as any,
+      ];
+
+      const orgRoleIndex = (existingUser.organisationRoles ?? []).findIndex(
+        (entry: any) =>
+          entry.organisation?.toString() === targetOrgId.toString(),
+      );
+      const assignedRole = (role as UserRole) || UserRole.APPLICANT;
+      const assignedMemberKind = normalizeOrgMemberKind(memberKind);
+      if (orgRoleIndex > -1 && existingUser.organisationRoles) {
+        (existingUser.organisationRoles as any)[orgRoleIndex].roles = [
+          assignedRole,
+        ];
+        (existingUser.organisationRoles as any)[orgRoleIndex].memberKind =
+          assignedMemberKind;
+      } else {
+        existingUser.organisationRoles = [
+          ...(existingUser.organisationRoles ?? []),
+          {
+            organisation: targetOrgId,
+            roles: [assignedRole],
+            memberKind: assignedMemberKind,
+          },
+        ];
+      }
+
+      await existingUser.save();
+
+      await Group.findOneAndUpdate(
+        { organisation: targetOrgId, name: "All Members" },
+        { $addToSet: { members: existingUser._id } },
+      );
+
+      return res.status(200).json({
+        message: `${email} has been added to this organisation`,
+      });
+    }
 
     // Generate secure token
     const token = crypto.randomBytes(32).toString("hex");
