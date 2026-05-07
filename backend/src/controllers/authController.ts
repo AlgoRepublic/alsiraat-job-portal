@@ -106,11 +106,12 @@ async function ensureOrganisationMembership(user: any): Promise<void> {
 
 export function getOrgScopedRoles(user: any, selectedOrgId?: string | null): UserRole[] {
   if (user.isSuperAdmin) {
-    if (!selectedOrgId) return [UserRole.ORGANIZATION_ADMIN];
-    const orgEntry = (user.organisationRoles || []).find(
-      (o: any) => o.organisation?.toString() === selectedOrgId.toString(),
-    );
-    if (orgEntry?.roles?.length) return orgEntry.roles as UserRole[];
+    const allSuperAdminOrgRoles = Array.from(
+      new Set(
+        (user.organisationRoles || []).flatMap((entry: any) => entry.roles || []),
+      ),
+    ) as UserRole[];
+    if (allSuperAdminOrgRoles.length > 0) return allSuperAdminOrgRoles;
     return [UserRole.ORGANIZATION_ADMIN];
   }
   const allRoles = Array.from(
