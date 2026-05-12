@@ -20,6 +20,11 @@ import aiSettingsRoutes from "./routes/aiSettingsRoutes.js";
 import systemRoutes from "./routes/systemRoutes.js";
 import { logger } from "./utils/logger.js";
 import { requestLoggerMiddleware } from "./utils/requestLogger.js";
+import {
+  closeEmailQueue,
+  isEmailQueueConfigured,
+} from "./queues/emailQueue.js";
+import { startEmailWorker, stopEmailWorker } from "./workers/emailWorker.js";
 
 // Only load dotenv in development (Cloud Run provides env vars directly)
 if (process.env.NODE_ENV !== "production") {
@@ -50,7 +55,16 @@ const MONGODB_URI =
   process.env.MONGODB_URI || "mongodb://localhost:27017/tasker";
 mongoose
   .connect(MONGODB_URI)
-  .then(() => logger.info("Connected to MongoDB"))
+  .then(() => {
+    logger.info("Connected to MongoDB");
+    if (isEmailQueueConfigured()) {
+      startEmailWorker();
+    } else {
+      logger.warn(
+        "REDIS_URL is not set; outbound email is delivered inline (no BullMQ worker)",
+      );
+    }
+  })
   .catch((err) => logger.error("MongoDB connection error", { err }));
 
 // Health check endpoint (required for Cloud Run)
@@ -118,11 +132,29 @@ app.use(
 );
 
 // Start Server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   logger.info("Server started", {
     port: PORT,
     environment: isProduction ? "production" : "development",
   });
+});
+
+async function gracefulShutdown(signal: string) {
+  logger.info("Shutdown initiated", { signal });
+  await new Promise<void>((resolve) => {
+    server.close(() => resolve());
+  });
+  await stopEmailWorker();
+  await closeEmailQueue();
+  await mongoose.connection.close().catch(() => {});
+  process.exit(0);
+}
+
+process.on("SIGTERM", () => {
+  void gracefulShutdown("SIGTERM");
+});
+process.on("SIGINT", () => {
+  void gracefulShutdown("SIGINT");
 });
 
 export default app;

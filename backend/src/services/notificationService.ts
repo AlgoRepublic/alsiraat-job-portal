@@ -11,6 +11,9 @@
  *
  *   import { sendEmail } from './notificationService.js';
  *   await sendEmail('user@example.com', template, { organisationId });
+ *
+ * When REDIS_URL is set, sendEmail enqueues a BullMQ job (non-blocking for SMTP/Azure).
+ * Run the API with a worker in-process, or run `pnpm run worker:email` separately.
  */
 
 import nodemailer from "nodemailer";
@@ -21,6 +24,10 @@ import EmailSettings from "../models/EmailSettings.js";
 import type { IEmailSettings } from "../models/EmailSettings.js";
 import type { EmailTemplate, BrandConfig } from "./emailTemplates.js";
 import { normalizeAzureConnectionString } from "../utils/azureConnectionString.js";
+import {
+  enqueueEmail,
+  isEmailQueueConfigured,
+} from "../queues/emailQueue.js";
 
 /** Extract the brand config stored in an EmailSettings document */
 export function brandFromSettings(settings: IEmailSettings | null): BrandConfig {
@@ -112,18 +119,22 @@ export interface SendEmailOptions {
    * EmailSettings automatically using organisationId.
    */
   brand?: BrandConfig;
+  /**
+   * BullMQ worker only: deliver immediately without enqueueing (avoids re-queue loops).
+   * When true, transport errors are rethrown so the job can retry.
+   */
+  skipQueue?: boolean;
 }
 
 /**
- * Send an HTML email using a pre-built template object.
- * Loads EmailSettings for the given organisation (or global). Uses SMTP or Azure per settings.
- * All config comes from EmailSettings (DB); no env-based email config. Silently fails (logs) if not configured.
+ * Deliver mail immediately: load EmailSettings, then SMTP or Azure.
+ * Throws on transport errors so the queue can retry.
  */
-export const sendEmail = async (
+async function deliverEmail(
   toEmail: string,
   template: EmailTemplate,
   options?: SendEmailOptions,
-): Promise<void> => {
+): Promise<void> {
   const organisationId = options?.organisationId ?? null;
   const orgForQuery =
     organisationId && organisationId.length > 0 ? organisationId : null;
@@ -165,22 +176,37 @@ export const sendEmail = async (
   const provider = settings.emailProvider || "smtp";
   if (provider === "azure") {
     if (settings.azureConnectionString?.trim() && settings.azureFromEmail?.trim()) {
-      try {
-        await sendViaAzure(toEmail, template, settings);
-        console.log(`[Email] Sent via Azure "${template.subject}" to ${toEmail}`);
-        return;
-      } catch (err) {
-        console.error(`[Email] Azure failed to ${toEmail}:`, err);
-        return;
-      }
+      await sendViaAzure(toEmail, template, settings);
+      console.log(`[Email] Sent via Azure "${template.subject}" to ${toEmail}`);
+      return;
     }
   }
 
-  // SMTP path (from EmailSettings only)
+  await sendViaSmtp(toEmail, template, settings);
+  console.log(`[Email] Sent "${template.subject}" to ${toEmail}`);
+}
+
+/**
+ * Enqueue outbound email when REDIS_URL is set; otherwise deliver inline.
+ * Resolves after the job is queued (not after the message is accepted by the provider).
+ * Use everywhere; pass `{ skipQueue: true }` only from the BullMQ email worker.
+ */
+export const sendEmail = async (
+  toEmail: string,
+  template: EmailTemplate,
+  options?: SendEmailOptions,
+): Promise<void> => {
+  const organisationId = options?.organisationId ?? null;
+  const skipQueue = options?.skipQueue === true;
+
+  if (isEmailQueueConfigured() && !skipQueue) {
+    await enqueueEmail({ toEmail, template, organisationId });
+    return;
+  }
   try {
-    await sendViaSmtp(toEmail, template, settings);
-    console.log(`[Email] Sent "${template.subject}" to ${toEmail}`);
+    await deliverEmail(toEmail, template, { organisationId });
   } catch (err) {
+    if (skipQueue) throw err;
     console.error(`[Email] Failed to send to ${toEmail}:`, err);
   }
 };

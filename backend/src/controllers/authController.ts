@@ -395,11 +395,8 @@ export const verifyOtp = async (req: Request, res: Response) => {
       permissionOrgId || (user.organisations?.[0]?.toString?.() ?? null);
     const token = generateToken(user, selectedOrgId, rolesArray);
 
-    // Send welcome email async
     const organisationId = selectedOrgId;
-    sendEmail(user.email, welcomeEmail(name), { organisationId }).catch(
-      () => {},
-    );
+    await sendEmail(user.email, welcomeEmail(name), { organisationId });
 
     const orgPayload = await buildOrgPayload(user, selectedOrgId);
 
@@ -561,11 +558,10 @@ export const signup = async (req: Request, res: Response) => {
       permissionOrgId || user.organisations?.[0]?.toString?.() || null;
     const token = generateToken(user, selectedOrgId);
 
-    // Send welcome email asynchronously (don't await to keep signup fast)
     const organisationId = selectedOrgId;
-    sendEmail(user.email, welcomeEmail(user.name || fullName), {
+    await sendEmail(user.email, welcomeEmail(user.name || fullName), {
       organisationId,
-    }).catch(() => {});
+    });
 
     const orgPayload = await buildOrgPayload(user, selectedOrgId);
 

@@ -37,6 +37,7 @@
 #   - DEV_BE_OIDC_CLIENT_ID: OIDC client ID (public client, no secret required)
 #   - DEV_BE_OIDC_CALLBACK_URL: OIDC callback URL (environment-specific)
 #   - DEV_BE_FRONTEND_URL: Frontend URL
+#   - DEV_BE_REDIS_URL (optional): Redis URL for BullMQ background email (default in deploy: redis://tasker-redis-{env}:6379)
 #
 # TEST Environment (prefix: TEST_):
 #   (Same variables as DEV with TEST_ prefix)
@@ -46,8 +47,8 @@
 #
 # Docker Network Architecture:
 #   - Each environment uses an isolated Docker network (tasker-network-{env})
-#   - MongoDB and Backend containers communicate via the Docker network
-#   - MongoDB is NOT exposed to the host (more secure)
+#   - MongoDB, Redis, and Backend containers communicate via the Docker network
+#   - MongoDB and Redis are NOT exposed to the host (more secure)
 #   - Backend connects to MongoDB using container name (e.g., tasker-mongodb-prod)
 #   - Frontend and Backend are exposed to host via port mappings
 
@@ -261,6 +262,7 @@ deploy:
         export BE_OIDC_CLIENT_ID=$DEV_BE_OIDC_CLIENT_ID
         export BE_OIDC_CALLBACK_URL=$DEV_BE_OIDC_CALLBACK_URL
         export BE_FRONTEND_URL=$DEV_BE_FRONTEND_URL
+        export BE_REDIS_URL="${DEV_BE_REDIS_URL:-redis://tasker-redis-dev:6379}"
       elif [ "$ENVIRONMENT" = "test" ]; then
         export UPLOADS_STORAGE_DIR=$TEST_UPLOADS_STORAGE_DIR
         export MONGODB_DATA_DIR=$TEST_MONGODB_DATA_DIR
@@ -278,6 +280,7 @@ deploy:
         export BE_OIDC_CLIENT_ID=$TEST_BE_OIDC_CLIENT_ID
         export BE_OIDC_CALLBACK_URL=$TEST_BE_OIDC_CALLBACK_URL
         export BE_FRONTEND_URL=$TEST_BE_FRONTEND_URL
+        export BE_REDIS_URL="${TEST_BE_REDIS_URL:-redis://tasker-redis-test:6379}"
       elif [ "$ENVIRONMENT" = "prod" ]; then
         export UPLOADS_STORAGE_DIR=$PROD_UPLOADS_STORAGE_DIR
         export MONGODB_DATA_DIR=$PROD_MONGODB_DATA_DIR
@@ -295,6 +298,7 @@ deploy:
         export BE_OIDC_CLIENT_ID=$PROD_BE_OIDC_CLIENT_ID
         export BE_OIDC_CALLBACK_URL=$PROD_BE_OIDC_CALLBACK_URL
         export BE_FRONTEND_URL=$PROD_BE_FRONTEND_URL
+        export BE_REDIS_URL="${PROD_BE_REDIS_URL:-redis://tasker-redis-prod:6379}"
       fi
     - |
       ssh -p $VPS_PORT $VPS_USER@$VPS_HOST << SSHEOF
@@ -345,6 +349,24 @@ deploy:
           done
         else
           echo "MongoDB container already running and healthy"
+        fi
+        
+        # ============================================
+        # Redis (BullMQ email queue)
+        # ============================================
+        echo "Checking Redis container..."
+        if ! docker ps -q -f name=tasker-redis-$ENVIRONMENT | grep -q .; then
+          echo "Redis container not running. Starting Redis..."
+          docker rm -f tasker-redis-$ENVIRONMENT 2>/dev/null || true
+          docker run -d \
+            --name tasker-redis-$ENVIRONMENT \
+            --network tasker-network-$ENVIRONMENT \
+            --restart unless-stopped \
+            redis:7-alpine
+          echo "Waiting for Redis to accept connections..."
+          sleep 2
+        else
+          echo "Redis container already running"
         fi
         
         # ============================================
@@ -403,6 +425,7 @@ deploy:
           -e OIDC_CLIENT_ID='$BE_OIDC_CLIENT_ID' \
           -e OIDC_CALLBACK_URL='$BE_OIDC_CALLBACK_URL' \
           -e FRONTEND_URL='$BE_FRONTEND_URL' \
+          -e REDIS_URL='$BE_REDIS_URL' \
           -v ~/$UPLOADS_STORAGE_DIR/uploads:/app/uploads \
           $REGISTRY/$BACKEND_IMAGE:latest
         
@@ -465,6 +488,7 @@ deploy:
           -e OIDC_CLIENT_ID='$BE_OIDC_CLIENT_ID' \
           -e OIDC_CALLBACK_URL='$BE_OIDC_CALLBACK_URL' \
           -e FRONTEND_URL='$BE_FRONTEND_URL' \
+          -e REDIS_URL='$BE_REDIS_URL' \
           -v ~/$UPLOADS_STORAGE_DIR/uploads:/app/uploads \
           -p $BACKEND_PORT:8080 \
           --restart unless-stopped \
