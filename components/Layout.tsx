@@ -14,8 +14,6 @@ import {
   Sun,
   Settings,
   Bell,
-  Palette,
-  Check,
   CheckCircle,
   FileText,
   Clock,
@@ -28,7 +26,13 @@ import {
 import { UserRole, User, Job, Permission } from "../types";
 import { SnowBackground } from "./SnowBackground";
 import { api, API_BASE_URL, LOGIN_SOURCE_KEY } from "../services/api";
+import { getPublicCentralOrganisation, type PublicCentralOrg, invalidatePublicCentralOrganisationCache } from "../services/publicCentralOrg";
 import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
+import {
+  applyAccentPaletteToDocument,
+  buildAccentPaletteFromPrimary,
+  isValidThemeColorHex,
+} from "../utils/orgTheme";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -170,17 +174,14 @@ export const Layout: React.FC<LayoutProps> = ({
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  /** Central shell (logo/theme) only on the public task list `#/jobs`, not login/landing. */
+  const isGuestPublicJobsList =
+    !currentUser && location.pathname === "/jobs";
   const [isSidebarOpen, setSidebarOpen] = useState(false);
-  const [showColorPicker, setShowColorPicker] = useState(false);
   const [showOrgSwitcher, setShowOrgSwitcher] = useState(false);
   const [switchingOrg, setSwitchingOrg] = useState<string | null>(null);
   const [systemVersion, setSystemVersion] = useState<string | null>(null);
   const [isVersionLoading, setIsVersionLoading] = useState(true);
-  const [selectedColor, setSelectedColor] = useState(() => {
-    const stored = localStorage.getItem("accentColor");
-    return stored || "AlSiraat";
-  });
-
   // Notification state
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -194,22 +195,65 @@ export const Layout: React.FC<LayoutProps> = ({
   const [isSearching, setIsSearching] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [publicCentralOrg, setPublicCentralOrg] = useState<PublicCentralOrg | null>(null);
 
-  // Apply saved accent color on mount
+  // Load Central org shell only on signed-out /jobs (public task list).
   useEffect(() => {
-    const savedColor = COLORS.find((c) => c.name === selectedColor);
-    if (savedColor) {
-      Object.entries(savedColor.palette).forEach(([key, value]) => {
-        document.documentElement.style.setProperty(`--accent-${key}`, value);
-        if (["100", "200", "300", "400", "800", "900", "950"].includes(key)) {
-          document.documentElement.style.setProperty(
-            `--accent-${key}-rgb`,
-            hexToRgb(value),
-          );
-        }
-      });
+    if (currentUser) {
+      setPublicCentralOrg(null);
+      return;
     }
-  }, []); // Only run on mount
+    if (!isGuestPublicJobsList) {
+      setPublicCentralOrg(null);
+      return;
+    }
+    let cancelled = false;
+    void getPublicCentralOrganisation().then((o) => {
+      if (!cancelled) setPublicCentralOrg(o);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser, isGuestPublicJobsList]);
+
+  // Active organisation theme overrides user accent; Central shell when signed out.
+  useEffect(() => {
+    const org = currentUser?.activeOrganisation as { themeColor?: string } | undefined;
+    const hex = typeof org?.themeColor === "string" ? org.themeColor.trim() : "";
+    if (isValidThemeColorHex(hex)) {
+      applyAccentPaletteToDocument(buildAccentPaletteFromPrimary(hex));
+      return;
+    }
+    if (!currentUser && isGuestPublicJobsList) {
+      const ph =
+        typeof publicCentralOrg?.themeColor === "string"
+          ? publicCentralOrg.themeColor.trim()
+          : "";
+      if (isValidThemeColorHex(ph)) {
+        applyAccentPaletteToDocument(buildAccentPaletteFromPrimary(ph));
+        return;
+      }
+    }
+    const storedName = localStorage.getItem("accentColor") || "AlSiraat";
+    const savedColor = COLORS.find((c) => c.name === storedName);
+    if (savedColor) {
+      applyAccentPaletteToDocument(savedColor.palette);
+    }
+  }, [
+    currentUser?.activeOrganisation,
+    currentUser,
+    publicCentralOrg,
+    isGuestPublicJobsList,
+  ]);
+
+  // Leaving Layout (e.g. /jobs → /login): reset CSS accents so auth/landing pages are not tinted by Central.
+  useEffect(() => {
+    return () => {
+      const stored = localStorage.getItem("accentColor") || "AlSiraat";
+      const saved = COLORS.find((c) => c.name === stored);
+      if (saved) applyAccentPaletteToDocument(saved.palette);
+    };
+  }, []);
 
   // Load notifications
   useEffect(() => {
@@ -411,29 +455,6 @@ export const Layout: React.FC<LayoutProps> = ({
     }
   };
 
-  const hexToRgb = (hex: string) => {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return `${r}, ${g}, ${b}`;
-  };
-
-  const changeAccentColor = (name: string, palette: Record<string, string>) => {
-    setSelectedColor(name);
-    localStorage.setItem("accentColor", name);
-    setShowColorPicker(false);
-    Object.entries(palette).forEach(([key, value]) => {
-      document.documentElement.style.setProperty(`--accent-${key}`, value);
-      // Update RGB variables for radial gradients (specific ones needed)
-      if (["100", "200", "300", "400", "800", "900", "950"].includes(key)) {
-        document.documentElement.style.setProperty(
-          `--accent-${key}-rgb`,
-          hexToRgb(value),
-        );
-      }
-    });
-  };
-
   if (!currentUser && location.pathname === "/") {
     return (
       <div className="transition-colors duration-300 relative overflow-x-hidden">
@@ -550,6 +571,7 @@ export const Layout: React.FC<LayoutProps> = ({
       }
     }
     api.logout();
+    invalidatePublicCentralOrganisationCache();
     if (redirectUrl) {
       window.location.replace(redirectUrl);
       return;
@@ -561,6 +583,15 @@ export const Layout: React.FC<LayoutProps> = ({
   const currentUserRoles = currentUser
     ? getUserRolesForActiveOrg(currentUser as any)
     : [];
+
+  const browseShellOrg = currentUser
+    ? (currentUser.activeOrganisation as {
+        name?: string;
+        logo?: string;
+      } | null)
+    : isGuestPublicJobsList
+      ? publicCentralOrg
+      : null;
 
   return (
     <div className="flex h-screen overflow-hidden font-sans text-zinc-900 dark:text-zinc-100 transition-colors duration-300 relative">
@@ -584,13 +615,13 @@ export const Layout: React.FC<LayoutProps> = ({
             <div className="w-12 h-12 flex items-center justify-center relative shrink-0">
               <img
                 src={
-                  (currentUser?.activeOrganisation as any)?.logo
-                    ? `${API_BASE_URL.replace(/\/api$/, "")}${(currentUser.activeOrganisation as any).logo}`
+                  browseShellOrg?.logo
+                    ? `${API_BASE_URL.replace(/\/api$/, "")}${browseShellOrg.logo}`
                     : isDarkMode
                       ? "/logo-dark.png"
                       : "/logo-light.png"
                 }
-                alt={(currentUser?.activeOrganisation as any)?.name || "Tasker Logo"}
+                alt={browseShellOrg?.name || "Tasker Logo"}
                 className="w-full h-full object-contain drop-shadow-sm"
                 onError={(e) => {
                   e.currentTarget.style.display = "none";
@@ -601,11 +632,11 @@ export const Layout: React.FC<LayoutProps> = ({
             </div>
             <div className="ml-4">
               <span className="block text-2xl font-black text-zinc-900 dark:text-white tracking-tighter leading-none line-clamp-1">
-                {((currentUser?.activeOrganisation as any)?.name ?? "Tasker").split(" ")[0]}
+                {(browseShellOrg?.name ?? "Tasker").split(" ")[0]}
               </span>
               <span className="text-[10px] text-primary dark:text-primary rounded uppercase font-black tracking-[0.2em] line-clamp-1">
                 {(() => {
-                  const n = (currentUser?.activeOrganisation as any)?.name;
+                  const n = browseShellOrg?.name;
                   if (!n) return "Connect";
                   const idx = n.indexOf(" ");
                   return idx > -1 ? n.substring(idx + 1) : "Connect";
@@ -857,36 +888,6 @@ export const Layout: React.FC<LayoutProps> = ({
             </div>
 
             <div className="flex items-center space-x-2">
-              <div className="relative">
-                <HeaderIconButton
-                  icon={Palette}
-                  label="Accent"
-                  onClick={() => setShowColorPicker(!showColorPicker)}
-                />
-                {showColorPicker && (
-                  <div className="absolute top-16 right-0 w-56 glass-card rounded-2xl p-4 z-50 animate-slide-up">
-                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-4">
-                      Choose Theme
-                    </p>
-                    <div className="grid grid-cols-5 gap-3">
-                      {COLORS.map((color) => (
-                        <button
-                          key={color.name}
-                          onClick={() =>
-                            changeAccentColor(color.name, color.palette)
-                          }
-                          className={`w-8 h-8 rounded-full ${color.class} flex items-center justify-center transition-all hover:scale-125`}
-                        >
-                          {selectedColor === color.name && (
-                            <Check className="w-4 h-4 text-white" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
               <HeaderIconButton
                 icon={isDarkMode ? Sun : Moon}
                 label="Theme"

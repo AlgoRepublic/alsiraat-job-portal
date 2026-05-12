@@ -269,10 +269,12 @@ export const AdminSettings: React.FC = () => {
   const [adminOrgSync, setAdminOrgSync] = useState(0);
   const [activeOrgName, setActiveOrgName] = useState("");
   const [activeOrgId, setActiveOrgId] = useState("");
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   const refreshActiveOrgLabel = useCallback(async () => {
     try {
       const user = await db.getCurrentUser();
+      setIsSuperAdmin(!!(user as { isSuperAdmin?: boolean } | null)?.isSuperAdmin);
       const org = user?.activeOrganisation;
       if (typeof org === "object" && org && "_id" in org) {
         setActiveOrgName((org as { name?: string }).name || "");
@@ -284,12 +286,19 @@ export const AdminSettings: React.FC = () => {
     } catch {
       setActiveOrgName("");
       setActiveOrgId("");
+      setIsSuperAdmin(false);
     }
   }, []);
 
   useEffect(() => {
     void refreshActiveOrgLabel();
   }, [adminOrgSync, refreshActiveOrgLabel]);
+
+  useEffect(() => {
+    if (!isSuperAdmin && activeTab === "organisations") {
+      setActiveTab("users");
+    }
+  }, [isSuperAdmin, activeTab]);
 
   useEffect(() => {
     const bump = () => setAdminOrgSync((n) => n + 1);
@@ -1715,14 +1724,16 @@ export const AdminSettings: React.FC = () => {
             {/* Tab items */}
             {(
               [
-                { key: "organisations", icon: ExternalLink, label: "Organisations" },
-                { key: "users", icon: Users, label: "Manage Users" },
-                { key: "roles", icon: Shield, label: "Roles" },
-                { key: "permissions", icon: Lock, label: "Permissions" },
-                { key: "categories", icon: Layers, label: "Categories" },
-                { key: "groups", icon: Users, label: "Groups" },
-                { key: "email", icon: Mail, label: "Email Settings" },
-                { key: "ai", icon: Sparkles, label: "AI Settings" },
+                ...(isSuperAdmin
+                  ? [{ key: "organisations" as const, icon: ExternalLink, label: "Organisations" }]
+                  : []),
+                { key: "users" as const, icon: Users, label: "Manage Users" },
+                { key: "roles" as const, icon: Shield, label: "Roles" },
+                { key: "permissions" as const, icon: Lock, label: "Permissions" },
+                { key: "categories" as const, icon: Layers, label: "Categories" },
+                { key: "groups" as const, icon: Users, label: "Groups" },
+                { key: "email" as const, icon: Mail, label: "Email Settings" },
+                { key: "ai" as const, icon: Sparkles, label: "AI Settings" },
               ] as const
             ).map(({ key, icon: Icon, label }) => (
               <button

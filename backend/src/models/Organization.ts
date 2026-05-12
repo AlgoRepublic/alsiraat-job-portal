@@ -8,6 +8,8 @@ export interface IOrganization extends Document {
   logo?: string;
   about?: string;
   isPublic: boolean;
+  /** Primary brand colour (#RRGGBB); drives UI accent when set */
+  themeColor?: string;
   settings?: {
     allowExternalApplications?: boolean;
     requireApprovalForPosts?: boolean;
@@ -26,6 +28,7 @@ const OrganizationSchema: Schema = new Schema(
     logo: { type: String },
     about: { type: String },
     isPublic: { type: Boolean, default: false },
+    themeColor: { type: String, trim: true },
     settings: {
       allowExternalApplications: { type: Boolean, default: true },
       requireApprovalForPosts: { type: Boolean, default: true },

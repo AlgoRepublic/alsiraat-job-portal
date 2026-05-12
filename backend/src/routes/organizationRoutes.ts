@@ -2,6 +2,7 @@ import express, { type Router } from "express";
 import {
   createOrganization,
   getOrganizations,
+  getPublicCentralOrganisation,
   addMember,
   inviteOrganisation,
   listOrgInvitations,
@@ -10,26 +11,30 @@ import {
   uploadLogo,
   removeLogo,
   markOrganisationActive,
+  updateOrganization,
 } from "../controllers/organizationController.js";
 import {
   authenticate,
   optionalAuthenticate,
   requirePermission,
+  requireSuperAdmin,
 } from "../middleware/rbac.js";
 import { upload } from "../middleware/upload.js";
 import { Permission } from "../config/permissions.js";
 
 const router: Router = express.Router();
 
-// Admin only: create organization (legacy — direct with ownerId)
+router.get("/public/central", getPublicCentralOrganisation);
+
+// Platform super-admin only: create organization (legacy — direct with ownerId)
 router.post(
   "/",
   authenticate,
-  requirePermission(Permission.ORG_CREATE),
+  requireSuperAdmin,
   createOrganization,
 );
 
-// List organisations: optional auth — with JWT + active org returns only that org (admin); without auth returns all (e.g. signup)
+// List organisations: no auth → all (e.g. signup); super admin → all regardless of JWT org; otherwise scoped to caller
 router.get("/", optionalAuthenticate, getOrganizations);
 
 // Owner/Admin: add member to organization
@@ -40,62 +45,70 @@ router.post(
   addMember,
 );
 
-// Admin: Upload/Update organisation logo
+// Platform super-admin: Upload/Update organisation logo
 router.post(
   "/:id/logo",
   authenticate,
-  requirePermission(Permission.ORG_UPDATE),
+  requireSuperAdmin,
   upload.single("logo"),
   uploadLogo,
 );
 
-// Admin: Remove organisation logo
+// Platform super-admin: Remove organisation logo
 router.delete(
   "/:id/logo",
   authenticate,
-  requirePermission(Permission.ORG_UPDATE),
+  requireSuperAdmin,
   removeLogo,
 );
 
 // ─── Onboarding Invitation Flow ──────────────────────────────────────────────
 
-// Admin: create org + send onboarding invite to owner email in one step
+// Platform super-admin: create org + send onboarding invite to owner email in one step
 router.post(
   "/invite",
   authenticate,
-  requirePermission(Permission.ORG_CREATE),
+  requireSuperAdmin,
   inviteOrganisation,
 );
 
-// Admin: list all pending org invitations
+// Platform super-admin: list all pending org invitations
 router.get(
   "/invitations",
   authenticate,
-  requirePermission(Permission.ORG_CREATE),
+  requireSuperAdmin,
   listOrgInvitations,
 );
 
-// Admin: revoke a pending invitation
+// Platform super-admin: revoke a pending invitation
 router.delete(
   "/invitations/:id",
   authenticate,
-  requirePermission(Permission.ORG_CREATE),
+  requireSuperAdmin,
   revokeOrgInvitation,
 );
 
-// Admin: resend invitation with a fresh token
+// Platform super-admin: resend invitation with a fresh token
 router.post(
   "/invitations/:id/resend",
   authenticate,
-  requirePermission(Permission.ORG_CREATE),
+  requireSuperAdmin,
   resendOrgInvitation,
 );
-// Admin: Mark a pending organisation as active by assigning an existing user as owner
+// Platform super-admin: Mark a pending organisation as active by assigning an existing user as owner
 router.patch(
   "/:id/mark-active",
   authenticate,
-  requirePermission(Permission.ORG_UPDATE),
+  requireSuperAdmin,
   markOrganisationActive,
+);
+
+// Platform super-admin: update organisation details
+router.patch(
+  "/:id",
+  authenticate,
+  requireSuperAdmin,
+  updateOrganization,
 );
 
 export default router;

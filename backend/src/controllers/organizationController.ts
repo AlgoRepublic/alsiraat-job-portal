@@ -6,6 +6,7 @@ import Invitation from "../models/Invitation.js";
 import { sendEmail } from "../services/notificationService.js";
 import { onboardingInvitationEmail } from "../services/emailTemplates.js";
 import Group from "../models/Group.js";
+import { isSuperAdminUser } from "../utils/superAdmin.js";
 
 /**
  * Normalise an organisation name so it is always stored consistently.
@@ -34,9 +35,27 @@ export function slugifyOrgName(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+const THEME_COLOR_HEX = /^#[0-9A-Fa-f]{6}$/;
+
+/**
+ * undefined = field omitted; null / "" = clear; valid #RRGGBB = set (lowercase).
+ * Any other non-empty string → "invalid".
+ */
+function coerceThemeColorInput(
+  value: unknown,
+): "invalid" | undefined | null | string {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value !== "string") return undefined;
+  const t = value.trim();
+  if (!t) return null;
+  if (!THEME_COLOR_HEX.test(t)) return "invalid";
+  return t.toLowerCase();
+}
+
 export const createOrganization = async (req: Request, res: Response) => {
   try {
-    const { name, domain, logo, about, ownerId } = req.body;
+    const { name, domain, logo, about, ownerId, themeColor } = req.body;
 
     const owner = await User.findById(ownerId);
     if (!owner)
@@ -45,6 +64,13 @@ export const createOrganization = async (req: Request, res: Response) => {
     const normalizedName = normalizeOrgName(name || "");
     const slug = slugifyOrgName(normalizedName);
 
+    const tc = coerceThemeColorInput(themeColor);
+    if (tc === "invalid") {
+      return res.status(400).json({
+        message: "themeColor must be a 6-digit hex colour (e.g. #812349) or empty",
+      });
+    }
+
     const org = await Organization.create({
       name: normalizedName,
       slug,
@@ -52,6 +78,7 @@ export const createOrganization = async (req: Request, res: Response) => {
       logo,
       about,
       owner: ownerId,
+      ...(typeof tc === "string" ? { themeColor: tc } : {}),
     });
 
     // Assign org + Organisation Admin role to owner (multi-org: push to array)
@@ -97,7 +124,16 @@ export const createOrganization = async (req: Request, res: Response) => {
 
 export const getOrganizations = async (req: Request, res: Response) => {
   try {
+    const user = (req as any).user;
     const orgId = (req as any).orgId as string | null | undefined;
+
+    if (isSuperAdminUser(user)) {
+      const orgs = await Organization.find()
+        .populate("owner", "name email")
+        .sort({ name: 1 });
+      return res.json(orgs);
+    }
+
     if (orgId) {
       const org = await Organization.findById(orgId).populate(
         "owner",
@@ -106,10 +142,53 @@ export const getOrganizations = async (req: Request, res: Response) => {
       return res.json(org ? [org] : []);
     }
 
-    const orgs = await Organization.find()
+    if (!user) {
+      const orgs = await Organization.find()
+        .populate("owner", "name email")
+        .sort({ name: 1 });
+      return res.json(orgs);
+    }
+
+    const memberIds = user.organisations || [];
+    const orgs = await Organization.find({ _id: { $in: memberIds } })
       .populate("owner", "name email")
       .sort({ name: 1 });
     res.json(orgs);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/**
+ * GET /organisations/public/central
+ * Public read: shell branding for anonymous browse (Search Tasks /jobs).
+ * Resolved by slug from CENTRAL_ORG_SLUG (default `central`).
+ */
+export const getPublicCentralOrganisation = async (
+  _req: Request,
+  res: Response,
+) => {
+  try {
+    const slug = (process.env.CENTRAL_ORG_SLUG || "central")
+      .trim()
+      .toLowerCase();
+    const org = await Organization.findOne({ slug })
+      .select("name slug logo themeColor isPublic about")
+      .lean();
+    if (!org) {
+      return res
+        .status(404)
+        .json({ message: "Central organisation is not configured" });
+    }
+    res.json({
+      _id: org._id,
+      name: org.name,
+      slug: org.slug,
+      logo: org.logo,
+      themeColor: org.themeColor,
+      isPublic: org.isPublic,
+      about: org.about,
+    });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -195,6 +274,7 @@ export const inviteOrganisation = async (req: any, res: Response) => {
       organisationId,
       role,
       memberKind,
+      themeColor,
     } = req.body;
 
     if (!ownerEmail) {
@@ -233,12 +313,21 @@ export const inviteOrganisation = async (req: any, res: Response) => {
         });
       }
 
+      const tc = coerceThemeColorInput(themeColor);
+      if (tc === "invalid") {
+        return res.status(400).json({
+          message:
+            "themeColor must be a 6-digit hex colour (e.g. #812349) or empty",
+        });
+      }
+
       const newOrg = await Organization.create({
         name: normalizedName,
         slug,
         domain: domain || undefined,
         about: about || undefined,
         type: type || undefined,
+        ...(typeof tc === "string" ? { themeColor: tc } : {}),
       });
 
       targetOrgId = newOrg._id;
@@ -438,6 +527,127 @@ export const removeLogo = async (req: Request | any, res: Response) => {
 
     res.json({ message: "Logo removed successfully" });
   } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/**
+ * PATCH /organisations/:id
+ * Platform super-admin: update organisation profile and settings.
+ */
+export const updateOrganization = async (req: Request | any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const org = await Organization.findById(id);
+    if (!org) return res.status(404).json({ message: "Organisation not found" });
+
+    const { name, type, domain, about, isPublic, settings, themeColor } =
+      req.body ?? {};
+    const unsetFields: Record<string, 1> = {};
+
+    if (name !== undefined) {
+      const normalized = normalizeOrgName(String(name));
+      if (!normalized) {
+        return res.status(400).json({ message: "Name cannot be empty" });
+      }
+      const newSlug = slugifyOrgName(normalized);
+      if (newSlug !== org.slug) {
+        const taken = await Organization.findOne({
+          slug: newSlug,
+          _id: { $ne: org._id },
+        });
+        if (taken) {
+          return res.status(400).json({
+            message: "An organisation with this name already exists",
+          });
+        }
+        org.slug = newSlug;
+      }
+      org.name = normalized;
+    }
+
+    if (type !== undefined) {
+      const trimmed = typeof type === "string" ? type.trim() : "";
+      if (trimmed) org.type = trimmed;
+      else unsetFields.type = 1;
+    }
+
+    if (about !== undefined) {
+      const trimmed = typeof about === "string" ? about.trim() : "";
+      if (trimmed) org.about = trimmed;
+      else unsetFields.about = 1;
+    }
+
+    if (domain !== undefined) {
+      const raw = domain === null ? "" : String(domain).trim();
+      if (raw) {
+        const dup = await Organization.findOne({
+          domain: raw,
+          _id: { $ne: org._id },
+        });
+        if (dup) {
+          return res.status(400).json({
+            message:
+              "This email domain is already used by another organisation",
+          });
+        }
+        org.domain = raw;
+      } else {
+        unsetFields.domain = 1;
+      }
+    }
+
+    if (typeof isPublic === "boolean") {
+      org.isPublic = isPublic;
+    }
+
+    if (themeColor !== undefined) {
+      const tc = coerceThemeColorInput(themeColor);
+      if (tc === "invalid") {
+        return res.status(400).json({
+          message:
+            "themeColor must be a 6-digit hex colour (e.g. #812349) or empty",
+        });
+      }
+      if (tc === null) unsetFields.themeColor = 1;
+      else if (typeof tc === "string") org.themeColor = tc;
+    }
+
+    if (settings && typeof settings === "object") {
+      const cur = org.settings ?? {};
+      if (typeof settings.allowExternalApplications === "boolean") {
+        cur.allowExternalApplications = settings.allowExternalApplications;
+      }
+      if (typeof settings.requireApprovalForPosts === "boolean") {
+        cur.requireApprovalForPosts = settings.requireApprovalForPosts;
+      }
+      org.settings = cur;
+    }
+
+    if (unsetFields.type) delete (org as any).type;
+    if (unsetFields.about) delete (org as any).about;
+    if (unsetFields.domain) delete (org as any).domain;
+    if (unsetFields.themeColor) delete (org as any).themeColor;
+
+    await org.save();
+
+    if (Object.keys(unsetFields).length > 0) {
+      await Organization.updateOne({ _id: org._id }, { $unset: unsetFields });
+    }
+
+    const refreshed = await Organization.findById(id)
+      .populate("owner", "name email")
+      .lean();
+    res.json({
+      message: "Organisation updated",
+      organisation: refreshed,
+    });
+  } catch (err: any) {
+    if (err?.code === 11000) {
+      return res.status(400).json({
+        message: "Duplicate slug or domain for another organisation",
+      });
+    }
     res.status(500).json({ message: err.message });
   }
 };

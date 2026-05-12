@@ -28,7 +28,8 @@ export const getUsers = async (req: Request, res: Response) => {
     let query: any = {};
 
     const orgId = (req as any).orgId as string | null | undefined;
-    // User directory is always organisation-scoped; super admins must pick an active org in the app.
+    // User directory is organisation-scoped when an active org is selected.
+    // Super admins without org context can search platform-wide (e.g. organisation onboarding / mark-active).
     if (orgId) {
       query.organisations = orgId;
       if (role) {
@@ -40,17 +41,17 @@ export const getUsers = async (req: Request, res: Response) => {
         };
       }
     } else if (!isSuperAdminUser(caller)) {
-      // Non-admin with no active org → can only see themselves
+      // Non-super with no active org → can only see themselves
       query._id = caller?._id;
       if (role) {
         query.organisationRoles = {
           $elemMatch: { roles: role },
         };
       }
-    } else {
-      return res.status(400).json({
-        message: "Select an organisation to view and manage users",
-      });
+    } else if (role) {
+      query.organisationRoles = {
+        $elemMatch: { roles: role },
+      };
     }
 
     if (search) {

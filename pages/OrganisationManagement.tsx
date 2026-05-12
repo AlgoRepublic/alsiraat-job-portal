@@ -14,11 +14,15 @@ import {
   Users,
   AlertCircle,
   ExternalLink,
+  Edit2,
+  Palette,
+  Save,
 } from "lucide-react";
 import { useToast } from "../components/Toast";
 import { API_BASE_URL } from "../services/api";
 import { Loading } from "../components/Loading";
 import { db } from "../services/database";
+import { isValidThemeColorHex } from "../utils/orgTheme";
 
 interface Organisation {
   _id: string;
@@ -28,9 +32,14 @@ interface Organisation {
   domain?: string;
   about?: string;
   logo?: string;
+  themeColor?: string;
   isPublic: boolean;
   owner?: { name: string; email: string } | null;
   createdAt: string;
+  settings?: {
+    allowExternalApplications?: boolean;
+    requireApprovalForPosts?: boolean;
+  };
 }
 
 interface OrgInvitation {
@@ -68,7 +77,22 @@ export const OrganisationManagement: React.FC<{
     domain: "",
     about: "",
     ownerEmail: "",
+    themeColor: "",
   });
+  const [inviteLogoFile, setInviteLogoFile] = useState<File | null>(null);
+
+  const [editTarget, setEditTarget] = useState<Organisation | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    type: "",
+    domain: "",
+    about: "",
+    themeColor: "",
+    isPublic: false,
+    allowExternalApplications: true,
+    requireApprovalForPosts: true,
+  });
+  const [editSubmitting, setEditSubmitting] = useState(false);
 
   useEffect(() => {
     loadOrgs();
@@ -108,6 +132,11 @@ export const OrganisationManagement: React.FC<{
   const handleInviteOrg = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim() || !form.ownerEmail.trim()) return;
+    const inviteTc = form.themeColor.trim();
+    if (inviteTc && !isValidThemeColorHex(inviteTc)) {
+      showError("Theme colour must be a 6-digit hex value (e.g. #812349)");
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await fetch(`${API_BASE_URL}/organisations/invite`, {
@@ -119,13 +148,36 @@ export const OrganisationManagement: React.FC<{
           domain: form.domain.trim() || undefined,
           about: form.about.trim() || undefined,
           ownerEmail: form.ownerEmail.trim().toLowerCase(),
+          ...(isValidThemeColorHex(form.themeColor.trim())
+            ? { themeColor: form.themeColor.trim().toLowerCase() }
+            : {}),
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
+      const newOrgId = data.organisation != null ? String(data.organisation) : null;
       showSuccess(data.message);
+      if (inviteLogoFile && newOrgId) {
+        try {
+          await db.uploadOrganizationLogo(newOrgId, inviteLogoFile);
+          showSuccess("Logo uploaded for the new organisation.");
+        } catch (logoErr: any) {
+          showError(
+            logoErr?.message ||
+              "Logo upload failed — you can add it from the organisation list."
+          );
+        }
+      }
       setShowForm(false);
-      setForm({ name: "", type: "", domain: "", about: "", ownerEmail: "" });
+      setInviteLogoFile(null);
+      setForm({
+        name: "",
+        type: "",
+        domain: "",
+        about: "",
+        ownerEmail: "",
+        themeColor: "",
+      });
       await loadOrgs();
       await loadInvitations();
     } catch (err: any) {
@@ -236,8 +288,307 @@ export const OrganisationManagement: React.FC<{
     }
   };
 
+  const openEdit = (org: Organisation) => {
+    if (showForm) setShowForm(false);
+    setEditTarget(org);
+    setEditForm({
+      name: org.name,
+      type: org.type ?? "",
+      domain: org.domain ?? "",
+      about: org.about ?? "",
+      themeColor: org.themeColor ?? "",
+      isPublic: !!org.isPublic,
+      allowExternalApplications:
+        org.settings?.allowExternalApplications !== false,
+      requireApprovalForPosts: org.settings?.requireApprovalForPosts !== false,
+    });
+  };
+
+  const closeEdit = () => {
+    setEditTarget(null);
+  };
+
+  const handleUpdateOrg = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editTarget || !editForm.name.trim()) return;
+    const tcRaw = editForm.themeColor.trim();
+    if (tcRaw && !isValidThemeColorHex(tcRaw)) {
+      showError("Theme colour must be a 6-digit hex value (e.g. #812349)");
+      return;
+    }
+    setEditSubmitting(true);
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/organisations/${editTarget._id}`,
+        {
+          method: "PATCH",
+          headers: authHeader(),
+          body: JSON.stringify({
+            name: editForm.name.trim(),
+            type: editForm.type.trim() || undefined,
+            domain: editForm.domain.trim() || null,
+            about: editForm.about.trim() || undefined,
+            isPublic: editForm.isPublic,
+            themeColor: tcRaw ? tcRaw.toLowerCase() : null,
+            settings: {
+              allowExternalApplications: editForm.allowExternalApplications,
+              requireApprovalForPosts: editForm.requireApprovalForPosts,
+            },
+          }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      showSuccess(data.message || "Organisation updated");
+      closeEdit();
+      await loadOrgs();
+    } catch (err: any) {
+      showError(err.message || "Failed to update organisation");
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-8 animate-fade-in">
+      {editTarget && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-org-title"
+          onClick={closeEdit}
+        >
+          <div
+            className="glass-card rounded-2xl border border-zinc-200 dark:border-zinc-700 w-full max-w-lg max-h-[min(90vh,720px)] overflow-y-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <form onSubmit={handleUpdateOrg} className="p-6 space-y-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3
+                    id="edit-org-title"
+                    className="text-lg font-black text-zinc-900 dark:text-white flex items-center gap-2"
+                  >
+                    <span className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
+                      <Edit2 className="w-4 h-4 text-primary" />
+                    </span>
+                    Edit organisation
+                  </h3>
+                  <p className="text-xs text-zinc-500 mt-1 font-mono">
+                    Slug: {editTarget.slug}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeEdit}
+                  className="p-2 rounded-xl text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                  Organisation name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editForm.name}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, name: e.target.value })
+                  }
+                  className="w-full px-4 py-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 focus:border-primary outline-none text-sm font-bold text-zinc-900 dark:text-white transition-colors"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                  Type
+                </label>
+                <select
+                  value={editForm.type}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, type: e.target.value })
+                  }
+                  className="w-full px-4 py-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 focus:border-primary outline-none text-sm font-bold text-zinc-900 dark:text-white transition-colors"
+                >
+                  <option value="">None</option>
+                  <option value="School">School</option>
+                  <option value="College">College</option>
+                  <option value="University">University</option>
+                  <option value="Institute">Institute</option>
+                  <option value="Company">Company</option>
+                  <option value="Non-Profit">Non-Profit</option>
+                  <option value="Government">Government</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                  Email domain{" "}
+                  <span className="font-medium normal-case text-zinc-400">
+                    (optional)
+                  </span>
+                </label>
+                <div className="relative">
+                  <Globe className="absolute left-3.5 top-3.5 w-4 h-4 text-zinc-400" />
+                  <input
+                    type="text"
+                    value={editForm.domain}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, domain: e.target.value })
+                    }
+                    placeholder="Clear field to remove domain"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 focus:border-primary outline-none text-sm font-bold text-zinc-900 dark:text-white placeholder:text-zinc-400 transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                  About
+                </label>
+                <textarea
+                  value={editForm.about}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, about: e.target.value })
+                  }
+                  rows={3}
+                  className="w-full px-4 py-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 focus:border-primary outline-none text-sm font-bold text-zinc-900 dark:text-white transition-colors resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500 flex items-center gap-1.5">
+                    <Palette className="w-3.5 h-3.5" />
+                    Theme colour
+                  </label>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <input
+                      type="color"
+                      aria-label="Pick theme colour"
+                      className="h-11 w-14 rounded-lg border border-zinc-200 dark:border-zinc-700 cursor-pointer bg-transparent"
+                      value={
+                        isValidThemeColorHex(editForm.themeColor.trim())
+                          ? editForm.themeColor.trim().toLowerCase()
+                          : "#812349"
+                      }
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, themeColor: e.target.value })
+                      }
+                    />
+                    <input
+                      type="text"
+                      placeholder="Clear to use profile accent only"
+                      value={editForm.themeColor}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, themeColor: e.target.value })
+                      }
+                      className="flex-1 min-w-[8rem] px-4 py-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 focus:border-primary outline-none text-sm font-mono font-bold text-zinc-900 dark:text-white placeholder:text-zinc-400 transition-colors"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                    Replace logo
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="w-full text-xs font-bold text-zinc-600 dark:text-zinc-300 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-primary file:text-white file:font-bold"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f && editTarget) {
+                        void handleUploadLogo(editTarget._id, f);
+                        e.target.value = "";
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editForm.isPublic}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, isPublic: e.target.checked })
+                  }
+                  className="w-4 h-4 rounded accent-primary"
+                />
+                <span className="text-sm font-bold text-zinc-800 dark:text-zinc-100">
+                  Public organisation (visible in listings)
+                </span>
+              </label>
+
+              <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4 space-y-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                  Task and application defaults
+                </p>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editForm.allowExternalApplications}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        allowExternalApplications: e.target.checked,
+                      })
+                    }
+                    className="w-4 h-4 rounded accent-primary"
+                  />
+                  <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    Allow external applications
+                  </span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editForm.requireApprovalForPosts}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        requireApprovalForPosts: e.target.checked,
+                      })
+                    }
+                    className="w-4 h-4 rounded accent-primary"
+                  />
+                  <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    Require approval for posts
+                  </span>
+                </label>
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={editSubmitting || !editForm.name.trim()}
+                  className="flex items-center gap-2 px-6 py-3 bg-primary text-white font-black text-sm rounded-xl hover:bg-primaryHover transition-colors shadow-lg shadow-primary/20 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {editSubmitting ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  {editSubmitting ? "Saving…" : "Save changes"}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeEdit}
+                  className="px-5 py-3 text-sm font-bold text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
@@ -294,12 +645,14 @@ export const OrganisationManagement: React.FC<{
             <button
               onClick={() => {
                 setShowForm(false);
+                setInviteLogoFile(null);
                 setForm({
                   name: "",
                   type: "",
                   domain: "",
                   about: "",
                   ownerEmail: "",
+                  themeColor: "",
                 });
               }}
               className="p-2 rounded-xl text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
@@ -410,6 +763,64 @@ export const OrganisationManagement: React.FC<{
               />
             </div>
 
+            {/* Branding: theme + optional logo */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500 flex items-center gap-1.5">
+                  <Palette className="w-3.5 h-3.5" />
+                  Theme colour
+                  <span className="font-medium normal-case text-zinc-400">
+                    (optional)
+                  </span>
+                </label>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <input
+                    type="color"
+                    aria-label="Pick theme colour"
+                    className="h-11 w-14 rounded-lg border border-zinc-200 dark:border-zinc-700 cursor-pointer bg-transparent"
+                    value={
+                      isValidThemeColorHex(form.themeColor.trim())
+                        ? form.themeColor.trim().toLowerCase()
+                        : "#812349"
+                    }
+                    onChange={(e) =>
+                      setForm({ ...form, themeColor: e.target.value })
+                    }
+                  />
+                  <input
+                    type="text"
+                    placeholder="#812349"
+                    value={form.themeColor}
+                    onChange={(e) =>
+                      setForm({ ...form, themeColor: e.target.value })
+                    }
+                    className="flex-1 min-w-[8rem] px-4 py-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 focus:border-primary outline-none text-sm font-mono font-bold text-zinc-900 dark:text-white placeholder:text-zinc-400 transition-colors"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                  Logo{" "}
+                  <span className="font-medium normal-case text-zinc-400">
+                    (optional)
+                  </span>
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="w-full text-xs font-bold text-zinc-600 dark:text-zinc-300 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-primary file:text-white file:font-bold"
+                  onChange={(e) =>
+                    setInviteLogoFile(e.target.files?.[0] ?? null)
+                  }
+                />
+                {inviteLogoFile && (
+                  <p className="text-[10px] text-zinc-500 truncate">
+                    {inviteLogoFile.name}
+                  </p>
+                )}
+              </div>
+            </div>
+
             {/* Divider */}
             <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4">
               <div className="space-y-1.5">
@@ -465,12 +876,14 @@ export const OrganisationManagement: React.FC<{
                 type="button"
                 onClick={() => {
                   setShowForm(false);
+                  setInviteLogoFile(null);
                   setForm({
                     name: "",
                     type: "",
                     domain: "",
                     about: "",
                     ownerEmail: "",
+                    themeColor: "",
                   });
                 }}
                 className="px-5 py-3 text-sm font-bold text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors"
@@ -698,16 +1111,24 @@ export const OrganisationManagement: React.FC<{
                   )}
                 </div>
 
-                {/* Status badge / action */}
-                <div className="shrink-0">
+                {/* Actions + status */}
+                <div className="shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openEdit(org)}
+                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 border border-zinc-200 dark:border-zinc-600 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-xs font-bold transition-colors"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                    Edit
+                  </button>
                   {org.owner ? (
-                    <span className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-bold">
+                    <span className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-bold">
                       <CheckCircle2 className="w-3.5 h-3.5" /> Active
                     </span>
                   ) : (
                     <button
                       onClick={() => handleMarkActive(org._id)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/40 rounded-lg text-xs font-bold transition-colors"
+                      className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/40 rounded-lg text-xs font-bold transition-colors"
                       title="Assign an owner to mark this organisation as active"
                     >
                       <Clock className="w-3.5 h-3.5" /> Pending — Mark Active

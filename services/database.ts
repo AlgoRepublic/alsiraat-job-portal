@@ -10,9 +10,14 @@ import {
   Visibility,
   FileVisibility,
 } from "../types";
-import { api, ApiError, API_BASE_URL, LOGIN_SOURCE_KEY } from "./api";
-
-const ORG_CONTEXT_REFRESH_KEY = "org_context_refreshed_token";
+import {
+  api,
+  ApiError,
+  API_BASE_URL,
+  LOGIN_SOURCE_KEY,
+  ORG_CONTEXT_REFRESHED_TOKEN_KEY,
+} from "./api";
+import { invalidatePublicCentralOrganisationCache } from "./publicCentralOrg";
 
 const extractOrgId = (value: unknown): string | null => {
   if (!value) return null;
@@ -198,6 +203,7 @@ class DatabaseService {
 
   async logout(): Promise<void> {
     await api.logout();
+    invalidatePublicCentralOrganisationCache();
   }
 
   /** Complete SSO login after redirect: store token, fetch user, store user_data and optional login source. */
@@ -220,11 +226,13 @@ class DatabaseService {
       const data = await api.getMe();
       if (data && data.user) {
         const activeOrgId = extractOrgId(data.user.activeOrganisation);
-        const refreshedForToken = localStorage.getItem(ORG_CONTEXT_REFRESH_KEY);
+        const refreshedForToken = localStorage.getItem(
+          ORG_CONTEXT_REFRESHED_TOKEN_KEY,
+        );
         if (activeOrgId && refreshedForToken !== token) {
           try {
             const switched = await this.switchOrganisation(activeOrgId);
-            localStorage.setItem(ORG_CONTEXT_REFRESH_KEY, token);
+            localStorage.setItem(ORG_CONTEXT_REFRESHED_TOKEN_KEY, token);
             return {
               ...switched,
               skills: switched.skills || [],

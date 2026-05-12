@@ -143,6 +143,23 @@ export const requirePermission = (permission: Permission) => {
   };
 };
 
+/** Platform super-admin only (User.isSuperAdmin). */
+export const requireSuperAdmin = (
+  req: any,
+  res: Response,
+  next: NextFunction,
+) => {
+  if (!req.user) {
+    return res.status(401).json({ message: "Authentication required" });
+  }
+  if (!isSuperAdminUser(req.user)) {
+    return res.status(403).json({
+      message: "Platform administrator access required",
+    });
+  }
+  next();
+};
+
 /**
  * Middleware to check if user has ANY of the specified permissions
  * Usage: requireAnyPermission([Permission.TASK_APPROVE, Permission.TASK_PUBLISH])

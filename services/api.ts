@@ -14,8 +14,14 @@ export const API_BASE_URL =
 /** Display name of the platform Central organisation (seed `Organization.name`). */
 export const CENTRAL_ORGANISATION_NAME = "Central";
 
+/** Seed slug for the Central organisation (`Organization.slug`). */
+export const CENTRAL_ORGANISATION_SLUG = "central";
+
 /** localStorage key for how the user signed in: "email" | "google" | "sso" */
 export const LOGIN_SOURCE_KEY = "login_source";
+
+/** Tracks which auth token org-context refresh ran for (cleared on logout). */
+export const ORG_CONTEXT_REFRESHED_TOKEN_KEY = "org_context_refreshed_token";
 
 export class ApiError extends Error {
   status: number;
@@ -240,6 +246,7 @@ class ApiService {
     localStorage.removeItem("user_data");
     localStorage.removeItem(LOGIN_SOURCE_KEY);
     localStorage.removeItem("id_token");
+    localStorage.removeItem(ORG_CONTEXT_REFRESHED_TOKEN_KEY);
   }
 
   /**

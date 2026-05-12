@@ -99,7 +99,7 @@ export async function buildOrgPayload(user: any, selectedOrgId?: string | null) 
       organisationRoles: [...mergedVirtualRoles, ...extraPersistedRoles],
     };
   }
-  await user.populate("organisations", "name logo");
+  await user.populate("organisations", "name logo themeColor slug");
   const active = (user.organisations ?? []).find(
     (o: any) => o._id?.toString() === selectedOrgId?.toString(),
   ) ?? null;
@@ -110,6 +110,8 @@ export async function buildOrgPayload(user: any, selectedOrgId?: string | null) 
       _id: o._id,
       name: o.name,
       logo: o.logo,
+      themeColor: o.themeColor,
+      slug: o.slug,
     })),
     organisationRoles: serializeOrganisationRolesForPayload(user),
   };

@@ -19,7 +19,7 @@ const VIRTUAL_ORG_ROLES: UserRole[] = [UserRole.ORGANIZATION_ADMIN];
 
 export async function loadAllOrganisationsLean() {
   return Organization.find({})
-    .select("name logo slug")
+    .select("name logo slug themeColor")
     .sort({ name: 1 })
     .lean();
 }
@@ -44,6 +44,7 @@ export type VirtualOrgPayload = {
     name?: string;
     logo?: string;
     slug?: string;
+    themeColor?: string;
   } | null;
   activeOrganisation: VirtualOrgPayload["organisation"];
   organisations: Array<{
@@ -51,6 +52,7 @@ export type VirtualOrgPayload = {
     name?: string;
     logo?: string;
     slug?: string;
+    themeColor?: string;
   }>;
   organisationRoles: {
     organisation: mongoose.Types.ObjectId;
@@ -68,6 +70,7 @@ export async function buildVirtualOrgPayload(
     name: o.name,
     logo: o.logo,
     slug: o.slug,
+    themeColor: o.themeColor,
   }));
   const active =
     mapped.find((o: any) => o._id?.toString() === selectedOrgId?.toString()) ??

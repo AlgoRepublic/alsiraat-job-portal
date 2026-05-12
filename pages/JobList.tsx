@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { JobStatus, RewardType, Job } from "../types";
 import { db } from "../services/database";
+import { CENTRAL_ORGANISATION_SLUG } from "../services/api";
+import { getPublicCentralOrganisation } from "../services/publicCentralOrg";
 import { getStatusColor } from "./Dashboard";
 
 import { Loading } from "../components/Loading";
@@ -46,6 +48,8 @@ export const JobList: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+
+  const [browseOrgLabel, setBrowseOrgLabel] = useState("Central");
 
   // Derived Filter State from URL
   const searchTerm = searchParams.get("q") || "";
@@ -201,12 +205,29 @@ export const JobList: React.FC = () => {
   ]);
 
   useEffect(() => {
-    const fetchCategories = async () => {
-      const data = await db.getTaskCategories();
+    const loadBrowseContext = async () => {
+      const user = await db.getCurrentUser();
+      if (user) {
+        const ao = user.activeOrganisation as { name?: string; slug?: string } | undefined;
+        const name =
+          typeof ao === "object" && ao && typeof ao.name === "string" && ao.name.trim()
+            ? ao.name.trim()
+            : "Central";
+        setBrowseOrgLabel(name);
+        const slug =
+          typeof ao === "object" && ao && typeof ao.slug === "string" && ao.slug.trim()
+            ? ao.slug.trim()
+            : CENTRAL_ORGANISATION_SLUG;
+        const data = await db.getTaskCategories(slug);
+        setCategories(Array.isArray(data) ? data : []);
+        return;
+      }
+      const org = await getPublicCentralOrganisation();
+      setBrowseOrgLabel(org?.name?.trim() || "Central");
+      const data = await db.getTaskCategories(org?.slug ?? CENTRAL_ORGANISATION_SLUG);
       setCategories(Array.isArray(data) ? data : []);
     };
-
-    fetchCategories();
+    void loadBrowseContext();
   }, []);
 
   const handlePageChange = (page: number) => {
@@ -231,8 +252,9 @@ export const JobList: React.FC = () => {
             Search Tasks
           </h2>
           <p className="text-white/80 dark:text-zinc-400 text-lg md:text-xl mb-12 text-center md:text-left font-medium leading-relaxed">
-            Discover tasks within the Al Siraat{" "}
-            <span className="font-bold text-white">College</span>.
+            Discover tasks within{" "}
+            <span className="font-bold text-white">{browseOrgLabel}</span>
+            .
           </p>
 
           <div className="flex flex-col md:flex-row gap-4">

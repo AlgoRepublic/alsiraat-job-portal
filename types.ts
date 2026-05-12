@@ -124,6 +124,9 @@ export interface OrgContext {
   _id: string;
   name: string;
   logo?: string;
+  slug?: string;
+  /** #RRGGBB when set; used for tenant accent in the shell */
+  themeColor?: string;
 }
 
 export interface User {
