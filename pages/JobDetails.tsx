@@ -275,6 +275,11 @@ export const JobDetails: React.FC = () => {
     taskAllowedGroups.length === 0 ||
     taskAllowedGroups.some((gid: string) => userGroupIds.includes(String(gid)));
 
+  const hasApplied =
+    !!job.hasApplied ||
+    applicationStep === "applied" ||
+    applicationStep === "success";
+
   // Permission-based application capability:
   //   - Must have APPLICATION_CREATE permission
   //   - Must not have already applied
