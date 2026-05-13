@@ -12,14 +12,16 @@ import {
   ClipboardList,
   Building2,
 } from "lucide-react";
-import { JobStatus, RewardType, Job } from "../types";
+import { JobStatus, RewardType, Job, Permission, User } from "../types";
 import { db } from "../services/database";
-import { CENTRAL_ORGANISATION_SLUG } from "../services/api";
+import { CENTRAL_ORGANISATION_SLUG, ApiError } from "../services/api";
 import { getPublicCentralOrganisation } from "../services/publicCentralOrg";
 import { getStatusColor } from "./Dashboard";
 
 import { Loading } from "../components/Loading";
 import { Pagination } from "../components/Pagination";
+import { useToast } from "../components/Toast";
+import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 
 const PAGE_SIZE = 12;
 const SEARCH_DEBOUNCE_MS = 400;
@@ -29,6 +31,7 @@ const FULL_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 export const JobList: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { showError } = useToast();
 
   // UI State
   const [showFilters, setShowFilters] = useState(false);
@@ -50,6 +53,12 @@ export const JobList: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
 
   const [browseOrgLabel, setBrowseOrgLabel] = useState("Central");
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [listVersion, setListVersion] = useState(0);
+
+  useEffect(() => {
+    void db.getCurrentUser().then(setCurrentUser).catch(() => setCurrentUser(null));
+  }, []);
 
   // Derived Filter State from URL
   const searchTerm = searchParams.get("q") || "";
@@ -58,6 +67,20 @@ export const JobList: React.FC = () => {
   const filterReward = searchParams.get("reward") || "All";
   const dateFrom = searchParams.get("dateFrom") || "";
   const dateTo = searchParams.get("dateTo") || "";
+  const rawLifecycle = (searchParams.get("lifecycle") || "").toLowerCase();
+  const canArchiveFilter =
+    !!currentUser?.isSuperAdmin ||
+    !!currentUser?.permissions?.includes(Permission.TASK_ARCHIVE);
+  const canDeleteFilter =
+    !!currentUser?.isSuperAdmin ||
+    !!currentUser?.permissions?.includes(Permission.TASK_DELETE);
+  const filterLifecycle =
+    rawLifecycle === "archived" && canArchiveFilter
+      ? "archived"
+      : rawLifecycle === "deleted" && canDeleteFilter
+        ? "deleted"
+        : "active";
+
   /** Last `q` we pushed or adopted from the URL — avoids clobbering `queryDraft` after debounced commits. */
   const lastCommittedQueryRef = useRef(searchTerm);
 
@@ -95,6 +118,16 @@ export const JobList: React.FC = () => {
     },
     [setSearchParams],
   );
+
+  useEffect(() => {
+    if (!currentUser) return;
+    if (
+      (rawLifecycle === "archived" && !canArchiveFilter) ||
+      (rawLifecycle === "deleted" && !canDeleteFilter)
+    ) {
+      updateParam("lifecycle", "");
+    }
+  }, [currentUser, rawLifecycle, canArchiveFilter, canDeleteFilter, updateParam]);
 
   useEffect(() => {
     if (searchDebounceRef.current) {
@@ -156,7 +189,8 @@ export const JobList: React.FC = () => {
     filterStatus !== "All" ||
     filterReward !== "All" ||
     dateFrom !== "" ||
-    dateTo !== "";
+    dateTo !== "" ||
+    filterLifecycle !== "active";
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -173,35 +207,47 @@ export const JobList: React.FC = () => {
       if (filterReward !== "All") filters.reward = filterReward;
       if (dateFrom) filters.dateFrom = dateFrom;
       if (dateTo) filters.dateTo = dateTo;
+      if (filterLifecycle !== "active") filters.lifecycle = filterLifecycle;
 
       const page = parseInt(searchParams.get("page") || "1");
       setCurrentPage(page);
 
-      const data = await db.getSearchJobsPaged(filters, page, PAGE_SIZE);
+      try {
+        const data = await db.getSearchJobsPaged(filters, page, PAGE_SIZE);
 
-      console.log("\n📋 Jobs Paged:", {
-        count: data.jobs.length,
-        total: data.pagination.total,
-        page: data.pagination.page,
-        filters,
-      });
-
-      setJobs(data.jobs);
-      setTotalItems(data.pagination.total);
-      setTotalPages(data.pagination.pages);
-      setLoading(false);
-      setListRefreshing(false);
-      initialFetchDone.current = true;
+        setJobs(data.jobs);
+        setTotalItems(data.pagination.total);
+        setTotalPages(data.pagination.pages);
+      } catch (err: any) {
+        if (err instanceof ApiError && err.status === 403) {
+          showError(err.message || "You cannot view tasks in this list.");
+          updateParam("lifecycle", "");
+        } else {
+          console.error(err);
+          showError(err?.message || "Failed to load tasks.");
+        }
+        setJobs([]);
+        setTotalItems(0);
+        setTotalPages(1);
+      } finally {
+        setLoading(false);
+        setListRefreshing(false);
+        initialFetchDone.current = true;
+      }
     };
-    fetchJobs();
+    void fetchJobs();
   }, [
     searchTerm,
     filterCategory,
     filterStatus,
     filterReward,
+    filterLifecycle,
     dateFrom,
     dateTo,
     searchParams.get("page"),
+    showError,
+    updateParam,
+    listVersion,
   ]);
 
   useEffect(() => {
@@ -287,7 +333,7 @@ export const JobList: React.FC = () => {
           </div>
 
           {showFilters && (
-            <div className="mt-8 p-8 glass-card border-white/10 rounded-3xl animate-slide-up grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="mt-8 p-8 glass-card border-white/10 rounded-3xl animate-slide-up grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-white/60 dark:text-zinc-500 uppercase tracking-widest ml-1">
                   Category
@@ -322,6 +368,25 @@ export const JobList: React.FC = () => {
                   ))}
                 </select>
               </div>
+              {(canArchiveFilter || canDeleteFilter) && (
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-white/60 dark:text-zinc-500 uppercase tracking-widest ml-1">
+                    Tasks
+                  </label>
+                  <select
+                    className="w-full px-5 py-3 rounded-xl bg-white/90 dark:bg-zinc-900 border-0 focus:ring-2 focus:ring-[#812349] outline-none font-bold text-sm"
+                    value={filterLifecycle}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      updateParam("lifecycle", v === "active" ? "" : v);
+                    }}
+                  >
+                    <option value="active">Active</option>
+                    {canArchiveFilter && <option value="archived">Archived</option>}
+                    {canDeleteFilter && <option value="deleted">Deleted</option>}
+                  </select>
+                </div>
+              )}
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-white/60 dark:text-zinc-500 uppercase tracking-widest ml-1">
                   Reward Type
@@ -405,6 +470,15 @@ export const JobList: React.FC = () => {
                 />
               </span>
             )}
+            {filterLifecycle !== "active" && (
+              <span className="px-3 py-1.5 glass-card rounded-xl text-[10px] font-black uppercase text-zinc-600 dark:text-zinc-400 flex items-center">
+                {filterLifecycle}{" "}
+                <X
+                  className="w-3 h-3 ml-2 cursor-pointer"
+                  onClick={() => updateParam("lifecycle", "")}
+                />
+              </span>
+            )}
 
           </div>
         )}
@@ -428,6 +502,16 @@ export const JobList: React.FC = () => {
                   >
                     {job.status}
                   </span>
+                  {job.archivedAt && (
+                    <span className="px-3 py-1.5 text-[10px] font-black rounded-xl uppercase tracking-widest border bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-600">
+                      Archived
+                    </span>
+                  )}
+                  {job.deletedAt && (
+                    <span className="px-3 py-1.5 text-[10px] font-black rounded-xl uppercase tracking-widest border bg-red-100 text-red-800 border-red-200 dark:bg-red-900/40 dark:text-red-200 dark:border-red-800">
+                      Deleted
+                    </span>
+                  )}
                   <span className="px-3 py-1.5 glass bg-white/20 text-zinc-600 dark:text-zinc-400 text-[10px] font-black rounded-xl uppercase tracking-widest">
                     {job.category}
                   </span>
@@ -475,6 +559,17 @@ export const JobList: React.FC = () => {
                   <ArrowRight className="w-6 h-6" />
                 </div>
               </div>
+            </div>
+            <div
+              className="mt-6 pt-6 border-t border-white/20 dark:border-white/5 flex flex-wrap justify-end"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <TaskLifecycleActions
+                job={job}
+                currentUser={currentUser}
+                layout="compact"
+                onAfterMutation={() => setListVersion((v) => v + 1)}
+              />
             </div>
           </div>
           );

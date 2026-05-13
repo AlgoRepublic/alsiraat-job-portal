@@ -13,12 +13,18 @@ import {
 } from "lucide-react";
 import { CENTRAL_ORGANISATION_NAME } from "../services/api";
 import { db } from "../services/database";
-import { Job, JobStatus } from "../types";
+import { Job, JobStatus, User } from "../types";
+import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
   const [publicJobs, setPublicJobs] = useState<Job[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    void db.getCurrentUser().then(setCurrentUser).catch(() => setCurrentUser(null));
+  }, []);
 
   useEffect(() => {
     const fetchPublicJobs = async () => {
@@ -295,6 +301,26 @@ export const Home: React.FC = () => {
                   <Clock className="w-4 h-4 mr-1.5" />
                   {job.hoursRequired} Hrs
                 </div>
+              </div>
+              <div
+                className="mt-3 flex justify-end"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <TaskLifecycleActions
+                  job={job}
+                  currentUser={currentUser}
+                  layout="compact"
+                  onAfterMutation={() =>
+                    void db.getJobs().then((jobs) => {
+                      const visible = jobs.filter(
+                        (j) =>
+                          j.status === JobStatus.PUBLISHED ||
+                          j.status === JobStatus.APPROVED,
+                      );
+                      setPublicJobs(visible);
+                    })
+                  }
+                />
               </div>
             </div>
           ))}

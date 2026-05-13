@@ -42,6 +42,22 @@ const mapApiVisibilityToJob = (raw: unknown): Visibility => {
 };
 
 const mapTaskToJob = (task: any): Job => {
+  const createdById =
+    task.createdBy &&
+    typeof task.createdBy === "object" &&
+    (task.createdBy as any)._id != null
+      ? String((task.createdBy as any)._id)
+      : typeof task.createdBy === "string"
+        ? task.createdBy
+        : undefined;
+
+  const toIso = (d: unknown): string | null | undefined => {
+    if (d == null) return d === null ? null : undefined;
+    if (d instanceof Date) return d.toISOString();
+    const t = new Date(d as string).getTime();
+    return Number.isNaN(t) ? undefined : new Date(t).toISOString();
+  };
+
   return {
     id: task._id,
     _id: task._id,
@@ -88,9 +104,12 @@ const mapTaskToJob = (task: any): Job => {
       typeof task.createdBy.name === "string"
         ? task.createdBy.name
         : "Unknown",
+    createdById,
     createdAt: task.createdAt,
     applicantsCount: task.applicantsCount || 0,
     hasApplied: task.hasApplied || false,
+    archivedAt: toIso(task.archivedAt),
+    deletedAt: toIso(task.deletedAt),
     organisation:
       typeof task.organisation === "object" && task.organisation != null
         ? task.organisation._id?.toString?.() ?? task.organisation._id
@@ -120,7 +139,7 @@ const mapStatus = (status: string): JobStatus => {
     case "Closed":
       return JobStatus.CLOSED;
     case "Archived":
-      return JobStatus.ARCHIVED;
+      return JobStatus.CLOSED;
     case "Completed":
       return JobStatus.COMPLETED;
     default:
@@ -478,6 +497,22 @@ class DatabaseService {
     rejectionReason?: string,
   ): Promise<any> {
     return await api.approveTask(id, status, rejectionReason);
+  }
+
+  async archiveJob(id: string): Promise<any> {
+    return await api.archiveTask(id);
+  }
+
+  async unarchiveJob(id: string): Promise<any> {
+    return await api.unarchiveTask(id);
+  }
+
+  async softDeleteJob(id: string): Promise<any> {
+    return await api.softDeleteTask(id);
+  }
+
+  async restoreJob(id: string): Promise<any> {
+    return await api.restoreTask(id);
   }
 
   async markJobCompleted(id: string): Promise<any> {

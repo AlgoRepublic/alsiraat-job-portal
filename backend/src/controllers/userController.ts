@@ -11,6 +11,11 @@ import { UserRole, normalizeUserRole } from "../models/UserRole.js";
 import { isSuperAdminUser } from "../utils/superAdmin.js";
 import Task from "../models/Task.js";
 import Application from "../models/Application.js";
+import {
+  parseTaskLifecycle,
+  andWithLifecycle,
+  assertTaskLifecycleAccess,
+} from "../utils/taskLifecycleQuery.js";
 
 export const getUsers = async (req: Request, res: Response) => {
   try {
@@ -390,12 +395,22 @@ export const updateUser = async (req: Request, res: Response) => {
  */
 export const getUserTasks = async (req: Request, res: Response) => {
   try {
+    const includeArchivedLegacy =
+      String((req as any).query?.includeArchived || "") === "true";
+    const lifecycleMode = parseTaskLifecycle(
+      (req as any).query?.lifecycle,
+      includeArchivedLegacy,
+    );
+    if (!(await assertTaskLifecycleAccess(req as any, res, lifecycleMode)))
+      return;
+
     const userId = new mongoose.Types.ObjectId(String(req.params.id));
     const taskFilter: any = { createdBy: userId };
     if ((req as any).orgId) {
       taskFilter.organisation = (req as any).orgId;
     }
-    const tasks = await Task.find(taskFilter)
+    const query = andWithLifecycle(taskFilter, lifecycleMode);
+    const tasks = await Task.find(query)
       .populate("category", "name code icon")
       .populate("rewardType", "name code")
       .populate("organisation", "name slug")

@@ -18,6 +18,11 @@ import {
   taskChangesRequestedEmail,
   taskArchivedEmail,
 } from "../services/emailTemplates.js";
+import {
+  parseTaskLifecycle,
+  andWithLifecycle,
+  assertTaskLifecycleAccess,
+} from "../utils/taskLifecycleQuery.js";
 
 const parseArrayField = (value: any): string[] => {
   if (!value) return [];
@@ -60,6 +65,21 @@ async function isCentralOrganisation(
     .toLowerCase()
     .trim();
   return slug === "central" || name === "central";
+}
+
+/** Platform Central organisation id (`CENTRAL_ORG_SLUG`, default `central`). */
+async function resolveCentralOrganisationId(): Promise<string | null> {
+  const slug = (process.env.CENTRAL_ORG_SLUG || "central")
+    .trim()
+    .toLowerCase();
+  let org = await Organization.findOne({ slug }).select("_id").lean();
+  if (!org && slug === "central") {
+    org = await Organization.findOne({ name: /^central$/i })
+      .select("_id")
+      .lean();
+  }
+  const id = (org as { _id?: unknown } | null)?._id;
+  return id != null ? String(id) : null;
 }
 
 function getMemberKindForOrg(user: any, orgId: string): OrgMemberKind {
@@ -319,13 +339,24 @@ export const updateTask = async (req: any, res: Response) => {
       privateAudiences,
     } = req.body;
 
+    delete (req.body as any).deletedAt;
+    delete (req.body as any).archivedAt;
+
     const task = await Task.findById(id);
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
     }
 
-    // Check permissions
     const isSuperAdmin = !!req.user?.isSuperAdmin;
+    const td = (task as any).deletedAt;
+    const ta = (task as any).archivedAt;
+    if ((td || ta) && !isSuperAdmin) {
+      return res
+        .status(403)
+        .json({ message: "Cannot edit an archived or deleted task" });
+    }
+
+    // Check permissions
     const isCreator = task.createdBy.toString() === req.user._id.toString();
 
     // Permission logic:
@@ -413,6 +444,14 @@ export const updateTask = async (req: any, res: Response) => {
 
 export const getTasks = async (req: any, res: Response) => {
   try {
+    const includeArchivedLegacy =
+      String(req.query.includeArchived || "") === "true";
+    const lifecycleMode = parseTaskLifecycle(
+      req.query.lifecycle,
+      includeArchivedLegacy,
+    );
+    if (!(await assertTaskLifecycleAccess(req, res, lifecycleMode))) return;
+
     const user = req.user;
     const { roles, _id: userId } = user || {};
     const organisation = req.orgId;
@@ -424,7 +463,6 @@ export const getTasks = async (req: any, res: Response) => {
     if (createdByMe === "true" && user) {
       query = {
         createdBy: userId,
-        status: { $ne: TaskStatus.ARCHIVED },
       };
 
       // Apply search filter if provided
@@ -432,7 +470,6 @@ export const getTasks = async (req: any, res: Response) => {
         const searchRegex = new RegExp(search.trim(), "i");
         query.$and = [
           { createdBy: userId },
-          { status: { $ne: TaskStatus.ARCHIVED } },
           {
             $or: [
               { title: searchRegex },
@@ -441,9 +478,9 @@ export const getTasks = async (req: any, res: Response) => {
           }
         ];
         delete query.createdBy; // Handled in $and
-        delete query.status;    // Handled in $and
       }
 
+      query = andWithLifecycle(query, lifecycleMode);
       const total = await Task.countDocuments(query);
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
@@ -491,11 +528,15 @@ export const getTasks = async (req: any, res: Response) => {
 
     // Dynamic Visibility Logic
     if (!user) {
-      // Guest: Only see Published Central tasks
-      query = {
-        status: TaskStatus.PUBLISHED,
-        visibility: TaskVisibility.CENTRAL,
-      };
+      // Guest: published tasks on the public Central org board (no endDate cut-off; see below)
+      const centralOrgId = await resolveCentralOrganisationId();
+      query = centralOrgId
+        ? {
+            organisation: centralOrgId,
+            status: TaskStatus.PUBLISHED,
+            visibility: TaskVisibility.CENTRAL,
+          }
+        : { _id: { $in: [] } };
     } else {
       const { allowed: canViewAll } = await checkPermissionAsync(
         user,
@@ -512,10 +553,9 @@ export const getTasks = async (req: any, res: Response) => {
 
       const conditions: any[] = [];
 
-      // 1. Own created tasks (any status except Archived)
+      // 1. Own created tasks
       conditions.push({
         createdBy: userId,
-        status: { $ne: TaskStatus.ARCHIVED },
       });
 
       // 2. Published Central tasks
@@ -599,16 +639,14 @@ export const getTasks = async (req: any, res: Response) => {
       }
 
       if (canViewAll && canViewInternal && canViewPending) {
-        // Task managers/admins should see all non-archived tasks for the active org.
-        // Falling back to granular $or conditions undercounts the task list.
+        // Task managers/admins should see all tasks for the active org (lifecycle applied below).
           if (hasSuperAdminRole) {
           query = organisation
-            ? { organisation, status: { $ne: TaskStatus.ARCHIVED } }
-            : { status: { $ne: TaskStatus.ARCHIVED } };
+            ? { organisation }
+            : {};
         } else if (organisation) {
           query = {
             organisation,
-            status: { $ne: TaskStatus.ARCHIVED },
           };
         } else {
           query = { $or: conditions };
@@ -678,7 +716,8 @@ export const getTasks = async (req: any, res: Response) => {
     const isAdmin = hasSuperAdminRole;
     const shouldIncludeExpired = includeExpired === "true" && isAdmin;
 
-    if (!shouldIncludeExpired) {
+    // Anonymous browse: show Central org board even when endDate has passed (signed-in users keep the cut-off).
+    if (!shouldIncludeExpired && user) {
       // Add expiration filter: either no endDate OR endDate is in the future
       const expirationFilter = {
         $or: [
@@ -695,6 +734,8 @@ export const getTasks = async (req: any, res: Response) => {
         query = expirationFilter;
       }
     }
+
+    query = andWithLifecycle(query, lifecycleMode);
 
     // --- Pagination ---
     const page = parseInt(req.query.page as string) || 1;
@@ -766,6 +807,14 @@ export const getSearchTasks = async (req: any, res: Response) => {
       });
     }
 
+    const includeArchivedLegacy =
+      String(req.query.includeArchived || "") === "true";
+    const lifecycleMode = parseTaskLifecycle(
+      req.query.lifecycle,
+      includeArchivedLegacy,
+    );
+    if (!(await assertTaskLifecycleAccess(req, res, lifecycleMode))) return;
+
     const user = req.user;
     const organisation = req.orgId;
     const hasSuperAdminRole = !!user?.isSuperAdmin;
@@ -775,10 +824,14 @@ export const getSearchTasks = async (req: any, res: Response) => {
     const { checkPermissionAsync } = await import("../middleware/rbac.js");
 
     if (!user) {
-      query = {
-        status: TaskStatus.PUBLISHED,
-        visibility: TaskVisibility.CENTRAL,
-      };
+      const centralOrgId = await resolveCentralOrganisationId();
+      query = centralOrgId
+        ? {
+            organisation: centralOrgId,
+            status: TaskStatus.PUBLISHED,
+            visibility: TaskVisibility.CENTRAL,
+          }
+        : { _id: { $in: [] } };
     } else {
       const userId = user._id;
       const { allowed: canViewAll } = await checkPermissionAsync(
@@ -812,7 +865,6 @@ export const getSearchTasks = async (req: any, res: Response) => {
       // My Ads remains the dedicated advertiser hub; this avoids hiding submissions awaiting approval.
       conditions.push({
         createdBy: userId,
-        status: { $ne: TaskStatus.ARCHIVED },
       });
       const centralPublishedCond: Record<string, unknown> = {
         visibility: TaskVisibility.CENTRAL,
@@ -881,9 +933,7 @@ export const getSearchTasks = async (req: any, res: Response) => {
 
       if (canViewAll && canViewInternal && canViewPending) {
         if (hasSuperAdminRole) {
-          query = organisation
-            ? { organisation, status: { $ne: TaskStatus.ARCHIVED } }
-            : { status: { $ne: TaskStatus.ARCHIVED } };
+          query = organisation ? { organisation } : {};
         } else {
           query = { $or: conditions };
         }
@@ -942,7 +992,7 @@ export const getSearchTasks = async (req: any, res: Response) => {
 
     const isAdmin = hasSuperAdminRole;
     const shouldIncludeExpired = includeExpired === "true" && isAdmin;
-    if (!shouldIncludeExpired) {
+    if (!shouldIncludeExpired && user) {
       const expirationFilter = {
         $or: [
           { endDate: { $exists: false } },
@@ -956,6 +1006,8 @@ export const getSearchTasks = async (req: any, res: Response) => {
         query = expirationFilter;
       }
     }
+
+    query = andWithLifecycle(query, lifecycleMode);
 
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
@@ -1021,19 +1073,21 @@ export const getMyAdsTasks = async (req: any, res: Response) => {
       return res.status(401).json({ message: "Authentication required" });
     }
 
+    const includeArchivedLegacy =
+      String(req.query.includeArchived || "") === "true";
+    const lifecycleMode = parseTaskLifecycle(
+      req.query.lifecycle,
+      includeArchivedLegacy,
+    );
+    if (!(await assertTaskLifecycleAccess(req, res, lifecycleMode))) return;
+
     const userId = req.user._id;
     const search = req.query.search;
-    const includeArchived = String(req.query.includeArchived || "") === "true";
     let query: any = {
       createdBy: userId,
     };
 
-    if (!includeArchived) {
-      query = {
-        $and: [query, { status: { $ne: TaskStatus.ARCHIVED } }],
-      };
-    }
-
+    query = andWithLifecycle(query, lifecycleMode);
     if (search && typeof search === "string" && search.trim().length > 0) {
       const searchRegex = new RegExp(escapeRegExp(search.trim()), "i");
       query = {
@@ -1186,6 +1240,8 @@ export const getPendingApprovalTasks = async (req: any, res: Response) => {
       query = { $and: [query, { visibility: req.query.visibility }] };
     }
 
+    query = andWithLifecycle(query, "active");
+
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const skip = (page - 1) * limit;
@@ -1239,6 +1295,26 @@ export const getTaskById = async (req: any, res: Response) => {
 
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
+    }
+
+    const deletedAt = (task as any).deletedAt;
+    if (deletedAt) {
+      if (!req.user) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      const createdById =
+        typeof task.createdBy === "object" && task.createdBy !== null
+          ? (task.createdBy as any)._id?.toString?.() || ""
+          : (task.createdBy as any)?.toString?.() || "";
+      const isOwner = createdById === req.user._id.toString();
+      const { checkPermissionAsync } = await import("../middleware/rbac.js");
+      const { allowed: canDelete } = await checkPermissionAsync(
+        req.user,
+        Permission.TASK_DELETE,
+      );
+      if (!isOwner && !canDelete && !isSuperAdminUser(req.user)) {
+        return res.status(404).json({ message: "Task not found" });
+      }
     }
 
     if (task.visibility === TaskVisibility.PRIVATE) {
@@ -1346,6 +1422,9 @@ export const approveTask = async (req: any, res: Response) => {
 
     const task = await Task.findById(taskId);
     if (!task) return res.status(404).json({ message: "Task not found" });
+    if ((task as any).deletedAt) {
+      return res.status(404).json({ message: "Task not found" });
+    }
 
     // Ensure approver is from the same org (or is a super admin)
     const isSuperAdmin = !!req.user?.isSuperAdmin;
@@ -1377,7 +1456,7 @@ export const approveTask = async (req: any, res: Response) => {
         task.rejectionReason = rejectionReason;
       }
     } else if (normalizedStatus === "archive") {
-      task.status = TaskStatus.ARCHIVED;
+      (task as any).archivedAt = new Date();
       if (rejectionReason) {
         task.rejectionReason = rejectionReason;
       }
@@ -1491,6 +1570,12 @@ export const repostTask = async (req: any, res: Response) => {
       return res.status(404).json({ message: "Task not found" });
     }
 
+    if ((task as any).deletedAt || (task as any).archivedAt) {
+      return res.status(400).json({
+        message: "Cannot repost an archived or deleted task",
+      });
+    }
+
     if (
       task.createdBy.toString() !== req.user._id.toString() &&
       !req.user?.isSuperAdmin
@@ -1514,6 +1599,8 @@ export const repostTask = async (req: any, res: Response) => {
     delete clonedTaskData.createdAt;
     delete clonedTaskData.updatedAt;
     delete clonedTaskData.status;
+    delete clonedTaskData.archivedAt;
+    delete clonedTaskData.deletedAt;
 
     clonedTaskData.startDate = new Date();
     clonedTaskData.endDate = new Date(endDate);
@@ -1551,9 +1638,14 @@ export const markTaskCompleted = async (req: any, res: Response) => {
       return res.status(404).json({ message: "Task not found" });
     }
 
+    if ((task as any).deletedAt || (task as any).archivedAt) {
+      return res.status(400).json({
+        message: "Cannot complete an archived or deleted task",
+      });
+    }
+
     const isCreator = task.createdBy.toString() === req.user._id.toString();
     const { checkPermissionAsync } = await import("../middleware/rbac.js");
-    const { Permission } = await import("../config/permissions.js");
     const { allowed } = await checkPermissionAsync(
       req.user,
       Permission.TASK_COMPLETE,
@@ -1568,6 +1660,96 @@ export const markTaskCompleted = async (req: any, res: Response) => {
     task.status = TaskStatus.COMPLETED;
     await task.save();
 
+    res.json(task);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+async function assertTaskOrgOrSuper(req: any, task: any): Promise<boolean> {
+  if (req.user?.isSuperAdmin) return true;
+  const taskOrgId = task.organisation ? String(task.organisation) : null;
+  const userOrgId = req.orgId ? String(req.orgId) : null;
+  return !!(taskOrgId && userOrgId && taskOrgId === userOrgId);
+}
+
+/** POST /tasks/:id/archive — requires task:archive (or super admin). */
+export const archiveTaskLifecycle = async (req: any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const task = await Task.findById(id);
+    if (!task) return res.status(404).json({ message: "Task not found" });
+    if (!(await assertTaskOrgOrSuper(req, task))) {
+      return res.status(403).json({ message: "Not authorised to archive this task" });
+    }
+    if ((task as any).deletedAt) {
+      return res.status(400).json({ message: "Cannot archive a deleted task" });
+    }
+    if ((task as any).archivedAt) {
+      return res.json(task);
+    }
+    (task as any).archivedAt = new Date();
+    await task.save();
+    res.json(task);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/** POST /tasks/:id/unarchive */
+export const unarchiveTaskLifecycle = async (req: any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const task = await Task.findById(id);
+    if (!task) return res.status(404).json({ message: "Task not found" });
+    if (!(await assertTaskOrgOrSuper(req, task))) {
+      return res.status(403).json({ message: "Not authorised to unarchive this task" });
+    }
+    if (!(task as any).archivedAt) {
+      return res.json(task);
+    }
+    (task as any).archivedAt = null;
+    await task.save();
+    res.json(task);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/** POST /tasks/:id/soft-delete */
+export const softDeleteTask = async (req: any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const task = await Task.findById(id);
+    if (!task) return res.status(404).json({ message: "Task not found" });
+    if (!(await assertTaskOrgOrSuper(req, task))) {
+      return res.status(403).json({ message: "Not authorised to delete this task" });
+    }
+    if ((task as any).deletedAt) {
+      return res.json(task);
+    }
+    (task as any).deletedAt = new Date();
+    await task.save();
+    res.json(task);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/** POST /tasks/:id/restore */
+export const restoreTask = async (req: any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const task = await Task.findById(id);
+    if (!task) return res.status(404).json({ message: "Task not found" });
+    if (!(await assertTaskOrgOrSuper(req, task))) {
+      return res.status(403).json({ message: "Not authorised to restore this task" });
+    }
+    if (!(task as any).deletedAt) {
+      return res.json(task);
+    }
+    (task as any).deletedAt = null;
+    await task.save();
     res.json(task);
   } catch (err: any) {
     res.status(500).json({ message: err.message });

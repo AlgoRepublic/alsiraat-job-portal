@@ -1159,6 +1159,7 @@ export const UserManagement: React.FC = () => {
       {viewingUser && (
         <UserProfileDrawer
           user={viewingUser}
+          viewerUser={currentUser}
           onClose={() => setViewingUser(null)}
           onEdit={(u) => {
             setViewingUser(null);

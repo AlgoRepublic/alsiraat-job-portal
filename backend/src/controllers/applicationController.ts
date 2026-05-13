@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import User, { UserRole } from "../models/User.js";
 import Application, { ApplicationStatus } from "../models/Application.js";
-import Task, { TaskStatus } from "../models/Task.js";
+import Task from "../models/Task.js";
 import { notify } from "../services/notificationService.js";
 import {
   newApplicationEmail,
@@ -99,10 +99,10 @@ export const assignTask = async (req: any, res: Response) => {
     // Verify task exists
     const task = await Task.findById(taskId).populate("createdBy", "name");
     if (!task) return res.status(404).json({ message: "Task not found" });
-    if (task.status === TaskStatus.ARCHIVED) {
+    if ((task as any).archivedAt || (task as any).deletedAt) {
       return res
         .status(400)
-        .json({ message: "Cannot assign an archived task" });
+        .json({ message: "Cannot assign an archived or deleted task" });
     }
 
     // Verify target user exists
@@ -197,6 +197,12 @@ export const applyForTask = async (req: any, res: Response) => {
       "name email",
     );
     if (!task) return res.status(404).json({ message: "Task not found" });
+
+    if ((task as any).archivedAt || (task as any).deletedAt) {
+      return res
+        .status(400)
+        .json({ message: "This task is no longer accepting applications" });
+    }
 
     // ── Group restriction check ──
     const taskAllowedGroups = (task as any).allowedGroups as

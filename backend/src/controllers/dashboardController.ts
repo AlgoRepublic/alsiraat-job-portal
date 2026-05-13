@@ -4,6 +4,7 @@ import Application from "../models/Application.js";
 import User from "../models/User.js";
 import { Permission } from "../config/permissions.js";
 import { checkPermissionAsync } from "../middleware/rbac.js";
+import { andWithLifecycle } from "../utils/taskLifecycleQuery.js";
 
 /**
  * GET /api/dashboard/stats
@@ -56,6 +57,8 @@ export const getDashboardStats = async (req: any, res: Response) => {
       taskFilter = { status: TaskStatus.PUBLISHED };
     }
 
+    taskFilter = andWithLifecycle(taskFilter, "active");
+
     const nonExpiredTaskFilter = {
       $or: [
         { endDate: { $exists: false } },
@@ -81,7 +84,7 @@ export const getDashboardStats = async (req: any, res: Response) => {
       }),
       Task.countDocuments({ ...taskFilter, status: TaskStatus.COMPLETED }),
       Task.countDocuments({ ...taskFilter, status: TaskStatus.CLOSED }),
-      Task.countDocuments({ createdBy: userId }),
+      Task.countDocuments(andWithLifecycle({ createdBy: userId }, "active")),
     ]);
 
     // ── Application stats ──
@@ -95,7 +98,12 @@ export const getDashboardStats = async (req: any, res: Response) => {
       // All applications visible to admins/managers (scoped to org tasks)
       canViewApps && orgId
         ? Application.countDocuments({
-            task: { $in: await Task.distinct("_id", { organisation: orgId }) },
+            task: {
+              $in: await Task.distinct(
+                "_id",
+                andWithLifecycle({ organisation: orgId }, "active"),
+              ),
+            },
           })
         : canViewApps
           ? Application.countDocuments({})
@@ -104,7 +112,12 @@ export const getDashboardStats = async (req: any, res: Response) => {
       canViewApps && orgId
         ? Application.countDocuments({
             status: "Pending",
-            task: { $in: await Task.distinct("_id", { organisation: orgId }) },
+            task: {
+              $in: await Task.distinct(
+                "_id",
+                andWithLifecycle({ organisation: orgId }, "active"),
+              ),
+            },
           })
         : canViewApps
           ? Application.countDocuments({ status: "Pending" })
@@ -137,7 +150,8 @@ export const getDashboardStats = async (req: any, res: Response) => {
         ...nonExpiredTaskFilter,
       };
       if (orgId) filter.organisation = orgId;
-      recentPendingTasks = await Task.find(filter)
+      const pendingFilter = andWithLifecycle(filter, "active");
+      recentPendingTasks = await Task.find(pendingFilter)
         .sort({ createdAt: -1 })
         .limit(5)
         .populate("createdBy", "name")
@@ -149,7 +163,10 @@ export const getDashboardStats = async (req: any, res: Response) => {
     if (canViewApps) {
       const appFilter: any = { status: "Pending" };
       if (orgId) {
-        const orgTaskIds = await Task.distinct("_id", { organisation: orgId });
+        const orgTaskIds = await Task.distinct(
+          "_id",
+          andWithLifecycle({ organisation: orgId }, "active"),
+        );
         appFilter.task = { $in: orgTaskIds };
       }
       recentPendingApps = await Application.find(appFilter)
@@ -176,7 +193,9 @@ export const getDashboardStats = async (req: any, res: Response) => {
     }));
 
     // ── Recent tasks posted by me ──
-    const myRecentTasks = await Task.find({ createdBy: userId })
+    const myRecentTasks = await Task.find(
+      andWithLifecycle({ createdBy: userId }, "active"),
+    )
       .sort({ createdAt: -1 })
       .limit(5)
       .select("_id title category status createdAt applicantsCount");

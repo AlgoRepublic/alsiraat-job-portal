@@ -24,12 +24,15 @@ import {
 } from "lucide-react";
 import { api, API_BASE_URL } from "../services/api";
 import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
+import { TaskLifecycleActions } from "./TaskLifecycleActions";
 
 /* ─── Types ──────────────────────────────────────────────────────────────────── */
 interface UserProfileDrawerProps {
   user: any;
   onClose: () => void;
   onEdit?: (user: any) => void;
+  /** Signed-in admin viewing this profile — used for task lifecycle actions on listed tasks. */
+  viewerUser?: any;
 }
 
 type Tab = "profile" | "tasks" | "applications" | "activity";
@@ -157,6 +160,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
   user,
   onClose,
   onEdit,
+  viewerUser,
 }) => {
   const displayRoles = getUserRolesForActiveOrg(user);
   const [activeTab, setActiveTab] = useState<Tab>("profile");
@@ -203,10 +207,16 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
 
   /* ── Tab lists ─────────────────────────────────────────────────────────────── */
   const openTasks = tasks.filter(
-    (t) => !["Completed", "Archived", "Closed"].includes(t.status)
+    (t) =>
+      !(t as any).archivedAt &&
+      !(t as any).deletedAt &&
+      !["Completed", "Closed"].includes(t.status),
   );
-  const completedTasks = tasks.filter((t) =>
-    ["Completed", "Closed", "Archived"].includes(t.status)
+  const completedTasks = tasks.filter(
+    (t) =>
+      ["Completed", "Closed"].includes(t.status) ||
+      !!(t as any).archivedAt ||
+      !!(t as any).deletedAt,
   );
   const openApps = applications.filter(
     (a) =>
@@ -527,7 +537,12 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
                       </div>
                       <div className="space-y-2">
                         {openTasks.map((t) => (
-                          <TaskRow key={t._id} task={t} />
+                          <TaskRow
+                            key={t._id}
+                            task={t}
+                            viewerUser={viewerUser}
+                            onLifecycleChange={fetchTasks}
+                          />
                         ))}
                       </div>
                     </section>
@@ -544,7 +559,12 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
                       </div>
                       <div className="space-y-2">
                         {completedTasks.map((t) => (
-                          <TaskRow key={t._id} task={t} />
+                          <TaskRow
+                            key={t._id}
+                            task={t}
+                            viewerUser={viewerUser}
+                            onLifecycleChange={fetchTasks}
+                          />
                         ))}
                       </div>
                     </section>
@@ -789,7 +809,11 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
 };
 
 /* ─── Sub-components ──────────────────────────────────────────────────────────── */
-const TaskRow: React.FC<{ task: any }> = ({ task }) => (
+const TaskRow: React.FC<{
+  task: any;
+  viewerUser?: any;
+  onLifecycleChange: () => void;
+}> = ({ task, viewerUser, onLifecycleChange }) => (
   <div className="flex items-center gap-3 p-3.5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-100 dark:border-zinc-800 hover:border-primary/20 transition-all">
     <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
       <Briefcase className="w-4 h-4 text-primary" />
@@ -819,6 +843,12 @@ const TaskRow: React.FC<{ task: any }> = ({ task }) => (
           {task.applicantsCount}
         </span>
       )}
+      <TaskLifecycleActions
+        job={task}
+        currentUser={viewerUser ?? null}
+        layout="compact"
+        onAfterMutation={onLifecycleChange}
+      />
     </div>
   </div>
 );

@@ -10,6 +10,10 @@ import {
   updateTask,
   repostTask,
   markTaskCompleted,
+  archiveTaskLifecycle,
+  unarchiveTaskLifecycle,
+  softDeleteTask,
+  restoreTask,
 } from "../controllers/taskController.js";
 import {
   authenticate,
@@ -44,6 +48,31 @@ router.get(
   authenticate,
   requirePermission(Permission.TASK_VIEW_PENDING),
   getPendingApprovalTasks,
+);
+
+router.post(
+  "/:id/archive",
+  authenticate,
+  requirePermission(Permission.TASK_ARCHIVE),
+  archiveTaskLifecycle,
+);
+router.post(
+  "/:id/unarchive",
+  authenticate,
+  requirePermission(Permission.TASK_ARCHIVE),
+  unarchiveTaskLifecycle,
+);
+router.post(
+  "/:id/soft-delete",
+  authenticate,
+  requirePermission(Permission.TASK_DELETE),
+  softDeleteTask,
+);
+router.post(
+  "/:id/restore",
+  authenticate,
+  requirePermission(Permission.TASK_DELETE),
+  restoreTask,
 );
 
 // Get single task - public with optional auth

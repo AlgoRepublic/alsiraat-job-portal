@@ -16,7 +16,8 @@ import { db } from "../services/database";
 import { Loading } from "../components/Loading";
 import { useToast } from "../components/Toast";
 import { Pagination } from "../components/Pagination";
-import { Application, Job } from "../types";
+import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
+import { Application, Job, User } from "../types";
 
 const PAGE_SIZE = 10;
 
@@ -87,6 +88,11 @@ export const MyAssignedTasks: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [activeTab, setActiveTab] = useState<"active" | "completed">("active");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc"); // newest first
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    void db.getCurrentUser().then(setCurrentUser).catch(() => setCurrentUser(null));
+  }, []);
 
   const fetchAssignedTasks = async (page = 1) => {
     try {
@@ -266,6 +272,14 @@ export const MyAssignedTasks: React.FC = () => {
                 <ArrowRight className="w-3.5 h-3.5 inline mr-1.5" />
                 View
               </button>
+            )}
+            {task && typeof task === "object" && (
+              <TaskLifecycleActions
+                job={task as Job}
+                currentUser={currentUser}
+                layout="compact"
+                onAfterMutation={() => fetchAssignedTasks(currentPage)}
+              />
             )}
           </div>
         </td>

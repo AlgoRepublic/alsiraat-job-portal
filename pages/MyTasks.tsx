@@ -8,15 +8,14 @@ import {
   AlertTriangle,
   UserCheck,
 } from "lucide-react";
-import { api } from "../services/api";
 import { db } from "../services/database";
-import { Job, JobStatus, User } from "../types";
+import { Job, JobStatus, User, Permission, UserRole } from "../types";
 import { Loading } from "../components/Loading";
 import { AssignTaskModal } from "../components/AssignTaskModal";
-import { Permission, hasAnyPermission } from "../services/permissions";
-import { UserRole } from "../types";
+import { hasAnyPermission } from "../services/permissions";
 import { Pagination } from "../components/Pagination";
 import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
+import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 
 const PAGE_SIZE = 10;
 
@@ -38,35 +37,49 @@ export const MyAds: React.FC = () => {
 
   // ── Load current user (lightweight — from cached localStorage) ────────────
   useEffect(() => {
-    const stored = localStorage.getItem("user_data");
-    if (stored) {
-      try {
-        setCurrentUser(JSON.parse(stored));
-      } catch {
-        /* ignore */
-      }
-    }
+    void db
+      .getCurrentUser()
+      .then(setCurrentUser)
+      .catch(() => {
+        const stored = localStorage.getItem("user_data");
+        if (stored) {
+          try {
+            setCurrentUser(JSON.parse(stored));
+          } catch {
+            /* ignore */
+          }
+        }
+      });
   }, []);
 
   // ── Fetch tasks ───────────────────────────────────────────────────────────
-  const fetchMyTasks = useCallback(async (page = 1) => {
-    try {
-      setLoading(true);
-      const data = await db.getMyAdsJobsPaged({}, page, PAGE_SIZE);
-      setTasks(data.jobs);
-      setTotalItems(data.pagination.total);
-      setTotalPages(data.pagination.pages);
-      setCurrentPage(data.pagination.page);
-    } catch (err: any) {
-      setError(err.message || "Failed to load ads");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const fetchMyTasks = useCallback(
+    async (page = 1, lifecycle: "active" | "archived" | "deleted" = "active") => {
+      try {
+        setLoading(true);
+        const filters: Record<string, string> = {};
+        if (lifecycle !== "active") filters.lifecycle = lifecycle;
+        const data = await db.getMyAdsJobsPaged(filters, page, PAGE_SIZE);
+        setTasks(data.jobs);
+        setTotalItems(data.pagination.total);
+        setTotalPages(data.pagination.pages);
+        setCurrentPage(data.pagination.page);
+      } catch (err: any) {
+        setError(err.message || "Failed to load ads");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
+
+  const [adsLifecycle, setAdsLifecycle] = useState<
+    "active" | "archived" | "deleted"
+  >("active");
 
   useEffect(() => {
-    fetchMyTasks(currentPage);
-  }, [fetchMyTasks, currentPage]);
+    fetchMyTasks(currentPage, adsLifecycle);
+  }, [fetchMyTasks, currentPage, adsLifecycle]);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -99,15 +112,26 @@ export const MyAds: React.FC = () => {
     }
   };
 
+  /** Only published tasks can be directly assigned */
+  const isAssignable = (task: Job) =>
+    task.status === JobStatus.PUBLISHED &&
+    !task.archivedAt &&
+    !task.deletedAt;
+
   /** Tasks the owner is still allowed to edit */
-  const isEditable = (status: string) =>
+  const isEditable = (task: Job) =>
+    !task.archivedAt &&
+    !task.deletedAt &&
     [JobStatus.PENDING, JobStatus.CHANGES_REQUESTED, JobStatus.DRAFT].includes(
-      status as any,
+      task.status as JobStatus,
     );
 
-  /** Only published tasks can be directly assigned */
-  const isAssignable = (status: string) =>
-    status === JobStatus.PUBLISHED;
+  const canAdsArchive =
+    !!currentUser?.isSuperAdmin ||
+    !!currentUser?.permissions?.includes(Permission.TASK_ARCHIVE);
+  const canAdsDelete =
+    !!currentUser?.isSuperAdmin ||
+    !!currentUser?.permissions?.includes(Permission.TASK_DELETE);
 
   if (loading) {
     return <Loading message="Loading..." />;
@@ -123,8 +147,34 @@ export const MyAds: React.FC = () => {
               My Ads
             </h1>
             <p className="text-zinc-500 dark:text-zinc-400 font-medium mt-2">
-              All task ads you've posted and published.
+              Task ads you have posted. Use the tabs to view active, archived, or deleted ads.
             </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2 mt-6">
+            {(
+              [
+                { id: "active" as const, label: "Active" },
+                ...(canAdsArchive ? [{ id: "archived" as const, label: "Archived" }] : []),
+                ...(canAdsDelete ? [{ id: "deleted" as const, label: "Deleted" }] : []),
+              ]
+            ).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  setAdsLifecycle(tab.id);
+                  setCurrentPage(1);
+                }}
+                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                  adsLifecycle === tab.id
+                    ? "bg-primary text-white shadow-lg shadow-primary/20"
+                    : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
 
           {/* Global "Assign Task" button — opens modal without pre-selecting a task */}
@@ -236,7 +286,7 @@ export const MyAds: React.FC = () => {
                     <td className="px-10 py-8 whitespace-nowrap text-right">
                       <div className="flex items-center justify-end gap-2">
                         {/* Assign directly — only for published tasks & eligible users */}
-                        {canAssign && isAssignable(task.status) && (
+                        {canAssign && isAssignable(task) && (
                           <button
                             onClick={() => {
                               setAssignTask(task);
@@ -249,7 +299,7 @@ export const MyAds: React.FC = () => {
                             Assign
                           </button>
                         )}
-                        {isEditable(task.status) && (
+                        {isEditable(task) && (
                           <button
                             onClick={() => navigate(`/edit-job/${task._id}`)}
                             className="px-4 py-2.5 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-all"
@@ -265,6 +315,14 @@ export const MyAds: React.FC = () => {
                           <Eye className="w-3.5 h-3.5 inline mr-1.5" />
                           View
                         </button>
+                        <TaskLifecycleActions
+                          job={task}
+                          currentUser={currentUser}
+                          layout="compact"
+                          onAfterMutation={() =>
+                            fetchMyTasks(currentPage, adsLifecycle)
+                          }
+                        />
                       </div>
                     </td>
                   </tr>
@@ -315,7 +373,7 @@ export const MyAds: React.FC = () => {
             setAssignModalOpen(false);
             setAssignTask(null);
           }}
-          onSuccess={fetchMyTasks}
+          onSuccess={() => fetchMyTasks(1, adsLifecycle)}
         />
       )}
     </>

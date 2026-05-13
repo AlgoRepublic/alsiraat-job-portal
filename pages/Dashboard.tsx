@@ -26,6 +26,7 @@ import { UserRole, JobStatus, Permission } from "../types";
 import { db } from "../services/database";
 import { useNavigate } from "react-router-dom";
 import { Loading } from "../components/Loading";
+import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 
 interface DashboardProps {
   roles?: UserRole[];
@@ -43,8 +44,6 @@ export const getStatusColor = (status: JobStatus) => {
       return "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800";
     case JobStatus.CLOSED:
       return "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800";
-    case JobStatus.ARCHIVED:
-      return "bg-zinc-800 dark:bg-zinc-700 text-zinc-300 dark:text-zinc-400 border border-zinc-700 dark:border-zinc-600";
     default:
       return "bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200";
   }
@@ -750,9 +749,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
                 myRecentTasks.slice(0, 4).map((task) => (
                   <div
                     key={task.id}
-                    onClick={() => navigate(`/jobs/${task.id}`)}
-                    className="flex items-center gap-3 p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer transition-all"
+                    className="flex items-center gap-2 p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
                   >
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => navigate(`/jobs/${task.id}`)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          navigate(`/jobs/${task.id}`);
+                        }
+                      }}
+                      className="flex flex-1 min-w-0 items-center gap-3 cursor-pointer"
+                    >
                     <div
                       className={`w-2 h-2 rounded-full shrink-0 ${getTaskStatusDot(task.status)}`}
                     />
@@ -776,6 +786,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
                     >
                       {task.status}
                     </span>
+                    </div>
+                    <TaskLifecycleActions
+                      job={task}
+                      currentUser={currentUser}
+                      layout="compact"
+                      onAfterMutation={loadData}
+                    />
                   </div>
                 ))
               )}

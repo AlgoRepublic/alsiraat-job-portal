@@ -21,7 +21,6 @@ import { UserRole } from "../models/UserRole.js";
 const TaskStatus = {
   PENDING: "Pending",
   PUBLISHED: "Published",
-  ARCHIVED: "Archived",
 };
 
 const TaskVisibility = {

@@ -13,7 +13,6 @@ export const JobStatus = {
   APPROVED: "Approved",
   PUBLISHED: "Published",
   CLOSED: "Closed",
-  ARCHIVED: "Archived",
   COMPLETED: "Completed",
 } as const;
 export type JobStatus = (typeof JobStatus)[keyof typeof JobStatus];
@@ -108,9 +107,14 @@ export interface Job {
   status: JobStatus;
   rejectionReason?: string;
   createdBy: string;
+  createdById?: string;
   createdAt: string;
   applicantsCount: number;
   hasApplied?: boolean;
+  /** ISO timestamp when task was archived (lifecycle; not a JobStatus). */
+  archivedAt?: string | null;
+  /** ISO timestamp when task was soft-deleted. */
+  deletedAt?: string | null;
   organisation?: string;
   /** Populated display name when API returns organisation as an object */
   organisationName?: string;

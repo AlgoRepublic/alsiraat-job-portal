@@ -27,6 +27,8 @@ import {
 
 import { Loading, LoadingOverlay } from "../components/Loading";
 import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
+import { organisationIdToString } from "../utils/organisationId";
+import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 
 // Build absolute URL for resume downloads
 const buildFileUrl = (relativePath: string): string => {
@@ -50,17 +52,6 @@ const skillLevelDot: Record<string, string> = {
   Intermediate: "bg-blue-500",
   Beginner: "bg-amber-500",
 };
-
-/** API may return organisation as ObjectId string or populated `{ _id }` — match JobDetails / backend. */
-function organisationIdToString(value: unknown): string | undefined {
-  if (value == null || value === "") return undefined;
-  if (typeof value === "string") return value;
-  if (typeof value === "object" && value !== null && "_id" in value) {
-    const id = (value as { _id?: unknown })._id;
-    return id != null ? String(id) : undefined;
-  }
-  return String(value);
-}
 
 export const ApplicationReview: React.FC = () => {
   const { appId } = useParams<{ appId: string }>();
@@ -433,6 +424,19 @@ export const ApplicationReview: React.FC = () => {
               }) : "—"}
             </div>
           </div>
+        </div>
+        <div className="px-8 pb-6 pt-2 flex flex-wrap justify-end gap-2 border-t border-zinc-100 dark:border-zinc-800">
+          <TaskLifecycleActions
+            job={job}
+            currentUser={currentUser}
+            layout="detail"
+            onAfterMutation={async () => {
+              if (app.jobId) {
+                const j = await db.getJob(app.jobId);
+                if (j) setJob(j);
+              }
+            }}
+          />
         </div>
       </div>
 

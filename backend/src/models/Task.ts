@@ -7,7 +7,6 @@ export const TaskStatus = {
   APPROVED: "Approved",
   PUBLISHED: "Published",
   CLOSED: "Closed",
-  ARCHIVED: "Archived",
   COMPLETED: "Completed",
 } as const;
 export type TaskStatus = (typeof TaskStatus)[keyof typeof TaskStatus];
@@ -54,6 +53,8 @@ export interface ITask extends Document {
   createdAt: Date;
   updatedAt: Date;
   isExpired: boolean;
+  deletedAt?: Date | null | undefined;
+  archivedAt?: Date | null | undefined;
 }
 
 const TaskSchema: Schema = new Schema(
@@ -101,9 +102,14 @@ const TaskSchema: Schema = new Schema(
         uploadedAt: { type: Date, default: Date.now },
       },
     ],
+    deletedAt: { type: Date, default: null },
+    archivedAt: { type: Date, default: null },
   },
   { timestamps: true },
 );
+
+TaskSchema.index({ deletedAt: 1 }, { sparse: true });
+TaskSchema.index({ archivedAt: 1 }, { sparse: true });
 
 // Virtual property to check if task is expired
 TaskSchema.virtual("isExpired").get(function (this: ITask) {

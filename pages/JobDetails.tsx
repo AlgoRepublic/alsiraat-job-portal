@@ -16,6 +16,7 @@ import {
   Edit,
   RefreshCw,
   CheckCircle2,
+  X,
 } from "lucide-react";
 import { UserAvatar } from "../components/UserAvatar";
 import { Loading, LoadingOverlay } from "../components/Loading";
@@ -30,17 +31,8 @@ import {
 } from "../types";
 import { useToast } from "../components/Toast";
 import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
-
-/** Auth returns populated `organisation` objects; tasks use string ids — compare as strings. */
-function organisationIdToString(value: unknown): string | undefined {
-  if (value == null || value === "") return undefined;
-  if (typeof value === "string") return value;
-  if (typeof value === "object" && value !== null && "_id" in value) {
-    const id = (value as { _id?: unknown })._id;
-    return id != null ? String(id) : undefined;
-  }
-  return String(value);
-}
+import { organisationIdToString } from "../utils/organisationId";
+import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 
 export const JobDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -66,6 +58,8 @@ export const JobDetails: React.FC = () => {
   const [showRepostModal, setShowRepostModal] = useState(false);
   const [repostEndDate, setRepostEndDate] = useState("");
   const [reposting, setReposting] = useState(false);
+  const [showArchiveDeclineModal, setShowArchiveDeclineModal] = useState(false);
+  const [archiveDeclineSubmitting, setArchiveDeclineSubmitting] = useState(false);
 
   useEffect(() => {
     const loadJob = async () => {
@@ -188,18 +182,20 @@ export const JobDetails: React.FC = () => {
     }
   };
 
-  const handleDecline = async () => {
+  const executeDeclineArchive = async () => {
     if (!job) return;
-    if (
-      !window.confirm(
-        "Archive this task? It will no longer be visible to applicants.",
-      )
-    )
-      return;
+    setArchiveDeclineSubmitting(true);
     try {
       await db.approveJob(job.id, "archive");
-      setJob({ ...job, status: JobStatus.ARCHIVED });
+      const refreshed = await db.getJob(job.id);
+      if (refreshed) setJob(refreshed);
+      else
+        setJob({
+          ...job,
+          archivedAt: new Date().toISOString(),
+        });
       showSuccess("Task has been archived.");
+      setShowArchiveDeclineModal(false);
     } catch (err: any) {
       console.error("Archive failed", err);
       showError(
@@ -207,6 +203,8 @@ export const JobDetails: React.FC = () => {
           err?.message ||
           "Action failed. Please try again.",
       );
+    } finally {
+      setArchiveDeclineSubmitting(false);
     }
   };
 
@@ -237,6 +235,12 @@ export const JobDetails: React.FC = () => {
     }
   };
 
+  const refreshJobFromApi = async () => {
+    if (!id) return;
+    const j = await db.getJob(id);
+    if (j) setJob(j);
+  };
+
   if (loading) {
     return <Loading message="Loading task details..." />;
   }
@@ -250,8 +254,14 @@ export const JobDetails: React.FC = () => {
   }
 
   // Role-based permissions
-  const isJobOwner = currentUser?.id === job.createdBy;
-  const hasApplied = job.hasApplied || applicationStep === "applied";
+  const isJobOwner =
+    !!currentUser?.id &&
+    (currentUser.id === job.createdById ||
+      currentUser.id === job.createdBy);
+
+  const isArchived = !!job.archivedAt;
+  const isSoftDeleted = !!job.deletedAt;
+
 
   // Permission-based applicant viewing (respects role management API)
   const canSeeApplicants =
@@ -275,7 +285,9 @@ export const JobDetails: React.FC = () => {
     (!isJobOwner &&
       currentUser.permissions?.includes(Permission.APPLICATION_CREATE) &&
       !hasApplied &&
-      passesGroupRestriction);
+      passesGroupRestriction &&
+      !isArchived &&
+      !isSoftDeleted);
 
   // Permission-based approval check (respects role management API)
   const canApprove = (() => {
@@ -316,7 +328,11 @@ export const JobDetails: React.FC = () => {
     return false;
   })();
 
-  const showManagerActions = canApprove && job.status === JobStatus.PENDING;
+  const showManagerActions =
+    canApprove &&
+    job.status === JobStatus.PENDING &&
+    !isArchived &&
+    !isSoftDeleted;
 
   // Expired checks
   const isExpired = job.endDate ? new Date(job.endDate) < new Date() : false;
@@ -327,7 +343,8 @@ export const JobDetails: React.FC = () => {
     canMarkComplete &&
     isExpired &&
     job.status !== JobStatus.COMPLETED &&
-    job.status !== JobStatus.ARCHIVED;
+    !isArchived &&
+    !isSoftDeleted;
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pb-20">
@@ -341,15 +358,34 @@ export const JobDetails: React.FC = () => {
             <ArrowLeft className="w-4 h-4 mr-2" /> Back
           </button>
 
-          {isJobOwner && (
-            <button
-              onClick={() => navigate(`/edit-job/${job.id}`)}
-              className="flex items-center px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white text-sm font-bold rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
-            >
-              <Edit className="w-4 h-4 mr-2" /> Edit Task
-            </button>
-          )}
+          <div className="flex flex-wrap items-center gap-2 justify-end">
+            <TaskLifecycleActions
+              job={job}
+              currentUser={currentUser}
+              onAfterMutation={refreshJobFromApi}
+              layout="detail"
+            />
+            {isJobOwner && (
+              <button
+                onClick={() => navigate(`/edit-job/${job.id}`)}
+                className="flex items-center px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white text-sm font-bold rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+              >
+                <Edit className="w-4 h-4 mr-2" /> Edit Task
+              </button>
+            )}
+          </div>
         </div>
+
+        {isSoftDeleted && (
+          <div className="mb-4 rounded-2xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm font-semibold text-red-800 dark:text-red-200">
+            This task is soft-deleted and hidden from default listings.
+          </div>
+        )}
+        {isArchived && !isSoftDeleted && (
+          <div className="mb-4 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 px-4 py-3 text-sm font-semibold text-zinc-700 dark:text-zinc-200">
+            This task is archived and hidden from default listings.
+          </div>
+        )}
 
         <div className="flex flex-col md:flex-row justify-between items-start gap-4">
           <div>
@@ -370,6 +406,16 @@ export const JobDetails: React.FC = () => {
               >
                 {job.status}
               </span>
+              {isArchived && !isSoftDeleted && (
+                <span className="px-2.5 py-1 text-xs font-bold rounded-md uppercase tracking-wide border bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:border-zinc-600">
+                  Archived
+                </span>
+              )}
+              {isSoftDeleted && (
+                <span className="px-2.5 py-1 text-xs font-bold rounded-md uppercase tracking-wide border bg-red-100 text-red-800 border-red-200 dark:bg-red-900/40 dark:text-red-200 dark:border-red-800">
+                  Deleted
+                </span>
+              )}
             </div>
             <h1 className="text-3xl md:text-4xl font-bold text-zinc-900 dark:text-white">
               {job.title}
@@ -435,7 +481,7 @@ export const JobDetails: React.FC = () => {
               <XCircle className="w-4 h-4 mr-2" /> Revise and Resubmit
             </button>
             <button
-              onClick={handleDecline}
+              onClick={() => setShowArchiveDeclineModal(true)}
               className="px-4 py-2 bg-white dark:bg-zinc-900 text-red-600 border border-zinc-200 dark:border-zinc-700 rounded-xl font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center"
             >
               <Archive className="w-4 h-4 mr-2" /> Decline
@@ -855,6 +901,65 @@ export const JobDetails: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Decline (archive) confirmation */}
+      {showArchiveDeclineModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="decline-archive-title"
+          onClick={() =>
+            !archiveDeclineSubmitting && setShowArchiveDeclineModal(false)
+          }
+        >
+          <div
+            className="bg-white dark:bg-zinc-900 w-full max-w-md rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 p-6 border-b border-zinc-100 dark:border-zinc-800">
+              <h3
+                id="decline-archive-title"
+                className="text-lg font-black text-zinc-900 dark:text-white tracking-tight flex-1"
+              >
+                Archive this task?
+              </h3>
+              <button
+                type="button"
+                onClick={() =>
+                  !archiveDeclineSubmitting && setShowArchiveDeclineModal(false)
+                }
+                className="p-2 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shrink-0"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="px-6 py-4 text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+              It will no longer be visible to applicants. You can manage it later
+              from task lifecycle actions if you have permission.
+            </p>
+            <div className="flex justify-end gap-3 px-6 pb-6">
+              <button
+                type="button"
+                onClick={() => setShowArchiveDeclineModal(false)}
+                disabled={archiveDeclineSubmitting}
+                className="px-4 py-2.5 text-zinc-600 dark:text-zinc-400 font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void executeDeclineArchive()}
+                disabled={archiveDeclineSubmitting}
+                className="px-4 py-2.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {archiveDeclineSubmitting ? "Please wait…" : "Archive task"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Revise and Resubmit Modal */}
       {showRejectModal && (

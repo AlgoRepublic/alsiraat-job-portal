@@ -452,6 +452,22 @@ class ApiService {
     });
   }
 
+  async archiveTask(id: string): Promise<any> {
+    return this.request<any>(`/tasks/${id}/archive`, { method: "POST" });
+  }
+
+  async unarchiveTask(id: string): Promise<any> {
+    return this.request<any>(`/tasks/${id}/unarchive`, { method: "POST" });
+  }
+
+  async softDeleteTask(id: string): Promise<any> {
+    return this.request<any>(`/tasks/${id}/soft-delete`, { method: "POST" });
+  }
+
+  async restoreTask(id: string): Promise<any> {
+    return this.request<any>(`/tasks/${id}/restore`, { method: "POST" });
+  }
+
   // --- Applications ---
 
   async getApplications(filters: any = {}): Promise<any> {

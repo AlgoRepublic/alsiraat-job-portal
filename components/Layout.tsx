@@ -33,6 +33,7 @@ import {
   buildAccentPaletteFromPrimary,
   isValidThemeColorHex,
 } from "../utils/orgTheme";
+import { TaskLifecycleActions } from "./TaskLifecycleActions";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -195,6 +196,7 @@ export const Layout: React.FC<LayoutProps> = ({
   const [isSearching, setIsSearching] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [searchRefreshNonce, setSearchRefreshNonce] = useState(0);
   const [publicCentralOrg, setPublicCentralOrg] = useState<PublicCentralOrg | null>(null);
 
   // Load Central org shell only on signed-out /jobs (public task list).
@@ -346,7 +348,7 @@ export const Layout: React.FC<LayoutProps> = ({
       setSearchResults([]);
       setShowSearchResults(false);
     }
-  }, [searchQuery, currentUser]);
+  }, [searchQuery, currentUser, searchRefreshNonce]);
 
   const loadNotifications = async () => {
     try {
@@ -921,16 +923,20 @@ export const Layout: React.FC<LayoutProps> = ({
                         Tasks ({searchResults.length})
                       </p>
                       {searchResults.map((task) => (
-                        <button
+                        <div
                           key={task.id}
-                          onClick={() => {
-                            navigate(`/jobs/${task.id}`);
-                            setShowSearchResults(false);
-                            setSearchQuery("");
-                          }}
-                          className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 text-left transition-all"
+                          className="w-full flex items-center gap-1 px-2 py-1 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
                         >
-                          <div className="p-2 bg-primary/10 rounded-lg">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigate(`/jobs/${task.id}`);
+                              setShowSearchResults(false);
+                              setSearchQuery("");
+                            }}
+                            className="flex flex-1 min-w-0 items-center gap-3 px-1 py-2 text-left rounded-lg"
+                          >
+                          <div className="p-2 bg-primary/10 rounded-lg shrink-0">
                             <Briefcase className="w-4 h-4 text-primary" />
                           </div>
                           <div className="flex-1 min-w-0">
@@ -942,7 +948,7 @@ export const Layout: React.FC<LayoutProps> = ({
                             </p>
                           </div>
                           <span
-                            className={`px-2 py-1 text-[10px] font-bold rounded-lg ${
+                            className={`px-2 py-1 text-[10px] font-bold rounded-lg shrink-0 ${
                               task.status === "Published"
                                 ? "bg-emerald-100 text-emerald-700"
                                 : "bg-zinc-100 text-zinc-500"
@@ -950,7 +956,18 @@ export const Layout: React.FC<LayoutProps> = ({
                           >
                             {task.status}
                           </span>
-                        </button>
+                          </button>
+                          {currentUser && (
+                            <TaskLifecycleActions
+                              job={task}
+                              currentUser={currentUser}
+                              layout="compact"
+                              onAfterMutation={() =>
+                                setSearchRefreshNonce((n) => n + 1)
+                              }
+                            />
+                          )}
+                        </div>
                       ))}
                     </div>
                   </div>

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Briefcase, ChevronUp, ChevronDown } from "lucide-react";
 import { api } from "../services/api";
 import { db } from "../services/database";
-import { Application, Job } from "../types";
+import { Application, Job, User } from "../types";
 
 interface ApplicationWithJob extends Application {
   task?: Job;
@@ -12,6 +12,7 @@ interface ApplicationWithJob extends Application {
 import { Loading } from "../components/Loading";
 import { useToast } from "../components/Toast";
 import { Pagination } from "../components/Pagination";
+import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 
 const PAGE_SIZE = 10;
 
@@ -27,6 +28,11 @@ export default function MyApplications() {
   const { showSuccess, showError } = useToast();
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc"); // newest first
   const toggleSort = () => setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    void db.getCurrentUser().then(setCurrentUser).catch(() => setCurrentUser(null));
+  }, []);
 
   useEffect(() => {
     fetchMyApplications(currentPage);
@@ -192,6 +198,14 @@ export default function MyApplications() {
                         >
                           View Task
                         </button>
+                      )}
+                      {app.task && (
+                        <TaskLifecycleActions
+                          job={app.task as Job}
+                          currentUser={currentUser}
+                          layout="compact"
+                          onAfterMutation={() => fetchMyApplications(currentPage)}
+                        />
                       )}
                     </div>
                   </td>

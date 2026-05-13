@@ -2,9 +2,10 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Clock, Eye } from "lucide-react";
 import { db } from "../services/database";
-import { Job } from "../types";
+import { Job, User } from "../types";
 import { Loading } from "../components/Loading";
 import { Pagination } from "../components/Pagination";
+import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 
 const PAGE_SIZE = 10;
 
@@ -16,6 +17,12 @@ export const PendingApprovals: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [listVersion, setListVersion] = useState(0);
+
+  useEffect(() => {
+    void db.getCurrentUser().then(setCurrentUser).catch(() => setCurrentUser(null));
+  }, []);
 
   const fetchPendingTasks = async (page = 1) => {
     try {
@@ -34,7 +41,7 @@ export const PendingApprovals: React.FC = () => {
 
   useEffect(() => {
     fetchPendingTasks(currentPage);
-  }, [currentPage]);
+  }, [currentPage, listVersion]);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -78,7 +85,7 @@ export const PendingApprovals: React.FC = () => {
                   Status
                 </th>
                 <th className="px-10 py-8 text-right text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
-                  Action
+                  Actions
                 </th>
               </tr>
             </thead>
@@ -112,13 +119,21 @@ export const PendingApprovals: React.FC = () => {
                     </span>
                   </td>
                   <td className="px-10 py-8 whitespace-nowrap text-right">
-                    <button
-                      onClick={() => navigate(`/jobs/${task._id}`)}
-                      className="px-4 py-2.5 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primaryHover transition-all shadow-lg shadow-primary/10 group-hover:scale-105"
-                    >
-                      <Eye className="w-3.5 h-3.5 inline mr-1.5" />
-                      Review
-                    </button>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <TaskLifecycleActions
+                        job={task}
+                        currentUser={currentUser}
+                        layout="compact"
+                        onAfterMutation={() => setListVersion((v) => v + 1)}
+                      />
+                      <button
+                        onClick={() => navigate(`/jobs/${task._id}`)}
+                        className="px-4 py-2.5 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primaryHover transition-all shadow-lg shadow-primary/10 group-hover:scale-105"
+                      >
+                        <Eye className="w-3.5 h-3.5 inline mr-1.5" />
+                        Review
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
