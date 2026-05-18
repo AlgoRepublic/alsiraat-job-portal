@@ -9,10 +9,10 @@ import {
   UserCheck,
 } from "lucide-react";
 import { db } from "../services/database";
-import { Job, JobStatus, User, Permission, UserRole } from "../types";
+import { Job, JobStatus, User, UserRole } from "../types";
 import { Loading } from "../components/Loading";
 import { AssignTaskModal } from "../components/AssignTaskModal";
-import { hasAnyPermission } from "../services/permissions";
+import { hasAnyPermission, Permission } from "../services/permissions";
 import { Pagination } from "../components/Pagination";
 import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
@@ -87,10 +87,16 @@ export const MyAds: React.FC = () => {
   };
 
   // ── Permission check ──────────────────────────────────────────────────────
+  const activeRoles = getUserRolesForActiveOrg(currentUser);
   const canAssign =
-    getUserRolesForActiveOrg(currentUser).some((r: string) =>
-      hasAnyPermission(r as UserRole, [Permission.APPLICATION_ASSIGN_DIRECT, Permission.TASK_ASSIGN]),
-    ) ?? false;
+    !!currentUser?.isSuperAdmin ||
+    activeRoles.some((r: string) =>
+      hasAnyPermission(
+        r as UserRole,
+        [Permission.APPLICATION_ASSIGN_DIRECT, Permission.TASK_ASSIGN],
+        { isSuperAdmin: currentUser?.isSuperAdmin },
+      ),
+    );
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const getTaskStatusStyle = (status: string) => {
@@ -141,7 +147,7 @@ export const MyAds: React.FC = () => {
     <>
       <div className="max-w-5xl mx-auto space-y-8 animate-fade-in">
         {/* Header */}
-        <div className="glass-card p-10 rounded-[2.5rem] flex items-start justify-between gap-4">
+        <div className="glass-card p-10 rounded-[2.5rem] flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
               My Ads
@@ -151,7 +157,7 @@ export const MyAds: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2 mt-6">
+          <div className="flex flex-wrap gap-2 mt-2 lg:mt-6">
             {(
               [
                 { id: "active" as const, label: "Active" },

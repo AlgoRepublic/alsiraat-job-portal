@@ -24,7 +24,8 @@ export const getUserRolesForActiveOrg = (
     ? user.organisationRoles
     : [];
   if (orgRoleEntries.length === 0) {
-    return [];
+    const legacyRoles = Array.isArray(user?.roles) ? user.roles : [];
+    return Array.from(new Set(legacyRoles.filter(Boolean)));
   }
 
   const targetOrgId =

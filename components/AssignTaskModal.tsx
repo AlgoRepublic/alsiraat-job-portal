@@ -26,6 +26,11 @@ interface AssignTaskModalProps {
   onSuccess?: () => void;
 }
 
+const isTaskDirectAssignable = (task: any): boolean => {
+  const status = String(task?.status || "").toLowerCase();
+  return status === "published" && !task?.archivedAt && !task?.deletedAt;
+};
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Small searchable dropdown
 // ──────────────────────────────────────────────────────────────────────────────
@@ -172,7 +177,12 @@ export const AssignTaskModal: React.FC<AssignTaskModalProps> = ({
     setLoadingTasks(true);
     try {
       const data = await api.getTasks({ createdByMe: "true", search });
-      setTasks(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.tasks)
+          ? data.tasks
+          : [];
+      setTasks(list.filter(isTaskDirectAssignable));
     } catch {
       setTasks([]);
     } finally {
