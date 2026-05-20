@@ -23,7 +23,7 @@ import {
   ClipboardCheck,
   ChevronDown,
 } from "lucide-react";
-import { UserRole, User, Job, Permission } from "../types";
+import { UserRole, User, Job, Permission, type OrgContext } from "../types";
 import { SnowBackground } from "./SnowBackground";
 import { api, API_BASE_URL, LOGIN_SOURCE_KEY } from "../services/api";
 import { getPublicCentralOrganisation, type PublicCentralOrg, invalidatePublicCentralOrganisationCache } from "../services/publicCentralOrg";
@@ -34,6 +34,25 @@ import {
   isValidThemeColorHex,
 } from "../utils/orgTheme";
 import { TaskLifecycleActions } from "./TaskLifecycleActions";
+
+/** Full display name for tooltip / labels when active org may omit `name` on the object. */
+function getActiveOrganisationDisplayName(user: User): string {
+  const ao = user.activeOrganisation as OrgContext | string | null | undefined;
+  if (ao && typeof ao === "object" && ao.name?.trim()) {
+    return ao.name.trim();
+  }
+  const id =
+    typeof ao === "string"
+      ? ao
+      : ao && typeof ao === "object"
+        ? ao._id
+        : undefined;
+  if (id && user.organisations?.length) {
+    const match = user.organisations.find((o) => o._id === id);
+    if (match?.name?.trim()) return match.name.trim();
+  }
+  return user.organisations?.[0]?.name?.trim() ?? "No organisation";
+}
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -610,140 +629,152 @@ export const Layout: React.FC<LayoutProps> = ({
         className={`fixed inset-y-0 left-0 z-50 w-72 glass shadow-2xl lg:shadow-none transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="flex flex-col h-full">
-          <Link
-            to="/"
-            className="flex items-center px-6 h-24 border-b border-white/20 dark:border-white/5"
-          >
-            <div className="w-12 h-12 flex items-center justify-center relative shrink-0">
-              <img
-                src={
-                  browseShellOrg?.logo
-                    ? `${API_BASE_URL.replace(/\/api$/, "")}${browseShellOrg.logo}`
-                    : isDarkMode
-                      ? "/logo-dark.png"
-                      : "/logo-light.png"
-                }
-                alt={browseShellOrg?.name || "Tasker Logo"}
-                className="w-full h-full object-contain drop-shadow-sm"
-                onError={(e) => {
-                  e.currentTarget.style.display = "none";
-                  e.currentTarget.parentElement!.innerHTML =
-                    '<div class="w-12 h-12 bg-gradient-to-tr from-primary to-primaryHover rounded-2xl flex items-center justify-center shadow-lg shadow-primary/30"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-white w-7 h-7"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg></div>';
-                }}
-              />
-            </div>
-            <div className="ml-4">
-              <span className="block text-2xl font-black text-zinc-900 dark:text-white tracking-tighter leading-none line-clamp-1">
-                {(browseShellOrg?.name ?? "Tasker").split(" ")[0]}
-              </span>
-              <span className="text-[10px] text-primary dark:text-primary rounded uppercase font-black tracking-[0.2em] line-clamp-1">
-                {(() => {
-                  const n = browseShellOrg?.name;
-                  if (!n) return "Connect";
-                  const idx = n.indexOf(" ");
-                  return idx > -1 ? n.substring(idx + 1) : "Connect";
-                })()}
-              </span>
-            </div>
-          </Link>
-
-          {/* ── Org Switcher ──────────────────────────────────────────────────── */}
-          {currentUser && (currentUser.organisations?.length ?? 0) > 1 && (
-            <div className="mx-4 mt-2 mb-1 relative">
-              <button
-                onClick={() => {
-                  if ((currentUser.organisations?.length ?? 0) > 1) {
-                    setShowOrgSwitcher((v) => !v);
+          {/* Sidebar branding: vertical stack, fixed logo, text truncates with native tooltip */}
+          <div className="shrink-0 border-b border-white/20 dark:border-white/5 px-6 pt-3 pb-2 min-w-0 flex flex-col items-center text-center">
+            <Link
+              to="/"
+              className="flex flex-col items-center gap-1.5 min-w-0 w-full outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded-xl -mx-1 px-1"
+            >
+              <div className="w-12 h-12 max-w-12 max-h-12 shrink-0 flex items-center justify-center relative overflow-hidden rounded-xl">
+                <img
+                  src={
+                    browseShellOrg?.logo
+                      ? `${API_BASE_URL.replace(/\/api$/, "")}${browseShellOrg.logo}`
+                      : isDarkMode
+                        ? "/logo-dark.png"
+                        : "/logo-light.png"
                   }
-                }}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-white/20 dark:border-white/5 transition-all text-left ${
-                  (currentUser.organisations?.length ?? 0) > 1
-                    ? "bg-white/20 dark:bg-zinc-800/40 hover:bg-white/40 dark:hover:bg-zinc-700/50"
-                    : "bg-white/10 dark:bg-zinc-800/20 cursor-not-allowed opacity-70"
-                }`}
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
-                    Organisation
-                  </p>
-                  <p className="text-xs font-bold text-zinc-800 dark:text-white truncate">
-                    {(currentUser.activeOrganisation as any)?.name ??
-                      currentUser.organisations?.[0]?.name ??
-                      "No organisation"}
-                  </p>
-                </div>
-                <ChevronDown
-                  className={`w-4 h-4 text-zinc-400 shrink-0 transition-transform ${showOrgSwitcher ? "rotate-180" : ""}`}
+                  alt={browseShellOrg?.name || "Tasker Logo"}
+                  className="w-12 h-12 max-w-full max-h-full object-contain object-center drop-shadow-sm"
+                  width={48}
+                  height={48}
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                    e.currentTarget.parentElement!.innerHTML =
+                      '<div class="w-12 h-12 max-w-12 max-h-12 bg-gradient-to-tr from-primary to-primaryHover rounded-2xl flex items-center justify-center shadow-lg shadow-primary/30"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-white w-7 h-7"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg></div>';
+                  }}
                 />
-              </button>
-
-              {showOrgSwitcher && (currentUser.organisations?.length ?? 0) > 1 && (
-                <div className="absolute top-full mt-1 left-0 right-0 z-50 glass-card rounded-xl shadow-xl border border-white/20 dark:border-white/5 overflow-hidden animate-slide-up">
-                  {currentUser.organisations.map((org) => {
-                    const activeId =
-                      (currentUser.activeOrganisation as any)?._id ??
-                      currentUser.organisations?.[0]?._id;
-                    const isActive = org._id === activeId;
-                    return (
-                      <button
-                        key={org._id}
-                        disabled={isActive || switchingOrg !== null}
-                        onClick={async () => {
-                          if (isActive) return;
-                          setSwitchingOrg(org._id);
-                          setShowOrgSwitcher(false);
-                          await onSwitchOrg(org._id);
-                          setSwitchingOrg(null);
-                        }}
-                        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all ${
-                          isActive
-                            ? "bg-primary/10 cursor-default"
-                            : "hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
-                        }`}
-                      >
-                        {org.logo ? (
-                          <img
-                            src={`${API_BASE_URL.replace(/\/api$/, "")}${org.logo}`}
-                            alt={org.name}
-                            className="w-7 h-7 rounded-lg object-contain bg-white border border-zinc-200 dark:border-zinc-700"
-                          />
-                        ) : (
-                          <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                            <span className="text-[10px] font-black text-primary">
-                              {org.name.charAt(0)}
-                            </span>
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p
-                            className={`text-xs font-bold truncate ${
-                              isActive
-                                ? "text-primary"
-                                : "text-zinc-800 dark:text-white"
-                            }`}
-                          >
-                            {org.name}
-                          </p>
-                        </div>
-                        {isActive && (
-                          <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
-                        )}
-                        {switchingOrg === org._id && (
-                          <div className="w-4 h-4 border-2 border-zinc-300 border-t-primary rounded-full animate-spin shrink-0" />
-                        )}
-                      </button>
-                    );
-                  })}
+              </div>
+              {!currentUser && (
+                <div className="min-w-0 w-full text-center">
+                  <span
+                    className="block text-2xl font-black text-zinc-900 dark:text-white tracking-tighter leading-none truncate"
+                    title={browseShellOrg?.name ?? "Tasker"}
+                  >
+                    {browseShellOrg?.name ?? "Tasker"}
+                  </span>
                 </div>
               )}
-            </div>
-          )}
+            </Link>
 
-          <nav className="flex-1 px-4 py-8 space-y-2 overflow-y-auto">
+            {currentUser && (
+              <div className="mt-1.5 flex flex-col items-center gap-0.5 min-w-0 w-full">
+                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 w-full text-center leading-none">
+                  Organisation
+                </p>
+                {(currentUser.organisations?.length ?? 0) > 1 ? (
+                  <div className="relative min-w-0 w-full">
+                    <button
+                      type="button"
+                      title={getActiveOrganisationDisplayName(currentUser)}
+                      onClick={() => {
+                        if ((currentUser.organisations?.length ?? 0) > 1) {
+                          setShowOrgSwitcher((v) => !v);
+                        }
+                      }}
+                      className={`w-full min-w-0 flex flex-col items-center gap-px px-3 py-1.5 rounded-xl border border-white/20 dark:border-white/5 transition-all ${
+                        (currentUser.organisations?.length ?? 0) > 1
+                          ? "bg-white/20 dark:bg-zinc-800/40 hover:bg-white/40 dark:hover:bg-zinc-700/50"
+                          : "bg-white/10 dark:bg-zinc-800/20 cursor-not-allowed opacity-70"
+                      }`}
+                    >
+                      <p
+                        className="w-full min-w-0 text-sm font-bold text-zinc-800 dark:text-white truncate text-center leading-tight"
+                      >
+                        {getActiveOrganisationDisplayName(currentUser)}
+                      </p>
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 text-zinc-400 shrink-0 transition-transform ${showOrgSwitcher ? "rotate-180" : ""}`}
+                      />
+                    </button>
+
+                    {showOrgSwitcher && (currentUser.organisations?.length ?? 0) > 1 && (
+                      <div className="absolute top-full mt-1 left-0 right-0 z-50 glass-card rounded-xl shadow-xl border border-white/20 dark:border-white/5 overflow-hidden animate-slide-up">
+                        {currentUser.organisations.map((org) => {
+                          const activeId =
+                            (currentUser.activeOrganisation as any)?._id ??
+                            currentUser.organisations?.[0]?._id;
+                          const isActive = org._id === activeId;
+                          return (
+                            <button
+                              key={org._id}
+                              type="button"
+                              disabled={isActive || switchingOrg !== null}
+                              onClick={async () => {
+                                if (isActive) return;
+                                setSwitchingOrg(org._id);
+                                setShowOrgSwitcher(false);
+                                await onSwitchOrg(org._id);
+                                setSwitchingOrg(null);
+                              }}
+                              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all ${
+                                isActive
+                                  ? "bg-primary/10 cursor-default"
+                                  : "hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+                              }`}
+                            >
+                              <img
+                                src={
+                                  org.logo
+                                    ? `${API_BASE_URL.replace(/\/api$/, "")}${org.logo}`
+                                    : isDarkMode
+                                      ? "/logo-dark.png"
+                                      : "/logo-light.png"
+                                }
+                                alt={org.name}
+                                className="w-7 h-7 rounded-lg object-contain bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-700 shrink-0"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p
+                                  className={`text-xs font-bold truncate ${
+                                    isActive
+                                      ? "text-primary"
+                                      : "text-zinc-800 dark:text-white"
+                                  }`}
+                                  title={org.name}
+                                >
+                                  {org.name}
+                                </p>
+                              </div>
+                              {isActive && (
+                                <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                              )}
+                              {switchingOrg === org._id && (
+                                <div className="w-4 h-4 border-2 border-zinc-300 border-t-primary rounded-full animate-spin shrink-0" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p
+                    className="text-sm font-bold text-zinc-800 dark:text-white truncate min-w-0 w-full text-center leading-tight"
+                    title={getActiveOrganisationDisplayName(currentUser)}
+                  >
+                    {getActiveOrganisationDisplayName(currentUser)}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <nav className="flex-1 px-4 pt-2 pb-5 space-y-2 overflow-y-auto min-w-0">
             {currentUser?.permissions?.includes(Permission.TASK_CREATE) && (
               <Link
                 to="/post-job"
-                className="flex items-center justify-center w-full px-4 py-4 mb-8 text-white bg-primary hover:bg-primaryHover rounded-2xl shadow-xl shadow-primary/20 transition-all transform hover:-translate-y-1 active:scale-95"
+                className="flex items-center justify-center w-full px-4 py-3 mb-3 text-white bg-primary hover:bg-primaryHover rounded-2xl shadow-xl shadow-primary/20 transition-all transform hover:-translate-y-1 active:scale-95"
                 onClick={() => setSidebarOpen(false)}
               >
                 <PlusCircle className="w-5 h-5 mr-3" />

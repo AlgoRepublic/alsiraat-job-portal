@@ -13,16 +13,14 @@ import { isSuperAdminUser } from "../utils/superAdmin.js";
  * Rules:
  *   1. Trim leading/trailing whitespace
  *   2. Collapse internal multiple spaces to one
- *   3. Title-case every word (e.g. "al-siraat college" → "Al-Siraat College")
  *
- * This makes `name` safe to compare with a simple case-insensitive regex
- * AND avoids creating duplicate orgs due to trivial formatting differences.
+ * This keeps the display name close to what the user entered while still
+ * avoiding duplicate orgs due to trivial spacing differences.
  */
 export function normalizeOrgName(raw: string): string {
   return raw
     .trim()
-    .replace(/\s+/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+    .replace(/\s+/g, " ");
 }
 
 /**
