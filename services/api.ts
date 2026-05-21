@@ -61,12 +61,10 @@ class ApiService {
     options: RequestInit = {},
   ): Promise<T> {
     const isFormData = options.body instanceof FormData;
-    const cache = options.cache ?? (options.method === "GET" || !options.method ? "no-store" : undefined);
 
     try {
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         ...options,
-        cache,
         headers: {
           ...this.getHeaders(isFormData),
           ...options.headers,
