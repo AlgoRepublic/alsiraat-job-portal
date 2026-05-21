@@ -668,10 +668,7 @@ export const Layout: React.FC<LayoutProps> = ({
             </Link>
 
             {currentUser && (
-              <div className="mt-1.5 flex flex-col items-center gap-0.5 min-w-0 w-full">
-                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 w-full text-center leading-none">
-                  Organisation
-                </p>
+              <div className="mt-1.5 flex flex-col items-center min-w-0 w-full">
                 {(currentUser.organisations?.length ?? 0) > 1 ? (
                   <div className="relative min-w-0 w-full">
                     <button
