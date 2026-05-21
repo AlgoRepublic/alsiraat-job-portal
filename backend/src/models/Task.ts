@@ -32,6 +32,8 @@ export interface ITask extends Document {
   requiredSkills?: string[] | undefined;
   rewardType: string;
   rewardValue?: number | undefined;
+  /** Free-form reward detail when reward type value kind is `text`. */
+  rewardText?: string | undefined;
   eligibility: string[];
   visibility: TaskVisibility;
   privateAudiences?: TaskVisibility[] | undefined;
@@ -70,6 +72,7 @@ const TaskSchema: Schema = new Schema(
     requiredSkills: [{ type: String }],
     rewardType: { type: String, required: true },
     rewardValue: { type: Number },
+    rewardText: { type: String, trim: true },
     eligibility: [{ type: String }],
     visibility: {
       type: String,

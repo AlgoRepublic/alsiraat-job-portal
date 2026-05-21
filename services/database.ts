@@ -79,6 +79,7 @@ const mapTaskToJob = (task: any): Job => {
     requiredSkills: task.requiredSkills || [],
     rewardType: task.rewardType,
     rewardValue: task.rewardValue,
+    rewardText: task.rewardText,
     eligibility: task.eligibility || [],
     visibility: mapApiVisibilityToJob(task.visibility),
     privateAudiences: Array.isArray(task.privateAudiences)
@@ -638,11 +639,20 @@ class DatabaseService {
   }
 
   // --- Reward Types ---
-  async getRewardTypes(): Promise<any[]> {
+  async getRewardTypes(organisation?: string): Promise<any[]> {
     try {
-      return await api.getRewardTypes();
+      return await api.getRewardTypes(organisation);
     } catch (err) {
       console.warn("Failed to fetch reward types", err);
+      return [];
+    }
+  }
+
+  async getRewardTypesAdmin(organisation?: string): Promise<any[]> {
+    try {
+      return await api.getRewardTypesAdmin(organisation);
+    } catch (err) {
+      console.warn("Failed to fetch reward types (admin)", err);
       return [];
     }
   }

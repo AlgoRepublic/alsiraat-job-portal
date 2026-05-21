@@ -810,9 +810,14 @@ export const acceptCompletion = async (req: any, res: Response) => {
 
     await applicantUser.save();
 
-    const rewardStr = task.rewardValue
-      ? `${task.rewardType} — ${task.rewardValue}`
-      : task.rewardType;
+    const rewardSummary =
+      task.rewardText && String(task.rewardText).trim()
+        ? `${task.rewardType} — ${String(task.rewardText).trim()}`
+        : task.rewardValue != null
+          ? `${task.rewardType} — ${task.rewardValue}`
+          : task.rewardType || "N/A";
+
+    const rewardStr = rewardSummary;
 
     await notify({
       recipientId: applicantUser._id.toString(),
@@ -824,8 +829,10 @@ export const acceptCompletion = async (req: any, res: Response) => {
         applicantUser.name || "Student",
         task.title,
         task.rewardType || "N/A",
-        task.rewardValue,
+        task.rewardValue != null ? String(task.rewardValue) : undefined,
         String(app._id),
+        undefined,
+        rewardSummary,
       ),
     });
 

@@ -209,6 +209,7 @@ export const createTask = async (req: any, res: Response) => {
       requiredSkills,
       rewardType,
       rewardValue,
+      rewardText,
       eligibility,
       visibility,
       privateAudiences,
@@ -267,6 +268,10 @@ export const createTask = async (req: any, res: Response) => {
       createdBy: req.user._id,
       attachments,
     };
+
+    if (rewardText !== undefined && rewardText !== null && String(rewardText).trim() !== "") {
+      taskData.rewardText = String(rewardText).trim();
+    }
 
     // Log user data for debugging
     console.log("\n🔍 Task Creation Debug:");
@@ -334,6 +339,7 @@ export const updateTask = async (req: any, res: Response) => {
       requiredSkills,
       rewardType,
       rewardValue,
+      rewardText,
       eligibility,
       visibility,
       privateAudiences,
@@ -406,7 +412,15 @@ export const updateTask = async (req: any, res: Response) => {
     if (selectionCriteria) task.selectionCriteria = selectionCriteria;
     if (requiredSkills) task.requiredSkills = parseArrayField(requiredSkills);
     if (rewardType) task.rewardType = rewardType;
-    if (rewardValue) task.rewardValue = rewardValue;
+    if (rewardValue !== undefined) task.rewardValue = rewardValue;
+    if (rewardText !== undefined) {
+      const t = String(rewardText).trim();
+      if (t === "") {
+        (task as any).rewardText = undefined;
+      } else {
+        (task as any).rewardText = t;
+      }
+    }
     if (eligibility) task.eligibility = parseArrayField(eligibility);
     if (visibility) task.visibility = normalizeIncomingTaskVisibility(visibility);
     if (privateAudiences !== undefined) {

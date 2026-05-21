@@ -34,6 +34,11 @@ import {
 import { generateJobDescription } from "../services/geminiService";
 import { db } from "../services/database";
 import { api } from "../services/api";
+import {
+  ACTIVE_ORG_CHANGED_EVENT,
+  getActiveOrgIdFromStorage,
+  getOrgId,
+} from "../utils/orgScopedRoles";
 
 function getActiveOrganisationNameFromUser(user: any): string | null {
   if (!user) return null;
@@ -69,6 +74,56 @@ function readActiveOrganisationNameFromStorage(): string | null {
   } catch {
     return null;
   }
+}
+
+function getRewardTypeOrgId(rt: { organisation?: unknown }): string | null {
+  const organisation = rt?.organisation;
+  if (organisation && typeof organisation === "object") {
+    return getOrgId(organisation);
+  }
+  if (typeof organisation === "string") return organisation;
+  return null;
+}
+
+function rewardAmountPrefix(rt: {
+  valueKind?: string;
+  calculationMode?: string;
+}): string {
+  if (rt?.valueKind === "currency" && rt?.calculationMode !== "hourly") {
+    return "$";
+  }
+  return "";
+}
+
+function rewardAmountSuffix(rt: {
+  valueKind?: string;
+  calculationMode?: string;
+}): string {
+  if (rt?.valueKind === "currency" && rt?.calculationMode === "hourly") {
+    return "$/hr";
+  }
+  if (rt?.valueKind === "currency" && rt?.calculationMode === "weekly") {
+    return "$/week";
+  }
+  if (rt?.valueKind === "number" && rt?.calculationMode === "hours") {
+    return "hrs";
+  }
+  if (rt?.valueKind === "number" && rt?.calculationMode === "points") {
+    return "pts";
+  }
+  return "";
+}
+
+function rewardValueFieldLabel(rt: {
+  valueKind?: string;
+  calculationMode?: string;
+}): string {
+  if (rt?.valueKind === "text") return "Reward detail";
+  if (rt?.valueKind === "currency") return "Amount";
+  if (rt?.valueKind === "number") {
+    return rt.calculationMode === "hours" ? "Hours" : "Points";
+  }
+  return "Value";
 }
 
 const normalizeVisibilityMode = (value?: string): Visibility => {
@@ -213,6 +268,10 @@ export const JobWizard: React.FC = () => {
   const [activeOrgName, setActiveOrgName] = useState<string | null>(() =>
     readActiveOrganisationNameFromStorage(),
   );
+  const [activeOrgId, setActiveOrgId] = useState<string | null>(() =>
+    getActiveOrgIdFromStorage(),
+  );
+  const [rewardTypesOrgReady, setRewardTypesOrgReady] = useState(false);
 
   const [formData, setFormData] = useState<Partial<Job>>({
     title: "",
@@ -226,6 +285,7 @@ export const JobWizard: React.FC = () => {
     requiredSkills: [],
     rewardType: RewardType.VOLUNTEER,
     rewardValue: 0,
+    rewardText: "",
     eligibility: [],
     visibility: Visibility.PRIVATE,
     privateAudiences: [Visibility.INTERNAL],
@@ -236,28 +296,43 @@ export const JobWizard: React.FC = () => {
   });
 
   React.useEffect(() => {
-    db.getCurrentUser().then((u) => {
-      const fromUser = u ? getActiveOrganisationNameFromUser(u) : null;
-      setActiveOrgName(fromUser ?? readActiveOrganisationNameFromStorage());
-    });
-  }, []);
+    const syncActiveOrg = async () => {
+      const user = await db.getCurrentUser().catch(() => null);
+      setActiveOrgName(
+        user ? getActiveOrganisationNameFromUser(user) : readActiveOrganisationNameFromStorage(),
+      );
+      setActiveOrgId(getOrgId(user?.activeOrganisation) || getActiveOrgIdFromStorage());
+      setRewardTypesOrgReady(true);
+    };
 
-  React.useEffect(() => {
-    if (openS2.reward) {
-      setActiveOrgName(readActiveOrganisationNameFromStorage());
-    }
-  }, [openS2.reward]);
+    const handleOrgChange = () => {
+      void syncActiveOrg();
+    };
+
+    void syncActiveOrg();
+    window.addEventListener(ACTIVE_ORG_CHANGED_EVENT, handleOrgChange);
+    return () => window.removeEventListener(ACTIVE_ORG_CHANGED_EVENT, handleOrgChange);
+  }, []);
 
   // Fetch data on mount
   React.useEffect(() => {
+    if (!rewardTypesOrgReady) return;
+    let cancelled = false;
+
     const fetchData = async () => {
       const [types, cats, , groupsData] = await Promise.all([
-        db.getRewardTypes(),
+        db.getRewardTypes(activeOrgId ?? undefined),
         db.getTaskCategories(),
         db.getRoles(),
         db.getGroupsPublic(),
       ]);
-      setRewardTypes(types);
+      if (cancelled) return;
+      const filteredTypes = types.filter((rt: any) => {
+        if (!rt?.isActive) return false;
+        const orgId = getRewardTypeOrgId(rt);
+        return activeOrgId ? orgId === activeOrgId : orgId === null;
+      });
+      setRewardTypes(filteredTypes);
       setCategories(cats);
       setGroups(groupsData);
 
@@ -288,6 +363,7 @@ export const JobWizard: React.FC = () => {
               requiredSkills: job.requiredSkills,
               rewardType: job.rewardType,
               rewardValue: job.rewardValue,
+              rewardText: job.rewardText ?? "",
               eligibility: job.eligibility,
               visibility: jobVisibility,
               privateAudiences: jobPrivateAudiences,
@@ -304,7 +380,7 @@ export const JobWizard: React.FC = () => {
         }
       } else {
         if (cats.length > 0) updateField("category", cats[0].name);
-        if (types.length > 0) updateField("rewardType", types[0].name);
+        if (filteredTypes.length > 0) updateField("rewardType", filteredTypes[0].name);
         // Auto-select "All Members" group for new tasks
         const allMembersGroup = groupsData.find(
           (g: any) => g.name?.toLowerCase() === "all members"
@@ -315,7 +391,10 @@ export const JobWizard: React.FC = () => {
       }
     };
     fetchData();
-  }, [id, navigate]);
+      return () => {
+        cancelled = true;
+      };
+    }, [activeOrgId, id, rewardTypesOrgReady]);
 
   const updateField = (field: keyof Job, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -421,11 +500,15 @@ export const JobWizard: React.FC = () => {
     const selectedType = rewardTypes.find(
       (rt) => rt.name === formData.rewardType,
     );
-    if (
-      selectedType?.requiresValue &&
-      (!formData.rewardValue || formData.rewardValue <= 0)
-    )
-      newErrors.rewardValue = "Reward value must be greater than 0";
+    if (selectedType?.requiresValue) {
+      if (selectedType.valueKind === "text") {
+        if (!formData.rewardText?.trim()) {
+          newErrors.rewardText = "Reward detail is required";
+        }
+      } else if (!formData.rewardValue || formData.rewardValue <= 0) {
+        newErrors.rewardValue = "Reward value must be greater than 0";
+      }
+    }
     if (!formData.visibility)
       newErrors.visibility = "Task Visibility is required";
     if (
@@ -466,7 +549,7 @@ export const JobWizard: React.FC = () => {
     const step2Errors = validateStep2();
     if (Object.keys(step2Errors).length > 0) {
       setErrors(step2Errors);
-      if (step2Errors.rewardType || step2Errors.rewardValue || step2Errors.visibility)
+      if (step2Errors.rewardType || step2Errors.rewardValue || step2Errors.rewardText || step2Errors.visibility)
         setOpenS2((p) => ({ ...p, reward: true }));
       return;
     }
@@ -496,6 +579,19 @@ export const JobWizard: React.FC = () => {
             ? formData.allowedGroups ?? []
             : [],
       };
+
+      const selectedRt = rewardTypes.find(
+        (rt) => rt.name === formData.rewardType,
+      );
+      if (selectedRt?.valueKind === "text") {
+        (submissionData as any).rewardText = (formData.rewardText || "").trim();
+        (submissionData as any).rewardValue = undefined;
+      } else {
+        (submissionData as any).rewardText = undefined;
+      }
+      if (!selectedRt?.requiresValue) {
+        (submissionData as any).rewardValue = undefined;
+      }
 
       if (id) {
         if (uploadedFiles.length > 0) {
@@ -870,7 +966,12 @@ export const JobWizard: React.FC = () => {
             isOpen={openS2.reward}
             onToggle={() => toggleS2("reward")}
             hasError={
-              !!(errors.rewardType || errors.rewardValue || errors.visibility)
+              !!(
+                errors.rewardType ||
+                errors.rewardValue ||
+                errors.rewardText ||
+                errors.visibility
+              )
             }
           >
             <div className="space-y-5">
@@ -882,8 +983,14 @@ export const JobWizard: React.FC = () => {
                     value={formData.rewardType || ""}
                     onChange={(val) => {
                       updateField("rewardType", val);
+                      updateField("rewardText", "");
+                      updateField("rewardValue", 0);
                       if (errors.rewardType)
                         setErrors((p) => ({ ...p, rewardType: "" }));
+                      if (errors.rewardValue)
+                        setErrors((p) => ({ ...p, rewardValue: "" }));
+                      if (errors.rewardText)
+                        setErrors((p) => ({ ...p, rewardText: "" }));
                     }}
                     placeholder="Select Reward"
                     error={!!errors.rewardType}
@@ -898,53 +1005,63 @@ export const JobWizard: React.FC = () => {
                 {selectedRewardType?.requiresValue && (
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                      {selectedRewardType.name.toLowerCase().includes("voucher")
-                        ? "Voucher Value"
-                        : "Reward Amount / Points"}{" "}
-                      *
+                      {rewardValueFieldLabel(selectedRewardType)} *
                     </label>
-                    <div className="relative">
-                      {(selectedRewardType.name
-                        .toLowerCase()
-                        .includes("lumpsum") ||
-                        selectedRewardType.name
-                          .toLowerCase()
-                          .includes("voucher")) && (
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-zinc-400">
-                          $
-                        </span>
-                      )}
-                      <input
-                        type="number"
-                        className={`w-full p-3.5 glass rounded-xl font-bold dark:text-white ${
-                          selectedRewardType.name
-                            .toLowerCase()
-                            .includes("lumpsum") ||
-                          selectedRewardType.name
-                            .toLowerCase()
-                            .includes("voucher")
-                            ? "pl-8"
-                            : ""
-                        } ${errors.rewardValue ? "border-2 border-red-500" : ""}`}
-                        value={formData.rewardValue}
-                        onChange={(e) => {
-                          updateField("rewardValue", Number(e.target.value));
-                          if (errors.rewardValue)
-                            setErrors((p) => ({ ...p, rewardValue: "" }));
-                        }}
-                      />
-                      {selectedRewardType.name
-                        .toLowerCase()
-                        .includes("hour") && (
-                        <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-zinc-400 text-sm">
-                          $/hr
-                        </span>
-                      )}
-                    </div>
-                    {errors.rewardValue && (
-                      <p className="text-red-500 text-xs font-bold">
-                        {errors.rewardValue}
-                      </p>
+                    {selectedRewardType.valueKind === "text" ? (
+                      <>
+                        <input
+                          type="text"
+                          className={`w-full p-3.5 glass rounded-xl font-bold dark:text-white ${
+                            errors.rewardText ? "border-2 border-red-500" : ""
+                          }`}
+                          placeholder="e.g. coupon code or short description"
+                          value={formData.rewardText ?? ""}
+                          onChange={(e) => {
+                            updateField("rewardText", e.target.value);
+                            if (errors.rewardText)
+                              setErrors((p) => ({ ...p, rewardText: "" }));
+                          }}
+                        />
+                        {errors.rewardText && (
+                          <p className="text-red-500 text-xs font-bold">
+                            {errors.rewardText}
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <div className="relative">
+                          {rewardAmountPrefix(selectedRewardType) && (
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-zinc-400">
+                              {rewardAmountPrefix(selectedRewardType)}
+                            </span>
+                          )}
+                          <input
+                            type="number"
+                            className={`w-full p-3.5 glass rounded-xl font-bold dark:text-white ${
+                              rewardAmountPrefix(selectedRewardType)
+                                ? "pl-8"
+                                : ""
+                            } ${errors.rewardValue ? "border-2 border-red-500" : ""}`}
+                            value={formData.rewardValue}
+                            onChange={(e) => {
+                              updateField("rewardValue", Number(e.target.value));
+                              if (errors.rewardValue)
+                                setErrors((p) => ({ ...p, rewardValue: "" }));
+                            }}
+                          />
+                          {rewardAmountSuffix(selectedRewardType) && (
+                            <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-zinc-400 text-sm">
+                              {rewardAmountSuffix(selectedRewardType)}
+                            </span>
+                          )}
+                        </div>
+                        {errors.rewardValue && (
+                          <p className="text-red-500 text-xs font-bold">
+                            {errors.rewardValue}
+                          </p>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
@@ -1339,7 +1456,16 @@ export const JobWizard: React.FC = () => {
                   { label: "End Date", value: formData.endDate || "-" },
                   {
                     label: "Reward",
-                    value: `${formData.rewardType || "-"}${formData.rewardValue ? ` · ${formData.rewardValue}` : ""}`,
+                    value: (() => {
+                      const rt = selectedRewardType;
+                      if (rt?.valueKind === "text" && formData.rewardText?.trim()) {
+                        return `${formData.rewardType || "-"} · ${formData.rewardText.trim()}`;
+                      }
+                      if (formData.rewardValue) {
+                        return `${formData.rewardType || "-"} · ${formData.rewardValue}`;
+                      }
+                      return formData.rewardType || "-";
+                    })(),
                   },
                   {
                     label: "Visibility",

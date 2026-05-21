@@ -14,6 +14,7 @@ import Task from "../models/Task.js";
 import Application from "../models/Application.js";
 import PermissionModel from "../models/Permission.js";
 import EmailSettings from "../models/EmailSettings.js";
+import { DEFAULT_REWARD_TYPES } from "../config/defaultRewardTypes.js";
 import { Permission, RolePermissions } from "../config/permissions.js";
 
 import { UserRole } from "../models/UserRole.js";
@@ -346,46 +347,11 @@ async function resetDatabase() {
 
     // Step 6: Seed Reward Types
     console.log("\n🎁 Seeding reward types...");
-    const rewardTypes = [
-      {
-        code: "hourly",
-        name: "Hourly",
-        description: "Payment per hour",
-        requiresValue: true,
-        icon: "⏰",
-      },
-      {
-        code: "lumpsum",
-        name: "Lumpsum",
-        description: "One-off payment",
-        requiresValue: true,
-        icon: "💰",
-      },
-      {
-        code: "voucher",
-        name: "Voucher",
-        description: "Gift voucher",
-        requiresValue: true,
-        icon: "🎟️",
-      },
-      {
-        code: "via_hours",
-        name: "VIA Hours",
-        description: "Values in Action hours",
-        requiresValue: true,
-        icon: "🤝",
-      },
-      {
-        code: "community_recognition",
-        name: "Community service recognition",
-        description: "Recognition for service",
-        requiresValue: false,
-        icon: "🏅",
-      },
-    ];
-
-    for (const rewardType of rewardTypes) {
-      await RewardType.create(rewardType);
+    for (const rewardType of DEFAULT_REWARD_TYPES) {
+      await RewardType.create({
+        ...rewardType,
+        organisation: organization._id,
+      });
       console.log(`   Created reward type: ${rewardType.name}`);
     }
     console.log("✅ All reward types created");
@@ -469,7 +435,7 @@ async function resetDatabase() {
         endDate: new Date("2026-03-01"),
         selectionCriteria: "Energetic, organized, good with children",
         requiredSkills: ["Event Management", "Communication", "Teamwork"],
-        rewardType: "Community service recognition",
+        rewardType: "Community Service Recognition",
         rewardValue: 1,
         eligibility: ["Students", "Parents", "Staff", "Public"],
         visibility: TaskVisibility.CENTRAL,
@@ -490,7 +456,7 @@ async function resetDatabase() {
         endDate: new Date("2026-05-12"),
         selectionCriteria: "Basic computer skills, problem-solving ability",
         requiredSkills: ["IT Support", "Problem Solving", "Communication"],
-        rewardType: "Community service recognition",
+        rewardType: "Community Service Recognition",
         rewardValue: 1,
         eligibility: ["Students", "Staff"],
         visibility: TaskVisibility.INTERNAL,

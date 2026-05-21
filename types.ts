@@ -98,6 +98,8 @@ export interface Job {
   requiredSkills?: string[];
   rewardType: string;
   rewardValue?: number;
+  /** When the organisation uses a text-valued reward type (e.g. coupon code). */
+  rewardText?: string;
   eligibility: string[]; // e.g., ['Students', 'Parents']
   visibility: Visibility;
   privateAudiences?: Visibility[];

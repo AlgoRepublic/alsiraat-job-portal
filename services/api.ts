@@ -61,10 +61,12 @@ class ApiService {
     options: RequestInit = {},
   ): Promise<T> {
     const isFormData = options.body instanceof FormData;
+    const cache = options.cache ?? (options.method === "GET" || !options.method ? "no-store" : undefined);
 
     try {
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         ...options,
+        cache,
         headers: {
           ...this.getHeaders(isFormData),
           ...options.headers,
@@ -520,8 +522,20 @@ class ApiService {
   }
 
   // --- Reward Types ---
-  async getRewardTypes(): Promise<any[]> {
-    return this.request<any[]>("/reward-types");
+  async getRewardTypes(organisation?: string): Promise<any[]> {
+    const q =
+      organisation !== undefined && organisation !== ""
+        ? `?organisation=${encodeURIComponent(organisation)}`
+        : "";
+    return this.request<any[]>(`/reward-types${q}`);
+  }
+
+  async getRewardTypesAdmin(organisation?: string): Promise<any[]> {
+    const parts = ["all=true"];
+    if (organisation !== undefined && organisation !== "") {
+      parts.push(`organisation=${encodeURIComponent(organisation)}`);
+    }
+    return this.request<any[]>(`/reward-types?${parts.join("&")}`);
   }
 
   // --- Task Categories ---

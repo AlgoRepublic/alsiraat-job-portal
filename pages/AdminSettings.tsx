@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Edit2,
   Shield,
@@ -16,6 +16,7 @@ import {
   ExternalLink,
   Mail,
   Sparkles,
+  Gift,
 } from "lucide-react";
 import { Loading } from "../components/Loading";
 import { useNavigate } from "react-router-dom";
@@ -77,6 +78,18 @@ function organisationParamFromCategory(
   activeOrgId: string,
 ): string {
   const raw = cat?.organisation;
+  if (raw && typeof raw === "object" && "_id" in raw) {
+    return String((raw as { _id: string })._id);
+  }
+  if (typeof raw === "string") return raw;
+  return activeOrgId;
+}
+
+function organisationParamFromReward(
+  rt: { organisation?: string | { _id: string } | null },
+  activeOrgId: string,
+): string {
+  const raw = rt?.organisation;
   if (raw && typeof raw === "object" && "_id" in raw) {
     return String((raw as { _id: string })._id);
   }
@@ -218,7 +231,15 @@ export const AdminSettings: React.FC = () => {
   const { showSuccess, showError } = useToast();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
-    "users" | "roles" | "permissions" | "categories" | "groups" | "email" | "ai" | "organisations"
+    | "users"
+    | "roles"
+    | "permissions"
+    | "categories"
+    | "rewards"
+    | "groups"
+    | "email"
+    | "ai"
+    | "organisations"
   >("users");
 
   // Dynamic roles and permissions state
@@ -266,6 +287,20 @@ export const AdminSettings: React.FC = () => {
     icon: "📋",
   });
 
+  const [rewardTypesList, setRewardTypesList] = useState<any[]>([]);
+  const [rtLoading, setRtLoading] = useState(false);
+  const [editingRt, setEditingRt] = useState<any | null>(null);
+  const [showNewRtForm, setShowNewRtForm] = useState(false);
+  const [newRt, setNewRt] = useState({
+    name: "",
+    code: "",
+    description: "",
+    color: "#6366F1",
+    valueKind: "currency",
+    calculationMode: "fixed",
+  });
+  const rewardTypesLoadSeqRef = useRef(0);
+
   const [adminOrgSync, setAdminOrgSync] = useState(0);
   const [activeOrgName, setActiveOrgName] = useState("");
   const [activeOrgId, setActiveOrgId] = useState("");
@@ -310,6 +345,35 @@ export const AdminSettings: React.FC = () => {
     loadData();
     loadCategories();
   }, [adminOrgSync]);
+
+  const loadRewardTypes = useCallback(async () => {
+    const requestSeq = ++rewardTypesLoadSeqRef.current;
+    setRtLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/reward-types?all=true`, {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+        },
+      });
+      const list = await res.json();
+      if (requestSeq !== rewardTypesLoadSeqRef.current) return;
+      setRewardTypesList(Array.isArray(list) ? list : []);
+    } catch {
+      if (requestSeq === rewardTypesLoadSeqRef.current) {
+        showError("Failed to load reward types");
+      }
+    } finally {
+      if (requestSeq === rewardTypesLoadSeqRef.current) {
+        setRtLoading(false);
+      }
+    }
+  }, [showError]);
+
+  useEffect(() => {
+    if (activeTab !== "rewards") return;
+    void loadRewardTypes();
+  }, [activeTab, adminOrgSync, loadRewardTypes]);
 
   const loadCategories = async () => {
     setCatLoading(true);
@@ -1343,6 +1407,582 @@ export const AdminSettings: React.FC = () => {
     }
   };
 
+  const handleCreateRewardType = async () => {
+    if (!newRt.name.trim()) return showError("Name is required");
+    try {
+      const autoCode =
+        newRt.code.trim() ||
+        newRt.name
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "_")
+          .replace(/^_|_$/g, "");
+      const vk = newRt.valueKind;
+      const cm =
+        vk === "none" || vk === "text" ? "none" : newRt.calculationMode;
+      const res = await fetch(
+        withOrganisationQuery(`${API_BASE_URL}/reward-types`, activeOrgId),
+        {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          code: autoCode,
+          name: newRt.name.trim(),
+          description: newRt.description,
+          color: newRt.color,
+          valueKind: vk,
+          calculationMode: cm,
+        }),
+        },
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      showSuccess("Reward type created");
+      setShowNewRtForm(false);
+      setNewRt({
+        name: "",
+        code: "",
+        description: "",
+        color: "#6366F1",
+        valueKind: "currency",
+        calculationMode: "fixed",
+      });
+      loadRewardTypes();
+    } catch (err: any) {
+      showError(err.message);
+    }
+  };
+
+  const handleUpdateRewardType = async (rt: any) => {
+    try {
+      const res = await fetch(
+        withOrganisationQuery(
+          `${API_BASE_URL}/reward-types/${rt._id}`,
+          organisationParamFromReward(rt, activeOrgId),
+        ),
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(rt),
+        },
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      showSuccess("Reward type updated");
+      setEditingRt(null);
+      loadRewardTypes();
+    } catch (err: any) {
+      showError(err.message);
+    }
+  };
+
+  const handleDeleteRewardType = async (rt: any) => {
+    if (rt.isSystem && !isSuperAdmin) {
+      return showError("System reward types cannot be deleted");
+    }
+    if (
+      !confirm(
+        rt.isSystem
+          ? `Delete system reward type "${rt.name}"? This cannot be undone.`
+          : `Delete reward type "${rt.name}"?`,
+      )
+    ) {
+      return;
+    }
+    try {
+      const res = await fetch(
+        withOrganisationQuery(
+          `${API_BASE_URL}/reward-types/${rt._id}`,
+          organisationParamFromReward(rt, activeOrgId),
+        ),
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          },
+        },
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      showSuccess("Reward type deleted");
+      setRewardTypesList((prev) => prev.filter((item) => item._id !== rt._id));
+      await loadRewardTypes();
+    } catch (err: any) {
+      showError(err.message);
+    }
+  };
+
+  const handleSeedRewardTypes = async () => {
+    try {
+      const res = await fetch(
+        withOrganisationQuery(
+          `${API_BASE_URL}/reward-types/seed/defaults`,
+          activeOrgId,
+        ),
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          },
+        },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || "Seed failed");
+      showSuccess(data.message || "Default reward types seeded.");
+      loadRewardTypes();
+    } catch (err: any) {
+      showError(err.message);
+    }
+  };
+
+  const renderRewards = () => (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div>
+          <h2 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
+            Reward Types
+          </h2>
+          <p className="text-zinc-500 font-medium mt-1 max-w-2xl">
+            {activeOrgName ? (
+              <>
+                Choose what volunteers see on tasks for{" "}
+                <span className="font-bold text-zinc-800 dark:text-zinc-100">
+                  {activeOrgName}
+                </span>
+                . Use <span className="font-bold text-zinc-600 dark:text-zinc-300">Seed Defaults</span> to load the standard set for this organisation.
+              </>
+            ) : (
+              <>
+                Choose what volunteers see on tasks: money, points, VIA hours, vouchers, or
+                recognition only. Select an organisation in the sidebar, then use{" "}
+                <span className="font-bold text-zinc-600 dark:text-zinc-300">Seed Defaults</span>.
+              </>
+            )}
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={handleSeedRewardTypes}
+            className="flex items-center px-4 py-2 text-sm font-bold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white bg-white/50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-700 transition-all"
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Seed Defaults
+          </button>
+          {!showNewRtForm && (
+            <button
+              type="button"
+              onClick={() => setShowNewRtForm(true)}
+              className="flex items-center px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primaryHover transition-all shadow-lg shadow-primary/20"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              New Reward Type
+            </button>
+          )}
+        </div>
+      </div>
+
+      {showNewRtForm && (
+        <div className="glass-card p-6 rounded-2xl space-y-4">
+          <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
+            Create reward type
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">
+                Name *
+              </label>
+              <input
+                type="text"
+                value={newRt.name}
+                onChange={(e) => setNewRt({ ...newRt, name: e.target.value })}
+                className="w-full p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">
+                Code (optional)
+              </label>
+              <input
+                type="text"
+                value={newRt.code}
+                onChange={(e) =>
+                  setNewRt({
+                    ...newRt,
+                    code: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""),
+                  })
+                }
+                className="w-full p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 font-mono text-sm text-zinc-900 dark:text-white"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">
+              Description
+            </label>
+            <input
+              type="text"
+              value={newRt.description}
+              onChange={(e) =>
+                setNewRt({ ...newRt, description: e.target.value })
+              }
+              className="w-full p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white"
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">
+                Value kind *
+              </label>
+              <select
+                value={newRt.valueKind}
+                onChange={(e) => {
+                  const vk = e.target.value;
+                  setNewRt((p) => ({
+                    ...p,
+                    valueKind: vk,
+                    calculationMode:
+                      vk === "none" || vk === "text"
+                        ? "none"
+                        : vk === "number"
+                          ? "points"
+                          : "fixed",
+                  }));
+                }}
+                className="w-full p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white font-bold text-sm"
+              >
+                <option value="none">None</option>
+                <option value="currency">Currency</option>
+                <option value="number">Number</option>
+                <option value="text">Text</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">
+                Calculation *
+              </label>
+              <select
+                value={
+                  newRt.valueKind === "none" || newRt.valueKind === "text"
+                    ? "none"
+                    : newRt.calculationMode
+                }
+                onChange={(e) =>
+                  setNewRt({ ...newRt, calculationMode: e.target.value })
+                }
+                disabled={
+                  newRt.valueKind === "none" || newRt.valueKind === "text"
+                }
+                className="w-full p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white font-bold text-sm disabled:opacity-50"
+              >
+                {newRt.valueKind === "none" ||
+                newRt.valueKind === "text" ? (
+                  <option value="none">None</option>
+                ) : newRt.valueKind === "number" ? (
+                  <>
+                    <option value="points">Points</option>
+                    <option value="hours">Hours (e.g. VIA hours)</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="fixed">Fixed</option>
+                    <option value="hourly">Hourly</option>
+                    <option value="weekly">Weekly</option>
+                  </>
+                )}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">
+                Colour
+              </label>
+              <input
+                type="color"
+                value={newRt.color}
+                onChange={(e) =>
+                  setNewRt({ ...newRt, color: e.target.value })
+                }
+                className="w-12 h-12 rounded-xl cursor-pointer border-0"
+              />
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={handleCreateRewardType}
+              className="flex items-center gap-2 px-5 py-2 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 transition-all"
+            >
+              <Save className="w-4 h-4" /> Create
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowNewRtForm(false)}
+              className="px-5 py-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-white font-bold text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {rtLoading ? (
+        <Loading message="Loading reward types..." />
+      ) : (
+        <div className="glass-card rounded-2xl overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-100 dark:border-zinc-800">
+              <tr>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                  Reward
+                </th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                  Code
+                </th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                  Kind / Calc
+                </th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                  Status
+                </th>
+                <th className="px-6 py-4 text-right text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+              {rewardTypesList.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-6 py-12 text-center text-sm text-zinc-400"
+                  >
+                    No reward types. Click &quot;Seed Defaults&quot; to load the
+                    standard set.
+                  </td>
+                </tr>
+              )}
+              {rewardTypesList.map((rt) =>
+                editingRt?._id === rt._id ? (
+                  <tr key={rt._id} className="bg-primary/5">
+                    <td className="px-6 py-4" colSpan={5}>
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <input
+                            type="text"
+                            value={editingRt.name}
+                            onChange={(e) =>
+                              setEditingRt({
+                                ...editingRt,
+                                name: e.target.value,
+                              })
+                            }
+                            className="p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-900 dark:text-white"
+                          />
+                          <input
+                            type="text"
+                            value={editingRt.description ?? ""}
+                            onChange={(e) =>
+                              setEditingRt({
+                                ...editingRt,
+                                description: e.target.value,
+                              })
+                            }
+                            className="p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-900 dark:text-white"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <select
+                            value={editingRt.valueKind || "number"}
+                            onChange={(e) => {
+                              const vk = e.target.value;
+                              setEditingRt((p: any) => ({
+                                ...p,
+                                valueKind: vk,
+                                calculationMode:
+                                  vk === "none" || vk === "text"
+                                    ? "none"
+                                    : vk === "number"
+                                      ? "points"
+                                      : "fixed",
+                              }));
+                            }}
+                            className="p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-900 dark:text-white font-bold"
+                          >
+                            <option value="none">None</option>
+                            <option value="currency">Currency</option>
+                            <option value="number">Number</option>
+                            <option value="text">Text</option>
+                          </select>
+                          <select
+                            value={
+                              editingRt.valueKind === "none" ||
+                              editingRt.valueKind === "text"
+                                ? "none"
+                                : editingRt.valueKind === "number"
+                                  ? editingRt.calculationMode === "hours"
+                                    ? "hours"
+                                    : "points"
+                                  : editingRt.calculationMode || "fixed"
+                            }
+                            onChange={(e) =>
+                              setEditingRt({
+                                ...editingRt,
+                                calculationMode: e.target.value,
+                              })
+                            }
+                            disabled={
+                              editingRt.valueKind === "none" ||
+                              editingRt.valueKind === "text"
+                            }
+                            className="p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-900 dark:text-white font-bold disabled:opacity-50"
+                          >
+                            {editingRt.valueKind === "none" ||
+                            editingRt.valueKind === "text" ? (
+                              <option value="none">None</option>
+                            ) : editingRt.valueKind === "number" ? (
+                              <>
+                                <option value="points">Points</option>
+                                <option value="hours">
+                                  Hours (e.g. VIA hours)
+                                </option>
+                              </>
+                            ) : (
+                              <>
+                                <option value="fixed">Fixed</option>
+                                <option value="hourly">Hourly</option>
+                                <option value="weekly">Weekly</option>
+                              </>
+                            )}
+                          </select>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="color"
+                            value={editingRt.color ?? "#6B7280"}
+                            onChange={(e) =>
+                              setEditingRt({
+                                ...editingRt,
+                                color: e.target.value,
+                              })
+                            }
+                            className="w-10 h-10 rounded-lg cursor-pointer"
+                          />
+                          <label className="flex items-center gap-2 text-xs font-bold text-zinc-500 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={!!editingRt.isActive}
+                              onChange={(e) =>
+                                setEditingRt({
+                                  ...editingRt,
+                                  isActive: e.target.checked,
+                                })
+                              }
+                              className="w-4 h-4 rounded accent-primary"
+                            />
+                            Active
+                          </label>
+                          <div className="flex gap-2 ml-auto">
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateRewardType(editingRt)}
+                              className="flex items-center gap-1.5 px-4 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold hover:bg-emerald-600 transition-all"
+                            >
+                              <Check className="w-3.5 h-3.5" /> Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingRt(null)}
+                              className="px-4 py-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-white rounded-xl text-xs font-bold"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  <tr
+                    key={rt._id}
+                    className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors"
+                  >
+                    <td className="px-6 py-4">
+                      <p className="font-bold text-zinc-900 dark:text-white text-sm">
+                        {rt.name}
+                      </p>
+                      {rt.description && (
+                        <p className="text-xs text-zinc-400 mt-0.5 line-clamp-1">
+                          {rt.description}
+                        </p>
+                      )}
+                      {rt.isSystem && (
+                        <span className="mt-1 inline-block px-2 py-0.5 text-[9px] font-black uppercase bg-amber-100 text-amber-700 rounded-lg">
+                          System
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <code className="text-xs text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded">
+                        {rt.code}
+                      </code>
+                    </td>
+                    <td className="px-6 py-4 text-xs font-bold text-zinc-600 dark:text-zinc-300">
+                      {rt.valueKind || "—"}{" "}
+                      <span className="text-zinc-400">/</span>{" "}
+                      {rt.calculationMode || "—"}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`px-3 py-1 text-[9px] font-black rounded-full uppercase tracking-widest ${
+                          rt.isActive
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
+                        }`}
+                      >
+                        {rt.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditingRt({ ...rt })}
+                          className="p-2 text-zinc-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        {(isSuperAdmin || !rt.isSystem) && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteRewardType(rt)}
+                            className="p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
+                            title={
+                              rt.isSystem
+                                ? "Super admin: delete system reward type"
+                                : "Delete reward type"
+                            }
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ),
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+
   const renderCategories = () => (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -1731,6 +2371,7 @@ export const AdminSettings: React.FC = () => {
                 { key: "roles" as const, icon: Shield, label: "Roles" },
                 { key: "permissions" as const, icon: Lock, label: "Permissions" },
                 { key: "categories" as const, icon: Layers, label: "Categories" },
+                { key: "rewards" as const, icon: Gift, label: "Reward types" },
                 { key: "groups" as const, icon: Users, label: "Groups" },
                 { key: "email" as const, icon: Mail, label: "Email Settings" },
                 { key: "ai" as const, icon: Sparkles, label: "AI Settings" },
@@ -1780,6 +2421,7 @@ export const AdminSettings: React.FC = () => {
           {activeTab === "roles" && renderRoles()}
           {activeTab === "permissions" && renderPermissions()}
           {activeTab === "categories" && renderCategories()}
+          {activeTab === "rewards" && renderRewards()}
           {activeTab === "groups" && (
             <GroupManagement scopeRevision={adminOrgSync} />
           )}

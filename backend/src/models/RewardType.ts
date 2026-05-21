@@ -1,13 +1,25 @@
 import mongoose, { Schema, Document } from "mongoose";
+import {
+  REWARD_CALCULATION_MODES,
+  REWARD_VALUE_KINDS,
+  type RewardCalculationMode,
+  type RewardValueKind,
+} from "../utils/rewardTypeRules.js";
 
 export interface IRewardType extends Document {
-  code: string; // e.g., "hourly_rate", "lumpsum", "voucher"
+  code: string; // e.g., "hourly", "lumpsum", "via_hours"
   name: string; // e.g., "Hourly Rate", "Lumpsum", "Voucher"
   description: string;
-  requiresValue: boolean; // Does it require a rewardValue field?
+  /** What the reward represents (display / storage). */
+  valueKind: RewardValueKind;
+  /** How numeric rewards accrue (ignored for none/text). */
+  calculationMode: RewardCalculationMode;
+  requiresValue: boolean; // Does the task form require rewardValue / rewardText?
   isSystem: boolean; // System reward types cannot be deleted
   isActive: boolean;
   color: string; // For UI display
+  /** null = platform-wide defaults; set for organisation-specific reward types */
+  organisation?: mongoose.Types.ObjectId | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -17,9 +29,13 @@ const RewardTypeSchema: Schema = new Schema(
     code: {
       type: String,
       required: true,
-      unique: true,
       trim: true,
       lowercase: true,
+    },
+    organisation: {
+      type: Schema.Types.ObjectId,
+      ref: "Organization",
+      default: null,
     },
     name: {
       type: String,
@@ -30,9 +46,19 @@ const RewardTypeSchema: Schema = new Schema(
       type: String,
       default: "",
     },
+    valueKind: {
+      type: String,
+      enum: REWARD_VALUE_KINDS,
+      default: "number",
+    },
+    calculationMode: {
+      type: String,
+      enum: REWARD_CALCULATION_MODES,
+      default: "points",
+    },
     requiresValue: {
       type: Boolean,
-      default: true, // Most reward types need a value
+      default: true,
     },
     isSystem: {
       type: Boolean,
@@ -44,10 +70,12 @@ const RewardTypeSchema: Schema = new Schema(
     },
     color: {
       type: String,
-      default: "#6B7280", // Gray
+      default: "#6B7280",
     },
   },
   { timestamps: true },
 );
+
+RewardTypeSchema.index({ organisation: 1, code: 1 }, { unique: true });
 
 export default mongoose.model<IRewardType>("RewardType", RewardTypeSchema);

@@ -403,8 +403,11 @@ export const completionAcceptedEmail = (
   rewardValue: string | undefined,
   appId: string,
   brand?: BrandConfig,
+  rewardSummary?: string,
 ): EmailTemplate => {
-  const rewardStr = rewardValue ? `${rewardType} — ${rewardValue}` : rewardType;
+  const rewardStr =
+    rewardSummary ??
+    (rewardValue ? `${rewardType} — ${rewardValue}` : rewardType);
   return {
     subject: `🎉 Your completion of "${taskTitle}" has been verified!`,
     html: wrap(`
