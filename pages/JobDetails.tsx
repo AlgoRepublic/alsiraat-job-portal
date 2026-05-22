@@ -23,7 +23,6 @@ import { Loading, LoadingOverlay } from "../components/Loading";
 import { db } from "../services/database";
 import {
   Job,
-  RewardType,
   Application,
   UserRole,
   JobStatus,
@@ -32,6 +31,7 @@ import {
 import { useToast } from "../components/Toast";
 import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
 import { organisationIdToString } from "../utils/organisationId";
+import { formatTaskRewardDisplay } from "../utils/formatTaskReward";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 
 export const JobDetails: React.FC = () => {
@@ -60,6 +60,7 @@ export const JobDetails: React.FC = () => {
   const [reposting, setReposting] = useState(false);
   const [showArchiveDeclineModal, setShowArchiveDeclineModal] = useState(false);
   const [archiveDeclineSubmitting, setArchiveDeclineSubmitting] = useState(false);
+  const [rewardTypesCatalog, setRewardTypesCatalog] = useState<any[]>([]);
 
   useEffect(() => {
     const loadJob = async () => {
@@ -118,6 +119,24 @@ export const JobDetails: React.FC = () => {
     };
     loadJob();
   }, [id]);
+
+  useEffect(() => {
+    if (!job) return;
+    const orgId =
+      organisationIdToString(job.organisation) ??
+      organisationIdToString(job.organization);
+    let cancelled = false;
+    db.getRewardTypes(orgId)
+      .then((types) => {
+        if (!cancelled) setRewardTypesCatalog(Array.isArray(types) ? types : []);
+      })
+      .catch(() => {
+        if (!cancelled) setRewardTypesCatalog([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [job?.organisation, job?.organization]);
 
   const handleApply = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -440,28 +459,14 @@ export const JobDetails: React.FC = () => {
           </div>
           <div className="flex flex-col items-end">
             <span className="text-2xl font-bold text-zinc-900 dark:text-white">
-              {(() => {
-                const rt = job.rewardType;
-                const rv = job.rewardValue;
-
-                if (rt === "Hourly") return `$${rv}/hr`;
-                if (rt === "Lumpsum") return `$${rv}`;
-                if (rt === "Voucher") return `$${rv} Voucher`;
-                if (rt === "VIA Hours") return `${rv} Hours`;
-                if (rt === "Community service recognition")
-                  return "Recognition";
-
-                // Fallbacks for other variations
-                if (
-                  String(rt).toLowerCase().includes("hour") &&
-                  rt !== "VIA Hours"
-                )
-                  return `$${rv}/hr`;
-                if (rt === "Paid" || rt === "Monetary") return `$${rv}`;
-                if (rt === "VIA Points") return `${rv} Pts`;
-
-                return rt;
-              })()}
+              {formatTaskRewardDisplay(
+                {
+                  rewardType: job.rewardType,
+                  rewardValue: job.rewardValue,
+                  rewardText: job.rewardText,
+                },
+                rewardTypesCatalog,
+              )}
             </span>
           </div>
         </div>
