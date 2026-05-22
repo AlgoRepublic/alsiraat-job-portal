@@ -28,6 +28,7 @@ import {
 import { Loading, LoadingOverlay } from "../components/Loading";
 import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
 import { organisationIdToString } from "../utils/organisationId";
+import { useRewardTypes } from "../hooks/useRewardTypes";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 
 // Build absolute URL for resume downloads
@@ -118,6 +119,11 @@ export const ApplicationReview: React.FC = () => {
     };
     fetchData();
   }, [appId]);
+
+  const rewardOrgId =
+    organisationIdToString(job?.organisation) ??
+    organisationIdToString(job?.organization);
+  const { formatReward } = useRewardTypes(rewardOrgId);
 
   const { showSuccess, showError } = useToast();
 
@@ -334,6 +340,7 @@ export const ApplicationReview: React.FC = () => {
             "Central",
           rewardType: (completedApp.task as any)?.rewardType,
           rewardValue: (completedApp.task as any)?.rewardValue,
+          rewardText: (completedApp.task as any)?.rewardText,
           completedAt: completedApp.appliedAt,
         }))
       : app.applicantExperience || [];
@@ -544,8 +551,11 @@ export const ApplicationReview: React.FC = () => {
                         </p>
                         {exp.rewardType && (
                           <span className="inline-block mt-1.5 px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-bold rounded-md uppercase tracking-wide">
-                            {exp.rewardType}
-                            {exp.rewardValue ? ` · ${exp.rewardValue}` : ""}
+                            {formatReward({
+                              rewardType: exp.rewardType,
+                              rewardValue: exp.rewardValue,
+                              rewardText: exp.rewardText,
+                            })}
                           </span>
                         )}
                       </div>

@@ -7,6 +7,9 @@ export interface DefaultRewardTypeSeed {
   valueKind: RewardValueKind;
   calculationMode: RewardCalculationMode;
   requiresValue: boolean;
+  unitLabel?: string;
+  valuePrefix?: string;
+  valueSuffix?: string;
   isSystem: boolean;
   isActive: boolean;
   color: string;
@@ -21,6 +24,8 @@ export const DEFAULT_REWARD_TYPES: DefaultRewardTypeSeed[] = [
     valueKind: "currency",
     calculationMode: "hourly",
     requiresValue: true,
+    valuePrefix: "$",
+    valueSuffix: "/hr",
     isSystem: true,
     isActive: true,
     color: "#10B981",
@@ -32,6 +37,7 @@ export const DEFAULT_REWARD_TYPES: DefaultRewardTypeSeed[] = [
     valueKind: "currency",
     calculationMode: "fixed",
     requiresValue: true,
+    valuePrefix: "$",
     isSystem: true,
     isActive: true,
     color: "#3B82F6",
@@ -43,6 +49,8 @@ export const DEFAULT_REWARD_TYPES: DefaultRewardTypeSeed[] = [
     valueKind: "currency",
     calculationMode: "fixed",
     requiresValue: true,
+    unitLabel: "Voucher",
+    valuePrefix: "$",
     isSystem: true,
     isActive: true,
     color: "#8B5CF6",
@@ -54,6 +62,7 @@ export const DEFAULT_REWARD_TYPES: DefaultRewardTypeSeed[] = [
     valueKind: "number",
     calculationMode: "hours",
     requiresValue: true,
+    unitLabel: "Hours",
     isSystem: true,
     isActive: true,
     color: "#F59E0B",

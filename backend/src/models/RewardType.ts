@@ -15,6 +15,12 @@ export interface IRewardType extends Document {
   /** How numeric rewards accrue (ignored for none/text). */
   calculationMode: RewardCalculationMode;
   requiresValue: boolean; // Does the task form require rewardValue / rewardText?
+  /** Plural unit for display, e.g. "Points", "Extra Marks", "Coins". Falls back to name. */
+  unitLabel?: string;
+  /** Input/display prefix override, e.g. "$". */
+  valuePrefix?: string;
+  /** Input/display suffix override, e.g. "%", "/hr". */
+  valueSuffix?: string;
   isSystem: boolean; // System reward types cannot be deleted
   isActive: boolean;
   color: string; // For UI display
@@ -59,6 +65,21 @@ const RewardTypeSchema: Schema = new Schema(
     requiresValue: {
       type: Boolean,
       default: true,
+    },
+    unitLabel: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    valuePrefix: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    valueSuffix: {
+      type: String,
+      trim: true,
+      default: "",
     },
     isSystem: {
       type: Boolean,

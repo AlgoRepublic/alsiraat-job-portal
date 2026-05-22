@@ -31,7 +31,7 @@ import {
 import { useToast } from "../components/Toast";
 import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
 import { organisationIdToString } from "../utils/organisationId";
-import { formatTaskRewardDisplay } from "../utils/formatTaskReward";
+import { useRewardTypes } from "../hooks/useRewardTypes";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 
 export const JobDetails: React.FC = () => {
@@ -60,8 +60,6 @@ export const JobDetails: React.FC = () => {
   const [reposting, setReposting] = useState(false);
   const [showArchiveDeclineModal, setShowArchiveDeclineModal] = useState(false);
   const [archiveDeclineSubmitting, setArchiveDeclineSubmitting] = useState(false);
-  const [rewardTypesCatalog, setRewardTypesCatalog] = useState<any[]>([]);
-
   useEffect(() => {
     const loadJob = async () => {
       if (id) {
@@ -120,23 +118,10 @@ export const JobDetails: React.FC = () => {
     loadJob();
   }, [id]);
 
-  useEffect(() => {
-    if (!job) return;
-    const orgId =
-      organisationIdToString(job.organisation) ??
-      organisationIdToString(job.organization);
-    let cancelled = false;
-    db.getRewardTypes(orgId)
-      .then((types) => {
-        if (!cancelled) setRewardTypesCatalog(Array.isArray(types) ? types : []);
-      })
-      .catch(() => {
-        if (!cancelled) setRewardTypesCatalog([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [job?.organisation, job?.organization]);
+  const rewardOrgId =
+    organisationIdToString(job?.organisation) ??
+    organisationIdToString(job?.organization);
+  const { formatReward } = useRewardTypes(rewardOrgId);
 
   const handleApply = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -459,14 +444,11 @@ export const JobDetails: React.FC = () => {
           </div>
           <div className="flex flex-col items-end">
             <span className="text-2xl font-bold text-zinc-900 dark:text-white">
-              {formatTaskRewardDisplay(
-                {
-                  rewardType: job.rewardType,
-                  rewardValue: job.rewardValue,
-                  rewardText: job.rewardText,
-                },
-                rewardTypesCatalog,
-              )}
+              {formatReward({
+                rewardType: job.rewardType,
+                rewardValue: job.rewardValue,
+                rewardText: job.rewardText,
+              })}
             </span>
           </div>
         </div>

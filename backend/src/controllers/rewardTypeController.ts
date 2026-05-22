@@ -129,6 +129,9 @@ export const createRewardType = async (req: Request, res: Response) => {
       color,
       valueKind: rawVk,
       calculationMode: rawCm,
+      unitLabel,
+      valuePrefix,
+      valueSuffix,
     } = req.body;
 
     const orgId = (req as any).orgId?.toString?.() ?? null;
@@ -154,6 +157,9 @@ export const createRewardType = async (req: Request, res: Response) => {
       calculationMode,
       requiresValue,
       color,
+      unitLabel: unitLabel != null ? String(unitLabel).trim() : "",
+      valuePrefix: valuePrefix != null ? String(valuePrefix).trim() : "",
+      valueSuffix: valueSuffix != null ? String(valueSuffix).trim() : "",
       isSystem: false,
       isActive: true,
       organisation: new mongoose.Types.ObjectId(orgId),
@@ -188,6 +194,9 @@ export const updateRewardType = async (req: Request, res: Response) => {
       color,
       valueKind: rawVk,
       calculationMode: rawCm,
+      unitLabel,
+      valuePrefix,
+      valueSuffix,
     } = req.body;
 
     const rewardType = await RewardType.findById(id);
@@ -208,6 +217,15 @@ export const updateRewardType = async (req: Request, res: Response) => {
     if (description !== undefined) rewardType.description = description;
     if (isActive !== undefined) rewardType.isActive = isActive;
     if (color) rewardType.color = color;
+    if (unitLabel !== undefined) {
+      rewardType.unitLabel = String(unitLabel).trim();
+    }
+    if (valuePrefix !== undefined) {
+      rewardType.valuePrefix = String(valuePrefix).trim();
+    }
+    if (valueSuffix !== undefined) {
+      rewardType.valueSuffix = String(valueSuffix).trim();
+    }
 
     if (rawVk !== undefined || rawCm !== undefined) {
       const legacy = inferLegacyRewardType(String(rewardType.code || ""));

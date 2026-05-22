@@ -17,6 +17,7 @@ import {
 } from "../services/emailTemplates.js";
 import { checkPermissionAsync, Permission } from "../middleware/rbac.js";
 import { buildApplicationQuery } from "./applicationQueryBuilder.js";
+import { formatTaskRewardDisplay } from "../utils/rewardTypeRules.js";
 
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -810,12 +811,11 @@ export const acceptCompletion = async (req: any, res: Response) => {
 
     await applicantUser.save();
 
-    const rewardSummary =
-      task.rewardText && String(task.rewardText).trim()
-        ? `${task.rewardType} — ${String(task.rewardText).trim()}`
-        : task.rewardValue != null
-          ? `${task.rewardType} — ${task.rewardValue}`
-          : task.rewardType || "N/A";
+    const rewardSummary = formatTaskRewardDisplay({
+      rewardType: task.rewardType || "",
+      rewardValue: task.rewardValue,
+      rewardText: task.rewardText,
+    });
 
     const rewardStr = rewardSummary;
 

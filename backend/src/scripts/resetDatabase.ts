@@ -345,16 +345,17 @@ async function resetDatabase() {
     }
     console.log("✅ All categories created");
 
-    // Step 6: Seed Reward Types
+    // Step 6: Seed Reward Types (canonical defaults with display config)
     console.log("\n🎁 Seeding reward types...");
     for (const rewardType of DEFAULT_REWARD_TYPES) {
-      await RewardType.create({
-        ...rewardType,
-        organisation: organization._id,
-      });
-      console.log(`   Created reward type: ${rewardType.name}`);
+      await RewardType.findOneAndUpdate(
+        { code: rewardType.code, organisation: organization._id },
+        { ...rewardType, organisation: organization._id },
+        { upsert: true, new: true },
+      );
+      console.log(`   Seeded reward type: ${rewardType.name}`);
     }
-    console.log("✅ All reward types created");
+    console.log("✅ All reward types seeded");
 
     // Step 7: Seed Sample Tasks
     console.log("\n📝 Seeding sample tasks...");

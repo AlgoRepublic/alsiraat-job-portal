@@ -1,4 +1,8 @@
-/** What the reward represents (storage / display semantics). */
+/**
+ * Dynamic reward-type rules for the frontend.
+ * Keep in sync with backend/src/utils/rewardTypeRules.ts
+ */
+
 export const REWARD_VALUE_KINDS = [
   "none",
   "currency",
@@ -7,12 +11,6 @@ export const REWARD_VALUE_KINDS = [
 ] as const;
 export type RewardValueKind = (typeof REWARD_VALUE_KINDS)[number];
 
-/**
- * How a reward is interpreted.
- * - **none** / **text**: only `none`.
- * - **currency**: `fixed`, `hourly`, `weekly` (money).
- * - **number**: only `points` or `hours` (e.g. VIA hours vs points).
- */
 export const REWARD_CALCULATION_MODES = [
   "none",
   "fixed",
@@ -25,64 +23,24 @@ export const REWARD_CALCULATION_MODES = [
 export type RewardCalculationMode =
   (typeof REWARD_CALCULATION_MODES)[number];
 
-/** Normalize legacy or invalid modes to a valid mode for the given value kind. */
 export function coerceCalculationModeToValid(
   valueKind: RewardValueKind,
   mode: RewardCalculationMode,
 ): RewardCalculationMode {
-  if (valueKind === "none" || valueKind === "text") {
-    return "none";
-  }
+  if (valueKind === "none" || valueKind === "text") return "none";
   if (valueKind === "currency") {
-    if (mode === "fixed" || mode === "hourly" || mode === "weekly") {
-      return mode;
-    }
+    if (mode === "fixed" || mode === "hourly" || mode === "weekly") return mode;
     return "fixed";
   }
   if (valueKind === "number") {
-    if (
-      mode === "points" ||
-      mode === "hours" ||
-      mode === "percent"
-    ) {
-      return mode;
-    }
-    if (mode === "fixed" || mode === "weekly") {
-      return "points";
-    }
-    if (mode === "hourly") {
-      return "hours";
-    }
+    if (mode === "points" || mode === "hours" || mode === "percent") return mode;
+    if (mode === "fixed" || mode === "weekly") return "points";
+    if (mode === "hourly") return "hours";
     return "points";
   }
   return mode;
 }
 
-export function isValidRewardTypeCombo(
-  valueKind: RewardValueKind,
-  calculationMode: RewardCalculationMode,
-): boolean {
-  if (valueKind === "none" || valueKind === "text") {
-    return calculationMode === "none";
-  }
-  if (valueKind === "currency") {
-    return (
-      calculationMode === "fixed" ||
-      calculationMode === "hourly" ||
-      calculationMode === "weekly"
-    );
-  }
-  if (valueKind === "number") {
-    return (
-      calculationMode === "points" ||
-      calculationMode === "hours" ||
-      calculationMode === "percent"
-    );
-  }
-  return false;
-}
-
-/** Whether task creation should collect a value (number, money, or text). */
 export function deriveRequiresValue(valueKind: RewardValueKind): boolean {
   return (
     valueKind === "currency" ||
@@ -107,9 +65,6 @@ export function parseCalculationMode(
     : null;
 }
 
-/**
- * Infer valueKind + calculationMode for legacy DB rows that predate these fields.
- */
 export function inferLegacyRewardType(code: string): {
   valueKind: RewardValueKind;
   calculationMode: RewardCalculationMode;
@@ -137,7 +92,6 @@ export function inferLegacyRewardType(code: string): {
   return { valueKind: "number", calculationMode: "points" };
 }
 
-/** Raw reward type row from API or catalogue lookup. */
 export type RewardTypeRecord = {
   name?: string;
   code?: string;
@@ -254,7 +208,6 @@ function deriveInputLabel(
   return "Value";
 }
 
-/** Resolve full display + form config from a catalogue row or legacy inference. */
 export function resolveRewardTypeConfig(
   raw: RewardTypeRecord,
 ): ResolvedRewardTypeConfig {
@@ -336,7 +289,6 @@ function hasNumericRewardValue(rewardValue?: number): boolean {
   );
 }
 
-/** Format a task reward for UI, emails, and summaries. */
 export function formatTaskRewardDisplay(
   task: TaskRewardFields,
   catalog?: RewardTypeRecord[],
@@ -387,4 +339,19 @@ export function formatTaskRewardDisplay(
     default:
       return String(value);
   }
+}
+
+/** Resolve config for a selected reward type name in forms. */
+export function resolveConfigForRewardTypeName(
+  rewardTypeName: string,
+  catalog?: RewardTypeRecord[],
+): ResolvedRewardTypeConfig {
+  const row = findRewardTypeInCatalog(catalog, rewardTypeName);
+  return resolveRewardTypeConfig(
+    row ?? {
+      name: rewardTypeName,
+      code: rewardTypeName,
+      ...inferLegacyRewardType(rewardTypeName),
+    },
+  );
 }

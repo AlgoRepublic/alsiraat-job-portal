@@ -298,6 +298,9 @@ export const AdminSettings: React.FC = () => {
     color: "#6366F1",
     valueKind: "currency",
     calculationMode: "fixed",
+    unitLabel: "",
+    valuePrefix: "",
+    valueSuffix: "",
   });
   const rewardTypesLoadSeqRef = useRef(0);
 
@@ -1435,6 +1438,9 @@ export const AdminSettings: React.FC = () => {
           color: newRt.color,
           valueKind: vk,
           calculationMode: cm,
+          unitLabel: newRt.unitLabel?.trim() || "",
+          valuePrefix: newRt.valuePrefix?.trim() || "",
+          valueSuffix: newRt.valueSuffix?.trim() || "",
         }),
         },
       );
@@ -1449,6 +1455,9 @@ export const AdminSettings: React.FC = () => {
         color: "#6366F1",
         valueKind: "currency",
         calculationMode: "fixed",
+        unitLabel: "",
+        valuePrefix: "",
+        valueSuffix: "",
       });
       loadRewardTypes();
     } catch (err: any) {
@@ -1686,8 +1695,9 @@ export const AdminSettings: React.FC = () => {
                   <option value="none">None</option>
                 ) : newRt.valueKind === "number" ? (
                   <>
-                    <option value="points">Points</option>
+                    <option value="points">Points / count (e.g. coins, marks)</option>
                     <option value="hours">Hours (e.g. VIA hours)</option>
+                    <option value="percent">Percentage (e.g. discount %)</option>
                   </>
                 ) : (
                   <>
@@ -1709,6 +1719,50 @@ export const AdminSettings: React.FC = () => {
                   setNewRt({ ...newRt, color: e.target.value })
                 }
                 className="w-12 h-12 rounded-xl cursor-pointer border-0"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">
+                Unit label (display)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Points, Extra Marks, Coins"
+                value={newRt.unitLabel}
+                onChange={(e) =>
+                  setNewRt({ ...newRt, unitLabel: e.target.value })
+                }
+                className="w-full p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">
+                Value prefix
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. $"
+                value={newRt.valuePrefix}
+                onChange={(e) =>
+                  setNewRt({ ...newRt, valuePrefix: e.target.value })
+                }
+                className="w-full p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">
+                Value suffix
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. %, /hr"
+                value={newRt.valueSuffix}
+                onChange={(e) =>
+                  setNewRt({ ...newRt, valueSuffix: e.target.value })
+                }
+                className="w-full p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white text-sm"
               />
             </div>
           </div>
@@ -1825,9 +1879,7 @@ export const AdminSettings: React.FC = () => {
                               editingRt.valueKind === "text"
                                 ? "none"
                                 : editingRt.valueKind === "number"
-                                  ? editingRt.calculationMode === "hours"
-                                    ? "hours"
-                                    : "points"
+                                  ? editingRt.calculationMode || "points"
                                   : editingRt.calculationMode || "fixed"
                             }
                             onChange={(e) =>
@@ -1847,10 +1899,11 @@ export const AdminSettings: React.FC = () => {
                               <option value="none">None</option>
                             ) : editingRt.valueKind === "number" ? (
                               <>
-                                <option value="points">Points</option>
+                                <option value="points">Points / count</option>
                                 <option value="hours">
                                   Hours (e.g. VIA hours)
                                 </option>
+                                <option value="percent">Percentage</option>
                               </>
                             ) : (
                               <>
@@ -1860,6 +1913,44 @@ export const AdminSettings: React.FC = () => {
                               </>
                             )}
                           </select>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <input
+                            type="text"
+                            placeholder="Unit label"
+                            value={editingRt.unitLabel ?? ""}
+                            onChange={(e) =>
+                              setEditingRt({
+                                ...editingRt,
+                                unitLabel: e.target.value,
+                              })
+                            }
+                            className="p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-900 dark:text-white"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Prefix ($)"
+                            value={editingRt.valuePrefix ?? ""}
+                            onChange={(e) =>
+                              setEditingRt({
+                                ...editingRt,
+                                valuePrefix: e.target.value,
+                              })
+                            }
+                            className="p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-900 dark:text-white"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Suffix (%, /hr)"
+                            value={editingRt.valueSuffix ?? ""}
+                            onChange={(e) =>
+                              setEditingRt({
+                                ...editingRt,
+                                valueSuffix: e.target.value,
+                              })
+                            }
+                            className="p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-900 dark:text-white"
+                          />
                         </div>
                         <div className="flex items-center gap-3">
                           <input
