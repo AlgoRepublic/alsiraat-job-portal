@@ -31,7 +31,7 @@ import {
 import { useToast } from "../components/Toast";
 import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
 import { organisationIdToString } from "../utils/organisationId";
-import { useRewardTypes } from "../hooks/useRewardTypes";
+import { TaskRewardText } from "../components/TaskRewardText";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 
 export const JobDetails: React.FC = () => {
@@ -121,7 +121,6 @@ export const JobDetails: React.FC = () => {
   const rewardOrgId =
     organisationIdToString(job?.organisation) ??
     organisationIdToString(job?.organization);
-  const { formatReward } = useRewardTypes(rewardOrgId);
 
   const handleApply = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -444,11 +443,14 @@ export const JobDetails: React.FC = () => {
           </div>
           <div className="flex flex-col items-end">
             <span className="text-2xl font-bold text-zinc-900 dark:text-white">
-              {formatReward({
-                rewardType: job.rewardType,
-                rewardValue: job.rewardValue,
-                rewardText: job.rewardText,
-              })}
+              <TaskRewardText
+                task={{
+                  rewardType: job.rewardType,
+                  rewardValue: job.rewardValue,
+                  rewardText: job.rewardText,
+                }}
+                organisationId={rewardOrgId}
+              />
             </span>
           </div>
         </div>

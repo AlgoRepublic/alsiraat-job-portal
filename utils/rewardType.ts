@@ -69,7 +69,10 @@ export function inferLegacyRewardType(code: string): {
   valueKind: RewardValueKind;
   calculationMode: RewardCalculationMode;
 } {
-  const c = (code || "").toLowerCase().replace(/-/g, "_");
+  const c = (code || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "");
   if (c === "hourly_rate" || c === "hourly") {
     return { valueKind: "currency", calculationMode: "hourly" };
   }
@@ -123,6 +126,8 @@ export type ResolvedRewardTypeConfig = {
   calculationMode: RewardCalculationMode;
   requiresValue: boolean;
   unitLabel: string;
+  /** True when unitLabel was set in Admin (not only derived from type name). */
+  hasExplicitUnitLabel: boolean;
   valuePrefix: string;
   valueSuffix: string;
   displayStyle: RewardDisplayStyle;
@@ -225,20 +230,27 @@ export function resolveRewardTypeConfig(
       : deriveRequiresValue(valueKind);
 
   const defaults = deriveDefaultPrefixSuffix(valueKind, calculationMode);
+  const hasExplicitUnitLabel = Boolean(String(raw.unitLabel || "").trim());
   const unitLabel =
     String(raw.unitLabel || "").trim() ||
     deriveDefaultUnitLabel(valueKind, calculationMode, name, code);
 
-  let valuePrefix = String(raw.valuePrefix ?? "").trim();
-  let valueSuffix = String(raw.valueSuffix ?? "").trim();
-  if (!valuePrefix && defaults.prefix) valuePrefix = defaults.prefix;
-  if (!valueSuffix && defaults.suffix) valueSuffix = defaults.suffix;
+  let valuePrefix =
+    raw.valuePrefix != null && raw.valuePrefix !== undefined
+      ? String(raw.valuePrefix)
+      : "";
+  let valueSuffix =
+    raw.valueSuffix != null && raw.valueSuffix !== undefined
+      ? String(raw.valueSuffix)
+      : "";
+  if (!valuePrefix.trim() && defaults.prefix) valuePrefix = defaults.prefix;
+  if (!valueSuffix.trim() && defaults.suffix) valueSuffix = defaults.suffix;
 
   let displayStyle = defaults.style;
   if (
     valueKind === "currency" &&
     calculationMode === "fixed" &&
-    unitLabel
+    (hasExplicitUnitLabel || unitLabel)
   ) {
     displayStyle = "value_unit";
   }
@@ -250,6 +262,7 @@ export function resolveRewardTypeConfig(
     calculationMode,
     requiresValue,
     unitLabel,
+    hasExplicitUnitLabel,
     valuePrefix,
     valueSuffix,
     displayStyle,
@@ -289,6 +302,29 @@ function hasNumericRewardValue(rewardValue?: number): boolean {
   );
 }
 
+/**
+ * Universal numeric reward display for all valueKind / calculationMode combos.
+ * Always applies prefix + value + suffix from config (DB or defaults), then unit when relevant.
+ */
+function formatNumericRewardValue(
+  config: ResolvedRewardTypeConfig,
+  value: number,
+): string {
+  const { valuePrefix, valueSuffix, unitLabel, displayStyle, hasExplicitUnitLabel } =
+    config;
+
+  const core = `${valuePrefix}${value}${valueSuffix}`;
+
+  const appendUnit =
+    Boolean(unitLabel) &&
+    (displayStyle === "value_unit" || hasExplicitUnitLabel);
+
+  if (appendUnit) {
+    return `${core} ${unitLabel}`.trim();
+  }
+  return core || String(value);
+}
+
 export function formatTaskRewardDisplay(
   task: TaskRewardFields,
   catalog?: RewardTypeRecord[],
@@ -320,25 +356,7 @@ export function formatTaskRewardDisplay(
     return config.name || rewardType;
   }
 
-  const value = task.rewardValue as number;
-
-  switch (config.displayStyle) {
-    case "value_suffix":
-      return `${value}${config.valueSuffix}`;
-    case "value_unit":
-      if (config.valuePrefix) {
-        return config.unitLabel
-          ? `${config.valuePrefix}${value} ${config.unitLabel}`
-          : `${config.valuePrefix}${value}`;
-      }
-      return config.unitLabel
-        ? `${value} ${config.unitLabel}`
-        : String(value);
-    case "prefix_value_suffix":
-      return `${config.valuePrefix}${value}${config.valueSuffix}`;
-    default:
-      return String(value);
-  }
+  return formatNumericRewardValue(config, task.rewardValue as number);
 }
 
 /** Resolve config for a selected reward type name in forms. */

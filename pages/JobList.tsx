@@ -12,8 +12,12 @@ import {
   ClipboardList,
   Building2,
 } from "lucide-react";
-import { JobStatus, RewardType, Job, Permission, User } from "../types";
+import { JobStatus, Job, Permission, User } from "../types";
 import { db } from "../services/database";
+import { TaskRewardText } from "../components/TaskRewardText";
+import { organisationIdToString } from "../utils/organisationId";
+import { getActiveOrgIdFromStorage, getOrgId } from "../utils/orgScopedRoles";
+import type { RewardTypeRecord } from "../utils/rewardType";
 import { CENTRAL_ORGANISATION_SLUG, ApiError } from "../services/api";
 import { getPublicCentralOrganisation } from "../services/publicCentralOrg";
 import { getStatusColor } from "./Dashboard";
@@ -53,6 +57,7 @@ export const JobList: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
 
   const [browseOrgLabel, setBrowseOrgLabel] = useState("Central");
+  const [rewardCatalog, setRewardCatalog] = useState<RewardTypeRecord[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [listVersion, setListVersion] = useState(0);
 
@@ -266,12 +271,18 @@ export const JobList: React.FC = () => {
             : CENTRAL_ORGANISATION_SLUG;
         const data = await db.getTaskCategories(slug);
         setCategories(Array.isArray(data) ? data : []);
+        const orgId =
+          getOrgId(user.activeOrganisation) || getActiveOrgIdFromStorage();
+        const rewardTypes = await db.getRewardTypes(orgId ?? undefined);
+        setRewardCatalog(Array.isArray(rewardTypes) ? rewardTypes : []);
         return;
       }
       const org = await getPublicCentralOrganisation();
       setBrowseOrgLabel(org?.name?.trim() || "Central");
       const data = await db.getTaskCategories(org?.slug ?? CENTRAL_ORGANISATION_SLUG);
       setCategories(Array.isArray(data) ? data : []);
+      const rewardTypes = await db.getRewardTypes(org?._id);
+      setRewardCatalog(Array.isArray(rewardTypes) ? rewardTypes : []);
     };
     void loadBrowseContext();
   }, []);
@@ -524,9 +535,17 @@ export const JobList: React.FC = () => {
                       <span className="truncate">{orgLabel}</span>
                     </span>
                   )}
-                  {job.rewardType !== RewardType.VOLUNTEER && (
+                  {job.rewardType && (
                     <span className="px-3 py-1.5 bg-primary text-white text-[10px] font-black rounded-xl uppercase tracking-widest shadow-lg shadow-primary/20">
-                      {job.rewardType}
+                      <TaskRewardText
+                        task={{
+                          rewardType: job.rewardType,
+                          rewardValue: job.rewardValue,
+                          rewardText: job.rewardText,
+                        }}
+                        organisationId={organisationIdToString(job.organisation)}
+                        catalog={rewardCatalog}
+                      />
                     </span>
                   )}
                 </div>
