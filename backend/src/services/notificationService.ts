@@ -28,6 +28,7 @@ import {
   enqueueEmail,
   isEmailQueueConfigured,
 } from "../queues/emailQueue.js";
+import { appUrl } from "../utils/appUrl.js";
 
 /** Extract the brand config stored in an EmailSettings document */
 export function brandFromSettings(settings: IEmailSettings | null): BrandConfig {
@@ -285,8 +286,8 @@ export const sendNotification = async (
       if (user?.email) {
         const genericTemplate = {
           subject: title,
-          html: `<p>${message}</p>${link ? `<p><a href="${process.env.FRONTEND_URL || ""}${link}">View details</a></p>` : ""}`,
-          text: `${message}${link ? `\n\nView: ${process.env.FRONTEND_URL || ""}${link}` : ""}`,
+          html: `<p>${message}</p>${link ? `<p><a href="${appUrl(link)}">View details</a></p>` : ""}`,
+          text: `${message}${link ? `\n\nView: ${appUrl(link)}` : ""}`,
         };
         const organisationId = user.organisations?.[0]?.toString?.() ?? null;
         await sendEmail(user.email, genericTemplate, { organisationId });

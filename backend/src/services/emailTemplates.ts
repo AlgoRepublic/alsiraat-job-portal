@@ -12,11 +12,12 @@
  * it to every template call automatically.
  */
 
+import { appUrl } from "../utils/appUrl.js";
+
 // ─── Defaults (global / Al-Siraat brand) ──────────────────────────────────────
 
 const DEFAULT_COLOR = "#812349";
 const DEFAULT_NAME = "Al-Siraat Tasker";
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 
 // ─── BrandConfig ──────────────────────────────────────────────────────────────
 
@@ -101,7 +102,7 @@ function wrap(bodyContent: string, brand?: BrandConfig): string {
     </div>
     <div class="footer">
       <p>
-        You received this email from <a href="${FRONTEND_URL}">${brandName}</a>.<br/>
+        You received this email from <a href="${appUrl("/jobs")}">${brandName}</a>.<br/>
         If you have any questions, please contact your administrator.
       </p>
     </div>
@@ -136,11 +137,11 @@ export const welcomeEmail = (name: string, brand?: BrandConfig): EmailTemplate =
       ✅ Build your experience profile<br/>
       ✅ Receive real-time notifications</p>
     </div>
-    <a href="${FRONTEND_URL}/jobs" class="cta">Search Tasks Now</a>
+    <a href="${appUrl("/jobs")}" class="cta">Search Tasks Now</a>
     <hr class="divider"/>
     <p style="font-size:13px;color:#a1a1aa;">If you didn't create this account, please ignore this email or contact your administrator.</p>
   `, brand),
-    text: `Welcome to ${brandName}, ${name}!\n\nYour account is ready. Search tasks at ${FRONTEND_URL}/jobs`,
+    text: `Welcome to ${brandName}, ${name}!\n\nYour account is ready. Search tasks at ${appUrl("/jobs")}`,
   };
 };
 
@@ -209,16 +210,16 @@ export const newApplicationEmail = (
       <strong>Applicant:</strong> ${applicantName}</p>
     </div>
     <p>Review the application and update its status in the portal.</p>
-    <a href="${FRONTEND_URL}/jobs/${taskId}/applicants" class="cta">Review Application</a>
+    <a href="${appUrl(`/jobs/${taskId}/applicants`)}" class="cta">Review Application</a>
   `, brand),
-  text: `New application from ${applicantName} for "${taskTitle}".\n\nReview at: ${FRONTEND_URL}/jobs/${taskId}/applicants`,
+  text: `New application from ${applicantName} for "${taskTitle}".\n\nReview at: ${appUrl(`/jobs/${taskId}/applicants`)}`,
 });
 
 // 4. Application Submitted Confirmation (to applicant)
 export const applicationSubmittedEmail = (
   applicantName: string,
   taskTitle: string,
-  taskId: string,
+  appId: string,
   brand?: BrandConfig,
 ): EmailTemplate => ({
   subject: `Your application for "${taskTitle}" was received`,
@@ -230,11 +231,11 @@ export const applicationSubmittedEmail = (
       <p><strong>Task Applied For:</strong> ${taskTitle}<br/>
       <strong>Status:</strong> <span class="status-badge badge-warning">Pending Review</span></p>
     </div>
-    <a href="${FRONTEND_URL}/jobs/${taskId}" class="cta">View Task</a>
+    <a href="${appUrl(`/application/${appId}`)}" class="cta">View Application</a>
     <hr class="divider"/>
     <p>We'll notify you as soon as there's an update on your application.</p>
   `, brand),
-  text: `Application submitted for "${taskTitle}".\n\nWe'll be in touch soon. View your application at ${FRONTEND_URL}/jobs/${taskId}`,
+  text: `Application submitted for "${taskTitle}".\n\nWe'll be in touch soon. View your application at ${appUrl(`/application/${appId}`)}`,
 });
 
 // 5. Application Shortlisted (to applicant)
@@ -254,9 +255,9 @@ export const applicationShortlistedEmail = (
       <strong>Status:</strong> <span class="status-badge badge-info">Shortlisted</span></p>
     </div>
     <p>This means you've moved to the next stage. The hiring manager will be in touch with further details.</p>
-    <a href="${FRONTEND_URL}/application/${appId}" class="cta">View My Application</a>
+    <a href="${appUrl(`/application/${appId}`)}" class="cta">View My Application</a>
   `, brand),
-  text: `You've been shortlisted for "${taskTitle}"! View your application: ${FRONTEND_URL}/application/${appId}`,
+  text: `You've been shortlisted for "${taskTitle}"! View your application: ${appUrl(`/application/${appId}`)}`,
 });
 
 // 6. Job Offer Sent (to applicant)
@@ -276,11 +277,11 @@ export const jobOfferEmail = (
       <strong>Status:</strong> <span class="status-badge badge-success">Offered</span></p>
     </div>
     <p>Please log in to confirm or decline this offer. Your response is needed to proceed.</p>
-    <a href="${FRONTEND_URL}/application/${appId}" class="cta">Confirm or Decline Offer</a>
+    <a href="${appUrl(`/application/${appId}`)}" class="cta">Confirm or Decline Offer</a>
     <hr class="divider"/>
     <p style="font-size:13px;color:#a1a1aa;">If you have any questions, please contact the task manager directly through the portal.</p>
   `, brand),
-  text: `You've been offered "${taskTitle}"! Confirm or decline: ${FRONTEND_URL}/application/${appId}`,
+  text: `You've been offered "${taskTitle}"! Confirm or decline: ${appUrl(`/application/${appId}`)}`,
 });
 
 // 7. Application Approved (to applicant)
@@ -299,9 +300,9 @@ export const applicationApprovedEmail = (
       <p><strong>Task:</strong> ${taskTitle}<br/>
       <strong>Status:</strong> <span class="status-badge badge-success">Approved</span></p>
     </div>
-    <a href="${FRONTEND_URL}/application/${appId}" class="cta">View Application</a>
+    <a href="${appUrl(`/application/${appId}`)}" class="cta">View Application</a>
   `, brand),
-  text: `Your application for "${taskTitle}" has been approved! View details: ${FRONTEND_URL}/application/${appId}`,
+  text: `Your application for "${taskTitle}" has been approved! View details: ${appUrl(`/application/${appId}`)}`,
 });
 
 // 8. Application Rejected (to applicant)
@@ -320,9 +321,9 @@ export const applicationRejectedEmail = (
       <strong>Status:</strong> <span class="status-badge badge-error">Not Selected</span></p>
     </div>
     <p>We encourage you to explore other tasks that may be a great fit for your skills.</p>
-    <a href="${FRONTEND_URL}/jobs" class="cta">Browse Other Tasks</a>
+    <a href="${appUrl("/jobs")}" class="cta">Browse Other Tasks</a>
   `, brand),
-  text: `Your application for "${taskTitle}" was not selected this time. Browse other tasks at ${FRONTEND_URL}/jobs`,
+  text: `Your application for "${taskTitle}" was not selected this time. Browse other tasks at ${appUrl("/jobs")}`,
 });
 
 // 9. Offer Accepted (to task creator)
@@ -343,9 +344,9 @@ export const offerAcceptedEmail = (
       <strong>Applicant:</strong> ${applicantName}<br/>
       <strong>Status:</strong> <span class="status-badge badge-success">Accepted</span></p>
     </div>
-    <a href="${FRONTEND_URL}/application/${appId}" class="cta">View Application</a>
+    <a href="${appUrl(`/application/${appId}`)}" class="cta">View Application</a>
   `, brand),
-  text: `${applicantName} accepted your offer for "${taskTitle}". View: ${FRONTEND_URL}/application/${appId}`,
+  text: `${applicantName} accepted your offer for "${taskTitle}". View: ${appUrl(`/application/${appId}`)}`,
 });
 
 // 10. Offer Declined (to task creator)
@@ -353,7 +354,7 @@ export const offerDeclinedEmail = (
   recipientName: string,
   applicantName: string,
   taskTitle: string,
-  appId: string,
+  taskId: string,
   brand?: BrandConfig,
 ): EmailTemplate => ({
   subject: `${applicantName} declined the offer for "${taskTitle}"`,
@@ -367,9 +368,9 @@ export const offerDeclinedEmail = (
       <strong>Status:</strong> <span class="status-badge badge-warning">Declined</span></p>
     </div>
     <p>You may want to review other applicants for this task.</p>
-    <a href="${FRONTEND_URL}/jobs/${appId}" class="cta">Review Other Applicants</a>
+    <a href="${appUrl(`/jobs/${taskId}/applicants`)}" class="cta">Review Other Applicants</a>
   `, brand),
-  text: `${applicantName} declined your offer for "${taskTitle}". Review others: ${FRONTEND_URL}/application/${appId}`,
+  text: `${applicantName} declined your offer for "${taskTitle}". Review others: ${appUrl(`/jobs/${taskId}/applicants`)}`,
 });
 
 // 11. Completion Requested (to task creator)
@@ -390,9 +391,9 @@ export const completionRequestedEmail = (
       <strong>Applicant:</strong> ${applicantName}<br/>
       <strong>Action Required:</strong> Please verify and accept or reject the completion</p>
     </div>
-    <a href="${FRONTEND_URL}/application/${appId}" class="cta">Verify Completion</a>
+    <a href="${appUrl(`/application/${appId}`)}" class="cta">Verify Completion</a>
   `, brand),
-  text: `${applicantName} has marked "${taskTitle}" as complete. Verify: ${FRONTEND_URL}/application/${appId}`,
+  text: `${applicantName} has marked "${taskTitle}" as complete. Verify: ${appUrl(`/application/${appId}`)}`,
 });
 
 // 12. Completion Accepted (to applicant)
@@ -420,9 +421,9 @@ export const completionAcceptedEmail = (
         <strong>Status:</strong> <span class="status-badge badge-success">Completed</span></p>
       </div>
       <p>This task has been added to your <strong>experience profile</strong>, and any new skills have been added to your profile automatically.</p>
-      <a href="${FRONTEND_URL}/profile" class="cta">View My Profile</a>
+      <a href="${appUrl("/profile")}" class="cta">View My Profile</a>
     `, brand),
-    text: `Your completion of "${taskTitle}" has been verified! Reward: ${rewardStr}. View profile: ${FRONTEND_URL}/profile`,
+    text: `Your completion of "${taskTitle}" has been verified! Reward: ${rewardStr}. View profile: ${appUrl("/profile")}`,
   };
 };
 
@@ -445,9 +446,9 @@ export const completionRejectedEmail = (
       <strong>Status:</strong> <span class="status-badge badge-error">Completion Rejected</span></p>
     </div>
     <p>Please review the feedback and get in touch with the task manager for next steps.</p>
-    <a href="${FRONTEND_URL}/application/${appId}" class="cta">View Application</a>
+    <a href="${appUrl(`/application/${appId}`)}" class="cta">View Application</a>
   `, brand),
-  text: `Completion request for "${taskTitle}" rejected. Reason: ${reason}. View: ${FRONTEND_URL}/application/${appId}`,
+  text: `Completion request for "${taskTitle}" rejected. Reason: ${reason}. View: ${appUrl(`/application/${appId}`)}`,
 });
 
 // 14. Task Published / New Task Announcement (to users)
@@ -469,11 +470,11 @@ export const newTaskAnnouncementEmail = (
       <p><strong>Task:</strong> ${taskTitle}<br/>
       <strong>Category:</strong> ${taskCategory}</p>
     </div>
-    <a href="${FRONTEND_URL}/jobs/${taskId}" class="cta">View &amp; Apply</a>
+    <a href="${appUrl(`/jobs/${taskId}`)}" class="cta">View &amp; Apply</a>
     <hr class="divider"/>
     <p style="font-size:13px;color:#a1a1aa;">You're receiving this because you're a member of ${brandName}. You can manage your notification preferences in your profile settings.</p>
   `, brand),
-    text: `New task available: "${taskTitle}" (${taskCategory}). Apply at: ${FRONTEND_URL}/jobs/${taskId}`,
+    text: `New task available: "${taskTitle}" (${taskCategory}). Apply at: ${appUrl(`/jobs/${taskId}`)}`,
   };
 };
 
@@ -494,9 +495,9 @@ export const taskChangesRequestedEmail = (
       <p><strong>Task:</strong> ${taskTitle}${reason ? `<br/><strong>Guidance:</strong> ${reason}` : ""}</p>
     </div>
     <p>Please update your task and resubmit it for approval.</p>
-    <a href="${FRONTEND_URL}/jobs/${taskId}" class="cta">Edit Task</a>
+    <a href="${appUrl(`/edit-job/${taskId}`)}" class="cta">Edit Task</a>
   `, brand),
-  text: `Please revise and resubmit "${taskTitle}".${reason ? ` Guidance: ${reason}.` : ""} Edit: ${FRONTEND_URL}/jobs/${taskId}`,
+  text: `Please revise and resubmit "${taskTitle}".${reason ? ` Guidance: ${reason}.` : ""} Edit: ${appUrl(`/edit-job/${taskId}`)}`,
 });
 
 // 16. Task Archived (to task creator)
@@ -516,11 +517,11 @@ export const taskArchivedEmail = (
       <p><strong>Task:</strong> ${taskTitle}${reason ? `<br/><strong>Reason:</strong> ${reason}` : ""}</p>
     </div>
     <p>If you believe this is a mistake, please contact your administrator.</p>
-    <a href="${FRONTEND_URL}/dashboard" class="cta">Go to Dashboard</a>
+    <a href="${appUrl("/my-ads")}" class="cta">View My Tasks</a>
     <hr class="divider"/>
     <p style="font-size:13px;color:#a1a1aa;">If you have any questions, please contact your administrator.</p>
   `, brand),
-  text: `Your task "${taskTitle}" has been archived.${reason ? ` Reason: ${reason}.` : ""} Dashboard: ${FRONTEND_URL}/dashboard`,
+  text: `Your task "${taskTitle}" has been archived.${reason ? ` Reason: ${reason}.` : ""} View tasks: ${appUrl("/my-ads")}`,
 });
 
 // 17. Onboarding Invitation (to new user / org owner)

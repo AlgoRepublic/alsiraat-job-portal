@@ -1543,7 +1543,7 @@ export const approveTask = async (req: any, res: Response) => {
         title: "⚠️ Revise and Resubmit",
         message: `Your task "${task.title}" needs revisions and resubmission.${rejectionReason ? ` Guidance: ${rejectionReason}` : ""}`,
         type: "warning",
-        link: `/jobs/${task._id}`,
+        link: `/edit-job/${task._id}`,
         emailTemplate: taskChangesRequestedEmail(
           creatorUser?.name || "Task Creator",
           task.title,
@@ -1559,7 +1559,7 @@ export const approveTask = async (req: any, res: Response) => {
         title: "❌ Task Archived",
         message: `Your task "${task.title}" has been archived.${rejectionReason ? ` Reason: ${rejectionReason}` : ""}`,
         type: "error",
-        link: `/jobs/${task._id}`,
+        link: `/my-ads`,
         emailTemplate: taskArchivedEmail(
           creatorUser?.name || "Task Creator",
           task.title,

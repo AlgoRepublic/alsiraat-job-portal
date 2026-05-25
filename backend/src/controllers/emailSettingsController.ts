@@ -19,7 +19,7 @@ export const DEFAULT_TEMPLATES = [
     variables: ["{{name}}"],
     defaultSubject: "Welcome to Al-Siraat Tasker! 🎉",
     defaultBodyText:
-      "Hi {{name}},\n\nWelcome to Al-Siraat Tasker! Your account is ready.\n\nSearch tasks at {{frontendUrl}}/jobs",
+      "Hi {{name}},\n\nWelcome to Al-Siraat Tasker! Your account is ready.\n\nSearch tasks at {{frontendUrl}}/#/jobs",
   },
   {
     eventKey: "password_reset",

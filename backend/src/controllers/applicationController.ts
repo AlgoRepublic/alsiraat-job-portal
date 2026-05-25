@@ -264,11 +264,11 @@ export const applyForTask = async (req: any, res: Response) => {
       title: "Application Submitted",
       message: `Your application for "${task.title}" has been submitted successfully.`,
       type: "success",
-      link: `/jobs/${taskId}`,
+      link: `/application/${app._id}`,
       emailTemplate: applicationSubmittedEmail(
         applicantName,
         task.title,
-        taskId,
+        String(app._id),
       ),
     });
 
@@ -691,12 +691,12 @@ export const declineOffer = async (req: any, res: Response) => {
       title: "Offer Declined",
       message: `${applicantName} declined the offer for "${task.title}".`,
       type: "warning",
-      link: `/application/${app._id}`,
+      link: `/jobs/${task._id}/applicants`,
       emailTemplate: offerDeclinedEmail(
         creatorUser?.name || "Task Manager",
         applicantName,
         task.title,
-        String(app._id),
+        String(task._id),
       ),
     });
 
