@@ -32,6 +32,7 @@ import {
   ACTIVE_ORG_CHANGED_EVENT,
 } from "../utils/orgScopedRoles";
 import { db } from "../services/database";
+import { invalidateRewardTypesCatalog } from "../services/rewardTypesCatalog";
 
 interface Permission {
   _id: string;
@@ -1459,6 +1460,7 @@ export const AdminSettings: React.FC = () => {
         valuePrefix: "",
         valueSuffix: "",
       });
+      invalidateRewardTypesCatalog(activeOrgId || undefined);
       loadRewardTypes();
     } catch (err: any) {
       showError(err.message);
@@ -1485,6 +1487,7 @@ export const AdminSettings: React.FC = () => {
       if (!res.ok) throw new Error(data.message);
       showSuccess("Reward type updated");
       setEditingRt(null);
+      invalidateRewardTypesCatalog(activeOrgId || undefined);
       loadRewardTypes();
     } catch (err: any) {
       showError(err.message);
@@ -1521,6 +1524,7 @@ export const AdminSettings: React.FC = () => {
       if (!res.ok) throw new Error(data.message);
       showSuccess("Reward type deleted");
       setRewardTypesList((prev) => prev.filter((item) => item._id !== rt._id));
+      invalidateRewardTypesCatalog(activeOrgId || undefined);
       await loadRewardTypes();
     } catch (err: any) {
       showError(err.message);
@@ -1544,6 +1548,7 @@ export const AdminSettings: React.FC = () => {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.message || "Seed failed");
       showSuccess(data.message || "Default reward types seeded.");
+      invalidateRewardTypesCatalog(activeOrgId || undefined);
       loadRewardTypes();
     } catch (err: any) {
       showError(err.message);

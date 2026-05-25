@@ -657,6 +657,17 @@ class DatabaseService {
     }
   }
 
+  /** Active + inactive catalogue; deduped via rewardTypesCatalog cache. */
+  async getRewardTypesCatalog(organisation?: string): Promise<any[]> {
+    const { loadRewardTypesCatalog } = await import("./rewardTypesCatalog");
+    try {
+      return await loadRewardTypesCatalog(organisation);
+    } catch (err) {
+      console.warn("Failed to fetch reward types catalogue", err);
+      return [];
+    }
+  }
+
   // --- Task Categories ---
   async getTaskCategories(organisation?: string): Promise<any[]> {
     try {

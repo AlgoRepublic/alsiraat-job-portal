@@ -273,7 +273,7 @@ export const JobList: React.FC = () => {
         setCategories(Array.isArray(data) ? data : []);
         const orgId =
           getOrgId(user.activeOrganisation) || getActiveOrgIdFromStorage();
-        const rewardTypes = await db.getRewardTypes(orgId ?? undefined);
+        const rewardTypes = await db.getRewardTypesCatalog(orgId ?? undefined);
         setRewardCatalog(Array.isArray(rewardTypes) ? rewardTypes : []);
         return;
       }
@@ -281,7 +281,7 @@ export const JobList: React.FC = () => {
       setBrowseOrgLabel(org?.name?.trim() || "Central");
       const data = await db.getTaskCategories(org?.slug ?? CENTRAL_ORGANISATION_SLUG);
       setCategories(Array.isArray(data) ? data : []);
-      const rewardTypes = await db.getRewardTypes(org?._id);
+      const rewardTypes = await db.getRewardTypesCatalog(org?._id);
       setRewardCatalog(Array.isArray(rewardTypes) ? rewardTypes : []);
     };
     void loadBrowseContext();

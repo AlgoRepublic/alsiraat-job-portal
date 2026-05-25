@@ -285,18 +285,17 @@ export const JobWizard: React.FC = () => {
 
     const fetchData = async () => {
       const [types, cats, , groupsData] = await Promise.all([
-        db.getRewardTypes(activeOrgId ?? undefined),
+        db.getRewardTypesCatalog(activeOrgId ?? undefined),
         db.getTaskCategories(),
         db.getRoles(),
         db.getGroupsPublic(),
       ]);
       if (cancelled) return;
-      const filteredTypes = types.filter((rt: any) => {
-        if (!rt?.isActive) return false;
+      const orgScopedTypes = types.filter((rt: any) => {
         const orgId = getRewardTypeOrgId(rt);
         return activeOrgId ? orgId === activeOrgId : orgId === null;
       });
-      setRewardTypes(filteredTypes);
+      const activeTypes = orgScopedTypes.filter((rt: any) => rt?.isActive !== false);
       setCategories(cats);
       setGroups(groupsData);
 
@@ -304,6 +303,19 @@ export const JobWizard: React.FC = () => {
         try {
           const job = await db.getJob(id);
           if (job) {
+            const selectableTypes = [...activeTypes];
+            if (job.rewardType) {
+              const current = orgScopedTypes.find(
+                (rt: any) => rt?.name === job.rewardType,
+              );
+              if (
+                current &&
+                !selectableTypes.some((rt: any) => rt?.name === current.name)
+              ) {
+                selectableTypes.push(current);
+              }
+            }
+            setRewardTypes(selectableTypes);
             const jobVisibility = normalizeVisibilityMode(job.visibility);
             const jobPrivateAudiences =
               job.visibility === Visibility.INTERNAL
@@ -343,8 +355,9 @@ export const JobWizard: React.FC = () => {
           navigate("/jobs");
         }
       } else {
+        setRewardTypes(activeTypes);
         if (cats.length > 0) updateField("category", cats[0].name);
-        if (filteredTypes.length > 0) updateField("rewardType", filteredTypes[0].name);
+        if (activeTypes.length > 0) updateField("rewardType", activeTypes[0].name);
         // Auto-select "All Members" group for new tasks
         const allMembersGroup = groupsData.find(
           (g: any) => g.name?.toLowerCase() === "all members"

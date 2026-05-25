@@ -15,6 +15,46 @@ type TaskRewardTextProps = {
   className?: string;
 };
 
+type TaskRewardTextContentProps = {
+  task: TaskRewardFields;
+  catalog: RewardTypeRecord[];
+  className?: string;
+};
+
+const TaskRewardTextContent: React.FC<TaskRewardTextContentProps> = ({
+  task,
+  catalog,
+  className,
+}) => {
+  if (!task.rewardType?.trim()) {
+    return <span className={className}>—</span>;
+  }
+
+  return (
+    <span className={className}>
+      {formatTaskRewardDisplay(task, catalog)}
+    </span>
+  );
+};
+
+const TaskRewardTextWithCatalog: React.FC<
+  Omit<TaskRewardTextProps, "catalog">
+> = ({ task, organisationId, className }) => {
+  const { catalog, loading } = useRewardTypes(organisationId);
+
+  if (!task.rewardType?.trim()) {
+    return <span className={className}>—</span>;
+  }
+
+  if (loading && catalog.length === 0) {
+    return <span className={className}>{task.rewardType}</span>;
+  }
+
+  return (
+    <TaskRewardTextContent task={task} catalog={catalog} className={className} />
+  );
+};
+
 /**
  * Renders a formatted reward string from task fields + reward-type catalogue.
  */
@@ -24,22 +64,21 @@ export const TaskRewardText: React.FC<TaskRewardTextProps> = ({
   catalog: catalogProp,
   className,
 }) => {
-  const { catalog: loadedCatalog, loading } = useRewardTypes(
-    catalogProp ? undefined : organisationId,
-  );
-  const catalog = catalogProp ?? loadedCatalog;
-
-  if (!task.rewardType?.trim()) {
-    return <span className={className}>—</span>;
-  }
-
-  if (!catalogProp && loading && catalog.length === 0) {
-    return <span className={className}>{task.rewardType}</span>;
+  if (catalogProp) {
+    return (
+      <TaskRewardTextContent
+        task={task}
+        catalog={catalogProp}
+        className={className}
+      />
+    );
   }
 
   return (
-    <span className={className}>
-      {formatTaskRewardDisplay(task, catalog)}
-    </span>
+    <TaskRewardTextWithCatalog
+      task={task}
+      organisationId={organisationId}
+      className={className}
+    />
   );
 };

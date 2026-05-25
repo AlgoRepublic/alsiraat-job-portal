@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { db } from "../services/database";
 import {
   formatTaskRewardDisplay,
   findRewardTypeInCatalog,
@@ -7,28 +6,53 @@ import {
   type RewardTypeRecord,
   type TaskRewardFields,
 } from "../utils/rewardType";
+import {
+  getCachedRewardTypesCatalog,
+  loadRewardTypesCatalog,
+  subscribeRewardTypesCatalog,
+} from "../services/rewardTypesCatalog";
 
 export function useRewardTypes(organisationId?: string) {
-  const [catalog, setCatalog] = useState<RewardTypeRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [catalog, setCatalog] = useState<RewardTypeRecord[]>(
+    () => getCachedRewardTypesCatalog(organisationId) ?? [],
+  );
+  const [loading, setLoading] = useState(
+    () => getCachedRewardTypesCatalog(organisationId) === undefined,
+  );
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    db.getRewardTypes(organisationId)
+
+    const syncFromCache = () => {
+      const cached = getCachedRewardTypesCatalog(organisationId);
+      if (cached) {
+        setCatalog(cached);
+        setLoading(false);
+      }
+    };
+
+    syncFromCache();
+    const unsub = subscribeRewardTypesCatalog(organisationId, () => {
+      if (!cancelled) syncFromCache();
+    });
+
+    loadRewardTypesCatalog(organisationId)
       .then((types) => {
         if (!cancelled) {
-          setCatalog(Array.isArray(types) ? types : []);
+          setCatalog(types);
+          setLoading(false);
         }
       })
       .catch(() => {
-        if (!cancelled) setCatalog([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setCatalog(getCachedRewardTypesCatalog(organisationId) ?? []);
+          setLoading(false);
+        }
       });
+
     return () => {
       cancelled = true;
+      unsub();
     };
   }, [organisationId]);
 
