@@ -200,7 +200,9 @@ export const JobList: React.FC = () => {
   const rewardTypeOptions = Array.from(
     new Set(
       [
-        ...rewardCatalog.map((rewardType: RewardTypeRecord) => rewardType.name),
+        ...rewardCatalog
+          .filter((rt: RewardTypeRecord) => rt.isActive !== false)
+          .map((rewardType: RewardTypeRecord) => rewardType.name),
         ...jobs.map((job: Job) => job.rewardType),
       ]
         .map((value) => value?.trim())
