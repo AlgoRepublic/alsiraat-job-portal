@@ -200,10 +200,7 @@ export const JobList: React.FC = () => {
   const rewardTypeOptions = Array.from(
     new Set(
       [
-        ...rewardCatalog.flatMap((rewardType: RewardTypeRecord) => [
-          rewardType.name,
-          rewardType.code,
-        ]),
+        ...rewardCatalog.map((rewardType: RewardTypeRecord) => rewardType.name),
         ...jobs.map((job: Job) => job.rewardType),
       ]
         .map((value) => value?.trim())
