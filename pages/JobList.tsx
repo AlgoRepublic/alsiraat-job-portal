@@ -197,6 +197,20 @@ export const JobList: React.FC = () => {
     dateTo !== "" ||
     filterLifecycle !== "active";
 
+  const rewardTypeOptions = Array.from(
+    new Set(
+      [
+        ...rewardCatalog.flatMap((rewardType: RewardTypeRecord) => [
+          rewardType.name,
+          rewardType.code,
+        ]),
+        ...jobs.map((job: Job) => job.rewardType),
+      ]
+        .map((value) => value?.trim())
+        .filter((value): value is string => Boolean(value)),
+    ),
+  );
+
   useEffect(() => {
     const fetchJobs = async () => {
       if (!initialFetchDone.current) {
@@ -408,9 +422,9 @@ export const JobList: React.FC = () => {
                   onChange={(e) => updateParam("reward", e.target.value)}
                 >
                   <option value="All">Any Reward</option>
-                  {Object.values(RewardType).map((r) => (
-                    <option key={r} value={r}>
-                      {r}
+                  {rewardTypeOptions.map((rewardType) => (
+                    <option key={rewardType} value={rewardType}>
+                      {rewardType}
                     </option>
                   ))}
                 </select>
