@@ -498,7 +498,7 @@ export const JobDetails: React.FC = () => {
               Task Expired
             </h3>
             <p className="text-sm text-blue-800 dark:text-blue-200/80">
-              This task's end date has passed. What would you like to do?
+              This task's closing date has passed. What would you like to do?
             </p>
           </div>
           <div className="flex gap-3">
@@ -557,9 +557,9 @@ export const JobDetails: React.FC = () => {
                 <Calendar className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase font-bold">
-                  Start Date
-                </p>
+                  <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase font-bold">
+                    Opening Date
+                  </p>
                 <p className="text-sm font-semibold text-zinc-900 dark:text-white">
                   {job.startDate || "ASAP"}
                 </p>
@@ -570,9 +570,9 @@ export const JobDetails: React.FC = () => {
                 <Calendar className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase font-bold">
-                  End Date
-                </p>
+                  <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase font-bold">
+                    Closing Date
+                  </p>
                 <p className="text-sm font-semibold text-zinc-900 dark:text-white">
                   {job.endDate || "Not set"}
                 </p>
@@ -1000,7 +1000,7 @@ export const JobDetails: React.FC = () => {
               Repost Task
             </h3>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-              Select a new end date for this task to repost it.
+              Select a new closing date for this task to repost it.
             </p>
             <input
               type="date"

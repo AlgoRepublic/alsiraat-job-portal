@@ -461,11 +461,11 @@ export const JobWizard: React.FC = () => {
       newErrors.location = "Location / Room is required";
     if (!formData.hoursRequired || formData.hoursRequired <= 0)
       newErrors.hoursRequired = "Estimated Duration must be greater than 0";
-    if (!formData.startDate) newErrors.startDate = "Start Date is required";
-    if (!formData.endDate) newErrors.endDate = "End Date is required";
+    if (!formData.startDate) newErrors.startDate = "Opening Date is required";
+    if (!formData.endDate) newErrors.endDate = "Closing Date is required";
     if (formData.startDate && formData.endDate) {
       if (new Date(formData.endDate) < new Date(formData.startDate))
-        newErrors.endDate = "End Date cannot be before Start Date";
+        newErrors.endDate = "Closing Date cannot be before Opening Date";
     }
     return newErrors;
   };
@@ -831,7 +831,7 @@ export const JobWizard: React.FC = () => {
 
               <div className="space-y-1.5">
                 <CustomDatePicker
-                  label="Start Date *"
+                  label="Opening Date *"
                   value={formData.startDate || ""}
                   onChange={(val) => {
                     updateField("startDate", val);
@@ -849,7 +849,7 @@ export const JobWizard: React.FC = () => {
 
               <div className="space-y-1.5">
                 <CustomDatePicker
-                  label="End Date *"
+                  label="Closing Date *"
                   value={formData.endDate || ""}
                   onChange={(val) => {
                     updateField("endDate", val);
@@ -1439,8 +1439,8 @@ export const JobWizard: React.FC = () => {
                     label: "Duration",
                     value: formData.hoursRequired ? `${formData.hoursRequired}h` : "-",
                   },
-                  { label: "Start Date", value: formData.startDate || "ASAP" },
-                  { label: "End Date", value: formData.endDate || "-" },
+                  { label: "Opening Date", value: formData.startDate || "ASAP" },
+                  { label: "Closing Date", value: formData.endDate || "-" },
                   {
                     label: "Reward",
                     value: formatTaskRewardDisplay(
