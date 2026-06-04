@@ -196,6 +196,10 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
   const [showAbove, setShowAbove] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const labelText = label.replace(/\s*\*$/, "");
+  const placeholderText = /date$/i.test(labelText)
+    ? `Select ${labelText}`
+    : `Select ${labelText} Date`;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -326,7 +330,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
                 year: "numeric",
               })
             ) : (
-              <span className="text-zinc-400">Select Date</span>
+              <span className="text-zinc-400">{placeholderText}</span>
             )}
           </span>
         </div>
