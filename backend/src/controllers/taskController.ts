@@ -833,6 +833,10 @@ export const getSearchTasks = async (req: any, res: Response) => {
     const organisation = req.orgId;
     const hasSuperAdminRole = !!user?.isSuperAdmin;
     const { search, includeExpired } = req.query;
+    const statusFilter = String(req.query.status || "");
+    const isClosedFilter = statusFilter === TaskStatus.CLOSED;
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
     let query: any = {};
 
     const { checkPermissionAsync } = await import("../middleware/rbac.js");
@@ -964,7 +968,12 @@ export const getSearchTasks = async (req: any, res: Response) => {
       });
     }
     if (req.query.category) additionalFilters.push({ category: req.query.category });
-    if (req.query.status) additionalFilters.push({ status: req.query.status });
+    if (statusFilter && !isClosedFilter) {
+      additionalFilters.push({ status: statusFilter });
+    }
+    if (isClosedFilter) {
+      additionalFilters.push({ endDate: { $lt: startOfToday } });
+    }
     if (req.query.reward) additionalFilters.push({ rewardType: req.query.reward });
 
     if (req.query.dateFrom) {
@@ -1005,7 +1014,8 @@ export const getSearchTasks = async (req: any, res: Response) => {
     }
 
     const isAdmin = hasSuperAdminRole;
-    const shouldIncludeExpired = includeExpired === "true" && isAdmin;
+    const shouldIncludeExpired =
+      (includeExpired === "true" && isAdmin) || isClosedFilter;
     if (!shouldIncludeExpired && user) {
       const expirationFilter = {
         $or: [
