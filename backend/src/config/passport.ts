@@ -13,6 +13,62 @@ import { extractRoles, mapAdfsRolesToUserRoles, extractGroups, mapAdfsGroupsToGr
 import Group from "../models/Group.js";
 import { findAlSiraatOrganisation } from "../utils/alSiraatOrg.js";
 
+type SsoUserLike = {
+  organisations?: mongoose.Types.ObjectId[];
+  organisationRoles?: Array<{
+    organisation: mongoose.Types.ObjectId;
+    roles: UserRole[];
+    memberKind?: OrgMemberKind;
+  }>;
+};
+
+/** On every SSO login, sync Al Siraat membership and org-scoped roles from IdP claims. */
+function applySsoOrganisationMembership(
+  user: SsoUserLike,
+  defaultOrg: { _id: mongoose.Types.ObjectId } | null,
+  mappedRoles: UserRole[],
+  grantSuperAdmin: boolean,
+): void {
+  if (!defaultOrg) return;
+
+  const defaultOrgId = defaultOrg._id;
+  const defaultOrgIdStr = defaultOrgId.toString();
+
+  const otherOrgs = (user.organisations ?? []).filter(
+    (id) => id.toString() !== defaultOrgIdStr,
+  );
+  user.organisations = [defaultOrgId, ...otherOrgs];
+
+  if (grantSuperAdmin) return;
+
+  const orgRoles = [...(user.organisationRoles ?? [])];
+  const orgRoleIndex = orgRoles.findIndex(
+    (entry) => entry.organisation?.toString() === defaultOrgIdStr,
+  );
+  const existingEntry = orgRoleIndex > -1 ? orgRoles[orgRoleIndex] : undefined;
+  const roles =
+    mappedRoles.length > 0
+      ? mappedRoles
+      : existingEntry?.roles?.length
+        ? existingEntry.roles
+        : [UserRole.APPLICANT];
+
+  if (existingEntry) {
+    orgRoles[orgRoleIndex] = {
+      organisation: existingEntry.organisation,
+      roles,
+      memberKind: existingEntry.memberKind ?? OrgMemberKind.INTERNAL,
+    };
+  } else {
+    orgRoles.push({
+      organisation: defaultOrgId,
+      roles,
+      memberKind: OrgMemberKind.INTERNAL,
+    });
+  }
+  user.organisationRoles = orgRoles;
+}
+
 // Local Strategy
 passport.use(
   new LocalStrategy(
@@ -169,95 +225,56 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                 superAdminClaims.includes(r),
               );
 
+              const displayName = decoded?.unique_name
+                ? (decoded.unique_name as string)
+                : "SSO User";
+
               let user = await User.findOne({ oidcId: profile.id });
               if (user) {
-                const name = decoded?.unique_name ? (decoded.unique_name as string) : "SSO User";
-                let dirty = false;
-
-                if (user.name !== name) {
-                  user.name = name;
-                  dirty = true;
-                }
+                if (user.name !== displayName) user.name = displayName;
 
                 if (user.email !== email) {
-                  const existingUser = await User.findOne({ email, _id: { $ne: user._id } });
-                  if (existingUser) {
+                  const emailConflict = await User.findOne({
+                    email,
+                    _id: { $ne: user._id },
+                  });
+                  if (emailConflict) {
                     return done(new Error("Email already in use by another user"));
                   }
                   user.email = email;
-                  dirty = true;
                 }
 
-                // Update roles from ADFS if any mapped; otherwise preserve existing DB roles
-                if (mappedRoles.length > 0) {
-                  const targetOrgId =
-                    user.organisations?.[0] || (defaultOrg?._id as mongoose.Types.ObjectId | undefined);
-                  if (targetOrgId) {
-                    const orgRoleIndex = (user.organisationRoles ?? []).findIndex(
-                      (o: any) => o.organisation?.toString() === targetOrgId.toString(),
-                    );
-                    if (orgRoleIndex > -1 && user.organisationRoles) {
-                      (user.organisationRoles as any)[orgRoleIndex].roles = mappedRoles;
-                    } else {
-                      user.organisationRoles = [
-                        ...(user.organisationRoles ?? []),
-                        {
-                          organisation: targetOrgId,
-                          roles: mappedRoles,
-                          memberKind: OrgMemberKind.INTERNAL,
-                        },
-                      ] as any;
-                    }
-                  }
-                  dirty = true;
-                }
-
-                // Assign default org if not already set
-                if ((user.organisations?.length ?? 0) === 0 && defaultOrg) {
-                  user.organisations = [defaultOrg._id as mongoose.Types.ObjectId];
-                  dirty = true;
-                }
+                applySsoOrganisationMembership(
+                  user,
+                  defaultOrg,
+                  mappedRoles,
+                  grantSuperAdmin,
+                );
 
                 if (grantSuperAdmin && !user.isSuperAdmin) {
                   user.isSuperAdmin = true;
-                  dirty = true;
                 }
 
-                if (dirty) await user.save();
+                await user.save();
               } else {
                 const existingUser = await User.findOne({ email });
                 if (existingUser) {
                   existingUser.oidcId = profile.id;
-                  if (mappedRoles.length > 0) {
-                    const targetOrgId =
-                      existingUser.organisations?.[0] ||
-                      (defaultOrg?._id as mongoose.Types.ObjectId | undefined);
-                    if (targetOrgId) {
-                      const orgRoleIndex = (existingUser.organisationRoles ?? []).findIndex(
-                        (o: any) =>
-                          o.organisation?.toString() === targetOrgId.toString(),
-                      );
-                      if (orgRoleIndex > -1 && existingUser.organisationRoles) {
-                        (existingUser.organisationRoles as any)[orgRoleIndex].roles =
-                          mappedRoles;
-                      } else {
-                        existingUser.organisationRoles = [
-                          ...(existingUser.organisationRoles ?? []),
-                          {
-                            organisation: targetOrgId,
-                            roles: mappedRoles,
-                            memberKind: OrgMemberKind.INTERNAL,
-                          },
-                        ] as any;
-                      }
-                    }
+                  if (existingUser.name !== displayName) {
+                    existingUser.name = displayName;
                   }
-                  if ((existingUser.organisations?.length ?? 0) === 0 && defaultOrg) {
-                    existingUser.organisations = [defaultOrg._id as mongoose.Types.ObjectId];
-                  }
+
+                  applySsoOrganisationMembership(
+                    existingUser,
+                    defaultOrg,
+                    mappedRoles,
+                    grantSuperAdmin,
+                  );
+
                   if (grantSuperAdmin && !existingUser.isSuperAdmin) {
                     existingUser.isSuperAdmin = true;
                   }
+
                   await existingUser.save();
                   user = existingUser;
 
@@ -267,26 +284,18 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                   );
                 } else {
                   user = await User.create({
-                    name: decoded?.unique_name ? (decoded.unique_name as string) : "SSO User",
+                    name: displayName,
                     email,
                     oidcId: profile.id,
                     isSuperAdmin: grantSuperAdmin,
-                    ...(defaultOrg ? { organisations: [defaultOrg._id] } : {}),
-                    ...(defaultOrg && !grantSuperAdmin
-                      ? {
-                          organisationRoles: [
-                            {
-                              organisation: defaultOrg._id,
-                              roles:
-                                mappedRoles.length > 0
-                                  ? mappedRoles
-                                  : [UserRole.APPLICANT],
-                              memberKind: OrgMemberKind.INTERNAL,
-                            },
-                          ],
-                        }
-                      : {}),
                   });
+                  applySsoOrganisationMembership(
+                    user,
+                    defaultOrg,
+                    mappedRoles,
+                    grantSuperAdmin,
+                  );
+                  await user.save();
                 }
               }
               // Sync SSO-mapped groups: remove user from all groups, then add only to incoming SSO-mapped groups
