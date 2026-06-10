@@ -20,6 +20,7 @@
     "migrate:task-visibility-central": "tsx src/scripts/migrateTaskVisibilityGlobalToCentral.ts",
     "migrate:task-remove-archived-status": "tsx src/scripts/migrateTaskRemoveArchivedStatus.ts",
     "migrate:task-application-dates": "tsx src/scripts/migrateTaskApplicationDates.ts",
+    "migrate:task-application-dates:prod": "node dist/scripts/migrateTaskApplicationDates.js",
     "remove:global-admin-role": "tsx src/scripts/removeGlobalAdminRole.ts",
     "test": "node --experimental-strip-types --import ./test/test-runner.js --test \"src/**/*.test.ts\""
   },

@@ -19,6 +19,7 @@ import {
   getOIDCEndSessionEndpoint,
   fetchOIDCConfiguration,
 } from "../config/oidcDiscovery.js";
+import { assignCentralOrganisationMembership } from "../utils/centralOrg.js";
 
 dotenv.config();
 
@@ -353,35 +354,11 @@ export const verifyOtp = async (req: Request, res: Response) => {
         }
       }
     }
-    // If no invitation, assign to Central Organisation as Applicant if not already in an org
+    // If no invitation, assign to the flagged Central organisation as Applicant
     if (!invitationToken && (!user.organisations || user.organisations.length === 0)) {
-      const Organization = (await import("../models/Organization.js")).default;
-      const { OrgMemberKind } = await import("../models/User.js");
-      // Always use Central org (slug: 'central')
-      const centralOrg = await Organization.findOne({ slug: "central" });
-      if (centralOrg) {
-        // Only add to organisations if not already present
-        const alreadyInOrg = (user.organisations ?? []).some(
-          (o: any) => o.toString() === centralOrg._id.toString()
-        );
-        if (!alreadyInOrg) {
-          user.organisations = [...(user.organisations ?? []), centralOrg._id];
-        }
-        // Only add to organisationRoles if not already present for this org
-        const alreadyHasRole = (user.organisationRoles ?? []).some(
-          (r: any) => r.organisation?.toString() === centralOrg._id.toString()
-        );
-        if (!alreadyHasRole) {
-          user.organisationRoles = [
-            ...(user.organisationRoles ?? []),
-            {
-              organisation: centralOrg._id,
-              roles: [UserRole.APPLICANT],
-              memberKind: OrgMemberKind.INTERNAL,
-            },
-          ];
-        }
-      }
+      await assignCentralOrganisationMembership(user, {
+        roles: fallbackRoles,
+      });
     }
 
     // Clear OTP

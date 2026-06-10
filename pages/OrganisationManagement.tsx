@@ -35,6 +35,7 @@ interface Organisation {
   themeColor?: string;
   isPublic: boolean;
   isAlSiraatOrg?: boolean;
+  isCentralOrg?: boolean;
   owner?: { name: string; email: string } | null;
   createdAt: string;
   settings?: {
@@ -91,6 +92,7 @@ export const OrganisationManagement: React.FC<{
     themeColor: "",
     isPublic: false,
     isAlSiraatOrg: false,
+    isCentralOrg: false,
     allowExternalApplications: true,
     requireApprovalForPosts: true,
   });
@@ -301,6 +303,7 @@ export const OrganisationManagement: React.FC<{
       themeColor: org.themeColor ?? "",
       isPublic: !!org.isPublic,
       isAlSiraatOrg: !!org.isAlSiraatOrg,
+      isCentralOrg: !!org.isCentralOrg,
       allowExternalApplications:
         org.settings?.allowExternalApplications !== false,
       requireApprovalForPosts: org.settings?.requireApprovalForPosts !== false,
@@ -333,6 +336,7 @@ export const OrganisationManagement: React.FC<{
             about: editForm.about.trim() || undefined,
             isPublic: editForm.isPublic,
             isAlSiraatOrg: editForm.isAlSiraatOrg,
+            isCentralOrg: editForm.isCentralOrg,
             themeColor: tcRaw ? tcRaw.toLowerCase() : null,
             settings: {
               allowExternalApplications: editForm.allowExternalApplications,
@@ -540,6 +544,20 @@ export const OrganisationManagement: React.FC<{
                 />
                 <span className="text-sm font-bold text-zinc-800 dark:text-zinc-100">
                   Al Siraat organisation (SSO user provisioning)
+                </span>
+              </label>
+
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editForm.isCentralOrg}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, isCentralOrg: e.target.checked })
+                  }
+                  className="w-4 h-4 rounded accent-primary"
+                />
+                <span className="text-sm font-bold text-zinc-800 dark:text-zinc-100">
+                  Platform Central organisation (email signup default)
                 </span>
               </label>
 
@@ -1101,6 +1119,11 @@ export const OrganisationManagement: React.FC<{
                     {org.isAlSiraatOrg && (
                       <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-primary/10 text-primary rounded-full">
                         Al Siraat
+                      </span>
+                    )}
+                    {org.isCentralOrg && (
+                      <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 rounded-full">
+                        Central
                       </span>
                     )}
                   </div>

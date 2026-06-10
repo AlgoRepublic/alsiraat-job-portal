@@ -8,6 +8,10 @@ import { onboardingInvitationEmail } from "../services/emailTemplates.js";
 import Group from "../models/Group.js";
 import { isSuperAdminUser } from "../utils/superAdmin.js";
 import { setAlSiraatOrganisationFlag } from "../utils/alSiraatOrg.js";
+import {
+  findCentralOrganisation,
+  setCentralOrganisationFlag,
+} from "../utils/centralOrg.js";
 
 /**
  * Normalise an organisation name so it is always stored consistently.
@@ -161,17 +165,20 @@ export const getOrganizations = async (req: Request, res: Response) => {
 /**
  * GET /organisations/public/central
  * Public read: shell branding for anonymous browse (Search Tasks /jobs).
- * Resolved by slug from CENTRAL_ORG_SLUG (default `central`).
+ * Resolved by isCentralOrg flag (with slug/env fallbacks in findCentralOrganisation).
  */
 export const getPublicCentralOrganisation = async (
   _req: Request,
   res: Response,
 ) => {
   try {
-    const slug = (process.env.CENTRAL_ORG_SLUG || "central")
-      .trim()
-      .toLowerCase();
-    const org = await Organization.findOne({ slug })
+    const central = await findCentralOrganisation();
+    if (!central?._id) {
+      return res
+        .status(404)
+        .json({ message: "Central organisation is not configured" });
+    }
+    const org = await Organization.findById(central._id)
       .select("name slug logo themeColor isPublic about")
       .lean();
     if (!org) {
@@ -540,8 +547,17 @@ export const updateOrganization = async (req: Request | any, res: Response) => {
     const org = await Organization.findById(id);
     if (!org) return res.status(404).json({ message: "Organisation not found" });
 
-    const { name, type, domain, about, isPublic, isAlSiraatOrg, settings, themeColor } =
-      req.body ?? {};
+    const {
+      name,
+      type,
+      domain,
+      about,
+      isPublic,
+      isAlSiraatOrg,
+      isCentralOrg,
+      settings,
+      themeColor,
+    } = req.body ?? {};
     const unsetFields: Record<string, 1> = {};
 
     if (name !== undefined) {
@@ -603,6 +619,11 @@ export const updateOrganization = async (req: Request | any, res: Response) => {
     if (typeof isAlSiraatOrg === "boolean") {
       await setAlSiraatOrganisationFlag(org._id as any, isAlSiraatOrg);
       org.isAlSiraatOrg = isAlSiraatOrg;
+    }
+
+    if (typeof isCentralOrg === "boolean") {
+      await setCentralOrganisationFlag(org._id as any, isCentralOrg);
+      org.isCentralOrg = isCentralOrg;
     }
 
     if (themeColor !== undefined) {

@@ -10,6 +10,8 @@ export interface IOrganization extends Document {
   isPublic: boolean;
   /** Marks the Al Siraat tenant org (used for SSO org assignment instead of name/slug regex). */
   isAlSiraatOrg?: boolean;
+  /** Marks the platform Central org (email signup default, public browse shell, etc.). */
+  isCentralOrg?: boolean;
   /** Primary brand colour (#RRGGBB); drives UI accent when set */
   themeColor?: string;
   settings?: {
@@ -31,6 +33,7 @@ const OrganizationSchema: Schema = new Schema(
     about: { type: String },
     isPublic: { type: Boolean, default: false },
     isAlSiraatOrg: { type: Boolean, default: false },
+    isCentralOrg: { type: Boolean, default: false },
     themeColor: { type: String, trim: true },
     settings: {
       allowExternalApplications: { type: Boolean, default: true },
@@ -46,6 +49,14 @@ OrganizationSchema.index(
   {
     unique: true,
     partialFilterExpression: { isAlSiraatOrg: true },
+  },
+);
+
+OrganizationSchema.index(
+  { isCentralOrg: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { isCentralOrg: true },
   },
 );
 

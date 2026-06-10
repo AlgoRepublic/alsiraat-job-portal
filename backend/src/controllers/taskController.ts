@@ -24,6 +24,10 @@ import {
   assertTaskLifecycleAccess,
 } from "../utils/taskLifecycleQuery.js";
 import {
+  isCentralOrganisationId,
+  resolveCentralOrganisationId,
+} from "../utils/centralOrg.js";
+import {
   parseApplicationOpenDate,
   parseApplicationCloseDate,
   applicationCloseDateActiveFromFilter,
@@ -58,37 +62,6 @@ const normalizePrivateAudiences = (value: unknown): TaskVisibility[] => {
       v === TaskVisibility.INTERNAL || v === TaskVisibility.EXTERNAL,
   );
 };
-
-/** Active org is the Central hub (browse tab shows Central visibility tasks only). */
-async function isCentralOrganisation(
-  orgId: string | undefined | null,
-): Promise<boolean> {
-  if (!orgId) return false;
-  const org = await Organization.findById(orgId).select("name slug").lean();
-  if (!org) return false;
-  const slug = String((org as { slug?: string }).slug || "")
-    .toLowerCase()
-    .trim();
-  const name = String((org as { name?: string }).name || "")
-    .toLowerCase()
-    .trim();
-  return slug === "central" || name === "central";
-}
-
-/** Platform Central organisation id (`CENTRAL_ORG_SLUG`, default `central`). */
-async function resolveCentralOrganisationId(): Promise<string | null> {
-  const slug = (process.env.CENTRAL_ORG_SLUG || "central")
-    .trim()
-    .toLowerCase();
-  let org = await Organization.findOne({ slug }).select("_id").lean();
-  if (!org && slug === "central") {
-    org = await Organization.findOne({ name: /^central$/i })
-      .select("_id")
-      .lean();
-  }
-  const id = (org as { _id?: unknown } | null)?._id;
-  return id != null ? String(id) : null;
-}
 
 function getMemberKindForOrg(user: any, orgId: string): OrgMemberKind {
   const roles = user?.organisationRoles || [];
@@ -857,7 +830,7 @@ export const getSearchTasks = async (req: any, res: Response) => {
       /** Search tab audience lane per viewer (own tasks always kept). */
       let searchTabAudience: TaskVisibility | null = null;
       if (organisation && !hasSuperAdminRole) {
-        if (await isCentralOrganisation(organisation)) {
+        if (await isCentralOrganisationId(organisation)) {
           searchTabAudience = TaskVisibility.CENTRAL;
         } else {
           searchTabAudience =
