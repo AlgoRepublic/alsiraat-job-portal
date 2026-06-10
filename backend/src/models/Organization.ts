@@ -8,6 +8,8 @@ export interface IOrganization extends Document {
   logo?: string;
   about?: string;
   isPublic: boolean;
+  /** Marks the Al Siraat tenant org (used for SSO org assignment instead of name/slug regex). */
+  isAlSiraatOrg?: boolean;
   /** Primary brand colour (#RRGGBB); drives UI accent when set */
   themeColor?: string;
   settings?: {
@@ -28,6 +30,7 @@ const OrganizationSchema: Schema = new Schema(
     logo: { type: String },
     about: { type: String },
     isPublic: { type: Boolean, default: false },
+    isAlSiraatOrg: { type: Boolean, default: false },
     themeColor: { type: String, trim: true },
     settings: {
       allowExternalApplications: { type: Boolean, default: true },
@@ -36,6 +39,14 @@ const OrganizationSchema: Schema = new Schema(
     owner: { type: Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true },
+);
+
+OrganizationSchema.index(
+  { isAlSiraatOrg: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { isAlSiraatOrg: true },
+  },
 );
 
 export default mongoose.model<IOrganization>("Organization", OrganizationSchema);

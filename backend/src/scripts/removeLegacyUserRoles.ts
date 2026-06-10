@@ -62,20 +62,11 @@ async function migrate() {
   const users = db.collection("users");
   const organizations = db.collection("organizations");
 
-  // Resolve default org across env naming variants:
-  // - Al-Siraat College
-  // - Al Siraat College
-  // and slug equivalents.
-  const defaultOrg = await organizations.findOne({
-    $or: [
-      { name: { $regex: /al[-\s]?siraat\s+college/i } },
-      { slug: { $regex: /al[-\s]?siraat[-\s]?college/i } },
-    ],
-  });
+  const defaultOrg = await organizations.findOne({ isAlSiraatOrg: true });
 
   if (!defaultOrg?._id) {
     throw new Error(
-      "Default organization not found (expected Al-Siraat College / Al Siraat College).",
+      "Al Siraat organisation not found (set isAlSiraatOrg on the target organisation).",
     );
   }
 

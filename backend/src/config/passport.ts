@@ -6,25 +6,12 @@ import { Strategy as OpenIDConnectStrategy, Profile as OpenIDConnectProfile, Ver
 import bcrypt from "bcryptjs";
 import User, { UserRole, OrgMemberKind } from "../models/User.js";
 import Role from "../models/Role.js";
-import Organization from "../models/Organization.js";
 import { fetchOIDCConfiguration } from "./oidcDiscovery.js";
 import { oidcStateStore } from "./oidcStateStore.js";
 import jwt from "jsonwebtoken";
 import { extractRoles, mapAdfsRolesToUserRoles, extractGroups, mapAdfsGroupsToGroupIds } from "./adfsClaims.js";
 import Group from "../models/Group.js";
-
-export const buildDefaultOrgQuery = () => {
-  const envName = process.env.OIDC_DEFAULT_ORG?.trim();
-  if (envName) {
-    return { name: envName };
-  }
-  return {
-    $or: [
-      { name: { $regex: /al[-\s]?siraat\s+college/i } },
-      { slug: { $regex: /al[-\s]?siraat[-\s]?college/i } },
-    ],
-  };
-};
+import { findAlSiraatOrganisation } from "../utils/alSiraatOrg.js";
 
 // Local Strategy
 passport.use(
@@ -71,9 +58,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           if (!email) {
             return done(new Error("No email found in Google profile"));
           }
-          const defaultOrg = await Organization.findOne(buildDefaultOrgQuery())
-            .select("_id")
-            .lean();
+          const defaultOrg = await findAlSiraatOrganisation();
 
           let user = await User.findOne({ googleId: profile.id });
           if (!user) {
@@ -172,7 +157,7 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
               const [dbRoles, dbGroups, defaultOrg] = await Promise.all([
                 Role.find({ isActive: true }).select("name oidcMapping").lean(),
                 Group.find({ isActive: true }).select("name oidcMapping").lean(),
-                Organization.findOne(buildDefaultOrgQuery()).select("_id").lean(),
+                findAlSiraatOrganisation(),
               ]);
               const mappedRoles = mapAdfsRolesToUserRoles(adfsRoles, dbRoles);
               const mappedGroupIds = mapAdfsGroupsToGroupIds(adfsGroups, dbGroups as Array<{ _id: unknown; name: string; oidcMapping?: string[] }>);

@@ -88,6 +88,7 @@ async function resetDatabase() {
       contactEmail: "info@alsiraat.edu.au",
       contactPhone: "+61 3 9395 5000",
       isPublic: true,
+      isAlSiraatOrg: true,
     } as any)) as any;
     console.log(`✅ Created organisation: ${organization.name}`);
 

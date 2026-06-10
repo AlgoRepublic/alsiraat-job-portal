@@ -7,6 +7,7 @@ import { sendEmail } from "../services/notificationService.js";
 import { onboardingInvitationEmail } from "../services/emailTemplates.js";
 import Group from "../models/Group.js";
 import { isSuperAdminUser } from "../utils/superAdmin.js";
+import { setAlSiraatOrganisationFlag } from "../utils/alSiraatOrg.js";
 
 /**
  * Normalise an organisation name so it is always stored consistently.
@@ -539,7 +540,7 @@ export const updateOrganization = async (req: Request | any, res: Response) => {
     const org = await Organization.findById(id);
     if (!org) return res.status(404).json({ message: "Organisation not found" });
 
-    const { name, type, domain, about, isPublic, settings, themeColor } =
+    const { name, type, domain, about, isPublic, isAlSiraatOrg, settings, themeColor } =
       req.body ?? {};
     const unsetFields: Record<string, 1> = {};
 
@@ -597,6 +598,11 @@ export const updateOrganization = async (req: Request | any, res: Response) => {
 
     if (typeof isPublic === "boolean") {
       org.isPublic = isPublic;
+    }
+
+    if (typeof isAlSiraatOrg === "boolean") {
+      await setAlSiraatOrganisationFlag(org._id as any, isAlSiraatOrg);
+      org.isAlSiraatOrg = isAlSiraatOrg;
     }
 
     if (themeColor !== undefined) {

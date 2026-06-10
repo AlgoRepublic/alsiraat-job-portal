@@ -14,6 +14,7 @@
     "seed:prod": "node dist/scripts/seedAdmin.js",
     "reset-db": "tsx src/scripts/resetDatabase.ts",
     "migrate:legacy-central": "tsx src/scripts/fixLegacyCentralRecords.ts",
+    "migrate:al-siraat-org-flag": "tsx src/scripts/migrateAlSiraatOrgFlag.ts",
     "migrate:is-super-admin": "tsx src/scripts/migrateToIsSuperAdmin.ts",
     "sync:super-admin-profiles": "tsx src/scripts/syncSuperAdminProfiles.ts",
     "migrate:task-visibility-central": "tsx src/scripts/migrateTaskVisibilityGlobalToCentral.ts",
