@@ -5,6 +5,7 @@ import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { Strategy as OpenIDConnectStrategy, Profile as OpenIDConnectProfile, VerifyCallback as OpenIDConnectVerifyCallback } from "passport-openidconnect";
 import bcrypt from "bcryptjs";
 import User, { UserRole, OrgMemberKind } from "../models/User.js";
+import { normalizeUserRole } from "../models/UserRole.js";
 import Role from "../models/Role.js";
 import { fetchOIDCConfiguration } from "./oidcDiscovery.js";
 import { oidcStateStore } from "./oidcStateStore.js";
@@ -14,6 +15,7 @@ import Group from "../models/Group.js";
 import { findAlSiraatOrganisation } from "../utils/alSiraatOrg.js";
 
 type SsoUserLike = {
+  isSuperAdmin?: boolean;
   organisations?: mongoose.Types.ObjectId[];
   organisationRoles?: Array<{
     organisation: mongoose.Types.ObjectId;
@@ -22,12 +24,41 @@ type SsoUserLike = {
   }>;
 };
 
+/** Active system + org-scoped roles assignable in the given organisation. */
+async function getOrganisationAssignableRoles(
+  orgId: mongoose.Types.ObjectId,
+): Promise<UserRole[]> {
+  const roles = await Role.find({
+    isActive: true,
+    $or: [
+      { organisation: orgId },
+      { organisation: null },
+      { organisation: { $exists: false } },
+    ],
+  })
+    .select("name")
+    .lean();
+
+  const assignable = new Set<UserRole>();
+  for (const role of roles) {
+    const normalized = normalizeUserRole(role.name);
+    if (Object.values(UserRole).includes(normalized as UserRole)) {
+      assignable.add(normalized as UserRole);
+    }
+  }
+  return Array.from(assignable);
+}
+
 /** On every SSO login, sync Al Siraat membership and org-scoped roles from IdP claims. */
 function applySsoOrganisationMembership(
   user: SsoUserLike,
   defaultOrg: { _id: mongoose.Types.ObjectId } | null,
   mappedRoles: UserRole[],
-  grantSuperAdmin: boolean,
+  options: {
+    grantSuperAdmin: boolean;
+    isExistingUser: boolean;
+    allOrgRoles: UserRole[];
+  },
 ): void {
   if (!defaultOrg) return;
 
@@ -39,19 +70,21 @@ function applySsoOrganisationMembership(
   );
   user.organisations = [defaultOrgId, ...otherOrgs];
 
-  if (grantSuperAdmin) return;
-
   const orgRoles = [...(user.organisationRoles ?? [])];
   const orgRoleIndex = orgRoles.findIndex(
     (entry) => entry.organisation?.toString() === defaultOrgIdStr,
   );
   const existingEntry = orgRoleIndex > -1 ? orgRoles[orgRoleIndex] : undefined;
+
+  const isSuperAdmin = !!(user.isSuperAdmin || options.grantSuperAdmin);
   const roles =
-    mappedRoles.length > 0
-      ? mappedRoles
-      : existingEntry?.roles?.length
-        ? existingEntry.roles
-        : [UserRole.APPLICANT];
+    options.isExistingUser && isSuperAdmin && options.allOrgRoles.length > 0
+      ? options.allOrgRoles
+      : mappedRoles.length > 0
+        ? mappedRoles
+        : existingEntry?.roles?.length
+          ? existingEntry.roles
+          : [UserRole.APPLICANT];
 
   if (existingEntry) {
     orgRoles[orgRoleIndex] = {
@@ -215,6 +248,9 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                 Group.find({ isActive: true }).select("name oidcMapping").lean(),
                 findAlSiraatOrganisation(),
               ]);
+              const allOrgRoles = defaultOrg
+                ? await getOrganisationAssignableRoles(defaultOrg._id)
+                : [];
               const mappedRoles = mapAdfsRolesToUserRoles(adfsRoles, dbRoles);
               const mappedGroupIds = mapAdfsGroupsToGroupIds(adfsGroups, dbGroups as Array<{ _id: unknown; name: string; oidcMapping?: string[] }>);
               const superAdminClaims =
@@ -244,12 +280,11 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                   user.email = email;
                 }
 
-                applySsoOrganisationMembership(
-                  user,
-                  defaultOrg,
-                  mappedRoles,
+                applySsoOrganisationMembership(user, defaultOrg, mappedRoles, {
                   grantSuperAdmin,
-                );
+                  isExistingUser: true,
+                  allOrgRoles,
+                });
 
                 if (grantSuperAdmin && !user.isSuperAdmin) {
                   user.isSuperAdmin = true;
@@ -268,7 +303,11 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                     existingUser,
                     defaultOrg,
                     mappedRoles,
-                    grantSuperAdmin,
+                    {
+                      grantSuperAdmin,
+                      isExistingUser: true,
+                      allOrgRoles,
+                    },
                   );
 
                   if (grantSuperAdmin && !existingUser.isSuperAdmin) {
@@ -289,12 +328,11 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                     oidcId: profile.id,
                     isSuperAdmin: grantSuperAdmin,
                   });
-                  applySsoOrganisationMembership(
-                    user,
-                    defaultOrg,
-                    mappedRoles,
+                  applySsoOrganisationMembership(user, defaultOrg, mappedRoles, {
                     grantSuperAdmin,
-                  );
+                    isExistingUser: false,
+                    allOrgRoles,
+                  });
                   await user.save();
                 }
               }
