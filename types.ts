@@ -93,6 +93,8 @@ export interface Job {
   hoursRequired?: number;
   applicationOpenDate?: string;
   applicationCloseDate?: string;
+  /** Actual start date of the task (separate from the application window). */
+  startDate?: string;
   selectionCriteria?: string;
 
   requiredSkills?: string[];

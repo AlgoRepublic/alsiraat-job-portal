@@ -245,6 +245,7 @@ export const JobWizard: React.FC = () => {
     hoursRequired: 0,
     applicationOpenDate: "",
     applicationCloseDate: "",
+    startDate: "",
     selectionCriteria: "",
     requiredSkills: [],
     rewardType: RewardType.VOLUNTEER,
@@ -335,6 +336,7 @@ export const JobWizard: React.FC = () => {
               hoursRequired: job.hoursRequired,
               applicationOpenDate: job.applicationOpenDate,
               applicationCloseDate: job.applicationCloseDate,
+              startDate: job.startDate,
               selectionCriteria: job.selectionCriteria,
               requiredSkills: job.requiredSkills,
               rewardType: job.rewardType,
@@ -473,6 +475,11 @@ export const JobWizard: React.FC = () => {
         newErrors.applicationCloseDate =
           "Applications Close cannot be before Applications Open";
     }
+    if (formData.startDate && formData.applicationCloseDate) {
+      if (new Date(formData.startDate) < new Date(formData.applicationCloseDate))
+        newErrors.startDate =
+          "Task Start Date cannot be before Applications Close";
+    }
     return newErrors;
   };
 
@@ -522,7 +529,8 @@ export const JobWizard: React.FC = () => {
         step1Errors.location ||
         step1Errors.hoursRequired ||
         step1Errors.applicationOpenDate ||
-        step1Errors.applicationCloseDate
+        step1Errors.applicationCloseDate ||
+        step1Errors.startDate
       )
         setOpenS1((p) => ({ ...p, schedule: true }));
       return;
@@ -786,7 +794,8 @@ export const JobWizard: React.FC = () => {
                 errors.location ||
                 errors.hoursRequired ||
                 errors.applicationOpenDate ||
-                errors.applicationCloseDate
+                errors.applicationCloseDate ||
+                errors.startDate
               )
             }
           >
@@ -868,6 +877,25 @@ export const JobWizard: React.FC = () => {
                 {errors.applicationCloseDate && (
                   <p className="text-red-500 text-xs font-bold">
                     {errors.applicationCloseDate}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <CustomDatePicker
+                  label="Task Start Date"
+                  value={formData.startDate || ""}
+                  onChange={(val) => {
+                    updateField("startDate", val);
+                    if (errors.startDate)
+                      setErrors((p) => ({ ...p, startDate: "" }));
+                  }}
+                  min={formData.applicationCloseDate}
+                  error={!!errors.startDate}
+                />
+                {errors.startDate && (
+                  <p className="text-red-500 text-xs font-bold">
+                    {errors.startDate}
                   </p>
                 )}
               </div>
@@ -1447,6 +1475,7 @@ export const JobWizard: React.FC = () => {
                   },
                   { label: "Applications Open", value: formData.applicationOpenDate || "ASAP" },
                   { label: "Applications Close", value: formData.applicationCloseDate || "-" },
+                  { label: "Task Start Date", value: formData.startDate || "-" },
                   {
                     label: "Reward",
                     value: formatTaskRewardDisplay(

@@ -1,15 +1,15 @@
 /**
  * Application window dates on tasks (when users may apply).
- * Legacy API/DB fields startDate/endDate are accepted during transition only.
+ * Legacy API field endDate is accepted during transition only.
+ * DB queries may still reference legacy startDate/endDate on unmigrated documents.
  */
 
-const LEGACY_OPEN = "startDate";
 const LEGACY_CLOSE = "endDate";
 
 export function parseApplicationOpenDate(
   body: Record<string, unknown>,
 ): Date | undefined {
-  const raw = body.applicationOpenDate ?? body[LEGACY_OPEN];
+  const raw = body.applicationOpenDate;
   if (raw === undefined || raw === null || raw === "") return undefined;
   const d = new Date(raw as string | number | Date);
   return Number.isNaN(d.getTime()) ? undefined : d;
@@ -22,6 +22,35 @@ export function parseApplicationCloseDate(
   if (raw === undefined || raw === null || raw === "") return undefined;
   const d = new Date(raw as string | number | Date);
   return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
+/** Task start date (when the task itself begins, after applications close). */
+export function parseTaskStartDate(
+  body: Record<string, unknown>,
+): Date | undefined | null {
+  if (!("startDate" in body)) return undefined;
+  const raw = body.startDate;
+  if (raw === undefined || raw === null || raw === "") return null;
+  const d = new Date(raw as string | number | Date);
+  return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
+export function validateTaskDateOrder(
+  applicationOpenDate?: Date,
+  applicationCloseDate?: Date,
+  startDate?: Date,
+): string | null {
+  if (
+    applicationOpenDate &&
+    applicationCloseDate &&
+    applicationCloseDate < applicationOpenDate
+  ) {
+    return "Application close date must be on or after application open date";
+  }
+  if (startDate && applicationCloseDate && startDate < applicationCloseDate) {
+    return "Task start date must be on or after application close date";
+  }
+  return null;
 }
 
 /** Close date unset or on/after the given instant (supports pre-migration documents). */

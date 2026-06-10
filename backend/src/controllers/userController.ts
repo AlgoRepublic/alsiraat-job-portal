@@ -452,7 +452,7 @@ export const getUserApplications = async (req: Request, res: Response) => {
     const apps = await Application.find(appFilter)
       .populate(
         "task",
-        "title status category organisation applicationOpenDate applicationCloseDate",
+        "title status category organisation applicationOpenDate applicationCloseDate startDate",
       )
       .populate("applicant", "name email")
       .sort({ createdAt: -1 });

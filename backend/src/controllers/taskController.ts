@@ -30,6 +30,8 @@ import {
 import {
   parseApplicationOpenDate,
   parseApplicationCloseDate,
+  parseTaskStartDate,
+  validateTaskDateOrder,
   applicationCloseDateActiveFromFilter,
   applicationOpenDateActiveToFilter,
   applicationWindowNotExpiredFilter,
@@ -272,9 +274,19 @@ export const createTask = async (req: any, res: Response) => {
 
     const applicationOpenDate = parseApplicationOpenDate(req.body);
     const applicationCloseDate = parseApplicationCloseDate(req.body);
+    const parsedStartDate = parseTaskStartDate(req.body);
+    const dateOrderError = validateTaskDateOrder(
+      applicationOpenDate,
+      applicationCloseDate,
+      parsedStartDate || undefined,
+    );
+    if (dateOrderError) {
+      return res.status(400).json({ message: dateOrderError });
+    }
     if (applicationOpenDate) taskData.applicationOpenDate = applicationOpenDate;
     if (applicationCloseDate)
       taskData.applicationCloseDate = applicationCloseDate;
+    if (parsedStartDate) taskData.startDate = parsedStartDate;
 
     // Log task data before saving
     console.log("Task Data (before save):", {
@@ -388,8 +400,28 @@ export const updateTask = async (req: any, res: Response) => {
     if (hoursRequired) task.hoursRequired = hoursRequired;
     const applicationOpenDate = parseApplicationOpenDate(req.body);
     const applicationCloseDate = parseApplicationCloseDate(req.body);
+    const parsedStartDate = parseTaskStartDate(req.body);
     if (applicationOpenDate) task.applicationOpenDate = applicationOpenDate;
     if (applicationCloseDate) task.applicationCloseDate = applicationCloseDate;
+    if (parsedStartDate !== undefined) {
+      if (parsedStartDate === null) {
+        (task as any).startDate = undefined;
+      } else {
+        (task as any).startDate = parsedStartDate;
+      }
+    }
+    const effectiveStartDate =
+      parsedStartDate === null
+        ? undefined
+        : parsedStartDate ?? (task as any).startDate;
+    const dateOrderError = validateTaskDateOrder(
+      task.applicationOpenDate,
+      task.applicationCloseDate,
+      effectiveStartDate,
+    );
+    if (dateOrderError) {
+      return res.status(400).json({ message: dateOrderError });
+    }
     if (selectionCriteria) task.selectionCriteria = selectionCriteria;
     if (requiredSkills) task.requiredSkills = parseArrayField(requiredSkills);
     if (rewardType) task.rewardType = rewardType;
@@ -1556,7 +1588,6 @@ export const repostTask = async (req: any, res: Response) => {
 
     clonedTaskData.applicationOpenDate = new Date();
     clonedTaskData.applicationCloseDate = applicationCloseDate;
-    delete clonedTaskData.startDate;
     delete clonedTaskData.endDate;
 
     if (clonedTaskData.visibility === "Global") {

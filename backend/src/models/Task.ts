@@ -28,6 +28,8 @@ export interface ITask extends Document {
   hoursRequired: number;
   applicationOpenDate?: Date | undefined;
   applicationCloseDate?: Date | undefined;
+  /** Actual start date of the task (separate from the application window). */
+  startDate?: Date | undefined;
   selectionCriteria?: string | undefined;
   requiredSkills?: string[] | undefined;
   rewardType: string;
@@ -68,6 +70,7 @@ const TaskSchema: Schema = new Schema(
     hoursRequired: { type: Number },
     applicationOpenDate: { type: Date },
     applicationCloseDate: { type: Date },
+    startDate: { type: Date },
     selectionCriteria: { type: String },
     requiredSkills: [{ type: String }],
     rewardType: { type: String, required: true },

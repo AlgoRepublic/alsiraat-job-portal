@@ -26,6 +26,10 @@ import { Loading } from "../components/Loading";
 import { Pagination } from "../components/Pagination";
 import { useToast } from "../components/Toast";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
+import {
+  formatTaskApplicationWindow,
+  formatTaskDate,
+} from "../utils/formatTaskDate";
 
 const PAGE_SIZE = 12;
 const SEARCH_DEBOUNCE_MS = 400;
@@ -578,10 +582,20 @@ export const JobList: React.FC = () => {
                     <Clock className="w-4 h-4 mr-2 text-primary" />{" "}
                     {job.hoursRequired} Total Hrs
                   </div>
-                  {job.applicationOpenDate && (
+                  {(job.applicationOpenDate || job.applicationCloseDate) && (
                     <div className="flex items-center px-4 py-2 glass rounded-2xl text-xs font-bold text-zinc-500">
-                      <Calendar className="w-4 h-4 mr-2 text-zinc-400" />{" "}
-                      {job.applicationOpenDate}
+                      <Calendar className="w-4 h-4 mr-2 text-zinc-400" />
+                      Applications:{" "}
+                      {formatTaskApplicationWindow(
+                        job.applicationOpenDate,
+                        job.applicationCloseDate,
+                      ) ?? "—"}
+                    </div>
+                  )}
+                  {job.startDate && (
+                    <div className="flex items-center px-4 py-2 glass rounded-2xl text-xs font-bold text-zinc-500">
+                      <Calendar className="w-4 h-4 mr-2 text-primary" />
+                      Starts: {formatTaskDate(job.startDate)}
                     </div>
                   )}
                 </div>

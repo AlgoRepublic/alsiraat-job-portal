@@ -33,6 +33,7 @@ import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
 import { organisationIdToString } from "../utils/organisationId";
 import { TaskRewardText } from "../components/TaskRewardText";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
+import { formatTaskDate } from "../utils/formatTaskDate";
 
 export const JobDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -563,7 +564,7 @@ export const JobDetails: React.FC = () => {
                     Applications Open
                   </p>
                 <p className="text-sm font-semibold text-zinc-900 dark:text-white">
-                  {job.applicationOpenDate || "ASAP"}
+                  {formatTaskDate(job.applicationOpenDate) || "ASAP"}
                 </p>
               </div>
             </div>
@@ -576,7 +577,20 @@ export const JobDetails: React.FC = () => {
                     Applications Close
                   </p>
                 <p className="text-sm font-semibold text-zinc-900 dark:text-white">
-                  {job.applicationCloseDate || "Not set"}
+                  {formatTaskDate(job.applicationCloseDate) || "Not set"}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mr-3 text-primary">
+                <Calendar className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase font-bold">
+                  Task Start Date
+                </p>
+                <p className="text-sm font-semibold text-zinc-900 dark:text-white">
+                  {formatTaskDate(job.startDate) || "Not set"}
                 </p>
               </div>
             </div>

@@ -50,6 +50,7 @@ export const MOCK_JOBS: Job[] = [
     rewardValue: 300,
     applicationOpenDate: "2025-11-25",
     applicationCloseDate: "2026-05-30",
+    startDate: "2026-06-01",
     eligibility: ["Community"],
     visibility: Visibility.CENTRAL,
     attachments: [],

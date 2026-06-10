@@ -71,16 +71,15 @@ const mapTaskToJob = (task: any): Job => {
     hoursRequired: task.hoursRequired,
     applicationOpenDate: task.applicationOpenDate
       ? task.applicationOpenDate.split("T")[0]
-      : task.startDate
-        ? task.startDate.split("T")[0]
-        : task.createdAt
-          ? task.createdAt.split("T")[0]
-          : undefined,
+      : task.createdAt
+        ? task.createdAt.split("T")[0]
+        : undefined,
     applicationCloseDate: task.applicationCloseDate
       ? task.applicationCloseDate.split("T")[0]
       : task.endDate
         ? task.endDate.split("T")[0]
         : undefined,
+    startDate: task.startDate ? task.startDate.split("T")[0] : undefined,
     selectionCriteria: task.selectionCriteria || "",
     requiredSkills: task.requiredSkills || [],
     rewardType: task.rewardType,
