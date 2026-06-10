@@ -5,6 +5,7 @@ import User from "../models/User.js";
 import { Permission } from "../config/permissions.js";
 import { checkPermissionAsync } from "../middleware/rbac.js";
 import { andWithLifecycle } from "../utils/taskLifecycleQuery.js";
+import { applicationWindowNotExpiredFilter } from "../utils/taskApplicationDates.js";
 
 /**
  * GET /api/dashboard/stats
@@ -59,13 +60,7 @@ export const getDashboardStats = async (req: any, res: Response) => {
 
     taskFilter = andWithLifecycle(taskFilter, "active");
 
-    const nonExpiredTaskFilter = {
-      $or: [
-        { endDate: { $exists: false } },
-        { endDate: null },
-        { endDate: { $gte: new Date() } },
-      ],
-    };
+    const nonExpiredTaskFilter = applicationWindowNotExpiredFilter();
 
     const [
       totalTasks,

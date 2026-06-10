@@ -69,12 +69,18 @@ const mapTaskToJob = (task: any): Job => {
     description: task.description,
     location: task.location,
     hoursRequired: task.hoursRequired,
-    startDate: task.startDate
-      ? task.startDate.split("T")[0]
-      : task.createdAt
-        ? task.createdAt.split("T")[0]
+    applicationOpenDate: task.applicationOpenDate
+      ? task.applicationOpenDate.split("T")[0]
+      : task.startDate
+        ? task.startDate.split("T")[0]
+        : task.createdAt
+          ? task.createdAt.split("T")[0]
+          : undefined,
+    applicationCloseDate: task.applicationCloseDate
+      ? task.applicationCloseDate.split("T")[0]
+      : task.endDate
+        ? task.endDate.split("T")[0]
         : undefined,
-    endDate: task.endDate ? task.endDate.split("T")[0] : undefined,
     selectionCriteria: task.selectionCriteria || "",
     requiredSkills: task.requiredSkills || [],
     rewardType: task.rewardType,
@@ -520,8 +526,8 @@ class DatabaseService {
     return api.put(`/tasks/${id}/mark-completed`, {});
   }
 
-  async repostJob(id: string, endDate: string): Promise<any> {
-    return api.post(`/tasks/${id}/repost`, { endDate });
+  async repostJob(id: string, applicationCloseDate: string): Promise<any> {
+    return api.post(`/tasks/${id}/repost`, { applicationCloseDate });
   }
 
   async getApplications(filters: any = {}): Promise<Application[]> {

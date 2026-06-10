@@ -23,6 +23,14 @@ import {
   andWithLifecycle,
   assertTaskLifecycleAccess,
 } from "../utils/taskLifecycleQuery.js";
+import {
+  parseApplicationOpenDate,
+  parseApplicationCloseDate,
+  applicationCloseDateActiveFromFilter,
+  applicationOpenDateActiveToFilter,
+  applicationWindowNotExpiredFilter,
+  applicationWindowClosedBeforeFilter,
+} from "../utils/taskApplicationDates.js";
 
 const parseArrayField = (value: any): string[] => {
   if (!value) return [];
@@ -203,8 +211,6 @@ export const createTask = async (req: any, res: Response) => {
       category,
       location,
       hoursRequired,
-      startDate,
-      endDate,
       selectionCriteria,
       requiredSkills,
       rewardType,
@@ -291,9 +297,11 @@ export const createTask = async (req: any, res: Response) => {
     }
     taskData.organisation = req.orgId;
 
-    // Only add dates if provided
-    if (startDate) taskData.startDate = new Date(startDate);
-    if (endDate) taskData.endDate = new Date(endDate);
+    const applicationOpenDate = parseApplicationOpenDate(req.body);
+    const applicationCloseDate = parseApplicationCloseDate(req.body);
+    if (applicationOpenDate) taskData.applicationOpenDate = applicationOpenDate;
+    if (applicationCloseDate)
+      taskData.applicationCloseDate = applicationCloseDate;
 
     // Log task data before saving
     console.log("Task Data (before save):", {
@@ -333,8 +341,6 @@ export const updateTask = async (req: any, res: Response) => {
       category,
       location,
       hoursRequired,
-      startDate,
-      endDate,
       selectionCriteria,
       requiredSkills,
       rewardType,
@@ -407,8 +413,10 @@ export const updateTask = async (req: any, res: Response) => {
     if (category) task.category = category;
     if (location) task.location = location;
     if (hoursRequired) task.hoursRequired = hoursRequired;
-    if (startDate) task.startDate = new Date(startDate);
-    if (endDate) task.endDate = new Date(endDate);
+    const applicationOpenDate = parseApplicationOpenDate(req.body);
+    const applicationCloseDate = parseApplicationCloseDate(req.body);
+    if (applicationOpenDate) task.applicationOpenDate = applicationOpenDate;
+    if (applicationCloseDate) task.applicationCloseDate = applicationCloseDate;
     if (selectionCriteria) task.selectionCriteria = selectionCriteria;
     if (requiredSkills) task.requiredSkills = parseArrayField(requiredSkills);
     if (rewardType) task.rewardType = rewardType;
@@ -542,7 +550,7 @@ export const getTasks = async (req: any, res: Response) => {
 
     // Dynamic Visibility Logic
     if (!user) {
-      // Guest: published tasks on the public Central org board (no endDate cut-off; see below)
+      // Guest: published tasks on the public Central org board (no application close cut-off; see below)
       const centralOrgId = await resolveCentralOrganisationId();
       query = centralOrgId
         ? {
@@ -692,26 +700,14 @@ export const getTasks = async (req: any, res: Response) => {
       const df = new Date(String(req.query.dateFrom));
       if (!Number.isNaN(df.getTime())) {
         df.setHours(0, 0, 0, 0);
-        additionalFilters.push({
-          $or: [
-            { endDate: { $exists: false } },
-            { endDate: null },
-            { endDate: { $gte: df } },
-          ],
-        });
+        additionalFilters.push(applicationCloseDateActiveFromFilter(df));
       }
     }
     if (req.query.dateTo) {
       const dt = new Date(String(req.query.dateTo));
       if (!Number.isNaN(dt.getTime())) {
         dt.setHours(23, 59, 59, 999);
-        additionalFilters.push({
-          $or: [
-            { startDate: { $exists: false } },
-            { startDate: null },
-            { startDate: { $lte: dt } },
-          ],
-        });
+        additionalFilters.push(applicationOpenDateActiveToFilter(dt));
       }
     }
 
@@ -730,16 +726,9 @@ export const getTasks = async (req: any, res: Response) => {
     const isAdmin = hasSuperAdminRole;
     const shouldIncludeExpired = includeExpired === "true" && isAdmin;
 
-    // Anonymous browse: show Central org board even when endDate has passed (signed-in users keep the cut-off).
+    // Anonymous browse: show Central org board even when application close has passed (signed-in users keep the cut-off).
     if (!shouldIncludeExpired && user) {
-      // Add expiration filter: either no endDate OR endDate is in the future
-      const expirationFilter = {
-        $or: [
-          { endDate: { $exists: false } },
-          { endDate: null },
-          { endDate: { $gte: new Date() } },
-        ],
-      };
+      const expirationFilter = applicationWindowNotExpiredFilter();
 
       // Merge with existing query
       if (Object.keys(query).length > 0) {
@@ -972,7 +961,9 @@ export const getSearchTasks = async (req: any, res: Response) => {
       additionalFilters.push({ status: statusFilter });
     }
     if (isClosedFilter) {
-      additionalFilters.push({ endDate: { $lt: startOfToday } });
+      additionalFilters.push(
+        applicationWindowClosedBeforeFilter(startOfToday),
+      );
     }
     if (req.query.reward) additionalFilters.push({ rewardType: req.query.reward });
 
@@ -980,26 +971,14 @@ export const getSearchTasks = async (req: any, res: Response) => {
       const df = new Date(String(req.query.dateFrom));
       if (!Number.isNaN(df.getTime())) {
         df.setHours(0, 0, 0, 0);
-        additionalFilters.push({
-          $or: [
-            { endDate: { $exists: false } },
-            { endDate: null },
-            { endDate: { $gte: df } },
-          ],
-        });
+        additionalFilters.push(applicationCloseDateActiveFromFilter(df));
       }
     }
     if (req.query.dateTo) {
       const dt = new Date(String(req.query.dateTo));
       if (!Number.isNaN(dt.getTime())) {
         dt.setHours(23, 59, 59, 999);
-        additionalFilters.push({
-          $or: [
-            { startDate: { $exists: false } },
-            { startDate: null },
-            { startDate: { $lte: dt } },
-          ],
-        });
+        additionalFilters.push(applicationOpenDateActiveToFilter(dt));
       }
     }
 
@@ -1017,13 +996,7 @@ export const getSearchTasks = async (req: any, res: Response) => {
     const shouldIncludeExpired =
       (includeExpired === "true" && isAdmin) || isClosedFilter;
     if (!shouldIncludeExpired && user) {
-      const expirationFilter = {
-        $or: [
-          { endDate: { $exists: false } },
-          { endDate: null },
-          { endDate: { $gte: new Date() } },
-        ],
-      };
+      const expirationFilter = applicationWindowNotExpiredFilter();
       if (Object.keys(query).length > 0) {
         query = { $and: [query, expirationFilter] };
       } else {
@@ -1137,16 +1110,7 @@ export const getMyAdsTasks = async (req: any, res: Response) => {
       if (!Number.isNaN(df.getTime())) {
         df.setHours(0, 0, 0, 0);
         query = {
-          $and: [
-            query,
-            {
-              $or: [
-                { endDate: { $exists: false } },
-                { endDate: null },
-                { endDate: { $gte: df } },
-              ],
-            },
-          ],
+          $and: [query, applicationCloseDateActiveFromFilter(df)],
         };
       }
     }
@@ -1155,16 +1119,7 @@ export const getMyAdsTasks = async (req: any, res: Response) => {
       if (!Number.isNaN(dt.getTime())) {
         dt.setHours(23, 59, 59, 999);
         query = {
-          $and: [
-            query,
-            {
-              $or: [
-                { startDate: { $exists: false } },
-                { startDate: null },
-                { startDate: { $lte: dt } },
-              ],
-            },
-          ],
+          $and: [query, applicationOpenDateActiveToFilter(dt)],
         };
       }
     }
@@ -1609,12 +1564,12 @@ export const repostTask = async (req: any, res: Response) => {
         .json({ message: "Not authorized to repost this task" });
     }
 
-    // Require new end date
-    const { endDate } = req.body;
-    if (!endDate) {
-      return res
-        .status(400)
-        .json({ message: "New End Date is required to repost a task" });
+    const applicationCloseDate = parseApplicationCloseDate(req.body);
+    if (!applicationCloseDate) {
+      return res.status(400).json({
+        message:
+          "applicationCloseDate is required to repost a task (legacy endDate also accepted during transition)",
+      });
     }
 
     // Clone the task
@@ -1626,8 +1581,10 @@ export const repostTask = async (req: any, res: Response) => {
     delete clonedTaskData.archivedAt;
     delete clonedTaskData.deletedAt;
 
-    clonedTaskData.startDate = new Date();
-    clonedTaskData.endDate = new Date(endDate);
+    clonedTaskData.applicationOpenDate = new Date();
+    clonedTaskData.applicationCloseDate = applicationCloseDate;
+    delete clonedTaskData.startDate;
+    delete clonedTaskData.endDate;
 
     if (clonedTaskData.visibility === "Global") {
       clonedTaskData.visibility = TaskVisibility.CENTRAL;

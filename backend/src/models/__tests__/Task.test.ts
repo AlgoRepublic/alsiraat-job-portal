@@ -5,7 +5,7 @@ import Task, { type ITask } from '../Task.ts';
 
 describe('Task Model Virtuals', () => {
   describe('isExpired', () => {
-    it('should return false if endDate is not set', () => {
+    it('should return false if applicationCloseDate is not set', () => {
       const task = new Task({
         title: 'Test Task',
         description: 'Test Description',
@@ -16,27 +16,27 @@ describe('Task Model Virtuals', () => {
         organisation: new mongoose.Types.ObjectId() as any,
       }) as any;
 
-      assert.strictEqual(task.endDate, undefined);
+      assert.strictEqual(task.applicationCloseDate, undefined);
       assert.strictEqual(task.isExpired, false);
     });
 
-    it('should return false if endDate is in the future', () => {
+    it('should return false if applicationCloseDate is in the future', () => {
       const futureDate = new Date();
       futureDate.setFullYear(futureDate.getFullYear() + 1);
 
       const task = new Task({
-        endDate: futureDate,
+        applicationCloseDate: futureDate,
       }) as any;
 
       assert.strictEqual(task.isExpired, false);
     });
 
-    it('should return true if endDate is in the past', () => {
+    it('should return true if applicationCloseDate is in the past', () => {
       const pastDate = new Date();
       pastDate.setFullYear(pastDate.getFullYear() - 1);
 
       const task = new Task({
-        endDate: pastDate,
+        applicationCloseDate: pastDate,
       }) as any;
 
       assert.strictEqual(task.isExpired, true);

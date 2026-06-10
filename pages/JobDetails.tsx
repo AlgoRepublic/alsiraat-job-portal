@@ -343,7 +343,9 @@ export const JobDetails: React.FC = () => {
     !isSoftDeleted;
 
   // Expired checks
-  const isExpired = job.endDate ? new Date(job.endDate) < new Date() : false;
+  const isExpired = job.applicationCloseDate
+    ? new Date(job.applicationCloseDate) < new Date()
+    : false;
   const canMarkComplete =
     isJobOwner || currentUser?.permissions?.includes(Permission.TASK_COMPLETE);
 
@@ -561,7 +563,7 @@ export const JobDetails: React.FC = () => {
                     Applications Open
                   </p>
                 <p className="text-sm font-semibold text-zinc-900 dark:text-white">
-                  {job.startDate || "ASAP"}
+                  {job.applicationOpenDate || "ASAP"}
                 </p>
               </div>
             </div>
@@ -574,7 +576,7 @@ export const JobDetails: React.FC = () => {
                     Applications Close
                   </p>
                 <p className="text-sm font-semibold text-zinc-900 dark:text-white">
-                  {job.endDate || "Not set"}
+                  {job.applicationCloseDate || "Not set"}
                 </p>
               </div>
             </div>

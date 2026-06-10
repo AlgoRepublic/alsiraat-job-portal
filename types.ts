@@ -91,8 +91,8 @@ export interface Job {
   description: string;
   location: string;
   hoursRequired?: number;
-  startDate?: string;
-  endDate?: string;
+  applicationOpenDate?: string;
+  applicationCloseDate?: string;
   selectionCriteria?: string;
 
   requiredSkills?: string[];

@@ -578,10 +578,10 @@ export const JobList: React.FC = () => {
                     <Clock className="w-4 h-4 mr-2 text-primary" />{" "}
                     {job.hoursRequired} Total Hrs
                   </div>
-                  {job.startDate && (
+                  {job.applicationOpenDate && (
                     <div className="flex items-center px-4 py-2 glass rounded-2xl text-xs font-bold text-zinc-500">
                       <Calendar className="w-4 h-4 mr-2 text-zinc-400" />{" "}
-                      {job.startDate}
+                      {job.applicationOpenDate}
                     </div>
                   )}
                 </div>

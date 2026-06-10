@@ -26,8 +26,8 @@ export interface ITask extends Document {
   category: string;
   location: string;
   hoursRequired: number;
-  startDate?: Date | undefined;
-  endDate?: Date | undefined;
+  applicationOpenDate?: Date | undefined;
+  applicationCloseDate?: Date | undefined;
   selectionCriteria?: string | undefined;
   requiredSkills?: string[] | undefined;
   rewardType: string;
@@ -66,8 +66,8 @@ const TaskSchema: Schema = new Schema(
     category: { type: String, required: true },
     location: { type: String, required: true },
     hoursRequired: { type: Number },
-    startDate: { type: Date },
-    endDate: { type: Date },
+    applicationOpenDate: { type: Date },
+    applicationCloseDate: { type: Date },
     selectionCriteria: { type: String },
     requiredSkills: [{ type: String }],
     rewardType: { type: String, required: true },
@@ -116,8 +116,8 @@ TaskSchema.index({ archivedAt: 1 }, { sparse: true });
 
 // Virtual property to check if task is expired
 TaskSchema.virtual("isExpired").get(function (this: ITask) {
-  if (!this.endDate) return false;
-  return new Date() > this.endDate;
+  if (!this.applicationCloseDate) return false;
+  return new Date() > this.applicationCloseDate;
 });
 
 // Ensure virtuals are included in JSON

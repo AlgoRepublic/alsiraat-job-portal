@@ -450,7 +450,10 @@ export const getUserApplications = async (req: Request, res: Response) => {
       appFilter.task = { $in: orgTaskIds };
     }
     const apps = await Application.find(appFilter)
-      .populate("task", "title status category organisation startDate endDate")
+      .populate(
+        "task",
+        "title status category organisation applicationOpenDate applicationCloseDate",
+      )
       .populate("applicant", "name email")
       .sort({ createdAt: -1 });
     res.json(apps);
