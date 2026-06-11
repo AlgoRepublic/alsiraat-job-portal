@@ -110,6 +110,29 @@ const normalizePrivateAudiences = (value: unknown): Visibility[] => {
   );
 };
 
+const getInitialFormData = (): Partial<Job> => ({
+  title: "",
+  category: "",
+  description: "",
+  location: "",
+  hoursRequired: 0,
+  applicationOpenDate: "",
+  applicationCloseDate: "",
+  startDate: "",
+  selectionCriteria: "",
+  requiredSkills: [],
+  rewardType: RewardType.VOLUNTEER,
+  rewardValue: 0,
+  rewardText: "",
+  eligibility: [],
+  visibility: Visibility.PRIVATE,
+  privateAudiences: [Visibility.INTERNAL],
+  attachments: [],
+  allowedRoles: [],
+  allowedGroups: [],
+  status: JobStatus.DRAFT,
+});
+
 // ─── Accordion Section ────────────────────────────────────────────────────────
 interface AccordionProps {
   id: string;
@@ -237,28 +260,7 @@ export const JobWizard: React.FC = () => {
   );
   const [rewardTypesOrgReady, setRewardTypesOrgReady] = useState(false);
 
-  const [formData, setFormData] = useState<Partial<Job>>({
-    title: "",
-    category: "",
-    description: "",
-    location: "",
-    hoursRequired: 0,
-    applicationOpenDate: "",
-    applicationCloseDate: "",
-    startDate: "",
-    selectionCriteria: "",
-    requiredSkills: [],
-    rewardType: RewardType.VOLUNTEER,
-    rewardValue: 0,
-    rewardText: "",
-    eligibility: [],
-    visibility: Visibility.PRIVATE,
-    privateAudiences: [Visibility.INTERNAL],
-    attachments: [],
-    allowedRoles: [],
-    allowedGroups: [],
-    status: JobStatus.DRAFT,
-  });
+  const [formData, setFormData] = useState<Partial<Job>>(getInitialFormData);
 
   React.useEffect(() => {
     const syncActiveOrg = async () => {
@@ -279,10 +281,20 @@ export const JobWizard: React.FC = () => {
     return () => window.removeEventListener(ACTIVE_ORG_CHANGED_EVENT, handleOrgChange);
   }, []);
 
-  // Fetch data on mount
+  // Fetch data on mount / when switching between create and edit routes
   React.useEffect(() => {
     if (!rewardTypesOrgReady) return;
     let cancelled = false;
+
+    if (!id) {
+      setFormData(getInitialFormData());
+      setUploadedFiles([]);
+      setStep(1);
+      setErrors({});
+      setSkillInput("");
+    } else {
+      setUploadedFiles([]);
+    }
 
     const fetchData = async () => {
       const [types, cats, , groupsData] = await Promise.all([
@@ -358,15 +370,16 @@ export const JobWizard: React.FC = () => {
         }
       } else {
         setRewardTypes(activeTypes);
-        if (cats.length > 0) updateField("category", cats[0].name);
-        if (activeTypes.length > 0) updateField("rewardType", activeTypes[0].name);
-        // Auto-select "All Members" group for new tasks
+        const initialData = getInitialFormData();
+        if (cats.length > 0) initialData.category = cats[0].name;
+        if (activeTypes.length > 0) initialData.rewardType = activeTypes[0].name;
         const allMembersGroup = groupsData.find(
-          (g: any) => g.name?.toLowerCase() === "all members"
+          (g: any) => g.name?.toLowerCase() === "all members",
         );
         if (allMembersGroup) {
-          updateField("allowedGroups", [allMembersGroup._id]);
+          initialData.allowedGroups = [allMembersGroup._id];
         }
+        setFormData(initialData);
       }
     };
     fetchData();
