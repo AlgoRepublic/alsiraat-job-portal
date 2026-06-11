@@ -30,6 +30,8 @@ import {
 import {
   parseApplicationOpenDate,
   parseApplicationCloseDate,
+  parseApplicationOpenDateForUpdate,
+  parseApplicationCloseDateForUpdate,
   parseTaskStartDate,
   requireTaskStartDateFromBody,
   validateTaskStartDateUpdate,
@@ -404,8 +406,8 @@ export const updateTask = async (req: any, res: Response) => {
     if (category) task.category = category;
     if (location) task.location = location;
     if (hoursRequired) task.hoursRequired = hoursRequired;
-    const applicationOpenDate = parseApplicationOpenDate(req.body);
-    const applicationCloseDate = parseApplicationCloseDate(req.body);
+    const applicationOpenDate = parseApplicationOpenDateForUpdate(req.body);
+    const applicationCloseDate = parseApplicationCloseDateForUpdate(req.body);
     const parsedStartDate = parseTaskStartDate(req.body);
     const startDateError = validateTaskStartDateUpdate(
       req.body,
@@ -414,8 +416,14 @@ export const updateTask = async (req: any, res: Response) => {
     if (startDateError) {
       return res.status(400).json({ message: startDateError });
     }
-    if (applicationOpenDate) task.applicationOpenDate = applicationOpenDate;
-    if (applicationCloseDate) task.applicationCloseDate = applicationCloseDate;
+    if (applicationOpenDate !== undefined) {
+      (task as any).applicationOpenDate =
+        applicationOpenDate === null ? undefined : applicationOpenDate;
+    }
+    if (applicationCloseDate !== undefined) {
+      (task as any).applicationCloseDate =
+        applicationCloseDate === null ? undefined : applicationCloseDate;
+    }
     if (parsedStartDate !== undefined && parsedStartDate !== null) {
       (task as any).startDate = parsedStartDate;
     }
@@ -424,8 +432,12 @@ export const updateTask = async (req: any, res: Response) => {
         ? parsedStartDate
         : (task as any).startDate;
     const dateOrderError = validateTaskDateOrder(
-      task.applicationOpenDate,
-      task.applicationCloseDate,
+      applicationOpenDate !== undefined
+        ? applicationOpenDate ?? undefined
+        : (task as any).applicationOpenDate,
+      applicationCloseDate !== undefined
+        ? applicationCloseDate ?? undefined
+        : (task as any).applicationCloseDate,
       effectiveStartDate,
     );
     if (dateOrderError) {

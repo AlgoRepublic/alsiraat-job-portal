@@ -564,7 +564,7 @@ export const JobDetails: React.FC = () => {
                     Applications Open
                   </p>
                 <p className="text-sm font-semibold text-zinc-900 dark:text-white">
-                  {formatTaskDate(job.applicationOpenDate) || "ASAP"}
+                  {formatTaskDate(job.applicationOpenDate) || "N/A"}
                 </p>
               </div>
             </div>
@@ -577,7 +577,7 @@ export const JobDetails: React.FC = () => {
                     Applications Close
                   </p>
                 <p className="text-sm font-semibold text-zinc-900 dark:text-white">
-                  {formatTaskDate(job.applicationCloseDate) || "Not set"}
+                  {formatTaskDate(job.applicationCloseDate) || "N/A"}
                 </p>
               </div>
             </div>

@@ -24,6 +24,28 @@ export function parseApplicationCloseDate(
   return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
+/** For updates: undefined = omit field, null = clear, Date = set. */
+export function parseApplicationOpenDateForUpdate(
+  body: Record<string, unknown>,
+): Date | null | undefined {
+  if (!("applicationOpenDate" in body)) return undefined;
+  const raw = body.applicationOpenDate;
+  if (raw === undefined || raw === null || raw === "") return null;
+  const d = new Date(raw as string | number | Date);
+  return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
+/** For updates: undefined = omit field, null = clear, Date = set. */
+export function parseApplicationCloseDateForUpdate(
+  body: Record<string, unknown>,
+): Date | null | undefined {
+  if (!("applicationCloseDate" in body)) return undefined;
+  const raw = body.applicationCloseDate;
+  if (raw === undefined || raw === null || raw === "") return null;
+  const d = new Date(raw as string | number | Date);
+  return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
 /** Task start date (when the task itself begins, after applications close). */
 export function parseTaskStartDate(
   body: Record<string, unknown>,

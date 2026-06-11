@@ -1098,6 +1098,7 @@ export const JobWizard: React.FC = () => {
                         setErrors((p) => ({ ...p, applicationCloseDate: "" }));
                     }}
                     error={!!errors.applicationOpenDate}
+                    clearable
                   />
                   {errors.applicationOpenDate && (
                     <p className="text-red-500 text-xs font-bold">
@@ -1117,6 +1118,7 @@ export const JobWizard: React.FC = () => {
                     }}
                     min={formData.applicationOpenDate}
                     error={!!errors.applicationCloseDate}
+                    clearable
                   />
                   {errors.applicationCloseDate && (
                     <p className="text-red-500 text-xs font-bold">
@@ -1511,8 +1513,8 @@ export const JobWizard: React.FC = () => {
                     label: "Duration",
                     value: formData.hoursRequired ? `${formData.hoursRequired}h` : "-",
                   },
-                  { label: "Applications Open", value: formData.applicationOpenDate || "ASAP" },
-                  { label: "Applications Close", value: formData.applicationCloseDate || "-" },
+                  { label: "Applications Open", value: formData.applicationOpenDate || "N/A" },
+                  { label: "Applications Close", value: formData.applicationCloseDate || "N/A" },
                   { label: "Task Start Date", value: formData.startDate || "-" },
                   {
                     label: "Reward",

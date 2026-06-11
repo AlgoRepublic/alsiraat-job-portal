@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Check,
   Search,
+  X,
 } from "lucide-react";
 
 interface Option {
@@ -182,6 +183,7 @@ interface CustomDatePickerProps {
   onChange: (value: string) => void;
   min?: string;
   error?: boolean;
+  clearable?: boolean;
 }
 
 export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
@@ -190,6 +192,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
   onChange,
   min,
   error,
+  clearable = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [viewDate, setViewDate] = useState(new Date(value || new Date()));
@@ -240,6 +243,12 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
       .toISOString()
       .split("T")[0];
     onChange(localISODate);
+    setIsOpen(false);
+  };
+
+  const handleClear = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onChange("");
     setIsOpen(false);
   };
 
@@ -334,9 +343,21 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
             )}
           </span>
         </div>
-        <ChevronDown
-          className={`w-4 h-4 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}
-        />
+        <div className="flex items-center gap-1">
+          {clearable && value && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="p-1 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              aria-label={`Clear ${labelText}`}
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+          <ChevronDown
+            className={`w-4 h-4 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}
+          />
+        </div>
       </button>
 
       {isOpen && (
@@ -377,6 +398,15 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
           </div>
 
           <div className="grid grid-cols-7 gap-1">{renderCalendar()}</div>
+          {clearable && value && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="mt-4 w-full py-2.5 text-xs font-black uppercase tracking-widest text-zinc-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors"
+            >
+              Clear date
+            </button>
+          )}
         </div>
       )}
     </div>

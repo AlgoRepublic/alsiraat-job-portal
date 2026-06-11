@@ -10,14 +10,18 @@ export function formatTaskDate(value?: string | null): string | null {
   });
 }
 
+const TASK_DATE_NA = "N/A";
+
+export function formatTaskDateOrNA(value?: string | null): string {
+  return formatTaskDate(value) ?? TASK_DATE_NA;
+}
+
 export function formatTaskApplicationWindow(
   open?: string | null,
   close?: string | null,
-): string | null {
-  const openLabel = formatTaskDate(open) ?? (open ? open : null);
-  const closeLabel = formatTaskDate(close);
-  if (openLabel && closeLabel) return `${openLabel} - ${closeLabel}`;
-  if (openLabel) return openLabel;
-  if (closeLabel) return closeLabel;
-  return null;
+): string {
+  const openLabel = formatTaskDate(open) ?? TASK_DATE_NA;
+  const closeLabel = formatTaskDate(close) ?? TASK_DATE_NA;
+  if (!open && !close) return TASK_DATE_NA;
+  return `${openLabel} - ${closeLabel}`;
 }
