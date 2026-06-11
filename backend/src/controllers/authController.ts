@@ -19,7 +19,11 @@ import {
   getOIDCEndSessionEndpoint,
   fetchOIDCConfiguration,
 } from "../config/oidcDiscovery.js";
-import { assignCentralOrganisationMembership } from "../utils/centralOrg.js";
+import {
+  assignCentralOrganisationMembership,
+  findCentralOrganisation,
+} from "../utils/centralOrg.js";
+import { findAlSiraatOrganisation } from "../utils/alSiraatOrg.js";
 
 dotenv.config();
 
@@ -118,23 +122,43 @@ export async function buildOrgPayload(user: any, selectedOrgId?: string | null) 
   };
 }
 
-function applyOrgVisibilityConstraint(user: any, orgPayload: any) {
+async function applyOrgVisibilityConstraint(user: any, orgPayload: any) {
   // TODO: Temporary org visibility constraint for non-super-admin users; remove in future.
   if (user?.isSuperAdmin || !Array.isArray(orgPayload?.organisations)) return;
 
+  const orgs = orgPayload.organisations;
   const normalized = (value: unknown) =>
     String(value || "")
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, " ")
       .trim();
-  const orgs = orgPayload.organisations;
-  const preferred =
-    orgs.find((org: any) => normalized(org?.name).includes("al siraat")) ||
-    orgs.find((org: any) => {
-      const n = normalized(org?.name);
-      return n.includes("central organisation") || n === "central";
-    }) ||
-    null;
+
+  const [alSiraat, central] = await Promise.all([
+    findAlSiraatOrganisation(),
+    findCentralOrganisation(),
+  ]);
+  const preferredOrgIds = [
+    alSiraat?._id?.toString(),
+    central?._id?.toString(),
+  ].filter(Boolean) as string[];
+
+  let preferred: any = null;
+  for (const orgId of preferredOrgIds) {
+    preferred = orgs.find((org: any) => org?._id?.toString?.() === orgId) ?? null;
+    if (preferred) break;
+  }
+
+  // Legacy fallback when platform org flags are not configured yet.
+  if (!preferred) {
+    preferred =
+      orgs.find((org: any) => normalized(org?.name).includes("al siraat")) ||
+      orgs.find((org: any) => {
+        const n = normalized(org?.name);
+        return n.includes("central organisation") || n === "central";
+      }) ||
+      null;
+  }
+
   orgPayload.organisations = preferred ? [preferred] : [];
   orgPayload.activeOrganisation = preferred;
   orgPayload.organisation = preferred;
@@ -654,7 +678,7 @@ export const getMe = async (req: Request, res: Response) => {
     const _groupIds = groups.map((g: any) => g._id.toString());
 
     const orgPayload = await buildOrgPayload(user, selectedOrgId);
-    applyOrgVisibilityConstraint(user, orgPayload);
+    await applyOrgVisibilityConstraint(user, orgPayload);
 
     res.json({
       user: {
@@ -1227,7 +1251,7 @@ export const switchOrganisation = async (req: Request, res: Response) => {
     const _groupIds = groups.map((g: any) => g._id.toString());
 
     const orgPayload = await buildOrgPayload(user, organisationId);
-    applyOrgVisibilityConstraint(user, orgPayload);
+    await applyOrgVisibilityConstraint(user, orgPayload);
     const token = generateToken(user, organisationId, rolesArray);
 
     res.json({
