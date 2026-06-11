@@ -24,6 +24,7 @@ import {
   findCentralOrganisation,
 } from "../utils/centralOrg.js";
 import { findAlSiraatOrganisation } from "../utils/alSiraatOrg.js";
+import { resolveUserPrimaryOrganisationId } from "../utils/userOrganisation.js";
 
 dotenv.config();
 
@@ -170,6 +171,16 @@ async function applyOrgVisibilityConstraint(user: any, orgPayload: any) {
         )
       : [];
   }
+}
+
+/** Org fields for API responses to non-super-admin clients (includes visibility filter). */
+export async function buildClientOrgPayload(
+  user: any,
+  selectedOrgId?: string | null,
+) {
+  const orgPayload = await buildOrgPayload(user, selectedOrgId);
+  await applyOrgVisibilityConstraint(user, orgPayload);
+  return orgPayload;
 }
 
 async function ensureOrganisationMembership(user: any): Promise<void> {
@@ -398,10 +409,10 @@ export const verifyOtp = async (req: Request, res: Response) => {
       permissionOrgId || (user.organisations?.[0]?.toString?.() ?? null);
     const token = generateToken(user, selectedOrgId, rolesArray);
 
-    const organisationId = selectedOrgId;
+    const organisationId = resolveUserPrimaryOrganisationId(user) ?? selectedOrgId;
     await sendEmail(user.email, welcomeEmail(name), { organisationId });
 
-    const orgPayload = await buildOrgPayload(user, selectedOrgId);
+    const orgPayload = await buildClientOrgPayload(user, selectedOrgId);
 
     res.status(201).json({
       token,
@@ -518,7 +529,7 @@ export const signup = async (req: Request, res: Response) => {
       const rolesArray = getOrgScopedRoles(user, permissionOrgId);
       const permissions = await buildPermissionListForUser(user, rolesArray);
       const token = generateToken(user, permissionOrgId, rolesArray);
-      const orgPayload = await buildOrgPayload(user, permissionOrgId);
+      const orgPayload = await buildClientOrgPayload(user, permissionOrgId);
 
       return res.status(200).json({
         token,
@@ -561,12 +572,13 @@ export const signup = async (req: Request, res: Response) => {
       permissionOrgId || user.organisations?.[0]?.toString?.() || null;
     const token = generateToken(user, selectedOrgId);
 
-    const organisationId = selectedOrgId;
+    const organisationId =
+      resolveUserPrimaryOrganisationId(user) ?? selectedOrgId;
     await sendEmail(user.email, welcomeEmail(user.name || fullName), {
       organisationId,
     });
 
-    const orgPayload = await buildOrgPayload(user, selectedOrgId);
+    const orgPayload = await buildClientOrgPayload(user, selectedOrgId);
 
     res.status(201).json({
       token,
@@ -677,8 +689,7 @@ export const getMe = async (req: Request, res: Response) => {
     const groups = await Group.find({ members: user._id }).select("_id").lean();
     const _groupIds = groups.map((g: any) => g._id.toString());
 
-    const orgPayload = await buildOrgPayload(user, selectedOrgId);
-    await applyOrgVisibilityConstraint(user, orgPayload);
+    const orgPayload = await buildClientOrgPayload(user, selectedOrgId);
 
     res.json({
       user: {
@@ -720,7 +731,7 @@ export const impersonate = async (req: Request, res: Response) => {
     const _groupIds = groups.map((g: any) => g._id.toString());
 
     const token = generateToken(user, selectedOrgId);
-    const orgPayload = await buildOrgPayload(user, selectedOrgId);
+    const orgPayload = await buildClientOrgPayload(user, selectedOrgId);
     res.json({
       token,
       user: {
@@ -774,7 +785,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
     const resetUrl = `${FRONTEND_URL}/#/reset-password/${resetToken}`;
 
     // Send branded password reset email directly
-    const organisationId = user.organisations?.[0]?.toString?.() ?? null;
+    const organisationId = resolveUserPrimaryOrganisationId(user);
     await sendEmail(
       user.email,
       passwordResetEmail(user.name || user.email, resetUrl),
@@ -818,7 +829,7 @@ export const resetPassword = async (req: Request, res: Response) => {
     await user.save();
 
     // Send password changed confirmation email
-    const organisationId = user.organisations?.[0]?.toString?.() ?? null;
+    const organisationId = resolveUserPrimaryOrganisationId(user);
     await sendEmail(
       user.email,
       {
@@ -889,7 +900,7 @@ export const updateProfile = async (req: Request, res: Response) => {
     const groups = await Group.find({ members: user._id }).select("_id").lean();
     const _groupIds = groups.map((g) => g._id.toString());
 
-    const orgPayload = await buildOrgPayload(user, selectedOrgId);
+    const orgPayload = await buildClientOrgPayload(user, selectedOrgId);
 
     res.json({
       message: "Profile updated successfully",
@@ -1250,8 +1261,7 @@ export const switchOrganisation = async (req: Request, res: Response) => {
     const groups = await Group.find({ members: user._id }).select("_id").lean();
     const _groupIds = groups.map((g: any) => g._id.toString());
 
-    const orgPayload = await buildOrgPayload(user, organisationId);
-    await applyOrgVisibilityConstraint(user, orgPayload);
+    const orgPayload = await buildClientOrgPayload(user, organisationId);
     const token = generateToken(user, organisationId, rolesArray);
 
     res.json({

@@ -20,7 +20,7 @@ import {
   switchOrganisation,
   getOrgScopedRoles,
   buildPermissionListForUser,
-  buildOrgPayload,
+  buildClientOrgPayload,
 } from "../controllers/authController.js";
 import {
   authenticate,
@@ -63,7 +63,7 @@ router.post("/login", (req, res, next) => {
           .lean();
         const _groupIds = groups.map((g: any) => g._id.toString());
 
-        const orgPayload = await buildOrgPayload(user, selectedOrgId);
+        const orgPayload = await buildClientOrgPayload(user, selectedOrgId);
 
         const token = generateToken(user, selectedOrgId, rolesArray);
 

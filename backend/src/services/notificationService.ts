@@ -29,6 +29,7 @@ import {
   isEmailQueueConfigured,
 } from "../queues/emailQueue.js";
 import { appUrl } from "../utils/appUrl.js";
+import { resolveUserPrimaryOrganisationId } from "../utils/userOrganisation.js";
 
 /** Extract the brand config stored in an EmailSettings document */
 export function brandFromSettings(settings: IEmailSettings | null): BrandConfig {
@@ -252,9 +253,11 @@ export const notify = async (opts: NotifyOptions): Promise<void> => {
 
     // 2. Email (if template provided); use recipient's org for email config
     if (emailTemplate) {
-      const user = await User.findById(recipientId).select("email organisations");
+      const user = await User.findById(recipientId).select(
+        "email organisations organisationRoles",
+      );
       if (user?.email) {
-        const organisationId = user.organisations?.[0]?.toString?.() ?? null;
+        const organisationId = resolveUserPrimaryOrganisationId(user);
         await sendEmail(user.email, emailTemplate, { organisationId });
       }
     }
@@ -282,14 +285,16 @@ export const sendNotification = async (
     await Notification.create(data);
 
     if (sendEmailFlag) {
-      const user = await User.findById(recipientId).select("email name organisations");
+      const user = await User.findById(recipientId).select(
+        "email name organisations organisationRoles",
+      );
       if (user?.email) {
         const genericTemplate = {
           subject: title,
           html: `<p>${message}</p>${link ? `<p><a href="${appUrl(link)}">View details</a></p>` : ""}`,
           text: `${message}${link ? `\n\nView: ${appUrl(link)}` : ""}`,
         };
-        const organisationId = user.organisations?.[0]?.toString?.() ?? null;
+        const organisationId = resolveUserPrimaryOrganisationId(user);
         await sendEmail(user.email, genericTemplate, { organisationId });
       }
     }
@@ -384,7 +389,7 @@ export const sendNotificationToOrganization = async (
 ): Promise<void> => {
   try {
     const query: any = {
-      organisation: organisationId,
+      organisations: organisationId,
       isActive: { $ne: false },
     };
     if (excludeUserId) query._id = { $ne: excludeUserId };
