@@ -11,8 +11,8 @@ import {
   UserRound,
   ShieldHalf,
 } from "lucide-react";
-import { CENTRAL_ORGANISATION_NAME } from "../services/api";
 import { db } from "../services/database";
+import { resolveCatalogOrganisationId } from "../services/platformOrganisations";
 import { Job, JobStatus, User } from "../types";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 
@@ -42,7 +42,9 @@ export const Home: React.FC = () => {
 
     const fetchCategories = async () => {
       try {
-        const cats = await db.getTaskCategories(CENTRAL_ORGANISATION_NAME);
+        const orgId = await resolveCatalogOrganisationId();
+        if (!orgId) return;
+        const cats = await db.getTaskCategories(orgId);
         setCategories(cats);
       } catch (err) {
         console.error("Failed to fetch categories", err);

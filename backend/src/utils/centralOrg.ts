@@ -14,20 +14,7 @@ export async function findCentralOrganisation(): Promise<CentralOrgDoc | null> {
   const flagged = await Organization.findOne({ isCentralOrg: true })
     .select("_id name slug isCentralOrg")
     .lean();
-  if (flagged) return flagged as CentralOrgDoc;
-
-  const envSlug = (process.env.CENTRAL_ORG_SLUG || "").trim().toLowerCase();
-  if (envSlug) {
-    const byEnv = await Organization.findOne({ slug: envSlug })
-      .select("_id name slug isCentralOrg")
-      .lean();
-    if (byEnv) return byEnv as CentralOrgDoc;
-  }
-
-  const legacy = await Organization.findOne({ slug: "central" })
-    .select("_id name slug isCentralOrg")
-    .lean();
-  return (legacy as CentralOrgDoc | null) ?? null;
+  return (flagged as CentralOrgDoc | null) ?? null;
 }
 
 /** Ensure only one organisation holds the Central flag. */
@@ -51,17 +38,14 @@ export async function resolveCentralOrganisationId(): Promise<string | null> {
   return central?._id?.toString() ?? null;
 }
 
-/** Whether the given org id is the platform Central organisation. */
+/** Whether the given org id is the platform Central organisation (DB flag only). */
 export async function isCentralOrganisationId(
   orgId: string | undefined | null,
 ): Promise<boolean> {
   if (!orgId) return false;
 
   const org = await Organization.findById(orgId).select("isCentralOrg").lean();
-  if ((org as { isCentralOrg?: boolean } | null)?.isCentralOrg) return true;
-
-  const central = await findCentralOrganisation();
-  return central?._id?.toString() === orgId.toString();
+  return !!(org as { isCentralOrg?: boolean } | null)?.isCentralOrg;
 }
 
 type MembershipUser = {

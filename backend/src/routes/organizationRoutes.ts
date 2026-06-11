@@ -3,6 +3,7 @@ import {
   createOrganization,
   getOrganizations,
   getPublicCentralOrganisation,
+  getPublicAlSiraatOrganisation,
   addMember,
   inviteOrganisation,
   listOrgInvitations,
@@ -25,6 +26,7 @@ import { Permission } from "../config/permissions.js";
 const router: Router = express.Router();
 
 router.get("/public/central", getPublicCentralOrganisation);
+router.get("/public/al-siraat", getPublicAlSiraatOrganisation);
 
 // Platform super-admin only: create organization (legacy — direct with ownerId)
 router.post(

@@ -17,7 +17,7 @@ import {
   LOGIN_SOURCE_KEY,
   ORG_CONTEXT_REFRESHED_TOKEN_KEY,
 } from "./api";
-import { invalidatePublicCentralOrganisationCache } from "./publicCentralOrg";
+import { invalidatePlatformOrganisationCaches } from "./platformOrganisations";
 
 const extractOrgId = (value: unknown): string | null => {
   if (!value) return null;
@@ -228,7 +228,7 @@ class DatabaseService {
 
   async logout(): Promise<void> {
     await api.logout();
-    invalidatePublicCentralOrganisationCache();
+    invalidatePlatformOrganisationCaches();
   }
 
   /** Complete SSO login after redirect: store token, fetch user, store user_data and optional login source. */

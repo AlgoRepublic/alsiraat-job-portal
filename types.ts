@@ -135,6 +135,10 @@ export interface OrgContext {
   slug?: string;
   /** #RRGGBB when set; used for tenant accent in the shell */
   themeColor?: string;
+  /** Platform Central organisation (public browse, email signup default). */
+  isCentralOrg?: boolean;
+  /** Al Siraat tenant organisation (SSO provisioning). */
+  isAlSiraatOrg?: boolean;
 }
 
 export interface User {

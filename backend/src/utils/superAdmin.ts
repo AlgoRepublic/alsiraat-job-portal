@@ -19,7 +19,7 @@ const VIRTUAL_ORG_ROLES: UserRole[] = [UserRole.ORGANIZATION_ADMIN];
 
 export async function loadAllOrganisationsLean() {
   return Organization.find({})
-    .select("name logo slug themeColor")
+    .select("name logo slug themeColor isCentralOrg isAlSiraatOrg")
     .sort({ name: 1 })
     .lean();
 }
@@ -71,6 +71,8 @@ export async function buildVirtualOrgPayload(
     logo: o.logo,
     slug: o.slug,
     themeColor: o.themeColor,
+    isCentralOrg: !!o.isCentralOrg,
+    isAlSiraatOrg: !!o.isAlSiraatOrg,
   }));
   const active =
     mapped.find((o: any) => o._id?.toString() === selectedOrgId?.toString()) ??

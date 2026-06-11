@@ -12,6 +12,7 @@ import {
   findCentralOrganisation,
   setCentralOrganisationFlag,
 } from "../utils/centralOrg.js";
+import { findAlSiraatOrganisation } from "../utils/alSiraatOrg.js";
 
 /**
  * Normalise an organisation name so it is always stored consistently.
@@ -162,10 +163,34 @@ export const getOrganizations = async (req: Request, res: Response) => {
   }
 };
 
+function serializePublicPlatformOrganisation(org: {
+  _id: unknown;
+  name?: string;
+  slug?: string;
+  logo?: string;
+  themeColor?: string;
+  isPublic?: boolean;
+  about?: string;
+  isCentralOrg?: boolean;
+  isAlSiraatOrg?: boolean;
+}) {
+  return {
+    _id: org._id,
+    name: org.name,
+    slug: org.slug,
+    logo: org.logo,
+    themeColor: org.themeColor,
+    isPublic: org.isPublic,
+    about: org.about,
+    isCentralOrg: !!org.isCentralOrg,
+    isAlSiraatOrg: !!org.isAlSiraatOrg,
+  };
+}
+
 /**
  * GET /organisations/public/central
  * Public read: shell branding for anonymous browse (Search Tasks /jobs).
- * Resolved by isCentralOrg flag (with slug/env fallbacks in findCentralOrganisation).
+ * Resolved by isCentralOrg flag only.
  */
 export const getPublicCentralOrganisation = async (
   _req: Request,
@@ -179,22 +204,47 @@ export const getPublicCentralOrganisation = async (
         .json({ message: "Central organisation is not configured" });
     }
     const org = await Organization.findById(central._id)
-      .select("name slug logo themeColor isPublic about")
+      .select(
+        "name slug logo themeColor isPublic about isCentralOrg isAlSiraatOrg",
+      )
       .lean();
     if (!org) {
       return res
         .status(404)
         .json({ message: "Central organisation is not configured" });
     }
-    res.json({
-      _id: org._id,
-      name: org.name,
-      slug: org.slug,
-      logo: org.logo,
-      themeColor: org.themeColor,
-      isPublic: org.isPublic,
-      about: org.about,
-    });
+    res.json(serializePublicPlatformOrganisation(org as any));
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/**
+ * GET /organisations/public/al-siraat
+ * Public read: Al Siraat tenant shell (SSO branding). Resolved by isAlSiraatOrg flag only.
+ */
+export const getPublicAlSiraatOrganisation = async (
+  _req: Request,
+  res: Response,
+) => {
+  try {
+    const alSiraat = await findAlSiraatOrganisation();
+    if (!alSiraat?._id) {
+      return res
+        .status(404)
+        .json({ message: "Al Siraat organisation is not configured" });
+    }
+    const org = await Organization.findById(alSiraat._id)
+      .select(
+        "name slug logo themeColor isPublic about isCentralOrg isAlSiraatOrg",
+      )
+      .lean();
+    if (!org) {
+      return res
+        .status(404)
+        .json({ message: "Al Siraat organisation is not configured" });
+    }
+    res.json(serializePublicPlatformOrganisation(org as any));
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }

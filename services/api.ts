@@ -11,10 +11,10 @@ export const API_BASE_URL =
   (import.meta.env.VITE_API_URL as string) ||
   (import.meta.env.PROD ? "/api" : "http://localhost:5001/api");
 
-/** Display name of the platform Central organisation (seed `Organization.name`). */
+/** @deprecated Resolve Central org via `getPublicCentralOrganisation()` (DB `isCentralOrg` flag). */
 export const CENTRAL_ORGANISATION_NAME = "Central";
 
-/** Seed slug for the Central organisation (`Organization.slug`). */
+/** @deprecated Resolve Central org via `getPublicCentralOrganisation()` (DB `isCentralOrg` flag). */
 export const CENTRAL_ORGANISATION_SLUG = "central";
 
 /** localStorage key for how the user signed in: "email" | "google" | "sso" */

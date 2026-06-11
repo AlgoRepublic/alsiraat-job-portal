@@ -28,8 +28,8 @@ import {
   Laptop,
   Backpack,
 } from "lucide-react";
-import { CENTRAL_ORGANISATION_NAME } from "../services/api";
 import { db } from "../services/database";
+import { resolveCatalogOrganisationId } from "../services/platformOrganisations";
 
 // Map category codes to Lucide icons
 const categoryIcons: Record<string, any> = {
@@ -58,7 +58,9 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const cats = await db.getTaskCategories(CENTRAL_ORGANISATION_NAME);
+        const orgId = await resolveCatalogOrganisationId();
+        if (!orgId) return;
+        const cats = await db.getTaskCategories(orgId);
         setCategories(cats);
       } catch (err) {
         console.error("Failed to fetch categories", err);

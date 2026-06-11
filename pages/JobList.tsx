@@ -18,8 +18,11 @@ import { TaskRewardText } from "../components/TaskRewardText";
 import { organisationIdToString } from "../utils/organisationId";
 import { getActiveOrgIdFromStorage, getOrgId } from "../utils/orgScopedRoles";
 import type { RewardTypeRecord } from "../utils/rewardType";
-import { CENTRAL_ORGANISATION_SLUG, ApiError } from "../services/api";
-import { getPublicCentralOrganisation } from "../services/publicCentralOrg";
+import { ApiError } from "../services/api";
+import {
+  getPublicCentralOrganisation,
+  resolveCatalogOrganisationId,
+} from "../services/platformOrganisations";
 import { getStatusColor } from "./Dashboard";
 
 import { Loading } from "../components/Loading";
@@ -60,7 +63,7 @@ export const JobList: React.FC = () => {
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
-  const [browseOrgLabel, setBrowseOrgLabel] = useState("Central");
+  const [browseOrgLabel, setBrowseOrgLabel] = useState("Tasker");
   const [rewardCatalog, setRewardCatalog] = useState<RewardTypeRecord[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [listVersion, setListVersion] = useState(0);
@@ -276,30 +279,33 @@ export const JobList: React.FC = () => {
     const loadBrowseContext = async () => {
       const user = await db.getCurrentUser();
       if (user) {
-        const ao = user.activeOrganisation as { name?: string; slug?: string } | undefined;
+        const ao = user.activeOrganisation as { name?: string } | undefined;
         const name =
           typeof ao === "object" && ao && typeof ao.name === "string" && ao.name.trim()
             ? ao.name.trim()
-            : "Central";
+            : "Tasker";
         setBrowseOrgLabel(name);
-        const slug =
-          typeof ao === "object" && ao && typeof ao.slug === "string" && ao.slug.trim()
-            ? ao.slug.trim()
-            : CENTRAL_ORGANISATION_SLUG;
-        const data = await db.getTaskCategories(slug);
-        setCategories(Array.isArray(data) ? data : []);
         const orgId =
-          getOrgId(user.activeOrganisation) || getActiveOrgIdFromStorage();
-        const rewardTypes = await db.getRewardTypesCatalog(orgId ?? undefined);
-        setRewardCatalog(Array.isArray(rewardTypes) ? rewardTypes : []);
+          (await resolveCatalogOrganisationId(user.activeOrganisation)) ||
+          getOrgId(user.activeOrganisation) ||
+          getActiveOrgIdFromStorage() ||
+          undefined;
+        if (orgId) {
+          const data = await db.getTaskCategories(orgId);
+          setCategories(Array.isArray(data) ? data : []);
+          const rewardTypes = await db.getRewardTypesCatalog(orgId);
+          setRewardCatalog(Array.isArray(rewardTypes) ? rewardTypes : []);
+        }
         return;
       }
       const org = await getPublicCentralOrganisation();
-      setBrowseOrgLabel(org?.name?.trim() || "Central");
-      const data = await db.getTaskCategories(org?.slug ?? CENTRAL_ORGANISATION_SLUG);
-      setCategories(Array.isArray(data) ? data : []);
-      const rewardTypes = await db.getRewardTypesCatalog(org?._id);
-      setRewardCatalog(Array.isArray(rewardTypes) ? rewardTypes : []);
+      setBrowseOrgLabel(org?.name?.trim() || "Tasker");
+      if (org?._id) {
+        const data = await db.getTaskCategories(org._id);
+        setCategories(Array.isArray(data) ? data : []);
+        const rewardTypes = await db.getRewardTypesCatalog(org._id);
+        setRewardCatalog(Array.isArray(rewardTypes) ? rewardTypes : []);
+      }
     };
     void loadBrowseContext();
   }, []);

@@ -19,12 +19,13 @@ import {
   getOIDCEndSessionEndpoint,
   fetchOIDCConfiguration,
 } from "../config/oidcDiscovery.js";
-import {
-  assignCentralOrganisationMembership,
-  findCentralOrganisation,
-} from "../utils/centralOrg.js";
-import { findAlSiraatOrganisation } from "../utils/alSiraatOrg.js";
+import { assignCentralOrganisationMembership } from "../utils/centralOrg.js";
 import { resolveUserPrimaryOrganisationId } from "../utils/userOrganisation.js";
+import {
+  PLATFORM_ORG_SELECT_FIELDS,
+  pickPreferredPlatformOrganisation,
+  serializeOrganisationForPayload,
+} from "../utils/platformOrganisation.js";
 
 dotenv.config();
 
@@ -105,20 +106,18 @@ export async function buildOrgPayload(user: any, selectedOrgId?: string | null) 
       organisationRoles: [...mergedVirtualRoles, ...extraPersistedRoles],
     };
   }
-  await user.populate("organisations", "name logo themeColor slug");
-  const active = (user.organisations ?? []).find(
-    (o: any) => o._id?.toString() === selectedOrgId?.toString(),
-  ) ?? null;
+  await user.populate("organisations", PLATFORM_ORG_SELECT_FIELDS);
+  const populatedOrgs = (user.organisations ?? [])
+    .map((o: any) => serializeOrganisationForPayload(o))
+    .filter(Boolean);
+  const active =
+    populatedOrgs.find(
+      (o: any) => o._id?.toString() === selectedOrgId?.toString(),
+    ) ?? null;
   return {
     organisation: active,
     activeOrganisation: active,
-    organisations: (user.organisations ?? []).map((o: any) => ({
-      _id: o._id,
-      name: o.name,
-      logo: o.logo,
-      themeColor: o.themeColor,
-      slug: o.slug,
-    })),
+    organisations: populatedOrgs,
     organisationRoles: serializeOrganisationRolesForPayload(user),
   };
 }
@@ -127,38 +126,7 @@ async function applyOrgVisibilityConstraint(user: any, orgPayload: any) {
   // TODO: Temporary org visibility constraint for non-super-admin users; remove in future.
   if (user?.isSuperAdmin || !Array.isArray(orgPayload?.organisations)) return;
 
-  const orgs = orgPayload.organisations;
-  const normalized = (value: unknown) =>
-    String(value || "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, " ")
-      .trim();
-
-  const [alSiraat, central] = await Promise.all([
-    findAlSiraatOrganisation(),
-    findCentralOrganisation(),
-  ]);
-  const preferredOrgIds = [
-    alSiraat?._id?.toString(),
-    central?._id?.toString(),
-  ].filter(Boolean) as string[];
-
-  let preferred: any = null;
-  for (const orgId of preferredOrgIds) {
-    preferred = orgs.find((org: any) => org?._id?.toString?.() === orgId) ?? null;
-    if (preferred) break;
-  }
-
-  // Legacy fallback when platform org flags are not configured yet.
-  if (!preferred) {
-    preferred =
-      orgs.find((org: any) => normalized(org?.name).includes("al siraat")) ||
-      orgs.find((org: any) => {
-        const n = normalized(org?.name);
-        return n.includes("central organisation") || n === "central";
-      }) ||
-      null;
-  }
+  const preferred = pickPreferredPlatformOrganisation(orgPayload.organisations);
 
   orgPayload.organisations = preferred ? [preferred] : [];
   orgPayload.activeOrganisation = preferred;

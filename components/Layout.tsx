@@ -26,7 +26,11 @@ import {
 import { UserRole, User, Job, Permission, type OrgContext } from "../types";
 import { SnowBackground } from "./SnowBackground";
 import { api, API_BASE_URL, LOGIN_SOURCE_KEY } from "../services/api";
-import { getPublicCentralOrganisation, type PublicCentralOrg, invalidatePublicCentralOrganisationCache } from "../services/publicCentralOrg";
+import {
+  getPublicCentralOrganisation,
+  type PublicPlatformOrg,
+  invalidatePlatformOrganisationCaches,
+} from "../services/platformOrganisations";
 import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
 import {
   applyAccentPaletteToDocument,
@@ -280,7 +284,7 @@ export const Layout: React.FC<LayoutProps> = ({
   const searchRef = useRef<HTMLDivElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [searchRefreshNonce, setSearchRefreshNonce] = useState(0);
-  const [publicCentralOrg, setPublicCentralOrg] = useState<PublicCentralOrg | null>(null);
+  const [publicCentralOrg, setPublicCentralOrg] = useState<PublicPlatformOrg | null>(null);
 
   // Load Central org shell only on signed-out /jobs (public task list).
   useEffect(() => {
@@ -656,7 +660,7 @@ export const Layout: React.FC<LayoutProps> = ({
       }
     }
     api.logout();
-    invalidatePublicCentralOrganisationCache();
+    invalidatePlatformOrganisationCaches();
     if (redirectUrl) {
       window.location.replace(redirectUrl);
       return;
