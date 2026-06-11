@@ -59,6 +59,11 @@ const authHeader = () => ({
   "Content-Type": "application/json",
 });
 
+const AL_SIRAAT_ORG_LABEL = "Al Siraat Organisation";
+const CENTRAL_ORG_LABEL = "Central Organisation";
+const platformOrgBadgeClass =
+  "px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-primary/10 text-primary rounded-full";
+
 export const OrganisationManagement: React.FC<{
   /** Increment when the user switches active organisation so lists refetch. */
   scopeRevision?: number;
@@ -562,7 +567,7 @@ export const OrganisationManagement: React.FC<{
                       className="w-4 h-4 rounded accent-primary"
                     />
                     <span className="text-sm font-bold text-zinc-800 dark:text-zinc-100">
-                      Mark as Al Siraat Organisation
+                      Mark as {AL_SIRAAT_ORG_LABEL}
                     </span>
                   </label>
 
@@ -579,7 +584,7 @@ export const OrganisationManagement: React.FC<{
                       className="w-4 h-4 rounded accent-primary"
                     />
                     <span className="text-sm font-bold text-zinc-800 dark:text-zinc-100">
-                      Mark as Central Organisation
+                      Mark as {CENTRAL_ORG_LABEL}
                     </span>
                   </label>
                 </>
@@ -1141,13 +1146,13 @@ export const OrganisationManagement: React.FC<{
                       </span>
                     )}
                     {isSuperAdmin && org.isAlSiraatOrg && (
-                      <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-primary/10 text-primary rounded-full">
-                        Al Siraat
+                      <span className={platformOrgBadgeClass}>
+                        {AL_SIRAAT_ORG_LABEL}
                       </span>
                     )}
                     {isSuperAdmin && org.isCentralOrg && (
-                      <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 rounded-full">
-                        Central
+                      <span className={platformOrgBadgeClass}>
+                        {CENTRAL_ORG_LABEL}
                       </span>
                     )}
                   </div>
