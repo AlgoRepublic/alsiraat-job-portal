@@ -96,6 +96,68 @@ export function validateTaskStartDateUpdate(
   return null;
 }
 
+export function startOfCalendarDay(date: Date = new Date()): Date {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+export function endOfCalendarDay(date: Date = new Date()): Date {
+  const d = new Date(date);
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
+export type ApplicationWindowStatus = "open" | "not_yet_open" | "closed";
+
+export function getApplicationWindowStatus(
+  applicationOpenDate?: Date | string | null,
+  applicationCloseDate?: Date | string | null,
+  now: Date = new Date(),
+): ApplicationWindowStatus {
+  const dayStart = startOfCalendarDay(now);
+  const dayEnd = endOfCalendarDay(now);
+  if (applicationOpenDate) {
+    const open = new Date(applicationOpenDate);
+    if (!Number.isNaN(open.getTime()) && open > dayEnd) return "not_yet_open";
+  }
+  if (applicationCloseDate) {
+    const close = new Date(applicationCloseDate);
+    if (!Number.isNaN(close.getTime()) && close < dayStart) return "closed";
+  }
+  return "open";
+}
+
+export function isApplicationWindowOpen(
+  applicationOpenDate?: Date | string | null,
+  applicationCloseDate?: Date | string | null,
+  now: Date = new Date(),
+): boolean {
+  return (
+    getApplicationWindowStatus(applicationOpenDate, applicationCloseDate, now) ===
+    "open"
+  );
+}
+
+export function applicationWindowApplyBlockMessage(
+  applicationOpenDate?: Date | string | null,
+  applicationCloseDate?: Date | string | null,
+  now: Date = new Date(),
+): string | null {
+  const status = getApplicationWindowStatus(
+    applicationOpenDate,
+    applicationCloseDate,
+    now,
+  );
+  if (status === "not_yet_open") {
+    return "Applications are not open yet.";
+  }
+  if (status === "closed") {
+    return "Applications for this task have closed.";
+  }
+  return null;
+}
+
 export function validateTaskDateOrder(
   applicationOpenDate?: Date,
   applicationCloseDate?: Date,
@@ -148,9 +210,24 @@ export function applicationOpenDateActiveToFilter(dateTo: Date): object {
   };
 }
 
-/** Task application window has not closed yet (supports pre-migration documents). */
+/**
+ * Task application window is active on the given calendar day:
+ * open date unset or on/before today, close date unset or on/after today.
+ */
+export function applicationWindowActiveFilter(now: Date = new Date()): object {
+  const dayStart = startOfCalendarDay(now);
+  const dayEnd = endOfCalendarDay(now);
+  return {
+    $and: [
+      applicationCloseDateActiveFromFilter(dayStart),
+      applicationOpenDateActiveToFilter(dayEnd),
+    ],
+  };
+}
+
+/** @alias applicationWindowActiveFilter */
 export function applicationWindowNotExpiredFilter(now: Date = new Date()): object {
-  return applicationCloseDateActiveFromFilter(now);
+  return applicationWindowActiveFilter(now);
 }
 
 /** Task application window closed before the given instant. */

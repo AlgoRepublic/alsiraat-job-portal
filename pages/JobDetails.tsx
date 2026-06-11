@@ -34,6 +34,10 @@ import { organisationIdToString } from "../utils/organisationId";
 import { TaskRewardText } from "../components/TaskRewardText";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 import { formatTaskDate } from "../utils/formatTaskDate";
+import {
+  getApplicationWindowStatus,
+  isApplicationWindowOpen,
+} from "../utils/applicationWindow";
 
 export const JobDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -295,6 +299,10 @@ export const JobDetails: React.FC = () => {
       currentUser.permissions?.includes(Permission.APPLICATION_CREATE) &&
       !hasApplied &&
       passesGroupRestriction &&
+      isApplicationWindowOpen(
+        job.applicationOpenDate,
+        job.applicationCloseDate,
+      ) &&
       !isArchived &&
       !isSoftDeleted);
 
@@ -343,10 +351,13 @@ export const JobDetails: React.FC = () => {
     !isArchived &&
     !isSoftDeleted;
 
-  // Expired checks
-  const isExpired = job.applicationCloseDate
-    ? new Date(job.applicationCloseDate) < new Date()
-    : false;
+  const applicationWindowStatus = getApplicationWindowStatus(
+    job.applicationOpenDate,
+    job.applicationCloseDate,
+  );
+  const isApplicationClosed = applicationWindowStatus === "closed";
+  const isApplicationNotYetOpen = applicationWindowStatus === "not_yet_open";
+  const isExpired = isApplicationClosed;
   const canMarkComplete =
     isJobOwner || currentUser?.permissions?.includes(Permission.TASK_COMPLETE);
 
@@ -818,6 +829,37 @@ export const JobDetails: React.FC = () => {
                       className="w-full py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primaryHover"
                     >
                       Back to Tasks
+                    </button>
+                  </div>
+                ) : isApplicationNotYetOpen ? (
+                  <div className="p-8 text-center animate-fade-in">
+                    <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 text-amber-500 dark:text-amber-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Calendar className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">
+                      Applications Not Open Yet
+                    </h3>
+                    <p className="text-zinc-500 dark:text-zinc-400 text-sm">
+                      Applications open on{" "}
+                      {formatTaskDate(job.applicationOpenDate) || "the scheduled date"}.
+                    </p>
+                  </div>
+                ) : isApplicationClosed ? (
+                  <div className="p-8 text-center animate-fade-in">
+                    <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-dashed border-zinc-200 dark:border-zinc-700">
+                      <Lock className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">
+                      Applications Closed
+                    </h3>
+                    <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-6">
+                      The application window for this task has ended.
+                    </p>
+                    <button
+                      onClick={() => navigate("/jobs")}
+                      className="w-full py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded-xl font-semibold hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all"
+                    >
+                      Search Other Tasks
                     </button>
                   </div>
                 ) : !passesGroupRestriction ? (
