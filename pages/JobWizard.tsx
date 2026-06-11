@@ -463,19 +463,9 @@ export const JobWizard: React.FC = () => {
       newErrors.location = "Location / Room is required";
     if (!formData.hoursRequired || formData.hoursRequired <= 0)
       newErrors.hoursRequired = "Estimated Duration must be greater than 0";
-    if (!formData.applicationOpenDate)
-      newErrors.applicationOpenDate = "Applications Open is required";
-    if (!formData.applicationCloseDate)
-      newErrors.applicationCloseDate = "Applications Close is required";
-    if (formData.applicationOpenDate && formData.applicationCloseDate) {
-      if (
-        new Date(formData.applicationCloseDate) <
-        new Date(formData.applicationOpenDate)
-      )
-        newErrors.applicationCloseDate =
-          "Applications Close cannot be before Applications Open";
-    }
-    if (formData.startDate && formData.applicationCloseDate) {
+    if (!formData.startDate?.trim()) {
+      newErrors.startDate = "Task Start Date is required";
+    } else if (formData.applicationCloseDate) {
       if (new Date(formData.startDate) < new Date(formData.applicationCloseDate))
         newErrors.startDate =
           "Task Start Date cannot be before Applications Close";
@@ -511,6 +501,15 @@ export const JobWizard: React.FC = () => {
       newErrors.visibility =
         "Select Internal, External, or both for Private tasks";
     }
+    if (formData.applicationOpenDate && formData.applicationCloseDate) {
+      if (
+        new Date(formData.applicationCloseDate) <
+        new Date(formData.applicationOpenDate)
+      ) {
+        newErrors.applicationCloseDate =
+          "Applications Close Date must be on or after Applications Open Date.";
+      }
+    }
     return newErrors;
   };
 
@@ -528,8 +527,6 @@ export const JobWizard: React.FC = () => {
       else if (
         step1Errors.location ||
         step1Errors.hoursRequired ||
-        step1Errors.applicationOpenDate ||
-        step1Errors.applicationCloseDate ||
         step1Errors.startDate
       )
         setOpenS1((p) => ({ ...p, schedule: true }));
@@ -543,7 +540,14 @@ export const JobWizard: React.FC = () => {
     const step2Errors = validateStep2();
     if (Object.keys(step2Errors).length > 0) {
       setErrors(step2Errors);
-      if (step2Errors.rewardType || step2Errors.rewardValue || step2Errors.rewardText || step2Errors.visibility)
+      if (
+        step2Errors.rewardType ||
+        step2Errors.rewardValue ||
+        step2Errors.rewardText ||
+        step2Errors.visibility ||
+        step2Errors.applicationOpenDate ||
+        step2Errors.applicationCloseDate
+      )
         setOpenS2((p) => ({ ...p, reward: true }));
       return;
     }
@@ -552,6 +556,36 @@ export const JobWizard: React.FC = () => {
   };
 
   const handleSubmit = async () => {
+    const step1Errors = validateStep1();
+    if (Object.keys(step1Errors).length > 0) {
+      setErrors(step1Errors);
+      goToStep(1);
+      if (step1Errors.title || step1Errors.category || step1Errors.description)
+        setOpenS1((p) => ({ ...p, basic: true }));
+      else if (
+        step1Errors.location ||
+        step1Errors.hoursRequired ||
+        step1Errors.startDate
+      )
+        setOpenS1((p) => ({ ...p, schedule: true }));
+      return;
+    }
+    const step2Errors = validateStep2();
+    if (Object.keys(step2Errors).length > 0) {
+      setErrors(step2Errors);
+      goToStep(2);
+      if (
+        step2Errors.rewardType ||
+        step2Errors.rewardValue ||
+        step2Errors.rewardText ||
+        step2Errors.visibility ||
+        step2Errors.applicationOpenDate ||
+        step2Errors.applicationCloseDate
+      )
+        setOpenS2((p) => ({ ...p, reward: true }));
+      return;
+    }
+    setErrors({});
     setIsSubmitting(true);
     try {
       const selectedPrivateAudiences =
@@ -793,8 +827,6 @@ export const JobWizard: React.FC = () => {
               !!(
                 errors.location ||
                 errors.hoursRequired ||
-                errors.applicationOpenDate ||
-                errors.applicationCloseDate ||
                 errors.startDate
               )
             }
@@ -846,44 +878,7 @@ export const JobWizard: React.FC = () => {
 
               <div className="space-y-1.5">
                 <CustomDatePicker
-                  label="Applications Open *"
-                  value={formData.applicationOpenDate || ""}
-                  onChange={(val) => {
-                    updateField("applicationOpenDate", val);
-                    if (errors.applicationOpenDate)
-                      setErrors((p) => ({ ...p, applicationOpenDate: "" }));
-                  }}
-                  error={!!errors.applicationOpenDate}
-                />
-                {errors.applicationOpenDate && (
-                  <p className="text-red-500 text-xs font-bold">
-                    {errors.applicationOpenDate}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-1.5">
-                <CustomDatePicker
-                  label="Applications Close *"
-                  value={formData.applicationCloseDate || ""}
-                  onChange={(val) => {
-                    updateField("applicationCloseDate", val);
-                    if (errors.applicationCloseDate)
-                      setErrors((p) => ({ ...p, applicationCloseDate: "" }));
-                  }}
-                  min={formData.applicationOpenDate}
-                  error={!!errors.applicationCloseDate}
-                />
-                {errors.applicationCloseDate && (
-                  <p className="text-red-500 text-xs font-bold">
-                    {errors.applicationCloseDate}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-1.5">
-                <CustomDatePicker
-                  label="Task Start Date"
+                  label="Task Start Date *"
                   value={formData.startDate || ""}
                   onChange={(val) => {
                     updateField("startDate", val);
@@ -993,7 +988,9 @@ export const JobWizard: React.FC = () => {
                 errors.rewardType ||
                 errors.rewardValue ||
                 errors.rewardText ||
-                errors.visibility
+                errors.visibility ||
+                errors.applicationOpenDate ||
+                errors.applicationCloseDate
               )
             }
           >
@@ -1086,6 +1083,47 @@ export const JobWizard: React.FC = () => {
                     )}
                   </div>
                 )}
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <CustomDatePicker
+                    label="Applications Open"
+                    value={formData.applicationOpenDate || ""}
+                    onChange={(val) => {
+                      updateField("applicationOpenDate", val);
+                      if (errors.applicationOpenDate)
+                        setErrors((p) => ({ ...p, applicationOpenDate: "" }));
+                      if (errors.applicationCloseDate)
+                        setErrors((p) => ({ ...p, applicationCloseDate: "" }));
+                    }}
+                    error={!!errors.applicationOpenDate}
+                  />
+                  {errors.applicationOpenDate && (
+                    <p className="text-red-500 text-xs font-bold">
+                      {errors.applicationOpenDate}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <CustomDatePicker
+                    label="Applications Close"
+                    value={formData.applicationCloseDate || ""}
+                    onChange={(val) => {
+                      updateField("applicationCloseDate", val);
+                      if (errors.applicationCloseDate)
+                        setErrors((p) => ({ ...p, applicationCloseDate: "" }));
+                    }}
+                    min={formData.applicationOpenDate}
+                    error={!!errors.applicationCloseDate}
+                  />
+                  {errors.applicationCloseDate && (
+                    <p className="text-red-500 text-xs font-bold">
+                      {errors.applicationCloseDate}
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Visibility Chips */}

@@ -35,6 +35,45 @@ export function parseTaskStartDate(
   return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
+export function requireTaskStartDateFromBody(
+  body: Record<string, unknown>,
+): { ok: true; date: Date } | { ok: false; message: string } {
+  if (!("startDate" in body)) {
+    return { ok: false, message: "Task start date is required." };
+  }
+  const parsed = parseTaskStartDate(body);
+  if (parsed === null) {
+    return { ok: false, message: "Task start date is required." };
+  }
+  if (parsed === undefined) {
+    return { ok: false, message: "Task start date is invalid." };
+  }
+  return { ok: true, date: parsed };
+}
+
+export function validateTaskStartDateUpdate(
+  body: Record<string, unknown>,
+  existingStartDate?: Date,
+): string | null {
+  if ("startDate" in body) {
+    const parsed = parseTaskStartDate(body);
+    if (parsed === null) {
+      return "Task start date is required.";
+    }
+    if (parsed === undefined && body.startDate) {
+      return "Task start date is invalid.";
+    }
+  }
+  const effective =
+    "startDate" in body
+      ? (parseTaskStartDate(body) ?? undefined)
+      : existingStartDate;
+  if (!effective) {
+    return "Task start date is required.";
+  }
+  return null;
+}
+
 export function validateTaskDateOrder(
   applicationOpenDate?: Date,
   applicationCloseDate?: Date,
@@ -45,7 +84,7 @@ export function validateTaskDateOrder(
     applicationCloseDate &&
     applicationCloseDate < applicationOpenDate
   ) {
-    return "Application close date must be on or after application open date";
+    return "Applications Close Date must be on or after Applications Open Date.";
   }
   if (startDate && applicationCloseDate && startDate < applicationCloseDate) {
     return "Task start date must be on or after application close date";
