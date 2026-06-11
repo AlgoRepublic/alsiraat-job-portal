@@ -38,6 +38,43 @@ import {
   getApplicationWindowStatus,
   isApplicationWindowOpen,
 } from "../utils/applicationWindow";
+import { CustomDatePicker } from "../components/CustomUI";
+
+function localTodayIsoDate(): string {
+  const today = new Date();
+  const offset = today.getTimezoneOffset() * 60000;
+  return new Date(today.getTime() - offset).toISOString().split("T")[0];
+}
+
+type RepostDates = {
+  applicationOpenDate: string;
+  applicationCloseDate: string;
+  startDate: string;
+};
+
+function validateRepostDates(dates: RepostDates): Record<string, string> {
+  const errors: Record<string, string> = {};
+  if (!dates.applicationCloseDate?.trim()) {
+    errors.applicationCloseDate = "Applications Close Date is required";
+  }
+  if (!dates.startDate?.trim()) {
+    errors.startDate = "Task Start Date is required";
+  } else if (dates.applicationCloseDate) {
+    if (new Date(dates.startDate) < new Date(dates.applicationCloseDate)) {
+      errors.startDate = "Task Start Date cannot be before Applications Close";
+    }
+  }
+  if (dates.applicationOpenDate && dates.applicationCloseDate) {
+    if (
+      new Date(dates.applicationCloseDate) <
+      new Date(dates.applicationOpenDate)
+    ) {
+      errors.applicationCloseDate =
+        "Applications Close Date must be on or after Applications Open Date.";
+    }
+  }
+  return errors;
+}
 
 export const JobDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -61,7 +98,12 @@ export const JobDetails: React.FC = () => {
 
   // Repost Modal State
   const [showRepostModal, setShowRepostModal] = useState(false);
-  const [repostEndDate, setRepostEndDate] = useState("");
+  const [repostDates, setRepostDates] = useState<RepostDates>({
+    applicationOpenDate: "",
+    applicationCloseDate: "",
+    startDate: "",
+  });
+  const [repostErrors, setRepostErrors] = useState<Record<string, string>>({});
   const [reposting, setReposting] = useState(false);
   const [showArchiveDeclineModal, setShowArchiveDeclineModal] = useState(false);
   const [archiveDeclineSubmitting, setArchiveDeclineSubmitting] = useState(false);
@@ -227,14 +269,32 @@ export const JobDetails: React.FC = () => {
     }
   };
 
+  const openRepostModal = () => {
+    setRepostDates({
+      applicationOpenDate: localTodayIsoDate(),
+      applicationCloseDate: "",
+      startDate: job?.startDate || "",
+    });
+    setRepostErrors({});
+    setShowRepostModal(true);
+  };
+
   const submitRepost = async () => {
-    if (!job || !repostEndDate) return;
+    if (!job) return;
+    const errors = validateRepostDates(repostDates);
+    if (Object.keys(errors).length > 0) {
+      setRepostErrors(errors);
+      return;
+    }
     setReposting(true);
     try {
-      await db.repostJob(job.id, new Date(repostEndDate).toISOString());
+      await db.repostJob(job.id, {
+        applicationOpenDate: repostDates.applicationOpenDate || undefined,
+        applicationCloseDate: repostDates.applicationCloseDate,
+        startDate: repostDates.startDate,
+      });
       setShowRepostModal(false);
       showSuccess("Task reposted successfully.");
-      // optionally refresh job or redirect
       navigate("/jobs");
     } catch (err: any) {
       showError(err?.message || "Failed to repost task");
@@ -242,6 +302,11 @@ export const JobDetails: React.FC = () => {
       setReposting(false);
     }
   };
+
+  const repostFormValid =
+    !!repostDates.applicationCloseDate?.trim() &&
+    !!repostDates.startDate?.trim() &&
+    Object.keys(validateRepostDates(repostDates)).length === 0;
 
   const refreshJobFromApi = async () => {
     if (!id) return;
@@ -518,7 +583,7 @@ export const JobDetails: React.FC = () => {
           <div className="flex gap-3">
             {isJobOwner && (
               <button
-                onClick={() => setShowRepostModal(true)}
+                onClick={openRepostModal}
                 className="px-4 py-2 bg-white dark:bg-zinc-900 text-blue-600 border border-blue-200 dark:border-blue-700/50 rounded-xl font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors flex items-center"
               >
                 <RefreshCw className="w-4 h-4 mr-2" /> Repost
@@ -1054,19 +1119,93 @@ export const JobDetails: React.FC = () => {
       {showRepostModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
           <div className="bg-white dark:bg-zinc-900 w-full max-w-md p-6 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 animate-scale-in">
-            <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-4">
+            <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">
               Repost Task
             </h3>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-              Select a new applications close date for this task to repost it.
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-5">
+              Set the application window and task start date for the reposted
+              task.
             </p>
-            <input
-              type="date"
-              className="w-full p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl mb-4 focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
-              min={new Date().toISOString().split("T")[0]}
-              value={repostEndDate}
-              onChange={(e) => setRepostEndDate(e.target.value)}
-            />
+            <div className="space-y-4 mb-6">
+              <div className="space-y-1.5">
+                <CustomDatePicker
+                  label="Applications Open"
+                  value={repostDates.applicationOpenDate}
+                  onChange={(val) => {
+                    setRepostDates((p) => ({
+                      ...p,
+                      applicationOpenDate: val,
+                    }));
+                    if (repostErrors.applicationOpenDate) {
+                      setRepostErrors((p) => ({
+                        ...p,
+                        applicationOpenDate: "",
+                      }));
+                    }
+                    if (repostErrors.applicationCloseDate) {
+                      setRepostErrors((p) => ({
+                        ...p,
+                        applicationCloseDate: "",
+                      }));
+                    }
+                  }}
+                  error={!!repostErrors.applicationOpenDate}
+                  clearable
+                />
+                {repostErrors.applicationOpenDate && (
+                  <p className="text-red-500 text-xs font-bold">
+                    {repostErrors.applicationOpenDate}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <CustomDatePicker
+                  label="Applications Close *"
+                  value={repostDates.applicationCloseDate}
+                  onChange={(val) => {
+                    setRepostDates((p) => ({
+                      ...p,
+                      applicationCloseDate: val,
+                    }));
+                    if (repostErrors.applicationCloseDate) {
+                      setRepostErrors((p) => ({
+                        ...p,
+                        applicationCloseDate: "",
+                      }));
+                    }
+                    if (repostErrors.startDate) {
+                      setRepostErrors((p) => ({ ...p, startDate: "" }));
+                    }
+                  }}
+                  min={repostDates.applicationOpenDate}
+                  error={!!repostErrors.applicationCloseDate}
+                />
+                {repostErrors.applicationCloseDate && (
+                  <p className="text-red-500 text-xs font-bold">
+                    {repostErrors.applicationCloseDate}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <CustomDatePicker
+                  label="Task Start Date *"
+                  value={repostDates.startDate}
+                  onChange={(val) => {
+                    setRepostDates((p) => ({ ...p, startDate: val }));
+                    if (repostErrors.startDate) {
+                      setRepostErrors((p) => ({ ...p, startDate: "" }));
+                    }
+                  }}
+                  min={repostDates.applicationCloseDate}
+                  error={!!repostErrors.startDate}
+                />
+                {repostErrors.startDate && (
+                  <p className="text-red-500 text-xs font-bold">
+                    {repostErrors.startDate}
+                  </p>
+                )}
+              </div>
+            </div>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setShowRepostModal(false)}
@@ -1076,7 +1215,7 @@ export const JobDetails: React.FC = () => {
               </button>
               <button
                 onClick={submitRepost}
-                disabled={!repostEndDate || reposting}
+                disabled={!repostFormValid || reposting}
                 className="px-4 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {reposting ? "Reposting..." : "Repost Task"}

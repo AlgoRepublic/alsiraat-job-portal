@@ -523,8 +523,15 @@ class DatabaseService {
     return api.put(`/tasks/${id}/mark-completed`, {});
   }
 
-  async repostJob(id: string, applicationCloseDate: string): Promise<any> {
-    return api.post(`/tasks/${id}/repost`, { applicationCloseDate });
+  async repostJob(
+    id: string,
+    dates: {
+      applicationOpenDate?: string;
+      applicationCloseDate: string;
+      startDate: string;
+    },
+  ): Promise<any> {
+    return api.post(`/tasks/${id}/repost`, dates);
   }
 
   async getApplications(filters: any = {}): Promise<Application[]> {

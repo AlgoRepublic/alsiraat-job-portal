@@ -1590,12 +1590,26 @@ export const repostTask = async (req: any, res: Response) => {
         .json({ message: "Not authorized to repost this task" });
     }
 
+    const applicationOpenDate = parseApplicationOpenDate(req.body);
     const applicationCloseDate = parseApplicationCloseDate(req.body);
+    const startDateResult = requireTaskStartDateFromBody(req.body);
+
     if (!applicationCloseDate) {
       return res.status(400).json({
         message:
           "applicationCloseDate is required to repost a task (legacy endDate also accepted during transition)",
       });
+    }
+    if (!startDateResult.ok) {
+      return res.status(400).json({ message: startDateResult.message });
+    }
+    const dateOrderError = validateTaskDateOrder(
+      applicationOpenDate,
+      applicationCloseDate,
+      startDateResult.date,
+    );
+    if (dateOrderError) {
+      return res.status(400).json({ message: dateOrderError });
     }
 
     // Clone the task
@@ -1607,8 +1621,12 @@ export const repostTask = async (req: any, res: Response) => {
     delete clonedTaskData.archivedAt;
     delete clonedTaskData.deletedAt;
 
-    clonedTaskData.applicationOpenDate = new Date();
+    delete clonedTaskData.applicationOpenDate;
+    if (applicationOpenDate) {
+      clonedTaskData.applicationOpenDate = applicationOpenDate;
+    }
     clonedTaskData.applicationCloseDate = applicationCloseDate;
+    clonedTaskData.startDate = startDateResult.date;
     delete clonedTaskData.endDate;
 
     if (clonedTaskData.visibility === "Global") {
