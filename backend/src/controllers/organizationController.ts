@@ -126,10 +126,21 @@ export const createOrganization = async (req: Request, res: Response) => {
   }
 };
 
+function serializeOrganisationForList(
+  org: { toObject?: () => Record<string, unknown> } & Record<string, unknown>,
+  includePlatformFlags: boolean,
+) {
+  const doc = typeof org.toObject === "function" ? org.toObject() : { ...org };
+  if (includePlatformFlags) return doc;
+  const { isAlSiraatOrg: _a, isCentralOrg: _c, ...rest } = doc;
+  return rest;
+}
+
 export const getOrganizations = async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     const orgId = (req as any).orgId as string | null | undefined;
+    const includePlatformFlags = isSuperAdminUser(user);
 
     if (isSuperAdminUser(user)) {
       const orgs = await Organization.find()
@@ -143,21 +154,27 @@ export const getOrganizations = async (req: Request, res: Response) => {
         "owner",
         "name email",
       );
-      return res.json(org ? [org] : []);
+      return res.json(
+        org ? [serializeOrganisationForList(org as any, includePlatformFlags)] : [],
+      );
     }
 
     if (!user) {
       const orgs = await Organization.find()
         .populate("owner", "name email")
         .sort({ name: 1 });
-      return res.json(orgs);
+      return res.json(
+        orgs.map((org) => serializeOrganisationForList(org as any, false)),
+      );
     }
 
     const memberIds = user.organisations || [];
     const orgs = await Organization.find({ _id: { $in: memberIds } })
       .populate("owner", "name email")
       .sort({ name: 1 });
-    res.json(orgs);
+    res.json(
+      orgs.map((org) => serializeOrganisationForList(org as any, includePlatformFlags)),
+    );
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -664,6 +681,15 @@ export const updateOrganization = async (req: Request | any, res: Response) => {
 
     if (typeof isPublic === "boolean") {
       org.isPublic = isPublic;
+    }
+
+    if (
+      (typeof isAlSiraatOrg === "boolean" || typeof isCentralOrg === "boolean") &&
+      !isSuperAdminUser(req.user)
+    ) {
+      return res.status(403).json({
+        message: "Only platform super admins can change platform organisation flags",
+      });
     }
 
     if (typeof isAlSiraatOrg === "boolean") {

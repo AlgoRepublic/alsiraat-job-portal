@@ -97,6 +97,16 @@ export const OrganisationManagement: React.FC<{
     requireApprovalForPosts: true,
   });
   const [editSubmitting, setEditSubmitting] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  useEffect(() => {
+    void db
+      .getCurrentUser()
+      .then((user) =>
+        setIsSuperAdmin(!!(user as { isSuperAdmin?: boolean } | null)?.isSuperAdmin),
+      )
+      .catch(() => setIsSuperAdmin(false));
+  }, [scopeRevision]);
 
   useEffect(() => {
     loadOrgs();
@@ -335,8 +345,12 @@ export const OrganisationManagement: React.FC<{
             domain: editForm.domain.trim() || null,
             about: editForm.about.trim() || undefined,
             isPublic: editForm.isPublic,
-            isAlSiraatOrg: editForm.isAlSiraatOrg,
-            isCentralOrg: editForm.isCentralOrg,
+            ...(isSuperAdmin
+              ? {
+                  isAlSiraatOrg: editForm.isAlSiraatOrg,
+                  isCentralOrg: editForm.isCentralOrg,
+                }
+              : {}),
             themeColor: tcRaw ? tcRaw.toLowerCase() : null,
             settings: {
               allowExternalApplications: editForm.allowExternalApplications,
@@ -533,33 +547,43 @@ export const OrganisationManagement: React.FC<{
                 </span>
               </label>
 
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={editForm.isAlSiraatOrg}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, isAlSiraatOrg: e.target.checked })
-                  }
-                  className="w-4 h-4 rounded accent-primary"
-                />
-                <span className="text-sm font-bold text-zinc-800 dark:text-zinc-100">
-                  Al Siraat organisation (SSO user provisioning)
-                </span>
-              </label>
+              {isSuperAdmin && (
+                <>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editForm.isAlSiraatOrg}
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          isAlSiraatOrg: e.target.checked,
+                        })
+                      }
+                      className="w-4 h-4 rounded accent-primary"
+                    />
+                    <span className="text-sm font-bold text-zinc-800 dark:text-zinc-100">
+                      Mark as Al Siraat Organisation
+                    </span>
+                  </label>
 
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={editForm.isCentralOrg}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, isCentralOrg: e.target.checked })
-                  }
-                  className="w-4 h-4 rounded accent-primary"
-                />
-                <span className="text-sm font-bold text-zinc-800 dark:text-zinc-100">
-                  Platform Central organisation (email signup default)
-                </span>
-              </label>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editForm.isCentralOrg}
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          isCentralOrg: e.target.checked,
+                        })
+                      }
+                      className="w-4 h-4 rounded accent-primary"
+                    />
+                    <span className="text-sm font-bold text-zinc-800 dark:text-zinc-100">
+                      Mark as Central Organisation
+                    </span>
+                  </label>
+                </>
+              )}
 
               <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4 space-y-3">
                 <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
@@ -1116,12 +1140,12 @@ export const OrganisationManagement: React.FC<{
                         <Globe className="w-2.5 h-2.5" /> Public
                       </span>
                     )}
-                    {org.isAlSiraatOrg && (
+                    {isSuperAdmin && org.isAlSiraatOrg && (
                       <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-primary/10 text-primary rounded-full">
                         Al Siraat
                       </span>
                     )}
-                    {org.isCentralOrg && (
+                    {isSuperAdmin && org.isCentralOrg && (
                       <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 rounded-full">
                         Central
                       </span>
