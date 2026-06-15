@@ -73,12 +73,13 @@ export const getDashboardStats = async (req: any, res: Response) => {
       taskFilter = { status: TaskStatus.PUBLISHED };
     }
 
-    taskFilter = andWithLifecycle(taskFilter, "active");
-
     const nonExpiredTaskFilter = applicationWindowNotExpiredFilter();
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
     const closedWindowFilter = applicationWindowClosedBeforeFilter(startOfToday);
+
+    // Task stat counts only — exclude soft-deleted and archived tasks
+    const activeTaskFilter = andWithLifecycle(taskFilter, "active");
 
     const [
       totalTasks,
@@ -88,27 +89,27 @@ export const getDashboardStats = async (req: any, res: Response) => {
       closedTasks,
       createdByMe,
     ] = await Promise.all([
-      Task.countDocuments(taskFilter),
+      Task.countDocuments(activeTaskFilter),
       // Active = published and accepting applications (matches Search Tasks browse)
       Task.countDocuments(
         mergeMongoFilters(
-          taskFilter,
+          activeTaskFilter,
           { status: TaskStatus.PUBLISHED },
           nonExpiredTaskFilter,
         ),
       ),
       Task.countDocuments(
         mergeMongoFilters(
-          taskFilter,
+          activeTaskFilter,
           { status: TaskStatus.PENDING },
           nonExpiredTaskFilter,
         ),
       ),
       Task.countDocuments(
-        mergeMongoFilters(taskFilter, { status: TaskStatus.COMPLETED }),
+        mergeMongoFilters(activeTaskFilter, { status: TaskStatus.COMPLETED }),
       ),
       Task.countDocuments(
-        mergeMongoFilters(taskFilter, {
+        mergeMongoFilters(activeTaskFilter, {
           $or: [
             { status: TaskStatus.CLOSED },
             {
@@ -120,7 +121,9 @@ export const getDashboardStats = async (req: any, res: Response) => {
           ],
         }),
       ),
-      Task.countDocuments(andWithLifecycle({ createdBy: userId }, "active")),
+      Task.countDocuments(
+        andWithLifecycle({ createdBy: userId }, "active"),
+      ),
     ]);
 
     // ── Application stats ──
