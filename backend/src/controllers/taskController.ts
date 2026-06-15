@@ -965,8 +965,13 @@ export const getSearchTasks = async (req: any, res: Response) => {
       }
 
       if (canViewAll && canViewInternal && canViewPending) {
+        // Task managers/admins should see all tasks for the active org (lifecycle applied below).
         if (hasSuperAdminRole) {
           query = organisation ? { organisation } : {};
+        } else if (organisation) {
+          query = {
+            organisation,
+          };
         } else {
           query = { $or: conditions };
         }
