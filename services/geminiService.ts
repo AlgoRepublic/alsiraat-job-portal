@@ -1,5 +1,4 @@
 import { GoogleGenAI } from "@google/genai";
-import { JobCategory } from "../types";
 
 // Lazy-load Gemini AI only when needed (optional feature)
 let ai: GoogleGenAI | null = null;
@@ -20,7 +19,7 @@ const getAI = () => {
 
 export const generateJobDescription = async (
   title: string,
-  category: JobCategory,
+  category: string,
   keyPoints: string,
 ): Promise<string> => {
   try {

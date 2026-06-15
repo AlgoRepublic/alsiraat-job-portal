@@ -2,22 +2,65 @@ import {
   Job,
   User,
   UserRole,
+  OrgMemberKind,
   Application,
   ApplicantProfile,
   JobStatus,
-  JobCategory,
   RewardType,
   Visibility,
   FileVisibility,
 } from "../types";
-import { api, ApiError, API_BASE_URL } from "./api";
+import {
+  api,
+  ApiError,
+  API_BASE_URL,
+  LOGIN_SOURCE_KEY,
+  ORG_CONTEXT_REFRESHED_TOKEN_KEY,
+} from "./api";
+import { invalidatePlatformOrganisationCaches } from "./platformOrganisations";
+
+const extractOrgId = (value: unknown): string | null => {
+  if (!value) return null;
+  if (typeof value === "string") return value;
+  if (typeof value === "object" && value !== null && "_id" in value) {
+    const raw = (value as { _id?: unknown })._id;
+    return raw ? String(raw) : null;
+  }
+  return String(value);
+};
 
 // Helper to map Backend Task to Frontend Job
 
-// Helper to map Backend Task to Frontend Job
+const mapApiVisibilityToJob = (raw: unknown): Visibility => {
+  const v = typeof raw === "string" ? raw : "";
+  if (v === "Private") return Visibility.PRIVATE;
+  if (v === "Central" || v === "Global") return Visibility.CENTRAL;
+  if (v === "External") return Visibility.EXTERNAL;
+  if (v === "Internal") return Visibility.INTERNAL;
+  if (v === "Public") return Visibility.CENTRAL;
+  return Visibility.INTERNAL;
+};
+
 const mapTaskToJob = (task: any): Job => {
+  const createdById =
+    task.createdBy &&
+    typeof task.createdBy === "object" &&
+    (task.createdBy as any)._id != null
+      ? String((task.createdBy as any)._id)
+      : typeof task.createdBy === "string"
+        ? task.createdBy
+        : undefined;
+
+  const toIso = (d: unknown): string | null | undefined => {
+    if (d == null) return d === null ? null : undefined;
+    if (d instanceof Date) return d.toISOString();
+    const t = new Date(d as string).getTime();
+    return Number.isNaN(t) ? undefined : new Date(t).toISOString();
+  };
+
   return {
     id: task._id,
+    _id: task._id,
     title: task.title,
     category:
       typeof task.category === "object"
@@ -26,21 +69,25 @@ const mapTaskToJob = (task: any): Job => {
     description: task.description,
     location: task.location,
     hoursRequired: task.hoursRequired,
-    startDate: task.startDate
-      ? task.startDate.split("T")[0]
-      : task.createdAt
-        ? task.createdAt.split("T")[0]
+    applicationOpenDate: task.applicationOpenDate
+      ? task.applicationOpenDate.split("T")[0]
+      : undefined,
+    applicationCloseDate: task.applicationCloseDate
+      ? task.applicationCloseDate.split("T")[0]
+      : task.endDate
+        ? task.endDate.split("T")[0]
         : undefined,
-    endDate: task.endDate ? task.endDate.split("T")[0] : undefined,
+    startDate: task.startDate ? task.startDate.split("T")[0] : undefined,
     selectionCriteria: task.selectionCriteria || "",
     requiredSkills: task.requiredSkills || [],
     rewardType: task.rewardType,
     rewardValue: task.rewardValue,
+    rewardText: task.rewardText,
     eligibility: task.eligibility || [],
-    visibility:
-      task.visibility === "Public" || task.visibility === "Global"
-        ? Visibility.GLOBAL
-        : Visibility.INTERNAL,
+    visibility: mapApiVisibilityToJob(task.visibility),
+    privateAudiences: Array.isArray(task.privateAudiences)
+      ? task.privateAudiences
+      : [],
     attachments: Array.isArray(task.attachments)
       ? task.attachments.map((a: any) => ({
           id: a.filename,
@@ -56,14 +103,30 @@ const mapTaskToJob = (task: any): Job => {
     status: mapStatus(task.status),
     rejectionReason: task.rejectionReason,
     createdBy:
-      typeof task.createdBy === "object" ? task.createdBy.name : "Unknown",
+      task.createdBy &&
+      typeof task.createdBy === "object" &&
+      typeof task.createdBy.name === "string"
+        ? task.createdBy.name
+        : "Unknown",
+    createdById,
     createdAt: task.createdAt,
     applicantsCount: task.applicantsCount || 0,
     hasApplied: task.hasApplied || false,
+    archivedAt: toIso(task.archivedAt),
+    deletedAt: toIso(task.deletedAt),
     organisation:
-      typeof task.organisation === "object"
-        ? task.organisation?._id
-        : task.organisation,
+      typeof task.organisation === "object" && task.organisation != null
+        ? task.organisation._id?.toString?.() ?? task.organisation._id
+        : task.organisation != null
+          ? String(task.organisation)
+          : undefined,
+    organisationName:
+      typeof task.organisation === "object" &&
+      task.organisation != null &&
+      typeof task.organisation.name === "string"
+        ? task.organisation.name
+        : undefined,
+    allowedGroups: task.allowedGroups || [],
   };
 };
 
@@ -80,7 +143,9 @@ const mapStatus = (status: string): JobStatus => {
     case "Closed":
       return JobStatus.CLOSED;
     case "Archived":
-      return JobStatus.ARCHIVED;
+      return JobStatus.CLOSED;
+    case "Completed":
+      return JobStatus.COMPLETED;
     default:
       return JobStatus.DRAFT;
   }
@@ -89,16 +154,31 @@ const mapStatus = (status: string): JobStatus => {
 const mapAppToFrontend = (app: any): Application => {
   return {
     id: app._id,
+    _id: app._id,
     jobId: app.task?._id || app.task,
     jobTitle: app.task?.title || "Task",
     userId: app.applicant?._id || app.applicant,
     applicantName: app.applicant?.name || "Unknown",
     applicantEmail: app.applicant?.email || "",
     applicantAvatar: app.applicant?.avatar || undefined,
+    applicantAbout: app.applicant?.about,
+    applicantSkills: app.applicant?.skills || [],
+    applicantResumeUrl: app.applicant?.resumeUrl,
+    applicantResumeOriginalName: app.applicant?.resumeOriginalName,
+    applicantContactNumber: app.applicant?.contactNumber,
+    applicantGender: app.applicant?.gender,
+    applicantYearLevel: app.applicant?.yearLevel,
+    applicantExperience: app.applicant?.experience || [],
     status: app.status as any,
     appliedAt: app.createdAt,
     coverLetter: app.coverLetter,
     availability: app.availability,
+    rejectionReason: app.rejectionReason,
+    rating: app.rating,
+    reviewText: app.reviewText,
+    jobHoursRequired: app.task?.hoursRequired,
+    // Preserve the full task object so pages can access task.title, task.category, etc.
+    task: typeof app.task === "object" && app.task !== null ? app.task : undefined,
   };
 };
 
@@ -111,6 +191,23 @@ class DatabaseService {
 
   async signup(userData: any) {
     return await api.signup(userData);
+  }
+
+  async adminCreateUser(userData: any) {
+    return await api.adminCreateUser(userData);
+  }
+
+  async sendOtp(data: { firstName: string; lastName: string; email: string }) {
+    return await api.sendOtp(data);
+  }
+
+  async verifyOtp(data: any) {
+    return await api.verifyOtp(data);
+  }
+
+  async switchOrganisation(organisationId: string) {
+    const response = await api.switchOrganisation(organisationId);
+    return response.user;
   }
 
   async forgotPassword(email: string) {
@@ -129,9 +226,61 @@ class DatabaseService {
 
   async logout(): Promise<void> {
     await api.logout();
+    invalidatePlatformOrganisationCaches();
+  }
+
+  /** Complete SSO login after redirect: store token, fetch user, store user_data and optional login source. */
+  async completeSSOLogin(token: string, source?: string): Promise<User> {
+    api.setToken(token);
+    const { user } = await api.getMe();
+    localStorage.setItem("user_data", JSON.stringify(user));
+    if (source) {
+      localStorage.setItem(LOGIN_SOURCE_KEY, source);
+    }
+    return user as User;
   }
 
   async getCurrentUser(): Promise<User | null> {
+    const token = localStorage.getItem("auth_token");
+    if (!token) return null;
+
+    try {
+      // Fetch fresh user data to ensure roles, permissions, and status are up to date
+      const data = await api.getMe();
+      if (data && data.user) {
+        const activeOrgId = extractOrgId(data.user.activeOrganisation);
+        const refreshedForToken = localStorage.getItem(
+          ORG_CONTEXT_REFRESHED_TOKEN_KEY,
+        );
+        if (activeOrgId && refreshedForToken !== token) {
+          try {
+            const switched = await this.switchOrganisation(activeOrgId);
+            localStorage.setItem(ORG_CONTEXT_REFRESHED_TOKEN_KEY, token);
+            return {
+              ...switched,
+              skills: switched.skills || [],
+              about: switched.about || "",
+              avatar: switched.avatar || undefined,
+            } as User;
+          } catch (switchErr) {
+            console.warn("Failed to refresh organisation-scoped session", switchErr);
+          }
+        }
+        localStorage.setItem("user_data", JSON.stringify(data.user));
+        return {
+          ...data.user,
+          skills: data.user.skills || [],
+          about: data.user.about || "",
+          avatar: data.user.avatar || undefined,
+        } as User;
+      }
+    } catch (apiError) {
+      console.warn(
+        "Failed to fetch fresh user data, falling back to cached session",
+        apiError,
+      );
+    }
+
     const stored = localStorage.getItem("user_data");
     if (stored) {
       try {
@@ -158,11 +307,52 @@ class DatabaseService {
     return response.user;
   }
 
+  async uploadResume(
+    file: File,
+  ): Promise<{ resumeUrl: string; resumeOriginalName: string }> {
+    const token = localStorage.getItem("auth_token");
+    const formData = new FormData();
+    formData.append("resume", file);
+
+    const response = await fetch(`${API_BASE_URL}/auth/upload-resume`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.message || "Failed to upload resume");
+    }
+
+    const data = await response.json();
+    // Persist the new resume info into local user_data
+    const stored = localStorage.getItem("user_data");
+    if (stored) {
+      const user = JSON.parse(stored);
+      user.resumeUrl = data.resumeUrl;
+      user.resumeOriginalName = data.resumeOriginalName;
+      localStorage.setItem("user_data", JSON.stringify(user));
+    }
+    return data;
+  }
+
+  async removeResume(): Promise<void> {
+    await api.request<any>("/auth/resume", { method: "DELETE" });
+    const stored = localStorage.getItem("user_data");
+    if (stored) {
+      const user = JSON.parse(stored);
+      delete user.resumeUrl;
+      delete user.resumeOriginalName;
+      localStorage.setItem("user_data", JSON.stringify(user));
+    }
+  }
+
   async updateCurrentUserRole(role: UserRole): Promise<User> {
     const user = await this.getCurrentUser();
     if (!user) throw new Error("No user found");
     // For now, local switch for demo/admin purposes
-    user.role = role;
+    user.roles = [role];
     localStorage.setItem("user_data", JSON.stringify(user));
     return user;
   }
@@ -177,11 +367,109 @@ class DatabaseService {
     return response.user;
   }
 
+  async inviteUser(email: string): Promise<{ message: string }> {
+    return await api.inviteUser(email);
+  }
+
+  async getInvitationDetails(
+    token: string,
+  ): Promise<{ email: string; organisation: { _id: string; name: string } }> {
+    return await api.getInvitationDetails(token);
+  }
+
   // --- Jobs (Tasks) ---
 
   async getJobs(): Promise<Job[]> {
-    const tasks = await api.getTasks();
+    const data = await api.getTasks();
+    const tasks = Array.isArray(data) ? data : (data.tasks ?? []);
     return tasks.map(mapTaskToJob);
+  }
+
+  async getJobsPaged(
+    filters: any = {},
+    page = 1,
+    limit = 10,
+  ): Promise<{
+    jobs: Job[];
+    pagination: { total: number; page: number; limit: number; pages: number };
+  }> {
+    const data = await api.getTasks({ ...filters, page, limit });
+
+    if (Array.isArray(data)) {
+      return {
+        jobs: data.map(mapTaskToJob),
+        pagination: { total: data.length, page: 1, limit: data.length, pages: 1 },
+      };
+    }
+
+    return {
+      jobs: (data.tasks || []).map(mapTaskToJob),
+      pagination: data.pagination || { total: 0, page, limit, pages: 0 },
+    };
+  }
+
+  /** Search Tasks page: `GET /api/tasks/tab/search` via `api.getSearchTasks`. */
+  async getSearchJobsPaged(
+    filters: any = {},
+    page = 1,
+    limit = 10,
+  ): Promise<{
+    jobs: Job[];
+    pagination: { total: number; page: number; limit: number; pages: number };
+  }> {
+    const data = await api.getSearchTasks({ ...filters, page, limit });
+    if (Array.isArray(data)) {
+      return {
+        jobs: data.map(mapTaskToJob),
+        pagination: { total: data.length, page: 1, limit: data.length, pages: 1 },
+      };
+    }
+    return {
+      jobs: (data.tasks || []).map(mapTaskToJob),
+      pagination: data.pagination || { total: 0, page, limit, pages: 0 },
+    };
+  }
+
+  async getMyAdsJobsPaged(
+    filters: any = {},
+    page = 1,
+    limit = 10,
+  ): Promise<{
+    jobs: Job[];
+    pagination: { total: number; page: number; limit: number; pages: number };
+  }> {
+    const data = await api.getMyAdsTasks({ ...filters, page, limit });
+    if (Array.isArray(data)) {
+      return {
+        jobs: data.map(mapTaskToJob),
+        pagination: { total: data.length, page: 1, limit: data.length, pages: 1 },
+      };
+    }
+    return {
+      jobs: (data.tasks || []).map(mapTaskToJob),
+      pagination: data.pagination || { total: 0, page, limit, pages: 0 },
+    };
+  }
+
+  async getPendingApprovalJobsPaged(
+    filters: any = {},
+    page = 1,
+    limit = 10,
+  ): Promise<{
+    jobs: Job[];
+    pagination: { total: number; page: number; limit: number; pages: number };
+  }> {
+    const data = await api.getPendingApprovalTasks({ ...filters, page, limit });
+    if (Array.isArray(data)) {
+      return {
+        jobs: data.map(mapTaskToJob),
+        pagination: { total: data.length, page: 1, limit: data.length, pages: 1 },
+      };
+    }
+    return {
+      jobs: (data.tasks || []).map(mapTaskToJob),
+      pagination: data.pagination || { total: 0, page, limit, pages: 0 },
+    };
   }
 
   async getJob(id: string): Promise<Job | undefined> {
@@ -195,7 +483,7 @@ class DatabaseService {
       ...job,
       estimatedHours: job.hoursRequired,
       publishTo: job.eligibility,
-      scope: job.visibility === Visibility.GLOBAL ? "global" : "internal",
+      scope: job.visibility === Visibility.CENTRAL ? "global" : "internal",
     };
     return await api.createTask(backendData);
   }
@@ -209,17 +497,70 @@ class DatabaseService {
 
   async approveJob(
     id: string,
-    status: "approve" | "decline" = "approve",
+    status: "approve" | "decline" | "archive" = "approve",
     rejectionReason?: string,
   ): Promise<any> {
     return await api.approveTask(id, status, rejectionReason);
   }
 
-  // --- Applications ---
+  async archiveJob(id: string): Promise<any> {
+    return await api.archiveTask(id);
+  }
+
+  async unarchiveJob(id: string): Promise<any> {
+    return await api.unarchiveTask(id);
+  }
+
+  async softDeleteJob(id: string): Promise<any> {
+    return await api.softDeleteTask(id);
+  }
+
+  async restoreJob(id: string): Promise<any> {
+    return await api.restoreTask(id);
+  }
+
+  async markJobCompleted(id: string): Promise<any> {
+    return api.put(`/tasks/${id}/mark-completed`, {});
+  }
+
+  async repostJob(
+    id: string,
+    dates: {
+      applicationOpenDate?: string;
+      applicationCloseDate: string;
+      startDate: string;
+    },
+  ): Promise<any> {
+    return api.post(`/tasks/${id}/repost`, dates);
+  }
 
   async getApplications(filters: any = {}): Promise<Application[]> {
-    const apps = await api.getApplications(filters);
+    const data = await api.getApplications(filters);
+    const apps = Array.isArray(data) ? data : (data.applications ?? []);
     return apps.map(mapAppToFrontend);
+  }
+
+  async getApplicationsPaged(
+    filters: any = {},
+    page = 1,
+    limit = 10,
+  ): Promise<{
+    applications: Application[];
+    pagination: { total: number; page: number; limit: number; pages: number };
+  }> {
+    const data = await api.getApplications({ ...filters, page, limit });
+
+    if (Array.isArray(data)) {
+      return {
+        applications: data.map(mapAppToFrontend),
+        pagination: { total: data.length, page: 1, limit: data.length, pages: 1 },
+      };
+    }
+
+    return {
+      applications: (data.applications || []).map(mapAppToFrontend),
+      pagination: data.pagination || { total: 0, page, limit, pages: 0 },
+    };
   }
 
   async getApplicationsForJob(jobId: string): Promise<Application[]> {
@@ -252,6 +593,22 @@ class DatabaseService {
     return api.put(`/applications/${id}/decline`, {});
   }
 
+  async requestCompletion(id: string): Promise<any> {
+    return api.put(`/applications/${id}/request-completion`, {});
+  }
+
+  async acceptCompletion(id: string): Promise<any> {
+    return api.put(`/applications/${id}/accept-completion`, {});
+  }
+
+  async rejectCompletion(id: string, reason: string): Promise<any> {
+    return api.put(`/applications/${id}/reject-completion`, { reason });
+  }
+
+  async submitReview(id: string, rating: number, reviewText: string): Promise<any> {
+    return api.submitReview(id, rating, reviewText);
+  }
+
   // --- Notifications ---
   async getNotifications(): Promise<any[]> {
     return await api.getNotifications();
@@ -261,12 +618,18 @@ class DatabaseService {
     return await api.markNotificationRead(id);
   }
 
+  // --- Dashboard ---
+  async getDashboardStats(): Promise<any> {
+    return await api.request<any>("/dashboard/stats");
+  }
+
   // --- Organizations ---
   async getOrganizations(): Promise<any[]> {
     try {
       const orgs = await api.getOrganizations();
       return orgs.map((org: any) => ({
         id: org._id,
+        _id: org._id,
         name: org.name,
         slug: org.slug,
         type: org.type,
@@ -277,20 +640,48 @@ class DatabaseService {
     }
   }
 
+  async uploadOrganizationLogo(orgId: string, file: File): Promise<any> {
+    return await api.uploadOrganizationLogo(orgId, file);
+  }
+
+  async removeOrganizationLogo(orgId: string): Promise<any> {
+    return await api.removeOrganizationLogo(orgId);
+  }
+
   // --- Reward Types ---
-  async getRewardTypes(): Promise<any[]> {
+  async getRewardTypes(organisation?: string): Promise<any[]> {
     try {
-      return await api.getRewardTypes();
+      return await api.getRewardTypes(organisation);
     } catch (err) {
       console.warn("Failed to fetch reward types", err);
       return [];
     }
   }
 
-  // --- Task Categories ---
-  async getTaskCategories(): Promise<any[]> {
+  async getRewardTypesAdmin(organisation?: string): Promise<any[]> {
     try {
-      return await api.getTaskCategories();
+      return await api.getRewardTypesAdmin(organisation);
+    } catch (err) {
+      console.warn("Failed to fetch reward types (admin)", err);
+      return [];
+    }
+  }
+
+  /** Active + inactive catalogue; deduped via rewardTypesCatalog cache. */
+  async getRewardTypesCatalog(organisation?: string): Promise<any[]> {
+    const { loadRewardTypesCatalog } = await import("./rewardTypesCatalog");
+    try {
+      return await loadRewardTypesCatalog(organisation);
+    } catch (err) {
+      console.warn("Failed to fetch reward types catalogue", err);
+      return [];
+    }
+  }
+
+  // --- Task Categories ---
+  async getTaskCategories(organisation?: string): Promise<any[]> {
+    try {
+      return await api.getTaskCategories(organisation);
     } catch (err) {
       console.warn("Failed to fetch task categories", err);
       return [];
@@ -301,7 +692,43 @@ class DatabaseService {
     const params = new URLSearchParams();
     if (search) params.append("search", search);
     if (role) params.append("role", role);
-    return api.get(`/users?${params.toString()}`);
+    params.append("limit", "9999"); // legacy: fetch all for non-paginated callers
+    const data: any = await api.get(`/users?${params.toString()}`);
+    // Handle both old (array) and new (paginated object) response shapes
+    return Array.isArray(data) ? data : (data.users ?? []);
+  }
+
+  async getUsersPaged(
+    search?: string,
+    role?: string,
+    page = 1,
+    limit = 20,
+  ): Promise<{
+    users: any[];
+    pagination: { total: number; page: number; limit: number; pages: number };
+  }> {
+    const params = new URLSearchParams();
+    if (search) params.append("search", search);
+    if (role) params.append("role", role);
+    params.append("page", String(page));
+    params.append("limit", String(limit));
+    const data: any = await api.get(`/users?${params.toString()}`);
+    if (Array.isArray(data)) {
+      // Backward compat: server returned plain array
+      return {
+        users: data,
+        pagination: {
+          total: data.length,
+          page: 1,
+          limit: data.length,
+          pages: 1,
+        },
+      };
+    }
+    return {
+      users: data.users ?? [],
+      pagination: data.pagination ?? { total: 0, page: 1, limit, pages: 0 },
+    };
   }
 
   async getUser(id: string): Promise<any> {
@@ -312,12 +739,73 @@ class DatabaseService {
     return api.patch(`/users/${id}/role`, { roleId });
   }
 
+  async updateUser(
+    id: string,
+    data: {
+      name?: string;
+      email?: string;
+      roles?: string[];
+      organisation?: string | null;
+      organisations?: string[];
+      organisationRoles?: {
+        organisation: string;
+        roles: string[];
+        memberKind?: OrgMemberKind;
+      }[];
+    },
+  ): Promise<any> {
+    return api.put(`/users/${id}`, data);
+  }
+
   async deleteUser(id: string): Promise<any> {
     return api.delete(`/users/${id}`);
   }
 
   async getRoles(): Promise<any[]> {
     return api.getRoles();
+  }
+
+  // --- Groups ---
+  async getGroupsPublic(): Promise<any[]> {
+    try {
+      return await api.getGroupsPublic();
+    } catch (err) {
+      console.warn("Failed to fetch groups", err);
+      return [];
+    }
+  }
+
+  async getGroups(search?: string): Promise<any[]> {
+    return api.getGroups(search);
+  }
+
+  async getGroup(id: string): Promise<any> {
+    return api.getGroup(id);
+  }
+
+  async createGroup(data: {
+    name: string;
+    description?: string;
+    color?: string;
+    members?: string[];
+  }): Promise<any> {
+    return api.createGroup(data);
+  }
+
+  async updateGroup(id: string, data: any): Promise<any> {
+    return api.updateGroup(id, data);
+  }
+
+  async deleteGroup(id: string): Promise<any> {
+    return api.deleteGroup(id);
+  }
+
+  async addGroupMembers(groupId: string, userIds: string[]): Promise<any> {
+    return api.addGroupMembers(groupId, userIds);
+  }
+
+  async removeGroupMember(groupId: string, userId: string): Promise<any> {
+    return api.removeGroupMember(groupId, userId);
   }
 }
 

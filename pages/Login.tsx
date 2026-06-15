@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { Mail, Lock, Shield, AlertCircle, Layers } from "lucide-react";
 import { db } from "../services/database";
 import { API_BASE_URL } from "../services/api";
@@ -11,11 +11,61 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
   onLoginSuccess,
 }) => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [isSSOLoading, setIsSSOLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+
+  // Handle SSO callback: URL has ?token=... (and optionally ?source=google|oidc, ?idToken=...) after redirect from OIDC/Google
+  useEffect(() => {
+    const token = searchParams.get("token");
+    const idTokenParam = searchParams.get("idToken");
+    const sourceParam = searchParams.get("source");
+    const errorParam = searchParams.get("error");
+    if (errorParam === "auth_failed") {
+      setError("SSO sign-in was cancelled or failed. Please try again.");
+      setSearchParams({}, { replace: true });
+      return;
+    }
+    if (!token) return;
+
+    if (idTokenParam) {
+      try {
+        localStorage.setItem("id_token", idTokenParam);
+      } catch (_) {}
+    }
+
+    const loginSource = sourceParam === "oidc" ? "sso" : sourceParam || undefined;
+
+    let cancelled = false;
+    (async () => {
+      setIsSSOLoading(true);
+      setError("");
+      try {
+        const user = await db.completeSSOLogin(token, loginSource);
+        if (cancelled) return;
+        setSearchParams({}, { replace: true });
+        if (onLoginSuccess) await onLoginSuccess();
+        if (user?.permissions?.includes(Permission.DASHBOARD_VIEW)) {
+          navigate("/dashboard");
+        } else {
+          navigate("/jobs");
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          setError(err.message || "SSO sign-in failed. Please try again.");
+          setSearchParams({}, { replace: true });
+        }
+      } finally {
+        if (!cancelled) setIsSSOLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,8 +95,7 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
   };
 
   const handleEntraLogin = () => {
-    // Replace /api with /auth/saml since API_BASE_URL likely ends with /api
-    const authUrl = API_BASE_URL.replace(/\/api$/, "") + "/api/auth/saml";
+    const authUrl = API_BASE_URL.replace(/\/api$/, "") + "/api/auth/oidc";
     window.location.href = authUrl;
   };
 
@@ -58,7 +107,11 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 transition-colors relative overflow-hidden bg-zinc-50 dark:bg-black">
-      {isLoading && <LoadingOverlay message="Authenticating..." />}
+      {(isLoading || isSSOLoading) && (
+        <LoadingOverlay
+          message={isSSOLoading ? "Completing sign-in..." : "Authenticating..."}
+        />
+      )}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-[100px]"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[100px]"></div>
@@ -66,8 +119,29 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
 
       <div className="w-full max-w-md glass-card rounded-3xl shadow-2xl shadow-zinc-200 dark:shadow-black/50 p-8 md:p-10 border border-white/20 dark:border-zinc-700 animate-slide-up relative">
         <div className="text-center mb-10">
-          <div className="w-16 h-16 bg-gradient-to-tr from-primary to-primaryHover rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-primary/20 relative">
-            <Layers className="text-white w-9 h-9" strokeWidth={2.5} />
+          <div className="w-16 h-16 flex items-center justify-center mx-auto mb-6 relative">
+            <img
+              src="/logo-light.png"
+              alt="Al Siraat"
+              className="w-full h-full object-contain dark:hidden drop-shadow-sm"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+                e.currentTarget.parentElement!.innerHTML =
+                  '<div class="w-16 h-16 bg-gradient-to-tr from-primary to-primaryHover rounded-2xl flex items-center justify-center shadow-xl shadow-primary/20"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-white w-9 h-9"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg></div>';
+              }}
+            />
+            <img
+              src="/logo-dark.png"
+              alt="Al Siraat"
+              className="w-full h-full object-contain hidden dark:block drop-shadow-sm"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+                if (!e.currentTarget.parentElement!.querySelector("svg")) {
+                  e.currentTarget.parentElement!.innerHTML =
+                    '<div class="w-16 h-16 bg-gradient-to-tr from-primary to-primaryHover rounded-2xl flex items-center justify-center shadow-xl shadow-primary/20"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-white w-9 h-9"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg></div>';
+                }
+              }}
+            />
           </div>
           <h1 className="text-3xl font-black text-zinc-900 dark:text-white mb-2 tracking-tighter">
             Tasker
@@ -193,7 +267,18 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
           </p>
         </div>
 
-        <div className="mt-8 text-center text-zinc-500 font-bold uppercase tracking-widest"></div>
+        <div className="mt-8 text-center text-[10px] text-zinc-400 font-medium">
+          <p>
+            By signing in, you agree to our{" "}
+            <Link to="/terms" className="text-primary hover:underline">
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link to="/privacy" className="text-primary hover:underline">
+              Privacy Policy
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );

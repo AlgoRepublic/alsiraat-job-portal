@@ -11,6 +11,18 @@ export const API_BASE_URL =
   (import.meta.env.VITE_API_URL as string) ||
   (import.meta.env.PROD ? "/api" : "http://localhost:5001/api");
 
+/** @deprecated Resolve Central org via `getPublicCentralOrganisation()` (DB `isCentralOrg` flag). */
+export const CENTRAL_ORGANISATION_NAME = "Central";
+
+/** @deprecated Resolve Central org via `getPublicCentralOrganisation()` (DB `isCentralOrg` flag). */
+export const CENTRAL_ORGANISATION_SLUG = "central";
+
+/** localStorage key for how the user signed in: "email" | "google" | "sso" */
+export const LOGIN_SOURCE_KEY = "login_source";
+
+/** Tracks which auth token org-context refresh ran for (cleared on logout). */
+export const ORG_CONTEXT_REFRESHED_TOKEN_KEY = "org_context_refreshed_token";
+
 export class ApiError extends Error {
   status: number;
   data?: any;
@@ -116,6 +128,13 @@ class ApiService {
     return this.request<T>(endpoint, { method: "DELETE" });
   }
 
+  // --- System ---
+  public async getSystemVersion(): Promise<{ version: string }> {
+    return this.request<{ version: string }>("/system/version", {
+      method: "GET",
+    });
+  }
+
   // --- Auth ---
 
   async login(email: string, password: string): Promise<AuthResponse> {
@@ -128,6 +147,7 @@ class ApiService {
       this.token = response.token;
       localStorage.setItem("auth_token", this.token);
       localStorage.setItem("user_data", JSON.stringify(response.user));
+      localStorage.setItem(LOGIN_SOURCE_KEY, "email");
     }
 
     return response;
@@ -143,6 +163,78 @@ class ApiService {
       this.token = response.token;
       localStorage.setItem("auth_token", this.token);
       localStorage.setItem("user_data", JSON.stringify(response.user));
+      localStorage.setItem(LOGIN_SOURCE_KEY, "email");
+    }
+
+    return response;
+  }
+
+  /**
+   * Admin creates a user account without switching current session.
+   * Uses the same backend endpoint as signup but intentionally does not persist returned auth token.
+   */
+  async adminCreateUser(userData: any): Promise<{ user: any; token?: string }> {
+    return this.request<{ user: any; token?: string }>("/auth/signup", {
+      method: "POST",
+      body: JSON.stringify(userData),
+    });
+  }
+
+  async sendOtp(data: {
+    firstName: string;
+    lastName: string;
+    email: string;
+  }): Promise<any> {
+    return this.request<any>("/auth/send-otp", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async inviteUser(email: string): Promise<{ message: string }> {
+    return this.post<{ message: string }>("/auth/invite", {
+      email,
+    });
+  }
+
+  async getInvitationDetails(
+    token: string,
+  ): Promise<{ email: string; organisation: { _id: string; name: string } }> {
+    return this.get<{
+      email: string;
+      organisation: { _id: string; name: string };
+    }>(`/auth/invitation/${token}`);
+  }
+
+  async verifyOtp(data: any): Promise<AuthResponse> {
+    const response = await this.request<AuthResponse>("/auth/verify-otp", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+
+    if (response.token) {
+      this.token = response.token;
+      localStorage.setItem("auth_token", this.token);
+      localStorage.setItem("user_data", JSON.stringify(response.user));
+      localStorage.setItem(LOGIN_SOURCE_KEY, "email");
+    }
+
+    return response;
+  }
+
+  async switchOrganisation(organisationId: string): Promise<AuthResponse> {
+    const response = await this.request<AuthResponse>(
+      "/auth/switch-organisation",
+      {
+        method: "POST",
+        body: JSON.stringify({ organisationId }),
+      },
+    );
+
+    if (response.token) {
+      this.token = response.token;
+      localStorage.setItem("auth_token", this.token);
+      localStorage.setItem("user_data", JSON.stringify(response.user));
     }
 
     return response;
@@ -152,11 +244,160 @@ class ApiService {
     this.token = null;
     localStorage.removeItem("auth_token");
     localStorage.removeItem("user_data");
+    localStorage.removeItem(LOGIN_SOURCE_KEY);
+    localStorage.removeItem("id_token");
+    localStorage.removeItem(ORG_CONTEXT_REFRESHED_TOKEN_KEY);
+  }
+
+  /**
+   * Returns IdP end_session URL for SSO logout (RP-Initiated Logout).
+   * Call before logout() when login_source is SSO and id_token is present.
+   * Uses fetch so it works even if the auth token is expired.
+   */
+  async getSsoLogoutUrl(
+    idToken: string,
+    postLogoutRedirectUri?: string,
+  ): Promise<{ redirectUrl?: string }> {
+    const baseUrl =
+      postLogoutRedirectUri ??
+      (`${window.location.origin}${window.location.pathname || "/"}`.replace(
+        /\/$/,
+        "",
+      ) ||
+        `${window.location.origin}/`);
+    const separator = baseUrl.includes("?") ? "&" : "?";
+    const postLogout = `${baseUrl}${separator}redirect-to-login=true`;
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/logout/sso-url`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          idToken,
+          postLogoutRedirectUri: postLogout,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      return { redirectUrl: json.redirectUrl ?? undefined };
+    } catch {
+      return {};
+    }
+  }
+
+  /** Set token (e.g. after SSO redirect) and optionally fetch current user. */
+  setToken(token: string): void {
+    this.token = token;
+    localStorage.setItem("auth_token", token);
+  }
+
+  /** Get current user from token (for SSO callback). */
+  async getMe(): Promise<{ user: any }> {
+    return this.get<{ user: any }>("/auth/me");
   }
 
   // --- Organizations ---
   async getOrganizations(): Promise<any[]> {
     return this.request<any[]>("/organizations");
+  }
+
+  async uploadOrganizationLogo(orgId: string, file: File): Promise<any> {
+    const formData = new FormData();
+    formData.append("logo", file);
+
+    const token = localStorage.getItem("auth_token");
+    const response = await fetch(`${API_BASE_URL}/organizations/${orgId}/logo`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.message || "Failed to upload logo");
+    }
+
+    return await response.json();
+  }
+
+  async removeOrganizationLogo(orgId: string): Promise<any> {
+    return this.request<any>(`/organizations/${orgId}/logo`, {
+      method: "DELETE",
+    });
+  }
+
+  // --- Users ---
+  async getUsers(filters: any = {}): Promise<any[]> {
+    const query = new URLSearchParams(filters).toString();
+    return this.request<any[]>(`/users?${query}`);
+  }
+
+  /** Admin: tasks created by a specific user (bypasses visibility rules). */
+  async getUserTasks(userId: string): Promise<any[]> {
+    return this.request<any[]>(`/users/${userId}/tasks`);
+  }
+
+  /** Admin: applications submitted by a specific user. */
+  async getUserApplications(userId: string): Promise<any[]> {
+    return this.request<any[]>(`/users/${userId}/applications`);
+  }
+
+  async updateUser(id: string, data: any): Promise<any> {
+    return this.request<any>(`/users/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteUser(id: string): Promise<any> {
+    return this.request<any>(`/users/${id}`, { method: "DELETE" });
+  }
+
+  async importUsers(file: File): Promise<any> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    return this.request<any>("/users/import", {
+      method: "POST",
+      body: formData,
+    });
+  }
+
+  /** Admin: Download all users as CSV file. */
+  async downloadUsersCsv(): Promise<void> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/users/export-csv`, {
+        headers: {
+          ...this.getHeaders(),
+        },
+      });
+
+      if (!response.ok) {
+        let msg = "Failed to download CSV";
+        try {
+          const j = await response.json();
+          if (j?.message) msg = j.message;
+        } catch {
+          /* non-JSON error body */
+        }
+        throw new Error(msg);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const date = new Date().toISOString().slice(0, 10);
+      a.download = `users_${date}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error("Download failed:", error);
+      throw error;
+    }
   }
 
   async createOrganization(data: any): Promise<any> {
@@ -168,9 +409,25 @@ class ApiService {
 
   // --- Tasks (Jobs) ---
 
-  async getTasks(filters: any = {}): Promise<any[]> {
+  async getTasks(filters: any = {}): Promise<any> {
     const query = new URLSearchParams(filters).toString();
-    return this.request<any[]>(`/tasks?${query}`);
+    return this.request<any>(`/tasks?${query}`);
+  }
+
+  /** Search Tasks (`/jobs`): `GET /api/tasks/tab/search` */
+  async getSearchTasks(filters: any = {}): Promise<any> {
+    const query = new URLSearchParams(filters).toString();
+    return this.request<any>(`/tasks/tab/search?${query}`);
+  }
+
+  async getMyAdsTasks(filters: any = {}): Promise<any> {
+    const query = new URLSearchParams(filters).toString();
+    return this.request<any>(`/tasks/tab/my-ads?${query}`);
+  }
+
+  async getPendingApprovalTasks(filters: any = {}): Promise<any> {
+    const query = new URLSearchParams(filters).toString();
+    return this.request<any>(`/tasks/tab/pending-approvals?${query}`);
   }
 
   async getTask(id: string): Promise<any> {
@@ -186,7 +443,7 @@ class ApiService {
 
   async approveTask(
     id: string,
-    status: "approve" | "decline" = "approve",
+    status: "approve" | "decline" | "archive" = "approve",
     rejectionReason?: string,
   ): Promise<any> {
     return this.request<any>(`/tasks/${id}/approve`, {
@@ -195,11 +452,27 @@ class ApiService {
     });
   }
 
+  async archiveTask(id: string): Promise<any> {
+    return this.request<any>(`/tasks/${id}/archive`, { method: "POST" });
+  }
+
+  async unarchiveTask(id: string): Promise<any> {
+    return this.request<any>(`/tasks/${id}/unarchive`, { method: "POST" });
+  }
+
+  async softDeleteTask(id: string): Promise<any> {
+    return this.request<any>(`/tasks/${id}/soft-delete`, { method: "POST" });
+  }
+
+  async restoreTask(id: string): Promise<any> {
+    return this.request<any>(`/tasks/${id}/restore`, { method: "POST" });
+  }
+
   // --- Applications ---
 
-  async getApplications(filters: any = {}): Promise<any[]> {
+  async getApplications(filters: any = {}): Promise<any> {
     const query = new URLSearchParams(filters).toString();
-    return this.request<any[]>(`/applications?${query}`);
+    return this.request<any>(`/applications?${query}`);
   }
 
   async getApplication(id: string): Promise<any> {
@@ -213,10 +486,25 @@ class ApiService {
     });
   }
 
+  /** Manager/Advertiser: directly assign a task to a user, bypassing the normal apply flow. */
+  async assignTask(taskId: string, applicantId: string, note?: string): Promise<any> {
+    return this.request<any>("/applications/assign", {
+      method: "POST",
+      body: JSON.stringify({ taskId, applicantId, note }),
+    });
+  }
+
   async updateApplicationStatus(id: string, status: string): Promise<any> {
     return this.request<any>(`/applications/${id}/status`, {
       method: "PUT",
       body: JSON.stringify({ status }),
+    });
+  }
+
+  async submitReview(id: string, rating: number, reviewText: string): Promise<any> {
+    return this.request<any>(`/applications/${id}/review`, {
+      method: "POST",
+      body: JSON.stringify({ rating, reviewText }),
     });
   }
 
@@ -232,18 +520,94 @@ class ApiService {
   }
 
   // --- Reward Types ---
-  async getRewardTypes(): Promise<any[]> {
-    return this.request<any[]>("/reward-types");
+  async getRewardTypes(organisation?: string): Promise<any[]> {
+    const q =
+      organisation !== undefined && organisation !== ""
+        ? `?organisation=${encodeURIComponent(organisation)}`
+        : "";
+    return this.request<any[]>(`/reward-types${q}`);
+  }
+
+  async getRewardTypesAdmin(organisation?: string): Promise<any[]> {
+    const parts = ["all=true"];
+    if (organisation !== undefined && organisation !== "") {
+      parts.push(`organisation=${encodeURIComponent(organisation)}`);
+    }
+    return this.request<any[]>(`/reward-types?${parts.join("&")}`);
   }
 
   // --- Task Categories ---
-  async getTaskCategories(): Promise<any[]> {
-    return this.request<any[]>("/task-categories");
+  /** Pass organisation id, slug, or display name for scoped public reads (e.g. Central). */
+  async getTaskCategories(organisation?: string): Promise<any[]> {
+    const q =
+      organisation !== undefined && organisation !== ""
+        ? `?organisation=${encodeURIComponent(organisation)}`
+        : "";
+    return this.request<any[]>(`/task-categories${q}`);
   }
 
   // --- Roles ---
   async getRoles(): Promise<any[]> {
-    return this.request<any[]>("/roles");
+    // Use public endpoint - no permissions required, read-only access
+    return this.request<any[]>("/roles/public");
+  }
+
+  // --- Groups ---
+  async getGroupsPublic(): Promise<any[]> {
+    return this.request<any[]>("/groups/public");
+  }
+
+  async getGroups(search?: string): Promise<any[]> {
+    const params = search ? `?search=${encodeURIComponent(search)}` : "";
+    return this.request<any[]>(`/groups${params}`);
+  }
+
+  async getGroup(id: string): Promise<any> {
+    return this.request<any>(`/groups/${id}`);
+  }
+
+  async createGroup(data: {
+    name: string;
+    description?: string;
+    color?: string;
+    members?: string[];
+  }): Promise<any> {
+    return this.request<any>("/groups", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateGroup(
+    id: string,
+    data: Partial<{
+      name: string;
+      description: string;
+      color: string;
+      isActive: boolean;
+    }>,
+  ): Promise<any> {
+    return this.request<any>(`/groups/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteGroup(id: string): Promise<any> {
+    return this.request<any>(`/groups/${id}`, { method: "DELETE" });
+  }
+
+  async addGroupMembers(groupId: string, userIds: string[]): Promise<any> {
+    return this.request<any>(`/groups/${groupId}/members`, {
+      method: "POST",
+      body: JSON.stringify({ userIds }),
+    });
+  }
+
+  async removeGroupMember(groupId: string, userId: string): Promise<any> {
+    return this.request<any>(`/groups/${groupId}/members/${userId}`, {
+      method: "DELETE",
+    });
   }
 
   // --- Task Creation with Files ---

@@ -11,21 +11,70 @@ import {
   Users,
   ShieldCheck,
   XCircle,
+  Archive,
   Lock,
   Edit,
+  RefreshCw,
+  CheckCircle2,
+  X,
 } from "lucide-react";
 import { UserAvatar } from "../components/UserAvatar";
 import { Loading, LoadingOverlay } from "../components/Loading";
 import { db } from "../services/database";
 import {
   Job,
-  RewardType,
   Application,
   UserRole,
   JobStatus,
   Permission,
 } from "../types";
 import { useToast } from "../components/Toast";
+import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
+import { organisationIdToString } from "../utils/organisationId";
+import { TaskRewardText } from "../components/TaskRewardText";
+import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
+import { formatTaskDate } from "../utils/formatTaskDate";
+import {
+  getApplicationWindowStatus,
+  isApplicationWindowOpen,
+} from "../utils/applicationWindow";
+import { CustomDatePicker } from "../components/CustomUI";
+
+function localTodayIsoDate(): string {
+  const today = new Date();
+  const offset = today.getTimezoneOffset() * 60000;
+  return new Date(today.getTime() - offset).toISOString().split("T")[0];
+}
+
+type RepostDates = {
+  applicationOpenDate: string;
+  applicationCloseDate: string;
+  startDate: string;
+};
+
+function validateRepostDates(dates: RepostDates): Record<string, string> {
+  const errors: Record<string, string> = {};
+  if (!dates.applicationCloseDate?.trim()) {
+    errors.applicationCloseDate = "Applications Close Date is required";
+  }
+  if (!dates.startDate?.trim()) {
+    errors.startDate = "Task Start Date is required";
+  } else if (dates.applicationCloseDate) {
+    if (new Date(dates.startDate) < new Date(dates.applicationCloseDate)) {
+      errors.startDate = "Task Start Date cannot be before Applications Close";
+    }
+  }
+  if (dates.applicationOpenDate && dates.applicationCloseDate) {
+    if (
+      new Date(dates.applicationCloseDate) <
+      new Date(dates.applicationOpenDate)
+    ) {
+      errors.applicationCloseDate =
+        "Applications Close Date must be on or after Applications Open Date.";
+    }
+  }
+  return errors;
+}
 
 export const JobDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -43,11 +92,21 @@ export const JobDetails: React.FC = () => {
   const [coverLetter, setCoverLetter] = useState("");
   const [availability, setAvailability] = useState("");
   const [agreed, setAgreed] = useState(false);
+  // Revise and Resubmit Modal State
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
 
-  // Rejection Modal State
-
+  // Repost Modal State
+  const [showRepostModal, setShowRepostModal] = useState(false);
+  const [repostDates, setRepostDates] = useState<RepostDates>({
+    applicationOpenDate: "",
+    applicationCloseDate: "",
+    startDate: "",
+  });
+  const [repostErrors, setRepostErrors] = useState<Record<string, string>>({});
+  const [reposting, setReposting] = useState(false);
+  const [showArchiveDeclineModal, setShowArchiveDeclineModal] = useState(false);
+  const [archiveDeclineSubmitting, setArchiveDeclineSubmitting] = useState(false);
   useEffect(() => {
     const loadJob = async () => {
       if (id) {
@@ -69,11 +128,18 @@ export const JobDetails: React.FC = () => {
                 const appList = await db.getApplicationsForJob(id);
 
                 // For internal users, this shows all applicants
+                const activeOrgRoles = getUserRolesForActiveOrg(user);
                 const isInternal =
-                  user.role === UserRole.GLOBAL_ADMIN ||
-                  user.role === UserRole.SCHOOL_ADMIN ||
-                  user.role === UserRole.TASK_MANAGER ||
-                  user.role === UserRole.TASK_ADVERTISER;
+                  !!user.isSuperAdmin ||
+                  activeOrgRoles.some((r: string) =>
+                    (
+                      [
+                        UserRole.ORGANIZATION_ADMIN,
+                        UserRole.TASK_MANAGER,
+                        UserRole.TASK_ADVERTISER,
+                      ] as UserRole[]
+                    ).includes(r as UserRole),
+                  );
 
                 if (isInternal) {
                   setApplicants(appList);
@@ -98,6 +164,10 @@ export const JobDetails: React.FC = () => {
     };
     loadJob();
   }, [id]);
+
+  const rewardOrgId =
+    organisationIdToString(job?.organisation) ??
+    organisationIdToString(job?.organization);
 
   const handleApply = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,6 +232,88 @@ export const JobDetails: React.FC = () => {
     }
   };
 
+  const executeDeclineArchive = async () => {
+    if (!job) return;
+    setArchiveDeclineSubmitting(true);
+    try {
+      await db.approveJob(job.id, "archive");
+      const refreshed = await db.getJob(job.id);
+      if (refreshed) setJob(refreshed);
+      else
+        setJob({
+          ...job,
+          archivedAt: new Date().toISOString(),
+        });
+      showSuccess("Task has been archived.");
+      setShowArchiveDeclineModal(false);
+    } catch (err: any) {
+      console.error("Archive failed", err);
+      showError(
+        err?.data?.message ||
+          err?.message ||
+          "Action failed. Please try again.",
+      );
+    } finally {
+      setArchiveDeclineSubmitting(false);
+    }
+  };
+
+  const handleMarkCompleted = async () => {
+    if (!job) return;
+    try {
+      await db.markJobCompleted(job.id);
+      setJob({ ...job, status: JobStatus.COMPLETED });
+      showSuccess("Task marked as completed.");
+    } catch (err: any) {
+      showError(err?.message || "Failed to mark as completed");
+    }
+  };
+
+  const openRepostModal = () => {
+    setRepostDates({
+      applicationOpenDate: localTodayIsoDate(),
+      applicationCloseDate: "",
+      startDate: job?.startDate || "",
+    });
+    setRepostErrors({});
+    setShowRepostModal(true);
+  };
+
+  const submitRepost = async () => {
+    if (!job) return;
+    const errors = validateRepostDates(repostDates);
+    if (Object.keys(errors).length > 0) {
+      setRepostErrors(errors);
+      return;
+    }
+    setReposting(true);
+    try {
+      await db.repostJob(job.id, {
+        applicationOpenDate: repostDates.applicationOpenDate || undefined,
+        applicationCloseDate: repostDates.applicationCloseDate,
+        startDate: repostDates.startDate,
+      });
+      setShowRepostModal(false);
+      showSuccess("Task reposted successfully.");
+      navigate("/jobs");
+    } catch (err: any) {
+      showError(err?.message || "Failed to repost task");
+    } finally {
+      setReposting(false);
+    }
+  };
+
+  const repostFormValid =
+    !!repostDates.applicationCloseDate?.trim() &&
+    !!repostDates.startDate?.trim() &&
+    Object.keys(validateRepostDates(repostDates)).length === 0;
+
+  const refreshJobFromApi = async () => {
+    if (!id) return;
+    const j = await db.getJob(id);
+    if (j) setJob(j);
+  };
+
   if (loading) {
     return <Loading message="Loading task details..." />;
   }
@@ -175,19 +327,49 @@ export const JobDetails: React.FC = () => {
   }
 
   // Role-based permissions
-  const isJobOwner = currentUser?.id === job.createdBy;
-  const hasApplied = job.hasApplied || applicationStep === "applied";
+  const isJobOwner =
+    !!currentUser?.id &&
+    (currentUser.id === job.createdById ||
+      currentUser.id === job.createdBy);
+
+  const isArchived = !!job.archivedAt;
+  const isSoftDeleted = !!job.deletedAt;
+
 
   // Permission-based applicant viewing (respects role management API)
   const canSeeApplicants =
     currentUser?.permissions?.includes(Permission.APPLICATION_READ) ||
     isJobOwner;
 
-  // Permission-based application capability
+  // User is a member of one of the task's allowedGroups (or task has no group restriction)
+  const userGroupIds: string[] = (currentUser as any)?._groupIds ?? [];
+  const taskAllowedGroups: string[] = (job as any).allowedGroups ?? [];
+  const passesGroupRestriction =
+    taskAllowedGroups.length === 0 ||
+    taskAllowedGroups.some((gid: string) => userGroupIds.includes(String(gid)));
+
+  const hasApplied =
+    !!job.hasApplied ||
+    applicationStep === "applied" ||
+    applicationStep === "success";
+
+  // Permission-based application capability:
+  //   - Must have APPLICATION_CREATE permission
+  //   - Must not have already applied
+  //   - Must not be the job owner (owners can't apply to their own tasks)
+  //   - Must pass group restriction (if any)
   const canApply =
-    !currentUser || // Guest can see login prompt
-    (currentUser.permissions?.includes(Permission.APPLICATION_CREATE) &&
-      !hasApplied);
+    !currentUser || // Guest: show login prompt
+    (!isJobOwner &&
+      currentUser.permissions?.includes(Permission.APPLICATION_CREATE) &&
+      !hasApplied &&
+      passesGroupRestriction &&
+      isApplicationWindowOpen(
+        job.applicationOpenDate,
+        job.applicationCloseDate,
+      ) &&
+      !isArchived &&
+      !isSoftDeleted);
 
   // Permission-based approval check (respects role management API)
   const canApprove = (() => {
@@ -201,33 +383,55 @@ export const JobDetails: React.FC = () => {
     if (!hasApprovePermission) {
       return false;
     }
-    const taskOrgId = job.organisation || job.organization;
-    const userOrgId = currentUser.organisation || currentUser.organization;
-    console.log("Approval check:", {
-      hasApprovePermission,
-      taskOrgId,
-      userOrgId,
-      taskOrgIdType: String(taskOrgId),
-      userOrgIdType: String(userOrgId),
-      jobVisibility: job.visibility,
-      userRole: currentUser.role,
-    });
-    // Context-aware check: Global Admin can approve any task
-    if (currentUser.role === UserRole.GLOBAL_ADMIN) {
+    const taskOrgId = organisationIdToString(
+      job.organisation ?? (job as { organization?: unknown }).organization,
+    );
+    const userOrgId =
+      organisationIdToString(
+        currentUser.organisation ?? (currentUser as { organization?: unknown }).organization,
+      ) ?? organisationIdToString(currentUser.activeOrganisation);
+
+    // Context-aware check: Super Admin can approve any task
+    if (currentUser.isSuperAdmin) {
       return true;
     }
 
     // For other roles with TASK_APPROVE permission:
     // They can only approve tasks from their own organization
-    if (taskOrgId == userOrgId) {
+    if (
+      taskOrgId &&
+      userOrgId &&
+      taskOrgId === userOrgId
+    ) {
       return true;
     }
 
-    // No organisation match = no approval (unless Global Admin)
+    // No organisation match = no approval (unless Super Admin)
     return false;
   })();
 
-  const showManagerActions = canApprove && job.status === JobStatus.PENDING;
+  const showManagerActions =
+    canApprove &&
+    job.status === JobStatus.PENDING &&
+    !isArchived &&
+    !isSoftDeleted;
+
+  const applicationWindowStatus = getApplicationWindowStatus(
+    job.applicationOpenDate,
+    job.applicationCloseDate,
+  );
+  const isApplicationClosed = applicationWindowStatus === "closed";
+  const isApplicationNotYetOpen = applicationWindowStatus === "not_yet_open";
+  const isExpired = isApplicationClosed;
+  const canMarkComplete =
+    isJobOwner || currentUser?.permissions?.includes(Permission.TASK_COMPLETE);
+
+  const showCompletionActions =
+    canMarkComplete &&
+    isExpired &&
+    job.status !== JobStatus.COMPLETED &&
+    !isArchived &&
+    !isSoftDeleted;
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pb-20">
@@ -241,10 +445,14 @@ export const JobDetails: React.FC = () => {
             <ArrowLeft className="w-4 h-4 mr-2" /> Back
           </button>
 
-          {isJobOwner &&
-            (job.status === JobStatus.PENDING ||
-              job.status === JobStatus.CHANGES_REQUESTED ||
-              job.status === JobStatus.DRAFT) && (
+          <div className="flex flex-wrap items-center gap-2 justify-end">
+            <TaskLifecycleActions
+              job={job}
+              currentUser={currentUser}
+              onAfterMutation={refreshJobFromApi}
+              layout="detail"
+            />
+            {isJobOwner && (
               <button
                 onClick={() => navigate(`/edit-job/${job.id}`)}
                 className="flex items-center px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white text-sm font-bold rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
@@ -252,7 +460,19 @@ export const JobDetails: React.FC = () => {
                 <Edit className="w-4 h-4 mr-2" /> Edit Task
               </button>
             )}
+          </div>
         </div>
+
+        {isSoftDeleted && (
+          <div className="mb-4 rounded-2xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm font-semibold text-red-800 dark:text-red-200">
+            This task is soft-deleted and hidden from default listings.
+          </div>
+        )}
+        {isArchived && !isSoftDeleted && (
+          <div className="mb-4 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 px-4 py-3 text-sm font-semibold text-zinc-700 dark:text-zinc-200">
+            This task is archived and hidden from default listings.
+          </div>
+        )}
 
         <div className="flex flex-col md:flex-row justify-between items-start gap-4">
           <div>
@@ -273,6 +493,16 @@ export const JobDetails: React.FC = () => {
               >
                 {job.status}
               </span>
+              {isArchived && !isSoftDeleted && (
+                <span className="px-2.5 py-1 text-xs font-bold rounded-md uppercase tracking-wide border bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:border-zinc-600">
+                  Archived
+                </span>
+              )}
+              {isSoftDeleted && (
+                <span className="px-2.5 py-1 text-xs font-bold rounded-md uppercase tracking-wide border bg-red-100 text-red-800 border-red-200 dark:bg-red-900/40 dark:text-red-200 dark:border-red-800">
+                  Deleted
+                </span>
+              )}
             </div>
             <h1 className="text-3xl md:text-4xl font-bold text-zinc-900 dark:text-white">
               {job.title}
@@ -282,7 +512,7 @@ export const JobDetails: React.FC = () => {
               job.rejectionReason && (
                 <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl animate-fade-in">
                   <h4 className="text-sm font-bold text-red-800 dark:text-red-300 flex items-center mb-1">
-                    <XCircle className="w-4 h-4 mr-2" /> Changes Requested
+                    <XCircle className="w-4 h-4 mr-2" /> Revise and Resubmit
                   </h4>
                   <p className="text-sm text-red-700 dark:text-red-400">
                     {job.rejectionReason}
@@ -292,28 +522,14 @@ export const JobDetails: React.FC = () => {
           </div>
           <div className="flex flex-col items-end">
             <span className="text-2xl font-bold text-zinc-900 dark:text-white">
-              {(() => {
-                const rt = job.rewardType;
-                const rv = job.rewardValue;
-
-                if (rt === "Hourly") return `$${rv}/hr`;
-                if (rt === "Lumpsum") return `$${rv}`;
-                if (rt === "Voucher") return `$${rv} Voucher`;
-                if (rt === "VIA Hours") return `${rv} Hours`;
-                if (rt === "Community service recognition")
-                  return "Recognition";
-
-                // Fallbacks for other variations
-                if (
-                  String(rt).toLowerCase().includes("hour") &&
-                  rt !== "VIA Hours"
-                )
-                  return `$${rv}/hr`;
-                if (rt === "Paid" || rt === "Monetary") return `$${rv}`;
-                if (rt === "VIA Points") return `${rv} Pts`;
-
-                return rt;
-              })()}
+              <TaskRewardText
+                task={{
+                  rewardType: job.rewardType,
+                  rewardValue: job.rewardValue,
+                  rewardText: job.rewardText,
+                }}
+                organisationId={rewardOrgId}
+              />
             </span>
           </div>
         </div>
@@ -333,15 +549,51 @@ export const JobDetails: React.FC = () => {
           <div className="flex gap-3">
             <button
               onClick={() => handleManagerAction("decline")}
+              className="px-4 py-2 bg-white dark:bg-zinc-900 text-amber-600 border border-zinc-200 dark:border-zinc-700 rounded-xl font-semibold hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors flex items-center"
+            >
+              <XCircle className="w-4 h-4 mr-2" /> Revise and Resubmit
+            </button>
+            <button
+              onClick={() => setShowArchiveDeclineModal(true)}
               className="px-4 py-2 bg-white dark:bg-zinc-900 text-red-600 border border-zinc-200 dark:border-zinc-700 rounded-xl font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center"
             >
-              <XCircle className="w-4 h-4 mr-2" /> Decline
+              <Archive className="w-4 h-4 mr-2" /> Decline
             </button>
             <button
               onClick={() => handleManagerAction("approve")}
               className="px-4 py-2 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 shadow-md transition-colors flex items-center"
             >
               <ShieldCheck className="w-4 h-4 mr-2" /> Publish
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Expired Job Actions */}
+      {showCompletionActions && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-900/50 p-6 rounded-2xl flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-bold text-blue-900 dark:text-blue-100">
+              Task Expired
+            </h3>
+            <p className="text-sm text-blue-800 dark:text-blue-200/80">
+              This task's applications close date has passed. What would you like to do?
+            </p>
+          </div>
+          <div className="flex gap-3">
+            {isJobOwner && (
+              <button
+                onClick={openRepostModal}
+                className="px-4 py-2 bg-white dark:bg-zinc-900 text-blue-600 border border-blue-200 dark:border-blue-700/50 rounded-xl font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors flex items-center"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" /> Repost
+              </button>
+            )}
+            <button
+              onClick={handleMarkCompleted}
+              className="px-4 py-2 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 shadow-md transition-colors flex items-center"
+            >
+              <CheckCircle2 className="w-4 h-4 mr-2" /> Mark Completed
             </button>
           </div>
         </div>
@@ -384,11 +636,24 @@ export const JobDetails: React.FC = () => {
                 <Calendar className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase font-bold">
-                  Start Date
-                </p>
+                  <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase font-bold">
+                    Applications Open
+                  </p>
                 <p className="text-sm font-semibold text-zinc-900 dark:text-white">
-                  {job.startDate || "ASAP"}
+                  {formatTaskDate(job.applicationOpenDate) || "N/A"}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mr-3 text-primary">
+                <Calendar className="w-5 h-5" />
+              </div>
+              <div>
+                  <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase font-bold">
+                    Applications Close
+                  </p>
+                <p className="text-sm font-semibold text-zinc-900 dark:text-white">
+                  {formatTaskDate(job.applicationCloseDate) || "N/A"}
                 </p>
               </div>
             </div>
@@ -398,10 +663,10 @@ export const JobDetails: React.FC = () => {
               </div>
               <div>
                 <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase font-bold">
-                  End Date
+                  Task Start Date
                 </p>
                 <p className="text-sm font-semibold text-zinc-900 dark:text-white">
-                  {job.endDate || "Not set"}
+                  {formatTaskDate(job.startDate) || "Not set"}
                 </p>
               </div>
             </div>
@@ -427,16 +692,7 @@ export const JobDetails: React.FC = () => {
               </div>
             )}
 
-            {job.interviewDetails && (
-              <div className="mt-8">
-                <h4 className="text-base font-bold text-zinc-900 dark:text-white mb-3">
-                  Interview Process
-                </h4>
-                <div className="text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800">
-                  {job.interviewDetails}
-                </div>
-              </div>
-            )}
+
 
             {(job.requiredSkills || []).length > 0 && (
               <div className="mt-8">
@@ -493,8 +749,8 @@ export const JobDetails: React.FC = () => {
         {/* Sidebar - Right Side */}
         <div className="lg:col-span-1">
           <div className="sticky top-24 space-y-6">
-            {canSeeApplicants ? (
-              /* Applicants List for Internal Users */
+            {/* ── Applicants Panel (for users with APPLICATION_READ or job owner) ── */}
+            {canSeeApplicants && (
               <div className="glass-card rounded-2xl shadow-sm border border-zinc-100 dark:border-zinc-800 overflow-hidden">
                 <div className="p-6 bg-primary text-white">
                   <div className="flex items-center justify-between">
@@ -508,7 +764,7 @@ export const JobDetails: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="max-h-[600px] overflow-y-auto">
+                <div className="max-h-[400px] overflow-y-auto">
                   {applicants.length === 0 ? (
                     <div className="p-8 text-center">
                       <p className="text-sm text-zinc-400 dark:text-zinc-500">
@@ -574,12 +830,15 @@ export const JobDetails: React.FC = () => {
                   </div>
                 )}
               </div>
-            ) : (
-              /* Application Form for External Users */
+            )}
+
+            {/* ── Apply Panel ── */}
+            {/* Show if: guest (login prompt), canApply (eligible), or locked/applied state — hide for reviewers on pending tasks */}
+            {!isJobOwner && !showManagerActions && (
               <div className="glass-card rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:shadow-none border border-zinc-100 dark:border-zinc-800 overflow-hidden">
                 <div className="p-6 bg-primary text-white">
                   <h3 className="text-lg font-bold">Apply</h3>
-                  <p className="text-red-100 text-sm mt-1">
+                  <p className="text-primary-100 text-sm mt-1 opacity-80">
                     Send us your application.
                   </p>
                 </div>
@@ -611,7 +870,7 @@ export const JobDetails: React.FC = () => {
                       onClick={() => navigate("/jobs")}
                       className="w-full py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded-xl font-semibold hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all"
                     >
-                      Browse Other Tasks
+                      Search Other Tasks
                     </button>
                   </div>
                 ) : applicationStep === "success" ||
@@ -636,6 +895,64 @@ export const JobDetails: React.FC = () => {
                     >
                       Back to Tasks
                     </button>
+                  </div>
+                ) : isApplicationNotYetOpen ? (
+                  <div className="p-8 text-center animate-fade-in">
+                    <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 text-amber-500 dark:text-amber-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Calendar className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">
+                      Applications Not Open Yet
+                    </h3>
+                    <p className="text-zinc-500 dark:text-zinc-400 text-sm">
+                      Applications open on{" "}
+                      {formatTaskDate(job.applicationOpenDate) || "the scheduled date"}.
+                    </p>
+                  </div>
+                ) : isApplicationClosed ? (
+                  <div className="p-8 text-center animate-fade-in">
+                    <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-dashed border-zinc-200 dark:border-zinc-700">
+                      <Lock className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">
+                      Applications Closed
+                    </h3>
+                    <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-6">
+                      The application window for this task has ended.
+                    </p>
+                    <button
+                      onClick={() => navigate("/jobs")}
+                      className="w-full py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded-xl font-semibold hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all"
+                    >
+                      Search Other Tasks
+                    </button>
+                  </div>
+                ) : !passesGroupRestriction ? (
+                  /* User is not in the required group for this internal task */
+                  <div className="p-8 text-center animate-fade-in">
+                    <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 text-amber-500 dark:text-amber-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Lock className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">
+                      Restricted Access
+                    </h3>
+                    <p className="text-zinc-500 dark:text-zinc-400 text-sm">
+                      This task is only open to specific groups within the
+                      organisation. Please contact your administrator if you
+                      believe you should have access.
+                    </p>
+                  </div>
+                ) : !currentUser.permissions?.includes(
+                    Permission.APPLICATION_CREATE,
+                  ) ? (
+                  /* Logged in but no permission to apply (e.g. manager-only role) */
+                  <div className="p-8 text-center animate-fade-in">
+                    <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <ShieldCheck className="w-8 h-8" />
+                    </div>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                      Your role does not permit submitting applications.
+                    </p>
                   </div>
                 ) : (
                   <form
@@ -702,21 +1019,80 @@ export const JobDetails: React.FC = () => {
         </div>
       </div>
 
-      {/* Reject Modal */}
+      {/* Decline (archive) confirmation */}
+      {showArchiveDeclineModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="decline-archive-title"
+          onClick={() =>
+            !archiveDeclineSubmitting && setShowArchiveDeclineModal(false)
+          }
+        >
+          <div
+            className="bg-white dark:bg-zinc-900 w-full max-w-md rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 p-6 border-b border-zinc-100 dark:border-zinc-800">
+              <h3
+                id="decline-archive-title"
+                className="text-lg font-black text-zinc-900 dark:text-white tracking-tight flex-1"
+              >
+                Archive this task?
+              </h3>
+              <button
+                type="button"
+                onClick={() =>
+                  !archiveDeclineSubmitting && setShowArchiveDeclineModal(false)
+                }
+                className="p-2 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shrink-0"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="px-6 py-4 text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+              It will no longer be visible to applicants. You can manage it later
+              from task lifecycle actions if you have permission.
+            </p>
+            <div className="flex justify-end gap-3 px-6 pb-6">
+              <button
+                type="button"
+                onClick={() => setShowArchiveDeclineModal(false)}
+                disabled={archiveDeclineSubmitting}
+                className="px-4 py-2.5 text-zinc-600 dark:text-zinc-400 font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void executeDeclineArchive()}
+                disabled={archiveDeclineSubmitting}
+                className="px-4 py-2.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {archiveDeclineSubmitting ? "Please wait…" : "Archive task"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Revise and Resubmit Modal */}
       {showRejectModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
           <div className="bg-white dark:bg-zinc-900 w-full max-w-md p-6 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 animate-scale-in">
             <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-4">
-              Reject Task
+              Revise and Resubmit
             </h3>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-              Please provide a reason for rejecting this task. This will be sent
-              to the advertiser.
+              Please provide guidance for revisions before resubmission. This
+              will be sent to the advertiser.
             </p>
             <textarea
               className="w-full p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl mb-4 focus:ring-2 focus:ring-red-500 focus:outline-none dark:text-white"
               rows={4}
-              placeholder="Reason for rejection..."
+              placeholder="Revision guidance..."
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
             />
@@ -732,7 +1108,117 @@ export const JobDetails: React.FC = () => {
                 disabled={!rejectionReason.trim()}
                 className="px-4 py-2 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                Reject Task
+                Revise and Resubmit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Repost Modal */}
+      {showRepostModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-zinc-900 w-full max-w-md p-6 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 animate-scale-in">
+            <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">
+              Repost Task
+            </h3>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-5">
+              Set the application window and task start date for the reposted
+              task.
+            </p>
+            <div className="space-y-4 mb-6">
+              <div className="space-y-1.5">
+                <CustomDatePicker
+                  label="Applications Open"
+                  value={repostDates.applicationOpenDate}
+                  onChange={(val) => {
+                    setRepostDates((p) => ({
+                      ...p,
+                      applicationOpenDate: val,
+                    }));
+                    if (repostErrors.applicationOpenDate) {
+                      setRepostErrors((p) => ({
+                        ...p,
+                        applicationOpenDate: "",
+                      }));
+                    }
+                    if (repostErrors.applicationCloseDate) {
+                      setRepostErrors((p) => ({
+                        ...p,
+                        applicationCloseDate: "",
+                      }));
+                    }
+                  }}
+                  error={!!repostErrors.applicationOpenDate}
+                  clearable
+                />
+                {repostErrors.applicationOpenDate && (
+                  <p className="text-red-500 text-xs font-bold">
+                    {repostErrors.applicationOpenDate}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <CustomDatePicker
+                  label="Applications Close *"
+                  value={repostDates.applicationCloseDate}
+                  onChange={(val) => {
+                    setRepostDates((p) => ({
+                      ...p,
+                      applicationCloseDate: val,
+                    }));
+                    if (repostErrors.applicationCloseDate) {
+                      setRepostErrors((p) => ({
+                        ...p,
+                        applicationCloseDate: "",
+                      }));
+                    }
+                    if (repostErrors.startDate) {
+                      setRepostErrors((p) => ({ ...p, startDate: "" }));
+                    }
+                  }}
+                  min={repostDates.applicationOpenDate}
+                  error={!!repostErrors.applicationCloseDate}
+                />
+                {repostErrors.applicationCloseDate && (
+                  <p className="text-red-500 text-xs font-bold">
+                    {repostErrors.applicationCloseDate}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <CustomDatePicker
+                  label="Task Start Date *"
+                  value={repostDates.startDate}
+                  onChange={(val) => {
+                    setRepostDates((p) => ({ ...p, startDate: val }));
+                    if (repostErrors.startDate) {
+                      setRepostErrors((p) => ({ ...p, startDate: "" }));
+                    }
+                  }}
+                  min={repostDates.applicationCloseDate}
+                  error={!!repostErrors.startDate}
+                />
+                {repostErrors.startDate && (
+                  <p className="text-red-500 text-xs font-bold">
+                    {repostErrors.startDate}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowRepostModal(false)}
+                className="px-4 py-2 text-zinc-600 dark:text-zinc-400 font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitRepost}
+                disabled={!repostFormValid || reposting}
+                className="px-4 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {reposting ? "Reposting..." : "Repost Task"}
               </button>
             </div>
           </div>

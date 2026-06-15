@@ -2,8 +2,31 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import User, { UserRole } from "../models/User.js";
 import { Permission, PermissionContext } from "../config/permissions.js";
+import { isSuperAdminUser } from "../utils/superAdmin.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_here";
+
+const getOrgIdFromToken = (decoded: any): string | null => {
+  const orgId = decoded?.act_org;
+  return typeof orgId === "string" && orgId.trim() ? orgId : null;
+};
+
+const getAllUserRoles = (user: any): UserRole[] => {
+  const roles = (user.organisationRoles || []).flatMap(
+    (entry: any) => entry.roles || [],
+  ) as UserRole[];
+  return Array.from(new Set(roles));
+};
+
+const resolveOrgRoles = (user: any, orgId: string): UserRole[] => {
+  const entry = (user.organisationRoles || []).find(
+    (item: any) => item.organisation?.toString() === orgId,
+  );
+  if (entry?.roles?.length) return entry.roles as UserRole[];
+  return isSuperAdminUser(user)
+    ? [UserRole.ORGANIZATION_ADMIN]
+    : [UserRole.APPLICANT];
+};
 
 // ============================================================================
 // AUTHENTICATION MIDDLEWARE
@@ -27,7 +50,27 @@ export const authenticate = async (
 
     if (!user) return res.status(401).json({ message: "User not found" });
 
+    const orgId = getOrgIdFromToken(decoded);
+    const superAdmin = isSuperAdminUser(user);
     req.user = user;
+    if (!orgId) {
+      // Allow auth without org context for non-org-scoped flows (e.g. initial /auth/me after SSO).
+      req.orgId = null;
+      req.orgRoles = superAdmin
+        ? [UserRole.ORGANIZATION_ADMIN]
+        : getAllUserRoles(user);
+    } else {
+      const isMember = (user.organisations || []).some(
+        (o: any) => o.toString() === orgId,
+      );
+      if (!superAdmin && !isMember) {
+        return res.status(403).json({ message: "Invalid organisation context" });
+      }
+      req.orgId = orgId;
+      req.orgRoles = resolveOrgRoles(user, orgId);
+    }
+    (req.user as any).orgId = req.orgId;
+    (req.user as any).orgRoles = req.orgRoles;
     next();
   } catch (err) {
     res.status(401).json({ message: "Token is not valid" });
@@ -51,6 +94,13 @@ export const optionalAuthenticate = async (
 
     if (user) {
       req.user = user;
+      const orgId = getOrgIdFromToken(decoded);
+      if (orgId) {
+        req.orgId = orgId;
+        req.orgRoles = resolveOrgRoles(user, orgId);
+        (req.user as any).orgId = req.orgId;
+        (req.user as any).orgRoles = req.orgRoles;
+      }
     }
     next();
   } catch (err) {
@@ -72,23 +122,42 @@ export const requirePermission = (permission: Permission) => {
     if (!user) {
       return res.status(401).json({ message: "Authentication required" });
     }
+    if (isSuperAdminUser(user)) return next();
 
-    const userRole = user.role as UserRole;
+    const userRoles = (req.orgRoles || getAllUserRoles(user)) as UserRole[];
 
     // Use dynamic permission check from database
-    const { hasPermissionAsync } = await import("../config/permissions.js");
-    const hasAccess = await hasPermissionAsync(userRole, permission);
+    const { hasPermissionMultiAsync } =
+      await import("../config/permissions.js");
+    const hasAccess = await hasPermissionMultiAsync(userRoles, permission);
 
     if (!hasAccess) {
       return res.status(403).json({
         message: `Permission denied: ${permission}`,
         required: permission,
-        userRole: userRole,
+        userRoles: userRoles,
       });
     }
 
     next();
   };
+};
+
+/** Platform super-admin only (User.isSuperAdmin). */
+export const requireSuperAdmin = (
+  req: any,
+  res: Response,
+  next: NextFunction,
+) => {
+  if (!req.user) {
+    return res.status(401).json({ message: "Authentication required" });
+  }
+  if (!isSuperAdminUser(req.user)) {
+    return res.status(403).json({
+      message: "Platform administrator access required",
+    });
+  }
+  next();
 };
 
 /**
@@ -101,18 +170,20 @@ export const requireAnyPermission = (permissions: Permission[]) => {
     if (!user) {
       return res.status(401).json({ message: "Authentication required" });
     }
+    if (isSuperAdminUser(user)) return next();
 
-    const userRole = user.role as UserRole;
+    const userRoles = (req.orgRoles || getAllUserRoles(user)) as UserRole[];
 
     // Use dynamic permission check from database
-    const { hasAnyPermissionAsync } = await import("../config/permissions.js");
-    const hasAccess = await hasAnyPermissionAsync(userRole, permissions);
+    const { hasAnyPermissionMultiAsync } =
+      await import("../config/permissions.js");
+    const hasAccess = await hasAnyPermissionMultiAsync(userRoles, permissions);
 
     if (!hasAccess) {
       return res.status(403).json({
         message: "Permission denied",
         required: permissions,
-        userRole: userRole,
+        userRoles: userRoles,
       });
     }
 
@@ -122,7 +193,7 @@ export const requireAnyPermission = (permissions: Permission[]) => {
 
 /**
  * Middleware factory for context-aware permission checks
- * This allows checking ownership (e.g., Independent managing own task's applications)
+ * This allows checking ownership (e.g., users managing their own task's applications)
  *
  * Usage:
  * requirePermissionWithContext(
@@ -142,18 +213,33 @@ export const requirePermissionWithContext = (
     if (!user) {
       return res.status(401).json({ message: "Authentication required" });
     }
+    if (isSuperAdminUser(user)) {
+      try {
+        const context = await getContext(req);
+        context.userId = user._id.toString();
+        context.userOrganizationId = req.orgId || null;
+        req.permissionContext = context;
+      } catch {
+        req.permissionContext = {
+          userId: user._id.toString(),
+          userOrganizationId: req.orgId || null,
+        };
+      }
+      return next();
+    }
 
-    const userRole = user.role as UserRole;
+    const userRoles = (req.orgRoles || getAllUserRoles(user)) as UserRole[];
 
     try {
       const context = await getContext(req);
       context.userId = user._id.toString();
-      context.userOrganizationId = user.organisation?.toString();
+      context.userOrganizationId = req.orgId || null;
 
       // Use dynamic permission check from database
-      const { canWithContextAsync } = await import("../config/permissions.js");
-      const hasAccess = await canWithContextAsync(
-        userRole,
+      const { canWithContextMultiAsync } =
+        await import("../config/permissions.js");
+      const hasAccess = await canWithContextMultiAsync(
+        userRoles,
         permission,
         context,
       );
@@ -162,7 +248,7 @@ export const requirePermissionWithContext = (
         return res.status(403).json({
           message: `Permission denied: ${permission}`,
           required: permission,
-          userRole: userRole,
+          userRoles: userRoles,
         });
       }
 
@@ -190,16 +276,23 @@ export async function checkPermissionAsync(
       error: { status: 401, message: "Authentication required" },
     };
   }
+  if (isSuperAdminUser(user)) {
+    return { allowed: true };
+  }
 
-  const userRole = user.role as UserRole;
-  const { hasPermissionAsync, canWithContextAsync } =
+  const userRoles = ((user as any).orgRoles || getAllUserRoles(user)) as UserRole[];
+  const { hasPermissionMultiAsync, canWithContextMultiAsync } =
     await import("../config/permissions.js");
 
   if (context) {
     context.userId = user._id.toString();
-    context.userOrganizationId = user.organisation?.toString();
+    context.userOrganizationId = (user as any).orgId || null;
 
-    const hasAccess = await canWithContextAsync(userRole, permission, context);
+    const hasAccess = await canWithContextMultiAsync(
+      userRoles,
+      permission,
+      context,
+    );
     if (!hasAccess) {
       return {
         allowed: false,
@@ -210,7 +303,7 @@ export async function checkPermissionAsync(
       };
     }
   } else {
-    const hasAccess = await hasPermissionAsync(userRole, permission);
+    const hasAccess = await hasPermissionMultiAsync(userRoles, permission);
     if (!hasAccess) {
       return {
         allowed: false,
@@ -258,8 +351,8 @@ export const checkImpersonation = async (
 
 /**
  * Context-aware middleware for task approval
- * - Global Admin can approve ANY task (Internal or Global)
- * - School Admin and Task Manager can approve INTERNAL tasks from their org only
+ * - Platform super admin can approve ANY task (Internal, External, or Central)
+ * - Organisation Admin and Task Manager can approve INTERNAL tasks from their org only
  * - All other roles cannot approve
  */
 export const requireTaskApproval = async (
@@ -285,7 +378,7 @@ export const requireTaskApproval = async (
   // Use dynamic permission check with context
   const context: any = {
     organizationId: task.organisation?.toString() || null,
-    userOrganizationId: req.user.organisation?.toString() || null,
+    userOrganizationId: req.orgId || null,
     taskCreatorId: task.createdBy?.toString() || null,
     userId: req.user._id.toString(),
   };
@@ -297,29 +390,26 @@ export const requireTaskApproval = async (
   );
 
   if (!allowed) {
-    // Basic role check fallback for Global tasks to ensure Global Admin can always approve
-    // but the Permission.TASK_APPROVE check should have covered this if Admin has all permissions
+    // Fallback when permission check fails unexpectedly for Central/External tasks
     return res.status(403).json({
       message: "Insufficient permissions to approve this task",
-      role: req.user.role,
+      roles: req.orgRoles,
     });
   }
 
   // Cross-organisation check is already handled inside canWithContext via context.organizationId
-  // but if it's Global Visibility, we need to ensure they have the permission to approve Global tasks
-  // Let's add that specific check if visibility is Global
+  // Non-internal tasks (Central, External) from another org require platform super admin
   const organisationId = task.organisation?.toString();
-  const userOrganisationId = req.user.organisation?.toString();
+  const userOrganisationId = req.orgId || null;
 
   if (
     task.visibility !== "Internal" &&
-    req.user.role.toLowerCase() !== UserRole.GLOBAL_ADMIN.toLowerCase() &&
+    !isSuperAdminUser(req.user) &&
     organisationId !== userOrganisationId
   ) {
-    // Only Global Admin (or Org Admin for their own tasks) can approve non-internal tasks
     return res.status(403).json({
       message:
-        "Only Global Admin can approve Global tasks from other organisations. You can only approve tasks from your own organisation.",
+        "Only platform administrators can approve Central or External tasks from other organisations. You can only approve tasks from your own organisation.",
     });
   }
 

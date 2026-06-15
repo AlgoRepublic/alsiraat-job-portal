@@ -39,6 +39,10 @@ const fileFilter = (req: any, file: any, cb: any) => {
     "application/vnd.ms-excel",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "text/plain",
+    "text/csv",
+    "application/csv",
+    "application/x-csv",
+    "text/x-csv",
   ];
 
   if (allowedMimeTypes.includes(file.mimetype)) {
@@ -46,7 +50,7 @@ const fileFilter = (req: any, file: any, cb: any) => {
   } else {
     cb(
       new Error(
-        "Invalid file type. Only images, PDFs, and documents are allowed.",
+        "Invalid file type. Only images, PDFs, documents, and CSVs are allowed.",
       ),
       false,
     );

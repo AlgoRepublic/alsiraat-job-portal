@@ -29,6 +29,7 @@ import {
   Backpack,
 } from "lucide-react";
 import { db } from "../services/database";
+import { resolveCatalogOrganisationId } from "../services/platformOrganisations";
 
 // Map category codes to Lucide icons
 const categoryIcons: Record<string, any> = {
@@ -57,7 +58,9 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const cats = await db.getTaskCategories();
+        const orgId = await resolveCatalogOrganisationId();
+        if (!orgId) return;
+        const cats = await db.getTaskCategories(orgId);
         setCategories(cats);
       } catch (err) {
         console.error("Failed to fetch categories", err);
@@ -110,7 +113,7 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
                 Find Tasks
               </button>
               <button className="text-gray-600 hover:text-red-600 transition-colors text-sm font-bold">
-                Post a Task
+                Create Task
               </button>
               <button className="text-gray-600 hover:text-red-600 transition-colors text-sm font-bold">
                 Categories

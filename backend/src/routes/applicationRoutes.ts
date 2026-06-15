@@ -1,19 +1,33 @@
-import express from "express";
+import express, { type Router } from "express";
 import {
   applyForTask,
+  assignTask,
   updateApplicationStatus,
   getApplications,
   getApplicationById,
   confirmOffer,
   declineOffer,
+  requestCompletion,
+  acceptCompletion,
+  rejectCompletion,
+  submitReview,
 } from "../controllers/applicationController.js";
 import {
   authenticate,
   requirePermission,
+  requireAnyPermission,
   Permission,
 } from "../middleware/rbac.js";
 
-const router = express.Router();
+const router: Router = express.Router();
+
+// Direct assignment by manager/advertiser - requires APPLICATION_ASSIGN_DIRECT
+router.post(
+  "/assign",
+  authenticate,
+  requireAnyPermission([Permission.APPLICATION_ASSIGN_DIRECT, Permission.TASK_ASSIGN]),
+  assignTask,
+);
 
 // Apply for a task - requires APPLICATION_CREATE permission
 router.post(
@@ -45,5 +59,13 @@ router.put(
   requirePermission(Permission.APPLICATION_REJECT),
   declineOffer,
 );
+
+router.put("/:appId/request-completion", authenticate, requestCompletion);
+
+router.put("/:appId/accept-completion", authenticate, acceptCompletion);
+
+router.put("/:appId/reject-completion", authenticate, rejectCompletion);
+
+router.post("/:appId/review", authenticate, submitReview);
 
 export default router;

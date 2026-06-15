@@ -15,10 +15,10 @@ async function checkUserOrganizations() {
     await mongoose.connect(MONGODB_URI);
     console.log("✅ Connected to MongoDB\n");
 
-    // Get all users with organization populated
+    // Get all users with organizations populated
     const users = await User.find()
-      .populate("organisation")
-      .select("name email role organisation organization");
+      .populate("organisations")
+      .select("name email role organisations");
 
     console.log("📊 User Organization Status:\n");
     console.log("Total users:", users.length);
@@ -26,15 +26,11 @@ async function checkUserOrganizations() {
 
     for (const user of users) {
       console.log(`\n- ${user.name} (${user.email})`);
-      console.log(`  Role: ${user.role}`);
-      console.log(
-        `  organisation field (British):`,
-        (user as any).organisation,
-      );
-      console.log(
-        `  organization field (American):`,
-        (user as any).organization,
-      );
+      const roleList = (user.organisationRoles || [])
+        .flatMap((entry: any) => entry.roles || [])
+        .join(", ");
+      console.log(`  Roles: ${roleList || "None"}`);
+      console.log(`  organisations:`, (user as any).organisations);
     }
 
     console.log("\n\n🏢 Organizations in database:");

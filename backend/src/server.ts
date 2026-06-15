@@ -1,4 +1,4 @@
-import express from "express";
+import express, { type Express } from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 import passport from "passport";
@@ -13,6 +13,18 @@ import roleRoutes from "./routes/roleRoutes.js";
 import rewardTypeRoutes from "./routes/rewardTypeRoutes.js";
 import taskCategoryRoutes from "./routes/taskCategoryRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import groupRoutes from "./routes/groupRoutes.js";
+import dashboardRoutes from "./routes/dashboardRoutes.js";
+import emailSettingsRoutes from "./routes/emailSettingsRoutes.js";
+import aiSettingsRoutes from "./routes/aiSettingsRoutes.js";
+import systemRoutes from "./routes/systemRoutes.js";
+import { logger } from "./utils/logger.js";
+import { requestLoggerMiddleware } from "./utils/requestLogger.js";
+import {
+  closeEmailQueue,
+  isEmailQueueConfigured,
+} from "./queues/emailQueue.js";
+import { startEmailWorker, stopEmailWorker } from "./workers/emailWorker.js";
 
 // Only load dotenv in development (Cloud Run provides env vars directly)
 if (process.env.NODE_ENV !== "production") {
@@ -23,7 +35,7 @@ if (process.env.NODE_ENV !== "production") {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const app = express();
+const app: Express = express();
 const PORT = process.env.PORT || 5001;
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -36,14 +48,24 @@ app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
 app.use(passport.initialize());
+app.use(requestLoggerMiddleware);
 
 // DB Connection
 const MONGODB_URI =
   process.env.MONGODB_URI || "mongodb://localhost:27017/tasker";
 mongoose
   .connect(MONGODB_URI)
-  .then(() => console.log("Connected to MongoDB"))
-  .catch((err) => console.error("MongoDB connection error:", err));
+  .then(() => {
+    logger.info("Connected to MongoDB");
+    if (isEmailQueueConfigured()) {
+      startEmailWorker();
+    } else {
+      logger.warn(
+        "REDIS_URL is not set; outbound email is delivered inline (no BullMQ worker)",
+      );
+    }
+  })
+  .catch((err) => logger.error("MongoDB connection error", { err }));
 
 // Health check endpoint (required for Cloud Run)
 app.get("/health", (req, res) => {
@@ -54,7 +76,8 @@ app.get("/health", (req, res) => {
 
 // API Routes - Define these BEFORE static file serving
 app.use("/api/auth", authRoutes);
-app.use("/api/organizations", organizationRoutes);
+app.use("/api/organizations", organizationRoutes);  // American spelling
+app.use("/api/organisations", organizationRoutes);  // British spelling (used by frontend)
 app.use("/api/tasks", taskRoutes);
 app.use("/api/applications", applicationRoutes);
 app.use("/api/notifications", notificationRoutes);
@@ -62,6 +85,11 @@ app.use("/api/roles", roleRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/reward-types", rewardTypeRoutes);
 app.use("/api/task-categories", taskCategoryRoutes);
+app.use("/api/groups", groupRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/email-settings", emailSettingsRoutes);
+app.use("/api/ai", aiSettingsRoutes);
+app.use("/api/system", systemRoutes);
 
 // Serve uploaded files
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
@@ -98,16 +126,35 @@ app.use(
     res: express.Response,
     next: express.NextFunction,
   ) => {
-    console.error(err.stack);
+    logger.error("Unhandled server error", { stack: err?.stack });
     res.status(500).json({ message: "Internal Server Error" });
   },
 );
 
 // Start Server
-app.listen(PORT, () => {
-  console.log(
-    `Server is running on port ${PORT} (${isProduction ? "production" : "development"})`,
-  );
+const server = app.listen(PORT, () => {
+  logger.info("Server started", {
+    port: PORT,
+    environment: isProduction ? "production" : "development",
+  });
+});
+
+async function gracefulShutdown(signal: string) {
+  logger.info("Shutdown initiated", { signal });
+  await new Promise<void>((resolve) => {
+    server.close(() => resolve());
+  });
+  await stopEmailWorker();
+  await closeEmailQueue();
+  await mongoose.connection.close().catch(() => {});
+  process.exit(0);
+}
+
+process.on("SIGTERM", () => {
+  void gracefulShutdown("SIGTERM");
+});
+process.on("SIGINT", () => {
+  void gracefulShutdown("SIGINT");
 });
 
 export default app;

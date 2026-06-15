@@ -1,6 +1,5 @@
 export const UserRole = {
-  GLOBAL_ADMIN: "Global Admin",
-  SCHOOL_ADMIN: "School Admin",
+  ORGANIZATION_ADMIN: "Organisation Admin",
   TASK_MANAGER: "Task Manager",
   TASK_ADVERTISER: "Task Advertiser",
   APPLICANT: "Applicant",
@@ -14,7 +13,7 @@ export const JobStatus = {
   APPROVED: "Approved",
   PUBLISHED: "Published",
   CLOSED: "Closed",
-  ARCHIVED: "Archived",
+  COMPLETED: "Completed",
 } as const;
 export type JobStatus = (typeof JobStatus)[keyof typeof JobStatus];
 
@@ -40,10 +39,14 @@ export const RewardType = {
 } as const;
 export type RewardType = (typeof RewardType)[keyof typeof RewardType];
 
+/**
+ * Task visibility. Private is org-scoped and can target Internal, External, or both. Central = listed on the public Central organisation (platform-wide open browsing).
+ */
 export const Visibility = {
+  PRIVATE: "Private",
   INTERNAL: "Internal",
   EXTERNAL: "External",
-  GLOBAL: "Global",
+  CENTRAL: "Central",
 } as const;
 export type Visibility = (typeof Visibility)[keyof typeof Visibility];
 
@@ -82,41 +85,81 @@ export interface ITask {
 
 export interface Job {
   id: string;
+  _id?: string;
   title: string;
-  category: JobCategory;
+  category: string;
   description: string;
   location: string;
   hoursRequired?: number;
+  applicationOpenDate?: string;
+  applicationCloseDate?: string;
+  /** Actual start date of the task (separate from the application window). */
   startDate?: string;
-  endDate?: string;
   selectionCriteria?: string;
-  interviewDetails?: string;
+
   requiredSkills?: string[];
   rewardType: string;
   rewardValue?: number;
+  /** When the organisation uses a text-valued reward type (e.g. coupon code). */
+  rewardText?: string;
   eligibility: string[]; // e.g., ['Students', 'Parents']
   visibility: Visibility;
+  privateAudiences?: Visibility[];
   allowedRoles?: string[];
+  allowedGroups?: string[]; // Array of Group IDs
   attachments: Attachment[];
   status: JobStatus;
   rejectionReason?: string;
   createdBy: string;
+  createdById?: string;
   createdAt: string;
   applicantsCount: number;
   hasApplied?: boolean;
+  /** ISO timestamp when task was archived (lifecycle; not a JobStatus). */
+  archivedAt?: string | null;
+  /** ISO timestamp when task was soft-deleted. */
+  deletedAt?: string | null;
   organisation?: string;
+  /** Populated display name when API returns organisation as an object */
+  organisationName?: string;
   organization?: string;
+}
+
+/** Per-organisation membership: staff/student body vs external partner. */
+export type OrgMemberKind = "Internal" | "External";
+
+export interface OrgContext {
+  _id: string;
+  name: string;
+  logo?: string;
+  slug?: string;
+  /** #RRGGBB when set; used for tenant accent in the shell */
+  themeColor?: string;
+  /** Platform Central organisation (public browse, email signup default). */
+  isCentralOrg?: boolean;
+  /** Al Siraat tenant organisation (SSO provisioning). */
+  isAlSiraatOrg?: boolean;
 }
 
 export interface User {
   id: string;
   name: string;
-  role: UserRole;
+  firstName?: string;
+  lastName?: string;
+  roles: UserRole[];
+  /** Platform super-admin; when true, organisations / organisationRoles from API may be virtual. */
+  isSuperAdmin?: boolean;
   avatar: string;
   email: string;
+  contactNumber?: string;
+  gender?: "Male" | "Female";
   permissions?: string[];
-  organization?: string;
-  organisation?: string;
+  // Multi-org support
+  organisations?: OrgContext[];
+  activeOrganisation?: OrgContext | null;
+  // Backward-compat alias for activeOrganisation
+  organisation?: OrgContext | string | null;
+  yearLevel?: string;
 }
 
 export interface Skill {
@@ -129,6 +172,8 @@ export interface ApplicantProfile extends User {
   about: string;
   skills: Skill[];
   experience: Job[]; // Completed tasks
+  resumeUrl?: string;
+  resumeOriginalName?: string;
 }
 
 export const Permission = {
@@ -141,6 +186,7 @@ export const Permission = {
   TASK_APPROVE: "task:approve",
   TASK_PUBLISH: "task:publish",
   TASK_ARCHIVE: "task:archive",
+  TASK_COMPLETE: "task:complete",
   TASK_VIEW_INTERNAL: "task:view_internal",
   TASK_VIEW_PENDING: "task:view_pending",
   TASK_AUTO_PUBLISH: "task:auto_publish",
@@ -155,9 +201,11 @@ export const Permission = {
   APPLICATION_CONFIRM: "application:confirm",
 
   // User Management
+  USER_CREATE: "user:create",
   USER_READ: "user:read",
   USER_UPDATE: "user:update",
   USER_DELETE: "user:delete",
+  USER_IMPORT: "user:import",
   USER_IMPERSONATE: "user:impersonate",
   USER_MANAGE_ROLES: "user:manage_roles",
 
@@ -186,12 +234,21 @@ export type Permission = (typeof Permission)[keyof typeof Permission];
 
 export interface Application {
   id: string;
+  _id?: string;
   jobId: string;
   jobTitle?: string;
   userId: string;
   applicantName: string;
   applicantEmail: string;
   applicantAvatar: string;
+  applicantAbout?: string;
+  applicantSkills?: Skill[];
+  applicantResumeUrl?: string;
+  applicantResumeOriginalName?: string;
+  applicantContactNumber?: string;
+  applicantGender?: string;
+  applicantYearLevel?: string;
+  applicantExperience?: any[];
   status:
     | "Pending"
     | "Reviewing"
@@ -200,10 +257,19 @@ export interface Application {
     | "Rejected"
     | "Offered"
     | "Accepted"
-    | "Declined";
+    | "Declined"
+    | "Completion Requested"
+    | "Completed"
+    | "Completion Rejected";
   appliedAt: string;
   coverLetter: string;
   availability: string;
+  rejectionReason?: string;
+  rating?: number;
+  reviewText?: string;
+  jobHoursRequired?: number;
+  task?: any;
+  createdAt?: string;
 }
 
 export interface RoleDefinition {

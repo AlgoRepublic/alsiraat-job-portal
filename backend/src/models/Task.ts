@@ -7,14 +7,15 @@ export const TaskStatus = {
   APPROVED: "Approved",
   PUBLISHED: "Published",
   CLOSED: "Closed",
-  ARCHIVED: "Archived",
+  COMPLETED: "Completed",
 } as const;
 export type TaskStatus = (typeof TaskStatus)[keyof typeof TaskStatus];
 
 export const TaskVisibility = {
+  PRIVATE: "Private",
   INTERNAL: "Internal",
   EXTERNAL: "External",
-  GLOBAL: "Global",
+  CENTRAL: "Central",
 } as const;
 export type TaskVisibility =
   (typeof TaskVisibility)[keyof typeof TaskVisibility];
@@ -25,16 +26,21 @@ export interface ITask extends Document {
   category: string;
   location: string;
   hoursRequired: number;
+  applicationOpenDate?: Date | undefined;
+  applicationCloseDate?: Date | undefined;
+  /** Actual start date of the task (separate from the application window). */
   startDate?: Date | undefined;
-  endDate?: Date | undefined;
   selectionCriteria?: string | undefined;
-  interviewDetails?: string | undefined;
   requiredSkills?: string[] | undefined;
   rewardType: string;
   rewardValue?: number | undefined;
+  /** Free-form reward detail when reward type value kind is `text`. */
+  rewardText?: string | undefined;
   eligibility: string[];
   visibility: TaskVisibility;
+  privateAudiences?: TaskVisibility[] | undefined;
   allowedRoles?: string[] | undefined;
+  allowedGroups?: mongoose.Types.ObjectId[] | undefined;
   status: TaskStatus;
   organisation?: mongoose.Types.ObjectId | undefined;
   createdBy: mongoose.Types.ObjectId;
@@ -51,6 +57,8 @@ export interface ITask extends Document {
   createdAt: Date;
   updatedAt: Date;
   isExpired: boolean;
+  deletedAt?: Date | null | undefined;
+  archivedAt?: Date | null | undefined;
 }
 
 const TaskSchema: Schema = new Schema(
@@ -60,20 +68,23 @@ const TaskSchema: Schema = new Schema(
     category: { type: String, required: true },
     location: { type: String, required: true },
     hoursRequired: { type: Number },
+    applicationOpenDate: { type: Date },
+    applicationCloseDate: { type: Date },
     startDate: { type: Date },
-    endDate: { type: Date },
     selectionCriteria: { type: String },
-    interviewDetails: { type: String },
     requiredSkills: [{ type: String }],
     rewardType: { type: String, required: true },
     rewardValue: { type: Number },
+    rewardText: { type: String, trim: true },
     eligibility: [{ type: String }],
     visibility: {
       type: String,
       enum: Object.values(TaskVisibility),
-      default: TaskVisibility.GLOBAL,
+      default: TaskVisibility.INTERNAL,
     },
+    privateAudiences: [{ type: String, enum: [TaskVisibility.INTERNAL, TaskVisibility.EXTERNAL] }],
     allowedRoles: [{ type: String }],
+    allowedGroups: [{ type: Schema.Types.ObjectId, ref: "Group" }],
     status: {
       type: String,
       enum: Object.values(TaskStatus),
@@ -97,14 +108,19 @@ const TaskSchema: Schema = new Schema(
         uploadedAt: { type: Date, default: Date.now },
       },
     ],
+    deletedAt: { type: Date, default: null },
+    archivedAt: { type: Date, default: null },
   },
   { timestamps: true },
 );
 
+TaskSchema.index({ deletedAt: 1 }, { sparse: true });
+TaskSchema.index({ archivedAt: 1 }, { sparse: true });
+
 // Virtual property to check if task is expired
 TaskSchema.virtual("isExpired").get(function (this: ITask) {
-  if (!this.endDate) return false;
-  return new Date() > this.endDate;
+  if (!this.applicationCloseDate) return false;
+  return new Date() > this.applicationCloseDate;
 });
 
 // Ensure virtuals are included in JSON

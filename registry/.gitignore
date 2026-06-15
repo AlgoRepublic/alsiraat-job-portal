@@ -1,0 +1,4 @@
+# Ignore everything in data and auth except .keep files
+data/*
+auth/*
+!**/.keep

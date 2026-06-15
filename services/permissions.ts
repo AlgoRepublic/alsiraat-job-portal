@@ -25,9 +25,13 @@ export const Permission = {
   APPLICATION_CREATE: "application:create",
   APPLICATION_READ: "application:read",
   APPLICATION_READ_OWN: "application:read_own",
+  APPLICATION_ASSIGN_DIRECT: "application:assign",
+  TASK_ASSIGN: "task:assign",
   APPLICATION_SHORTLIST: "application:shortlist",
   APPLICATION_APPROVE: "application:approve",
   APPLICATION_REJECT: "application:reject",
+  APPLICATION_CONFIRM: "application:confirm",
+  APPLICATION_DECLINE: "application:decline",
 
   // User Management
   USER_READ: "user:read",
@@ -63,9 +67,7 @@ export type Permission = (typeof Permission)[keyof typeof Permission];
 // ============================================================================
 
 export const RolePermissions: Record<UserRole, Permission[]> = {
-  [UserRole.GLOBAL_ADMIN]: Object.values(Permission),
-
-  [UserRole.SCHOOL_ADMIN]: [
+  [UserRole.ORGANIZATION_ADMIN]: [
     Permission.TASK_CREATE,
     Permission.TASK_READ,
     Permission.TASK_UPDATE,
@@ -77,6 +79,7 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.APPLICATION_SHORTLIST,
     Permission.APPLICATION_APPROVE,
     Permission.APPLICATION_REJECT,
+    Permission.APPLICATION_ASSIGN_DIRECT,
     Permission.ORG_READ,
     Permission.ORG_UPDATE,
     Permission.ORG_MANAGE_MEMBERS,
@@ -93,6 +96,7 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.TASK_PUBLISH,
     Permission.APPLICATION_READ,
     Permission.APPLICATION_SHORTLIST,
+    Permission.APPLICATION_ASSIGN_DIRECT,
     Permission.ORG_READ,
     Permission.DASHBOARD_VIEW,
   ],
@@ -102,6 +106,7 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.TASK_READ,
     Permission.APPLICATION_CREATE,
     Permission.APPLICATION_READ_OWN,
+    Permission.APPLICATION_ASSIGN_DIRECT,
     Permission.ORG_READ,
   ],
 
@@ -110,6 +115,8 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.TASK_READ,
     Permission.APPLICATION_CREATE,
     Permission.APPLICATION_READ_OWN,
+    Permission.APPLICATION_CONFIRM,
+    Permission.APPLICATION_DECLINE,
   ],
 };
 
@@ -120,7 +127,9 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
 export function hasPermission(
   role: UserRole | undefined,
   permission: Permission,
+  options?: { isSuperAdmin?: boolean },
 ): boolean {
+  if (options?.isSuperAdmin) return true;
   if (!role) return false;
   const permissions = RolePermissions[role];
   if (!permissions) return false;
@@ -130,17 +139,21 @@ export function hasPermission(
 export function hasAnyPermission(
   role: UserRole | undefined,
   permissions: Permission[],
+  options?: { isSuperAdmin?: boolean },
 ): boolean {
+  if (options?.isSuperAdmin) return true;
   if (!role) return false;
-  return permissions.some((p) => hasPermission(role, p));
+  return permissions.some((p) => hasPermission(role, p, options));
 }
 
 export function hasAllPermissions(
   role: UserRole | undefined,
   permissions: Permission[],
+  options?: { isSuperAdmin?: boolean },
 ): boolean {
+  if (options?.isSuperAdmin) return true;
   if (!role) return false;
-  return permissions.every((p) => hasPermission(role, p));
+  return permissions.every((p) => hasPermission(role, p, options));
 }
 
 // ============================================================================
@@ -160,11 +173,12 @@ export function canWithContext(
   role: UserRole | undefined,
   permission: Permission,
   context: PermissionContext,
+  options?: { isSuperAdmin?: boolean },
 ): boolean {
+  if (options?.isSuperAdmin) return true;
   if (!role) return false;
-  if (role === UserRole.GLOBAL_ADMIN) return true;
 
-  if (hasPermission(role, permission)) {
+  if (hasPermission(role, permission, options)) {
     return true;
   }
 
@@ -191,14 +205,14 @@ export function canWithContext(
 // CONVENIENCE FUNCTIONS
 // ============================================================================
 
-export function canAutoPublish(role: UserRole | undefined): boolean {
+export function canAutoPublish(
+  role: UserRole | undefined,
+  options?: { isSuperAdmin?: boolean },
+): boolean {
+  if (options?.isSuperAdmin) return true;
   if (!role) return false;
   return (
-    [
-      UserRole.GLOBAL_ADMIN,
-      UserRole.SCHOOL_ADMIN,
-      UserRole.TASK_MANAGER,
-    ] as UserRole[]
+    [UserRole.ORGANIZATION_ADMIN, UserRole.TASK_MANAGER] as UserRole[]
   ).includes(role);
 }
 

@@ -9,18 +9,11 @@ interface ApplicationQueryDeps {
   TaskModel: TaskModel;
 }
 
-// Define the shape of UserRole object we expect
-interface UserRoleEnum {
-  GLOBAL_ADMIN: string;
-  [key: string]: string;
-}
-
 export const buildApplicationQuery = async (
   user: any,
   taskId: string | undefined,
   permissions: { hasFullAccess: boolean; hasOwnAccess: boolean },
   deps: ApplicationQueryDeps,
-  UserRole: UserRoleEnum // Inject UserRole
 ): Promise<any> => {
   const { hasFullAccess, hasOwnAccess } = permissions;
   let query: any = {};
@@ -35,30 +28,39 @@ export const buildApplicationQuery = async (
     // If user has full access, check if they can view this task's applications
     else if (hasFullAccess) {
       const task = await deps.TaskModel.findById(taskId);
-      if (task && user.role !== UserRole.GLOBAL_ADMIN) {
+      if (task && !user.isSuperAdmin) {
         // Check if user is from the same org or is the task creator
         if (
-          task.organisation?.toString() !== user.organisation?.toString() &&
+          task.organisation?.toString() !== user.orgId?.toString() &&
           task.createdBy?.toString() !== user._id.toString()
         ) {
-          throw new Error("You don't have permission to view these applications"); // Or handle this differently
+          throw new Error(
+            "You don't have permission to view these applications",
+          ); // Or handle this differently
         }
       }
     }
   } else {
     // No specific task - filter based on permissions
-    if (user.role === UserRole.GLOBAL_ADMIN) {
-      // Admin sees all
-      query = {};
-    } else if (hasFullAccess) {
-      // Users with APPLICATION_READ see applications for their org's tasks
-      if (user.organisation) {
+    if (user.isSuperAdmin) {
+      // Keep super admins org-scoped when active org is selected.
+      if (user.orgId) {
         const tasks = await deps.TaskModel.find({
-          organisation: user.organisation,
+          organisation: user.orgId,
         }).select("_id");
         query.task = { $in: tasks.map((t: any) => t._id) };
       } else {
-        // Independent users with full access see applications for their own tasks
+        query = {};
+      }
+    } else if (hasFullAccess) {
+      // Users with APPLICATION_READ see applications for their org's tasks
+      if (user.orgId) {
+        const tasks = await deps.TaskModel.find({
+          organisation: user.orgId,
+        }).select("_id");
+        query.task = { $in: tasks.map((t: any) => t._id) };
+      } else {
+        // Users without an org context see applications for their own tasks
         const tasks = await deps.TaskModel.find({
           createdBy: user._id,
         }).select("_id");

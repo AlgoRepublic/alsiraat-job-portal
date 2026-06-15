@@ -1,6 +1,17 @@
 version: "3.8"
 
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: tasker-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - tasker-network
+
   # MongoDB database
   mongodb:
     image: mongo:7
@@ -28,10 +39,12 @@ services:
       - NODE_ENV=production
       - PORT=8080
       - MONGODB_URI=mongodb://mongodb:27017/tasker
+      - REDIS_URL=redis://redis:6379
       - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
       - FRONTEND_URL=https://tasker.alsiraat.vic.edu.au
     depends_on:
       - mongodb
+      - redis
     networks:
       - tasker-network
 
@@ -53,6 +66,7 @@ services:
 
 volumes:
   mongodb_data:
+  redis_data:
 
 networks:
   tasker-network:

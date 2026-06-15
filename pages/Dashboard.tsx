@@ -10,7 +10,6 @@ import {
   Plus,
   Eye,
   CheckCircle,
-  XCircle,
   Briefcase,
   Bell,
   Zap,
@@ -18,14 +17,20 @@ import {
   ChevronRight,
   FileText,
   UserCheck,
-  MessageSquare,
+  RefreshCw,
+  BarChart3,
+  Award,
+  Send,
+  XCircle,
 } from "lucide-react";
-import { UserRole, JobStatus, Job, Application, Permission } from "../types";
+import { UserRole, JobStatus, Permission } from "../types";
 import { db } from "../services/database";
 import { useNavigate } from "react-router-dom";
+import { Loading } from "../components/Loading";
+import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 
 interface DashboardProps {
-  role: UserRole;
+  roles?: UserRole[];
 }
 
 export const getStatusColor = (status: JobStatus) => {
@@ -40,131 +45,91 @@ export const getStatusColor = (status: JobStatus) => {
       return "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800";
     case JobStatus.CLOSED:
       return "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800";
-    case JobStatus.ARCHIVED:
-      return "bg-zinc-800 dark:bg-zinc-700 text-zinc-300 dark:text-zinc-400 border border-zinc-700 dark:border-zinc-600";
     default:
       return "bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200";
   }
 };
 
-interface ActionItem {
-  id: string;
-  type: "pending_task" | "new_application" | "pending_review";
-  title: string;
-  subtitle: string;
-  priority: "high" | "medium" | "low";
-  time: string;
-  link: string;
-}
+const getApplicationStatusColor = (status: string) => {
+  switch (status) {
+    case "Approved":
+    case "Accepted":
+      return "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400";
+    case "Offered":
+      return "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400";
+    case "Shortlisted":
+      return "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400";
+    case "Rejected":
+    case "Declined":
+      return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400";
+    default:
+      return "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400";
+  }
+};
 
-import { Loading } from "../components/Loading";
+const getRelativeTime = (dateStr: string) => {
+  if (!dateStr) return "—";
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return "—";
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+};
 
-export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
+const getTaskStatusDot = (status: string) => {
+  switch (status) {
+    case "Published":
+      return "bg-emerald-500";
+    case "Pending":
+      return "bg-amber-500";
+    case "Completed":
+      return "bg-blue-500";
+    case "Closed":
+      return "bg-red-400";
+    default:
+      return "bg-zinc-400";
+  }
+};
+
+export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
   const navigate = useNavigate();
-  const [activeJobsCount, setActiveJobsCount] = useState(0);
-  const [totalApplications, setTotalApplications] = useState(0);
-  const [pendingCount, setPendingCount] = useState(0);
-  const [myApplications, setMyApplications] = useState<Application[]>([]);
-  const [recentJobs, setRecentJobs] = useState<Job[]>([]);
-  const [actionItems, setActionItems] = useState<ActionItem[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Update time every minute
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
-    return () => clearInterval(timer);
+    return () => () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      try {
-        const [jobs, apps, user] = await Promise.all([
-          db.getJobs(),
-          db.getApplications(),
-          db.getCurrentUser(),
-        ]);
-
-        const published = jobs.filter((j) => j.status === JobStatus.PUBLISHED);
-        const pending = jobs.filter((j) => j.status === JobStatus.PENDING);
-        setActiveJobsCount(published.length);
-        setTotalApplications(apps.length);
-        setPendingCount(pending.length);
-
-        // Permission-based view logic
-        const canManageTasks = user?.permissions?.includes(
-          Permission.TASK_READ,
-        );
-
-        if (canManageTasks) {
-          // Users who can manage tasks see all jobs
-          setRecentJobs(jobs);
-        } else {
-          // Regular users see their applications and limited jobs
-          const myApps = apps.filter((a) => a.userId === user?.id);
-          setMyApplications(myApps);
-          setRecentJobs(jobs.slice(0, 5));
-        }
-
-        // Build action items
-        const items: ActionItem[] = [];
-
-        // Add pending tasks needing approval
-        pending.forEach((job) => {
-          items.push({
-            id: `task-${job.id}`,
-            type: "pending_task",
-            title: job.title,
-            subtitle: `Awaiting approval • ${job.category}`,
-            priority: "high",
-            time: getRelativeTime(job.createdAt || new Date().toISOString()),
-            link: `/jobs/${job.id}`,
-          });
-        });
-
-        // Add recent applications needing review
-        const pendingApps = apps
-          .filter((a) => a.status === "Pending")
-          .slice(0, 5);
-        pendingApps.forEach((app) => {
-          const job = jobs.find((j) => j.id === app.jobId);
-          items.push({
-            id: `app-${app.id}`,
-            type: "new_application",
-            title: app.applicantName || "New Applicant",
-            subtitle: `Applied for ${job?.title || "Unknown Task"}`,
-            priority: "medium",
-            time: getRelativeTime(app.appliedAt || new Date().toISOString()),
-            link: `/jobs/${app.jobId}/applicants`,
-          });
-        });
-
-        setActionItems(items.slice(0, 8));
-      } catch (err) {
-        console.error("Dashboard data load failed", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadData();
-  }, [role]);
-
-  const getRelativeTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const [user, dashStats] = await Promise.all([
+        db.getCurrentUser(),
+        db.getDashboardStats(),
+      ]);
+      setCurrentUser(user);
+      setStats(dashStats);
+    } catch (err) {
+      console.error("Dashboard data load failed", err);
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const getGreeting = () => {
     const hour = currentTime.getHours();
@@ -173,41 +138,59 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
     return "Good Evening";
   };
 
-  const getActionIcon = (type: string) => {
-    switch (type) {
-      case "pending_task":
-        return <Clock className="w-4 h-4" />;
-      case "new_application":
-        return <UserCheck className="w-4 h-4" />;
-      case "pending_review":
-        return <Eye className="w-4 h-4" />;
-      default:
-        return <Bell className="w-4 h-4" />;
-    }
-  };
+  const isAdmin =
+    currentUser?.isSuperAdmin ||
+    roles?.includes(UserRole.ORGANIZATION_ADMIN);
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "high":
-        return "bg-red-500";
-      case "medium":
-        return "bg-amber-500";
-      default:
-        return "bg-blue-500";
-    }
-  };
+  const canSeeOrgStats =
+    stats?.capabilities?.canViewPending && stats?.capabilities?.canViewApps;
+  const canSeeUsers = stats?.capabilities?.canManageUsers;
 
   if (isLoading) {
-    return <Loading message="Loading..." />;
+    return <Loading message="Loading dashboard..." />;
   }
+
+  const s = stats ?? {};
+  const tasks = s.tasks ?? {};
+  const applications = s.applications ?? {};
+  const users = s.users ?? {};
+  const actionItems = s.actionItems ?? {
+    pendingTasks: [],
+    pendingApplications: [],
+  };
+  const myRecentApps: any[] = s.myRecentApplications ?? [];
+  const myRecentTasks: any[] = s.myRecentTasks ?? [];
+
+  // Build combined action feed for managers
+  const actionFeed = [
+    ...actionItems.pendingTasks.map((t: any) => ({
+      id: `task-${t.id}`,
+      type: "pending_task" as const,
+      title: t.title,
+      subtitle: `Awaiting approval • ${t.category ?? ""}`,
+      time: getRelativeTime(t.createdAt),
+      link: `/jobs/${t.id}`,
+      priority: "high" as const,
+    })),
+    ...actionItems.pendingApplications.map((a: any) => ({
+      id: `app-${a.id}`,
+      type: "new_application" as const,
+      title: a.applicantName,
+      subtitle: `Applied for "${a.taskTitle}"`,
+      time: getRelativeTime(a.createdAt),
+      link: `/application/${a.id}`,
+      priority: "medium" as const,
+    })),
+  ].slice(0, 8);
 
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* Welcome Header */}
+      {/* ── Welcome Header ── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-3xl md:text-4xl font-black text-zinc-900 dark:text-white tracking-tighter">
-            {getGreeting()} 👋
+            {getGreeting()}
+            {currentUser?.name ? `, ${currentUser.name.split(" ")[0]}` : ""} 👋
           </h1>
           <p className="text-zinc-500 dark:text-zinc-400 mt-1 flex items-center gap-2">
             <Calendar className="w-4 h-4" />
@@ -220,8 +203,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
           </p>
         </div>
 
-        {/* Quick Actions */}
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-center">
+          <button
+            onClick={loadData}
+            className="p-2.5 bg-white/50 dark:bg-zinc-800/50 text-zinc-500 dark:text-zinc-400 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-white dark:hover:bg-zinc-800 transition-all"
+            title="Refresh"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
           <button
             onClick={() => navigate("/post-job")}
             className="flex items-center gap-2 px-5 py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primaryHover transition-all shadow-lg shadow-primary/20"
@@ -239,8 +228,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
         </div>
       </div>
 
-      {/* Urgent Alert Banner (if there are pending items) */}
-      {pendingCount > 0 && (
+      {/* ── Pending Approval Alert ── */}
+      {tasks.pending > 0 && canSeeOrgStats && (
         <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-5 flex items-center justify-between text-white shadow-lg shadow-amber-500/20">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-white/20 rounded-xl">
@@ -248,7 +237,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
             </div>
             <div>
               <p className="font-bold text-lg">
-                {pendingCount} task{pendingCount > 1 ? "s" : ""} awaiting
+                {tasks.pending} task{tasks.pending > 1 ? "s" : ""} awaiting
                 approval
               </p>
               <p className="text-white/80 text-sm">
@@ -257,97 +246,292 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
             </div>
           </div>
           <button
-            onClick={() => navigate("/jobs?status=Pending")}
-            className="flex items-center gap-2 px-5 py-2.5 bg-white text-amber-600 rounded-xl font-bold text-sm hover:bg-amber-50 transition-all"
+            onClick={() => navigate("/pending-approvals")}
+            className="flex items-center gap-2 px-5 py-2.5 bg-white text-amber-600 rounded-xl font-bold text-sm hover:bg-amber-50 transition-all whitespace-nowrap"
           >
-            Review Now
-            <ArrowRight className="w-4 h-4" />
+            Review Now <ArrowRight className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      {/* Stats Overview - Compact Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div
-          onClick={() => navigate("/my-applications")}
-          className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-primary/10 rounded-xl group-hover:scale-110 transition-transform">
-              <Briefcase className="w-5 h-5 text-primary" />
+      {/* ── Stats Cards ── */}
+      {canSeeOrgStats ? (
+        /* Manager / Admin view — org-level stats */
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* Total Tasks */}
+          <div
+            onClick={() => navigate("/jobs")}
+            className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-primary/10 rounded-xl group-hover:scale-110 transition-transform">
+                <Briefcase className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                  {tasks.total ?? 0}
+                </p>
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                  Total Tasks
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-2xl font-black text-zinc-900 dark:text-white">
-                {recentJobs.length}
-              </p>
-              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
-                Total Tasks
-              </p>
+          </div>
+
+          {/* Active Tasks */}
+          <div
+            onClick={() => navigate("/jobs?status=Published")}
+            className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-emerald-100 dark:bg-emerald-900/20 rounded-xl group-hover:scale-110 transition-transform">
+                <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                  {tasks.active ?? 0}
+                </p>
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                  Active
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Pending Approval */}
+          <div
+            onClick={() => navigate("/pending-approvals")}
+            className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-amber-100 dark:bg-amber-900/20 rounded-xl group-hover:scale-110 transition-transform">
+                <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                  {tasks.pending ?? 0}
+                </p>
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                  Pending
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Closed Tasks */}
+          <div
+            onClick={() => navigate("/jobs?status=Closed")}
+            className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-red-100 dark:bg-red-900/20 rounded-xl group-hover:scale-110 transition-transform">
+                <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                  {tasks.closed ?? 0}
+                </p>
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                  Closed
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Not Yet Open Tasks */}
+          <div
+            onClick={() => navigate("/jobs?status=NotYetOpen")}
+            className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-sky-100 dark:bg-sky-900/20 rounded-xl group-hover:scale-110 transition-transform">
+                <Calendar className="w-5 h-5 text-sky-600 dark:text-sky-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                  {tasks.notYetOpen ?? 0}
+                </p>
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                  Not Yet Open
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Total Applications */}
+          <div
+            onClick={() => navigate("/jobs")}
+            className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-blue-100 dark:bg-blue-900/20 rounded-xl group-hover:scale-110 transition-transform">
+                <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                  {applications.total ?? 0}
+                </p>
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                  Applications
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Extra rows for admins */}
+          {canSeeUsers && (
+            <div
+              onClick={() => navigate("/admin/settings")}
+              className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-100 dark:bg-indigo-900/20 rounded-xl group-hover:scale-110 transition-transform">
+                  <UserCheck className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <div>
+                  <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                    {users.total ?? 0}
+                  </p>
+                  <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                    Members
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="glass-card p-5 rounded-2xl group">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-purple-100 dark:bg-purple-900/20 rounded-xl group-hover:scale-110 transition-transform">
+                <Award className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                  {tasks.completed ?? 0}
+                </p>
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                  Completed
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="glass-card p-5 rounded-2xl group">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-rose-100 dark:bg-rose-900/20 rounded-xl group-hover:scale-110 transition-transform">
+                <BarChart3 className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                  {applications.pending ?? 0}
+                </p>
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                  Pending Apps
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="glass-card p-5 rounded-2xl group">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-cyan-100 dark:bg-cyan-900/20 rounded-xl group-hover:scale-110 transition-transform">
+                <Send className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                  {tasks.createdByMe ?? 0}
+                </p>
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                  My Posts
+                </p>
+              </div>
             </div>
           </div>
         </div>
-
-        <div
-          onClick={() => navigate("/jobs?status=Published")}
-          className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-100 dark:bg-emerald-900/20 rounded-xl group-hover:scale-110 transition-transform">
-              <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+      ) : (
+        /* Applicant view — personal stats */
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div
+            onClick={() => navigate("/my-applications")}
+            className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-primary/10 rounded-xl group-hover:scale-110 transition-transform">
+                <Send className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                  {applications.mine ?? 0}
+                </p>
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                  My Apps
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-2xl font-black text-zinc-900 dark:text-white">
-                {activeJobsCount}
-              </p>
-              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
-                Active
-              </p>
+          </div>
+
+          <div
+            onClick={() => navigate("/my-applications")}
+            className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-amber-100 dark:bg-amber-900/20 rounded-xl group-hover:scale-110 transition-transform">
+                <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                  {applications.myPending ?? 0}
+                </p>
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                  Pending
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div
+            onClick={() => navigate("/my-applications")}
+            className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-emerald-100 dark:bg-emerald-900/20 rounded-xl group-hover:scale-110 transition-transform">
+                <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                  {applications.myAccepted ?? 0}
+                </p>
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                  Accepted
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div
+            onClick={() => navigate("/jobs")}
+            className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-blue-100 dark:bg-blue-900/20 rounded-xl group-hover:scale-110 transition-transform">
+                <Briefcase className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                  {tasks.active ?? 0}
+                </p>
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                  Open Tasks
+                </p>
+              </div>
             </div>
           </div>
         </div>
+      )}
 
-        <div
-          onClick={() => navigate("/jobs?status=Pending")}
-          className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-amber-100 dark:bg-amber-900/20 rounded-xl group-hover:scale-110 transition-transform">
-              <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-black text-zinc-900 dark:text-white">
-                {pendingCount}
-              </p>
-              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
-                Pending
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div
-          onClick={() => navigate("/jobs")}
-          className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-blue-100 dark:bg-blue-900/20 rounded-xl group-hover:scale-110 transition-transform">
-              <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-black text-zinc-900 dark:text-white">
-                {totalApplications}
-              </p>
-              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
-                Applications
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content Grid */}
+      {/* ── Main Content Grid ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Action Items / To-Do */}
+        {/* Action Feed (for managers) or My Recent Applications (for applicants) */}
         <div className="lg:col-span-2 glass-card rounded-2xl overflow-hidden">
           <div className="p-6 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -356,74 +540,150 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
               </div>
               <div>
                 <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
-                  Action Required
+                  {canSeeOrgStats ? "Action Required" : "My Applications"}
                 </h3>
                 <p className="text-xs text-zinc-500">
-                  Items needing your attention
+                  {canSeeOrgStats
+                    ? "Items needing your attention"
+                    : "Status of your recent applications"}
                 </p>
               </div>
             </div>
-            {actionItems.length > 0 && (
+            {canSeeOrgStats && actionFeed.length > 0 && (
               <span className="px-3 py-1 bg-primary text-white text-xs font-bold rounded-full">
-                {actionItems.length}
+                {actionFeed.length}
               </span>
             )}
           </div>
 
           <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-            {actionItems.length === 0 ? (
+            {canSeeOrgStats ? (
+              actionFeed.length === 0 ? (
+                <div className="p-12 text-center">
+                  <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto mb-4" />
+                  <p className="text-lg font-bold text-zinc-900 dark:text-white">
+                    All caught up!
+                  </p>
+                  <p className="text-sm text-zinc-500 mt-1">
+                    No pending actions at the moment
+                  </p>
+                </div>
+              ) : (
+                actionFeed.map((item) => (
+                  <div
+                    key={item.id}
+                    onClick={() => navigate(item.link)}
+                    className="p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-all flex items-center gap-4 group"
+                  >
+                    <div className="relative">
+                      <div
+                        className={`p-2.5 rounded-xl ${
+                          item.type === "pending_task"
+                            ? "bg-amber-100 dark:bg-amber-900/20 text-amber-600"
+                            : "bg-blue-100 dark:bg-blue-900/20 text-blue-600"
+                        }`}
+                      >
+                        {item.type === "pending_task" ? (
+                          <Clock className="w-4 h-4" />
+                        ) : (
+                          <UserCheck className="w-4 h-4" />
+                        )}
+                      </div>
+                      <div
+                        className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ring-2 ring-white dark:ring-zinc-900 ${
+                          item.priority === "high"
+                            ? "bg-red-500"
+                            : "bg-amber-500"
+                        }`}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-zinc-900 dark:text-white truncate">
+                        {item.title}
+                      </p>
+                      <p className="text-sm text-zinc-500 truncate">
+                        {item.subtitle}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-xs text-zinc-400">{item.time}</span>
+                      <ChevronRight className="w-4 h-4 text-zinc-300 group-hover:text-primary transition-colors" />
+                    </div>
+                  </div>
+                ))
+              )
+            ) : /* Applicant: show personal applications */
+            myRecentApps.length === 0 ? (
               <div className="p-12 text-center">
-                <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto mb-4" />
+                <Send className="w-12 h-12 text-primary/30 mx-auto mb-4" />
                 <p className="text-lg font-bold text-zinc-900 dark:text-white">
-                  All caught up!
+                  No applications yet
                 </p>
-                <p className="text-sm text-zinc-500 mt-1">
-                  No pending actions at the moment
+                <p className="text-sm text-zinc-500 mt-1 mb-6">
+                  Search available tasks and apply for one that interests you
                 </p>
+                <button
+                  onClick={() => navigate("/jobs")}
+                  className="px-6 py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primaryHover transition-all"
+                >
+                  Search Tasks
+                </button>
               </div>
             ) : (
-              actionItems.map((item) => (
+              myRecentApps.map((app) => (
                 <div
-                  key={item.id}
-                  onClick={() => navigate(item.link)}
+                  key={app.id}
+                  onClick={() => navigate(`/application/${app.id}`)}
                   className="p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-all flex items-center gap-4 group"
                 >
-                  <div className="relative">
-                    <div
-                      className={`p-2.5 rounded-xl ${
-                        item.type === "pending_task"
-                          ? "bg-amber-100 dark:bg-amber-900/20 text-amber-600"
-                          : item.type === "new_application"
-                            ? "bg-blue-100 dark:bg-blue-900/20 text-blue-600"
-                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600"
-                      }`}
-                    >
-                      {getActionIcon(item.type)}
-                    </div>
-                    <div
-                      className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${getPriorityColor(item.priority)} ring-2 ring-white dark:ring-zinc-900`}
-                    />
+                  <div className="p-2.5 bg-primary/10 rounded-xl text-primary">
+                    <ClipboardCheck className="w-4 h-4" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-zinc-900 dark:text-white truncate">
-                      {item.title}
+                      {app.taskTitle}
                     </p>
-                    <p className="text-sm text-zinc-500 truncate">
-                      {item.subtitle}
+                    <p className="text-sm text-zinc-500">
+                      {getRelativeTime(app.createdAt)}
                     </p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-zinc-400">{item.time}</span>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span
+                      className={`px-2.5 py-1 text-[10px] font-black rounded-lg uppercase tracking-wider ${getApplicationStatusColor(app.status)}`}
+                    >
+                      {app.status}
+                    </span>
                     <ChevronRight className="w-4 h-4 text-zinc-300 group-hover:text-primary transition-colors" />
                   </div>
                 </div>
               ))
             )}
           </div>
+
+          {canSeeOrgStats ? (
+            <div className="p-4 border-t border-zinc-100 dark:border-zinc-800">
+              <button
+                onClick={() => navigate("/pending-approvals")}
+                className="w-full py-2 text-xs font-black uppercase tracking-widest text-primary hover:bg-primary/5 rounded-lg transition-colors"
+              >
+                View All Pending Approvals
+              </button>
+            </div>
+          ) : myRecentApps.length > 0 ? (
+            <div className="p-4 border-t border-zinc-100 dark:border-zinc-800">
+              <button
+                onClick={() => navigate("/my-applications")}
+                className="w-full py-2 text-xs font-black uppercase tracking-widest text-primary hover:bg-primary/5 rounded-lg transition-colors"
+              >
+                View All My Applications
+              </button>
+            </div>
+          ) : null}
         </div>
 
-        {/* Quick Links / Shortcuts */}
+        {/* Right Sidebar */}
         <div className="space-y-4">
+          {/* Quick Links */}
           <div className="glass-card p-6 rounded-2xl">
             <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-4">
               Quick Links
@@ -437,9 +697,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
                   <Plus className="w-4 h-4 text-emerald-600" />
                 </div>
                 <span className="font-bold text-zinc-700 dark:text-zinc-300">
-                  Post New Task
+                  Create Task
                 </span>
               </button>
+
               <button
                 onClick={() => navigate("/jobs")}
                 className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all group"
@@ -448,9 +709,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
                   <Eye className="w-4 h-4 text-blue-600" />
                 </div>
                 <span className="font-bold text-zinc-700 dark:text-zinc-300">
-                  View All Tasks
+                  Search Tasks
                 </span>
               </button>
+
               <button
                 onClick={() => navigate("/my-tasks")}
                 className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all group"
@@ -462,7 +724,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
                   My Tasks
                 </span>
               </button>
-              {role === UserRole.GLOBAL_ADMIN && (
+
+              <button
+                onClick={() => navigate("/my-applications")}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all group"
+              >
+                <div className="p-2 bg-cyan-100 dark:bg-cyan-900/20 rounded-lg group-hover:scale-110 transition-transform">
+                  <Send className="w-4 h-4 text-cyan-600" />
+                </div>
+                <span className="font-bold text-zinc-700 dark:text-zinc-300">
+                  My Applications
+                </span>
+              </button>
+
+              {isAdmin && (
                 <button
                   onClick={() => navigate("/admin/settings")}
                   className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all group"
@@ -475,8 +750,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
                   </span>
                 </button>
               )}
-              {(role === UserRole.GLOBAL_ADMIN ||
-                role === UserRole.SCHOOL_ADMIN) && (
+
+              {isAdmin && (
                 <button
                   onClick={() => navigate("/reports")}
                   className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all group"
@@ -492,35 +767,88 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
             </div>
           </div>
 
-          {/* Recent Activity Mini */}
+          {/* Recent Tasks (my posts for managers, available tasks for applicants) */}
           <div className="glass-card p-6 rounded-2xl">
-            <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-4">
-              Recent Tasks
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
+                {canSeeOrgStats ? "My Posts" : "Recent Tasks"}
+              </h3>
+              <button
+                onClick={() => navigate(canSeeOrgStats ? "/my-tasks" : "/jobs")}
+                className="text-xs font-black text-primary uppercase tracking-widest hover:underline"
+              >
+                See All
+              </button>
+            </div>
             <div className="space-y-3">
-              {recentJobs.slice(0, 4).map((job) => (
-                <div
-                  key={job.id}
-                  onClick={() => navigate(`/jobs/${job.id}`)}
-                  className="flex items-center gap-3 p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer transition-all"
-                >
+              {(canSeeOrgStats ? myRecentTasks : []).length === 0 &&
+              !canSeeOrgStats ? (
+                <p className="text-sm text-zinc-400 text-center py-4">
+                  Search tasks to get started
+                </p>
+              ) : (
+                myRecentTasks.slice(0, 4).map((task) => (
                   <div
-                    className={`w-2 h-2 rounded-full ${
-                      job.status === JobStatus.PUBLISHED
-                        ? "bg-emerald-500"
-                        : job.status === JobStatus.PENDING
-                          ? "bg-amber-500"
-                          : "bg-zinc-400"
-                    }`}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-zinc-900 dark:text-white truncate">
-                      {job.title}
-                    </p>
-                    <p className="text-xs text-zinc-500">{job.category}</p>
+                    key={task.id}
+                    className="flex items-center gap-2 p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
+                  >
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => navigate(`/jobs/${task.id}`)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          navigate(`/jobs/${task.id}`);
+                        }
+                      }}
+                      className="flex flex-1 min-w-0 items-center gap-3 cursor-pointer"
+                    >
+                    <div
+                      className={`w-2 h-2 rounded-full shrink-0 ${getTaskStatusDot(task.status)}`}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-zinc-900 dark:text-white truncate">
+                        {task.title}
+                      </p>
+                      <p className="text-xs text-zinc-500">
+                        {task.applicantsCount ?? 0} applicant
+                        {task.applicantsCount !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                    <span
+                      className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg shrink-0 ${
+                        task.status === "Published"
+                          ? "bg-emerald-100 text-emerald-700"
+                          : task.status === "Pending"
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-zinc-100 text-zinc-500"
+                      }`}
+                    >
+                      {task.status}
+                    </span>
+                    </div>
+                    <TaskLifecycleActions
+                      job={task}
+                      currentUser={currentUser}
+                      layout="compact"
+                      onAfterMutation={loadData}
+                    />
                   </div>
+                ))
+              )}
+
+              {myRecentTasks.length === 0 && canSeeOrgStats && (
+                <div className="text-center py-4">
+                  <p className="text-sm text-zinc-400 mb-3">No posts yet</p>
+                  <button
+                    onClick={() => navigate("/post-job")}
+                    className="text-xs font-bold text-primary hover:underline"
+                  >
+                    Create your first task →
+                  </button>
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </div>

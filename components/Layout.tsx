@@ -9,29 +9,60 @@ import {
   X,
   LogOut,
   PlusCircle,
-  Plus,
   Search,
   Moon,
   Sun,
   Settings,
   Bell,
-  Palette,
-  Check,
   CheckCircle,
-  Layers,
   FileText,
   Clock,
   CheckCheck,
-  Trash2,
+  Megaphone,
+  ClipboardList,
+  ClipboardCheck,
+  ChevronDown,
 } from "lucide-react";
-import { UserRole, User, Job, Permission } from "../types";
+import { UserRole, User, Job, Permission, type OrgContext } from "../types";
 import { SnowBackground } from "./SnowBackground";
-import { api, API_BASE_URL } from "../services/api";
+import { api, API_BASE_URL, LOGIN_SOURCE_KEY } from "../services/api";
+import {
+  getPublicCentralOrganisation,
+  type PublicPlatformOrg,
+  invalidatePlatformOrganisationCaches,
+} from "../services/platformOrganisations";
+import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
+import {
+  applyAccentPaletteToDocument,
+  buildAccentPaletteFromPrimary,
+  isValidThemeColorHex,
+} from "../utils/orgTheme";
+import { TaskLifecycleActions } from "./TaskLifecycleActions";
+
+/** Full display name for tooltip / labels when active org may omit `name` on the object. */
+function getActiveOrganisationDisplayName(user: User): string {
+  const ao = user.activeOrganisation as OrgContext | string | null | undefined;
+  if (ao && typeof ao === "object" && ao.name?.trim()) {
+    return ao.name.trim();
+  }
+  const id =
+    typeof ao === "string"
+      ? ao
+      : ao && typeof ao === "object"
+        ? ao._id
+        : undefined;
+  if (id && user.organisations?.length) {
+    const match = user.organisations.find((o) => o._id === id);
+    if (match?.name?.trim()) return match.name.trim();
+  }
+  return user.organisations?.[0]?.name?.trim() ?? "No organisation";
+}
 
 interface LayoutProps {
   children: React.ReactNode;
   currentUser: User | null;
   onSwitchUser: (role: UserRole) => void;
+  onSwitchOrg: (orgId: string) => Promise<void>;
   isDarkMode: boolean;
   onToggleTheme: () => void;
 }
@@ -45,6 +76,60 @@ interface Notification {
   read: boolean;
   createdAt: string;
 }
+
+const MAX_VISIBLE_SIDEBAR_ROLES = 1;
+
+type OrganisationShell = {
+  _id?: string;
+  name?: string;
+  logo?: string;
+};
+
+const getOrganisationLogoSrc = (logo?: string | null) =>
+  logo ? `${API_BASE_URL.replace(/\/api$/, "")}${logo}` : "";
+
+const OrganisationIdentityBadge: React.FC<{
+  organisation: OrganisationShell | null;
+  isDarkMode: boolean;
+}> = ({ organisation, isDarkMode }) => {
+  const [logoLoadFailed, setLogoLoadFailed] = useState(false);
+  const organisationName = organisation?.name?.trim() || "Tasker";
+  const hasCustomLogo = Boolean(organisation?.logo);
+
+  const resolvedLogoSrc =
+    hasCustomLogo && !logoLoadFailed
+      ? getOrganisationLogoSrc(organisation?.logo)
+      : isDarkMode
+        ? "/logo-dark.png"
+        : "/logo-light.png";
+
+  return (
+    <div
+      className="lg:hidden shrink-0 flex items-center gap-2 rounded-2xl border border-white/30 dark:border-white/5 bg-white/30 dark:bg-zinc-800/30 px-2.5 py-1.5 shadow-sm"
+      title={organisationName}
+      aria-label={`Organisation: ${organisationName}`}
+    >
+      <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl bg-white/80 dark:bg-zinc-900/80 border border-white/50 dark:border-white/10">
+        <img
+          src={resolvedLogoSrc}
+          alt=""
+          aria-hidden="true"
+          className="h-full w-full object-contain object-center p-0.5"
+          width={32}
+          height={32}
+          onError={() => {
+            if (hasCustomLogo && !logoLoadFailed) {
+              setLogoLoadFailed(true);
+            }
+          }}
+        />
+      </div>
+      <span className="hidden sm:inline min-w-0 max-w-[10rem] truncate text-sm font-bold text-zinc-900 dark:text-white leading-tight">
+        {organisationName}
+      </span>
+    </div>
+  );
+};
 
 const COLORS = [
   {
@@ -140,13 +225,25 @@ const HeaderIconButton: React.FC<{
   onClick?: () => void;
   badge?: boolean;
   badgeCount?: number;
-}> = ({ icon: Icon, label, onClick, badge = false, badgeCount = 0 }) => (
+  className?: string;
+  iconClassName?: string;
+}> = ({
+  icon: Icon,
+  label,
+  onClick,
+  badge = false,
+  badgeCount = 0,
+  className = "",
+  iconClassName = "",
+}) => (
   <button
+    type="button"
     onClick={onClick}
-    className="relative p-3 rounded-2xl bg-white/30 dark:bg-zinc-800/30 hover:bg-white/60 dark:hover:bg-zinc-800/60 transition-all border border-white/30 dark:border-white/5 shadow-sm"
+    className={`relative p-3 rounded-2xl bg-white/30 dark:bg-zinc-800/30 hover:bg-white/60 dark:hover:bg-zinc-800/60 transition-all border border-white/30 dark:border-white/5 shadow-sm ${className}`}
+    aria-label={label}
     title={label}
   >
-    <Icon className="w-5 h-5 text-zinc-500 dark:text-zinc-400" />
+    <Icon className={`w-5 h-5 text-zinc-500 dark:text-zinc-400 ${iconClassName}`} />
     {badge && badgeCount > 0 && (
       <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-bold text-white">
         {badgeCount > 9 ? "9+" : badgeCount}
@@ -159,18 +256,20 @@ export const Layout: React.FC<LayoutProps> = ({
   children,
   currentUser,
   onSwitchUser,
+  onSwitchOrg,
   isDarkMode,
   onToggleTheme,
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  /** Central shell (logo/theme) only on the public task list `#/jobs`, not login/landing. */
+  const isGuestPublicJobsList =
+    !currentUser && location.pathname === "/jobs";
   const [isSidebarOpen, setSidebarOpen] = useState(false);
-  const [showColorPicker, setShowColorPicker] = useState(false);
-  const [selectedColor, setSelectedColor] = useState(() => {
-    const stored = localStorage.getItem("accentColor");
-    return stored || "AlSiraat";
-  });
-
+  const [showOrgSwitcher, setShowOrgSwitcher] = useState(false);
+  const [switchingOrg, setSwitchingOrg] = useState<string | null>(null);
+  const [systemVersion, setSystemVersion] = useState<string | null>(null);
+  const [isVersionLoading, setIsVersionLoading] = useState(true);
   // Notification state
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -184,22 +283,66 @@ export const Layout: React.FC<LayoutProps> = ({
   const [isSearching, setIsSearching] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [searchRefreshNonce, setSearchRefreshNonce] = useState(0);
+  const [publicCentralOrg, setPublicCentralOrg] = useState<PublicPlatformOrg | null>(null);
 
-  // Apply saved accent color on mount
+  // Load Central org shell only on signed-out /jobs (public task list).
   useEffect(() => {
-    const savedColor = COLORS.find((c) => c.name === selectedColor);
-    if (savedColor) {
-      Object.entries(savedColor.palette).forEach(([key, value]) => {
-        document.documentElement.style.setProperty(`--accent-${key}`, value);
-        if (["100", "200", "300", "400", "800", "900", "950"].includes(key)) {
-          document.documentElement.style.setProperty(
-            `--accent-${key}-rgb`,
-            hexToRgb(value),
-          );
-        }
-      });
+    if (currentUser) {
+      setPublicCentralOrg(null);
+      return;
     }
-  }, []); // Only run on mount
+    if (!isGuestPublicJobsList) {
+      setPublicCentralOrg(null);
+      return;
+    }
+    let cancelled = false;
+    void getPublicCentralOrganisation().then((o) => {
+      if (!cancelled) setPublicCentralOrg(o);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser, isGuestPublicJobsList]);
+
+  // Active organisation theme overrides user accent; Central shell when signed out.
+  useEffect(() => {
+    const org = currentUser?.activeOrganisation as { themeColor?: string } | undefined;
+    const hex = typeof org?.themeColor === "string" ? org.themeColor.trim() : "";
+    if (isValidThemeColorHex(hex)) {
+      applyAccentPaletteToDocument(buildAccentPaletteFromPrimary(hex));
+      return;
+    }
+    if (!currentUser && isGuestPublicJobsList) {
+      const ph =
+        typeof publicCentralOrg?.themeColor === "string"
+          ? publicCentralOrg.themeColor.trim()
+          : "";
+      if (isValidThemeColorHex(ph)) {
+        applyAccentPaletteToDocument(buildAccentPaletteFromPrimary(ph));
+        return;
+      }
+    }
+    const storedName = localStorage.getItem("accentColor") || "AlSiraat";
+    const savedColor = COLORS.find((c) => c.name === storedName);
+    if (savedColor) {
+      applyAccentPaletteToDocument(savedColor.palette);
+    }
+  }, [
+    currentUser?.activeOrganisation,
+    currentUser,
+    publicCentralOrg,
+    isGuestPublicJobsList,
+  ]);
+
+  // Leaving Layout (e.g. /jobs → /login): reset CSS accents so auth/landing pages are not tinted by Central.
+  useEffect(() => {
+    return () => {
+      const stored = localStorage.getItem("accentColor") || "AlSiraat";
+      const saved = COLORS.find((c) => c.name === stored);
+      if (saved) applyAccentPaletteToDocument(saved.palette);
+    };
+  }, []);
 
   // Load notifications
   useEffect(() => {
@@ -213,6 +356,29 @@ export const Layout: React.FC<LayoutProps> = ({
       return () => clearInterval(interval);
     }
   }, [currentUser]);
+
+  // Public app version (shown in sidebar footer for everyone)
+  useEffect(() => {
+    let isMounted = true;
+    const loadSystemVersion = async () => {
+      try {
+        const response = await api.getSystemVersion();
+        if (isMounted) {
+          setSystemVersion(response?.version || "unknown");
+          setIsVersionLoading(false);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setSystemVersion("unknown");
+          setIsVersionLoading(false);
+        }
+      }
+    };
+    loadSystemVersion();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -245,7 +411,7 @@ export const Layout: React.FC<LayoutProps> = ({
       searchTimeoutRef.current = setTimeout(async () => {
         try {
           const response = await fetch(
-            `${API_BASE_URL}/tasks?search=${encodeURIComponent(searchQuery)}`,
+            `${API_BASE_URL}/tasks/tab/search?search=${encodeURIComponent(searchQuery)}`,
             {
               headers: currentUser
                 ? {
@@ -269,7 +435,7 @@ export const Layout: React.FC<LayoutProps> = ({
       setSearchResults([]);
       setShowSearchResults(false);
     }
-  }, [searchQuery, currentUser]);
+  }, [searchQuery, currentUser, searchRefreshNonce]);
 
   const loadNotifications = async () => {
     try {
@@ -349,7 +515,9 @@ export const Layout: React.FC<LayoutProps> = ({
   };
 
   const getRelativeTime = (dateStr: string) => {
+    if (!dateStr) return "—";
     const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return "—";
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
@@ -376,29 +544,6 @@ export const Layout: React.FC<LayoutProps> = ({
     }
   };
 
-  const hexToRgb = (hex: string) => {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return `${r}, ${g}, ${b}`;
-  };
-
-  const changeAccentColor = (name: string, palette: Record<string, string>) => {
-    setSelectedColor(name);
-    localStorage.setItem("accentColor", name);
-    setShowColorPicker(false);
-    Object.entries(palette).forEach(([key, value]) => {
-      document.documentElement.style.setProperty(`--accent-${key}`, value);
-      // Update RGB variables for radial gradients (specific ones needed)
-      if (["100", "200", "300", "400", "800", "900", "950"].includes(key)) {
-        document.documentElement.style.setProperty(
-          `--accent-${key}-rgb`,
-          hexToRgb(value),
-        );
-      }
-    });
-  };
-
   if (!currentUser && location.pathname === "/") {
     return (
       <div className="transition-colors duration-300 relative overflow-x-hidden">
@@ -414,6 +559,8 @@ export const Layout: React.FC<LayoutProps> = ({
     path: string;
     protected?: boolean;
     permission?: Permission;
+    /** If set, item is only shown when user has ANY of these permissions */
+    anyPermission?: Permission[];
   }[] = [
     {
       icon: LayoutDashboard,
@@ -422,33 +569,49 @@ export const Layout: React.FC<LayoutProps> = ({
       protected: true,
       permission: Permission.DASHBOARD_VIEW,
     },
-    { icon: Briefcase, label: "Browse Tasks", path: "/jobs" },
-    {
-      icon: Plus,
-      label: "Create Task",
-      path: "/post-job",
-      protected: true,
-      permission: Permission.TASK_CREATE,
-    },
+    { icon: Briefcase, label: "Search Tasks", path: "/jobs" },
+
+    // ── Applicant menu ──────────────────────────────────────────────────────
     {
       icon: FileText,
       label: "My Applications",
       path: "/my-applications",
       protected: true,
+      anyPermission: [
+        Permission.APPLICATION_CREATE,
+        Permission.APPLICATION_READ_OWN,
+      ],
     },
     {
-      icon: Clock,
-      label: "Pending Approvals",
-      path: "/jobs?status=Pending",
-      protected: true,
-      permission: Permission.TASK_APPROVE,
-    },
-    {
-      icon: CheckCircle,
+      icon: ClipboardCheck,
       label: "My Tasks",
       path: "/my-tasks",
       protected: true,
+      anyPermission: [
+        Permission.APPLICATION_CREATE,
+        Permission.APPLICATION_READ_OWN,
+      ],
     },
+
+    // ── Task creator / manager menu ─────────────────────────────────────────
+    {
+      icon: Megaphone,
+      label: "My Ads",
+      path: "/my-ads",
+      protected: true,
+      permission: Permission.TASK_CREATE,
+    },
+
+    // ── Manager / admin: pending tasks ─────────────────────────────────────
+    {
+      icon: ClipboardList,
+      label: "Pending Approvals",
+      path: "/pending-approvals",
+      protected: true,
+      permission: Permission.TASK_VIEW_PENDING,
+    },
+
+    // ── Common ──────────────────────────────────────────────────────────────
     {
       icon: UserCircle,
       label: "My Profile",
@@ -466,17 +629,58 @@ export const Layout: React.FC<LayoutProps> = ({
 
   const filteredNav = navItems.filter((item) => {
     if (item.protected && !currentUser) return false;
+    // Single permission guard
     if (item.permission && currentUser) {
       if (!currentUser.permissions?.includes(item.permission)) return false;
+    }
+    // Any-of permission guard
+    if (item.anyPermission && currentUser) {
+      const hasAny = item.anyPermission.some((p) =>
+        currentUser.permissions?.includes(p),
+      );
+      if (!hasAny) return false;
     }
     return true;
   });
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const idToken = localStorage.getItem("id_token");
+    const loginSource = localStorage.getItem(LOGIN_SOURCE_KEY);
+    let redirectUrl: string | undefined;
+    if (loginSource === "sso" && idToken) {
+      try {
+        const res = await api.getSsoLogoutUrl(idToken);
+        redirectUrl =
+          typeof res.redirectUrl === "string" &&
+          res.redirectUrl.startsWith("http")
+            ? res.redirectUrl
+            : undefined;
+      } catch {
+        redirectUrl = undefined;
+      }
+    }
     api.logout();
+    invalidatePlatformOrganisationCaches();
+    if (redirectUrl) {
+      window.location.replace(redirectUrl);
+      return;
+    }
     navigate("/login");
     window.location.reload();
   };
+
+  const currentUserRoles = currentUser
+    ? getUserRolesForActiveOrg(currentUser as any)
+    : [];
+
+  const browseShellOrg = currentUser
+    ? (currentUser.activeOrganisation as OrganisationShell | null)
+    : isGuestPublicJobsList
+      ? publicCentralOrg
+      : null;
+  const mobileOrganisationOrg = currentUser
+    ? browseShellOrg ?? currentUser.organisations?.[0] ?? null
+    : browseShellOrg;
 
   return (
     <div className="flex h-screen overflow-hidden font-sans text-zinc-900 dark:text-zinc-100 transition-colors duration-300 relative">
@@ -493,32 +697,153 @@ export const Layout: React.FC<LayoutProps> = ({
         className={`fixed inset-y-0 left-0 z-50 w-72 glass shadow-2xl lg:shadow-none transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="flex flex-col h-full">
-          <Link
-            to="/"
-            className="flex items-center px-6 h-24 border-b border-white/20 dark:border-white/5"
-          >
-            <div className="w-12 h-12 bg-gradient-to-tr from-primary to-primaryHover rounded-2xl flex items-center justify-center shadow-lg shadow-primary/30 relative">
-              <Layers className="text-white w-7 h-7" strokeWidth={2.5} />
-            </div>
-            <div className="ml-4">
-              <span className="block text-2xl font-black text-zinc-900 dark:text-white tracking-tighter leading-none">
-                Tasker
-              </span>
-              <span className="text-[10px] text-primary dark:text-primary rounded uppercase font-black tracking-[0.2em]">
-                Connect
-              </span>
-            </div>
-          </Link>
+          {/* Sidebar branding: vertical stack, fixed logo, text truncates with native tooltip */}
+          <div className="shrink-0 border-b border-white/20 dark:border-white/5 px-6 pt-3 pb-2 min-w-0 flex flex-col items-center text-center">
+            <Link
+              to="/"
+              className="flex flex-col items-center gap-1.5 min-w-0 w-full outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded-xl -mx-1 px-1"
+            >
+              <div className="w-12 h-12 max-w-12 max-h-12 shrink-0 flex items-center justify-center relative overflow-hidden rounded-xl">
+                <img
+                  src={
+                    browseShellOrg?.logo
+                      ? `${API_BASE_URL.replace(/\/api$/, "")}${browseShellOrg.logo}`
+                      : isDarkMode
+                        ? "/logo-dark.png"
+                        : "/logo-light.png"
+                  }
+                  alt={browseShellOrg?.name || "Tasker Logo"}
+                  className="w-12 h-12 max-w-full max-h-full object-contain object-center drop-shadow-sm"
+                  width={48}
+                  height={48}
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                    e.currentTarget.parentElement!.innerHTML =
+                      '<div class="w-12 h-12 max-w-12 max-h-12 bg-gradient-to-tr from-primary to-primaryHover rounded-2xl flex items-center justify-center shadow-lg shadow-primary/30"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-white w-7 h-7"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg></div>';
+                  }}
+                />
+              </div>
+              {!currentUser && (
+                <div className="min-w-0 w-full text-center">
+                  <span
+                    className="block text-2xl font-black text-zinc-900 dark:text-white tracking-tighter leading-none truncate"
+                    title={browseShellOrg?.name ?? "Tasker"}
+                  >
+                    {browseShellOrg?.name ?? "Tasker"}
+                  </span>
+                </div>
+              )}
+            </Link>
 
-          <nav className="flex-1 px-4 py-8 space-y-2 overflow-y-auto">
+            {currentUser && (
+              <div className="mt-1.5 flex flex-col items-center min-w-0 w-full">
+                {(currentUser.organisations?.length ?? 0) > 1 ? (
+                  <div className="relative min-w-0 w-full">
+                    <button
+                      type="button"
+                      title={getActiveOrganisationDisplayName(currentUser)}
+                      onClick={() => {
+                        if ((currentUser.organisations?.length ?? 0) > 1) {
+                          setShowOrgSwitcher((v) => !v);
+                        }
+                      }}
+                      className={`w-full min-w-0 flex flex-col items-center gap-px px-3 py-1.5 rounded-xl border border-white/20 dark:border-white/5 transition-all ${
+                        (currentUser.organisations?.length ?? 0) > 1
+                          ? "bg-white/20 dark:bg-zinc-800/40 hover:bg-white/40 dark:hover:bg-zinc-700/50"
+                          : "bg-white/10 dark:bg-zinc-800/20 cursor-not-allowed opacity-70"
+                      }`}
+                    >
+                      <p
+                        className="w-full min-w-0 text-sm font-bold text-zinc-800 dark:text-white truncate text-center leading-tight"
+                      >
+                        {getActiveOrganisationDisplayName(currentUser)}
+                      </p>
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 text-zinc-400 shrink-0 transition-transform ${showOrgSwitcher ? "rotate-180" : ""}`}
+                      />
+                    </button>
+
+                    {showOrgSwitcher && (currentUser.organisations?.length ?? 0) > 1 && (
+                      <div className="absolute top-full mt-1 left-0 right-0 z-50 glass-card rounded-xl shadow-xl border border-white/20 dark:border-white/5 overflow-hidden animate-slide-up">
+                        {currentUser.organisations.map((org) => {
+                          const activeId =
+                            (currentUser.activeOrganisation as any)?._id ??
+                            currentUser.organisations?.[0]?._id;
+                          const isActive = org._id === activeId;
+                          return (
+                            <button
+                              key={org._id}
+                              type="button"
+                              disabled={isActive || switchingOrg !== null}
+                              onClick={async () => {
+                                if (isActive) return;
+                                setSwitchingOrg(org._id);
+                                setShowOrgSwitcher(false);
+                                await onSwitchOrg(org._id);
+                                setSwitchingOrg(null);
+                              }}
+                              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all ${
+                                isActive
+                                  ? "bg-primary/10 cursor-default"
+                                  : "hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+                              }`}
+                            >
+                              <img
+                                src={
+                                  org.logo
+                                    ? `${API_BASE_URL.replace(/\/api$/, "")}${org.logo}`
+                                    : isDarkMode
+                                      ? "/logo-dark.png"
+                                      : "/logo-light.png"
+                                }
+                                alt={org.name}
+                                className="w-7 h-7 rounded-lg object-contain bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-700 shrink-0"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p
+                                  className={`text-xs font-bold truncate ${
+                                    isActive
+                                      ? "text-primary"
+                                      : "text-zinc-800 dark:text-white"
+                                  }`}
+                                  title={org.name}
+                                >
+                                  {org.name}
+                                </p>
+                              </div>
+                              {isActive && (
+                                <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                              )}
+                              {switchingOrg === org._id && (
+                                <div className="w-4 h-4 border-2 border-zinc-300 border-t-primary rounded-full animate-spin shrink-0" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p
+                    className="text-sm font-bold text-zinc-800 dark:text-white truncate min-w-0 w-full text-center leading-tight"
+                    title={getActiveOrganisationDisplayName(currentUser)}
+                  >
+                    {getActiveOrganisationDisplayName(currentUser)}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <nav className="flex-1 px-4 pt-2 pb-5 space-y-2 overflow-y-auto min-w-0">
             {currentUser?.permissions?.includes(Permission.TASK_CREATE) && (
               <Link
                 to="/post-job"
-                className="flex items-center justify-center w-full px-4 py-4 mb-8 text-white bg-primary hover:bg-primaryHover rounded-2xl shadow-xl shadow-primary/20 transition-all transform hover:-translate-y-1 active:scale-95"
+                className="flex items-center justify-center w-full px-4 py-3 mb-3 text-white bg-primary hover:bg-primaryHover rounded-2xl shadow-xl shadow-primary/20 transition-all transform hover:-translate-y-1 active:scale-95"
                 onClick={() => setSidebarOpen(false)}
               >
                 <PlusCircle className="w-5 h-5 mr-3" />
-                <span className="font-bold text-sm">Post a Task</span>
+                <span className="font-bold text-sm">Create Task</span>
               </Link>
             )}
 
@@ -530,7 +855,7 @@ export const Layout: React.FC<LayoutProps> = ({
                     location.pathname.startsWith(item.path));
                 return (
                   <Link
-                    key={item.path}
+                    key={item.label}
                     to={item.path}
                     onClick={() => setSidebarOpen(false)}
                     className={`flex items-center px-5 py-4 rounded-2xl transition-all duration-300 relative group ${isActive ? "bg-white/60 dark:bg-white/10 text-primary font-bold shadow-sm" : "text-zinc-500 dark:text-zinc-400 hover:bg-white/30 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white"}`}
@@ -549,6 +874,14 @@ export const Layout: React.FC<LayoutProps> = ({
           </nav>
 
           <div className="p-6 border-t border-white/20 dark:border-white/5">
+            <div className="mb-3 flex items-center justify-center gap-1.5 rounded-lg border border-zinc-200/70 dark:border-zinc-700/60 bg-white/60 dark:bg-zinc-900/30 px-3 py-1.5">
+              <span className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-400 dark:text-zinc-500">
+                Version
+              </span>
+              <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-300 font-mono">
+                {isVersionLoading ? "..." : systemVersion}
+              </span>
+            </div>
             {currentUser ? (
               <div
                 className="flex items-center p-3 rounded-2xl hover:bg-white/40 dark:hover:bg-white/5 transition-all group cursor-pointer border border-transparent hover:border-white/30 dark:hover:border-white/10"
@@ -563,9 +896,30 @@ export const Layout: React.FC<LayoutProps> = ({
                   <p className="text-sm font-bold text-zinc-900 dark:text-white truncate group-hover:text-primary transition-colors">
                     {currentUser.name}
                   </p>
-                  <p className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                    {currentUser.role}
-                  </p>
+                  {currentUserRoles.length > 0 ? (
+                    <div className="flex flex-wrap items-center gap-0.5 mt-0.5">
+                      {currentUserRoles
+                        .slice(0, MAX_VISIBLE_SIDEBAR_ROLES)
+                        .map((r: string) => (
+                          <span
+                            key={r}
+                            className="text-[9px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-tighter border border-zinc-200 dark:border-zinc-700 px-1 rounded bg-zinc-50/50 dark:bg-white/5"
+                          >
+                            {r}
+                          </span>
+                        ))}
+                      {currentUserRoles.length > MAX_VISIBLE_SIDEBAR_ROLES && (
+                        <span
+                          className="text-[9px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-tighter border border-zinc-200 dark:border-zinc-700 px-1 rounded bg-zinc-50/50 dark:bg-white/5"
+                          title={currentUserRoles
+                            .slice(MAX_VISIBLE_SIDEBAR_ROLES)
+                            .join(", ")}
+                        >
+                          +{currentUserRoles.length - MAX_VISIBLE_SIDEBAR_ROLES} more
+                        </span>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
                 <button
                   onClick={(e) => {
@@ -590,17 +944,26 @@ export const Layout: React.FC<LayoutProps> = ({
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden relative z-10">
-        <header className="glass h-24 flex items-center justify-between px-8 sticky top-0 z-30">
-          <button
-            className="lg:hidden p-3 rounded-xl text-zinc-500 hover:bg-white/50"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <Menu className="w-6 h-6" />
-          </button>
+        <header className="glass sticky top-0 z-30 flex h-20 sm:h-24 items-center justify-between gap-3 px-4 sm:px-8">
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+            <HeaderIconButton
+              icon={Menu}
+              label="Open menu"
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-2.5 sm:p-3"
+              iconClassName="w-5 h-5"
+            />
 
-          <div className="flex-1 flex justify-between items-center ml-4 lg:ml-0">
-            <div>
-              <h1 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter">
+            {mobileOrganisationOrg && (
+              <OrganisationIdentityBadge
+                key={mobileOrganisationOrg?._id || mobileOrganisationOrg?.name || "organisation"}
+                organisation={mobileOrganisationOrg}
+                isDarkMode={isDarkMode}
+              />
+            )}
+
+            <div className="min-w-0 flex-1">
+              <h1 className="truncate text-lg sm:text-2xl font-black text-zinc-900 dark:text-white tracking-tighter leading-tight">
                 {location.pathname === "/"
                   ? "Home"
                   : location.pathname === "/dashboard"
@@ -611,57 +974,38 @@ export const Layout: React.FC<LayoutProps> = ({
                         ? "Administration"
                         : location.pathname.startsWith("/reports")
                           ? "Reports"
-                          : location.pathname
-                              .substring(1)
-                              .split("/")[0]
-                              .charAt(0)
-                              .toUpperCase() +
-                            location.pathname
-                              .substring(1)
-                              .split("/")[0]
-                              .slice(1)}
+                          : location.pathname === "/my-ads"
+                            ? "My Ads"
+                            : location.pathname === "/my-tasks"
+                              ? "My Tasks"
+                              : location.pathname === "/pending-approvals"
+                                ? "Pending Approvals"
+                              : location.pathname === "/my-applications"
+                                ? "My Applications"
+                                : location.pathname
+                                    .substring(1)
+                                    .split("/")[0]
+                                    .charAt(0)
+                                    .toUpperCase() +
+                                  location.pathname
+                                    .substring(1)
+                                    .split("/")[0]
+                                    .slice(1)}
               </h1>
             </div>
+          </div>
 
-            <div className="flex items-center space-x-2">
-              <div className="relative">
-                <HeaderIconButton
-                  icon={Palette}
-                  label="Accent"
-                  onClick={() => setShowColorPicker(!showColorPicker)}
-                />
-                {showColorPicker && (
-                  <div className="absolute top-16 right-0 w-56 glass-card rounded-2xl p-4 z-50 animate-slide-up">
-                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-4">
-                      Choose Theme
-                    </p>
-                    <div className="grid grid-cols-5 gap-3">
-                      {COLORS.map((color) => (
-                        <button
-                          key={color.name}
-                          onClick={() =>
-                            changeAccentColor(color.name, color.palette)
-                          }
-                          className={`w-8 h-8 rounded-full ${color.class} flex items-center justify-center transition-all hover:scale-125`}
-                        >
-                          {selectedColor === color.name && (
-                            <Check className="w-4 h-4 text-white" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <HeaderIconButton
-                icon={isDarkMode ? Sun : Moon}
-                label="Theme"
-                onClick={onToggleTheme}
-              />
+          <div className="flex shrink-0 items-center gap-2 sm:space-x-2">
+            <HeaderIconButton
+              icon={isDarkMode ? Sun : Moon}
+              label="Theme"
+              onClick={onToggleTheme}
+              className="p-2.5 sm:p-3"
+              iconClassName="w-4 h-4 sm:w-5 sm:h-5"
+            />
 
               {/* Search Bar with Dropdown */}
-              <div className="hidden md:block relative" ref={searchRef}>
+            <div className="hidden md:block relative" ref={searchRef}>
                 <div className="flex items-center px-5 py-3 glass-card rounded-2xl border-white/30 w-72 focus-within:ring-2 focus-within:ring-primary/30 transition-all">
                   <Search className="w-4 h-4 text-zinc-400" />
                   <input
@@ -687,16 +1031,20 @@ export const Layout: React.FC<LayoutProps> = ({
                         Tasks ({searchResults.length})
                       </p>
                       {searchResults.map((task) => (
-                        <button
+                        <div
                           key={task.id}
-                          onClick={() => {
-                            navigate(`/jobs/${task.id}`);
-                            setShowSearchResults(false);
-                            setSearchQuery("");
-                          }}
-                          className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 text-left transition-all"
+                          className="w-full flex items-center gap-1 px-2 py-1 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
                         >
-                          <div className="p-2 bg-primary/10 rounded-lg">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigate(`/jobs/${task.id}`);
+                              setShowSearchResults(false);
+                              setSearchQuery("");
+                            }}
+                            className="flex flex-1 min-w-0 items-center gap-3 px-1 py-2 text-left rounded-lg"
+                          >
+                          <div className="p-2 bg-primary/10 rounded-lg shrink-0">
                             <Briefcase className="w-4 h-4 text-primary" />
                           </div>
                           <div className="flex-1 min-w-0">
@@ -708,7 +1056,7 @@ export const Layout: React.FC<LayoutProps> = ({
                             </p>
                           </div>
                           <span
-                            className={`px-2 py-1 text-[10px] font-bold rounded-lg ${
+                            className={`px-2 py-1 text-[10px] font-bold rounded-lg shrink-0 ${
                               task.status === "Published"
                                 ? "bg-emerald-100 text-emerald-700"
                                 : "bg-zinc-100 text-zinc-500"
@@ -716,7 +1064,18 @@ export const Layout: React.FC<LayoutProps> = ({
                           >
                             {task.status}
                           </span>
-                        </button>
+                          </button>
+                          {currentUser && (
+                            <TaskLifecycleActions
+                              job={task}
+                              currentUser={currentUser}
+                              layout="compact"
+                              onAfterMutation={() =>
+                                setSearchRefreshNonce((n) => n + 1)
+                              }
+                            />
+                          )}
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -733,110 +1092,111 @@ export const Layout: React.FC<LayoutProps> = ({
                   )}
               </div>
 
-              {/* Notifications Bell */}
-              <div className="relative" ref={notificationRef}>
-                <HeaderIconButton
-                  icon={Bell}
-                  label="Notifications"
-                  badge={true}
-                  badgeCount={unreadCount}
-                  onClick={() => {
-                    setShowNotifications(!showNotifications);
-                    if (!showNotifications) {
-                      loadNotifications();
-                    }
-                  }}
-                />
+            {/* Notifications Bell */}
+            <div className="relative" ref={notificationRef}>
+              <HeaderIconButton
+                icon={Bell}
+                label="Notifications"
+                badge={true}
+                badgeCount={unreadCount}
+                onClick={() => {
+                  setShowNotifications(!showNotifications);
+                  if (!showNotifications) {
+                    loadNotifications();
+                  }
+                }}
+                className="p-2.5 sm:p-3"
+                iconClassName="w-4 h-4 sm:w-5 sm:h-5"
+              />
 
-                {/* Notification Dropdown */}
-                {showNotifications && currentUser && (
-                  <div className="absolute top-14 right-0 w-96 glass-card rounded-2xl shadow-2xl z-50 max-h-[32rem] overflow-hidden animate-slide-up">
-                    <div className="p-4 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
-                      <h3 className="font-bold text-zinc-900 dark:text-white">
-                        Notifications
-                      </h3>
-                      {unreadCount > 0 && (
-                        <button
-                          onClick={markAllAsRead}
-                          className="text-xs text-primary hover:underline font-bold flex items-center gap-1"
-                        >
-                          <CheckCheck className="w-3 h-3" />
-                          Mark all read
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="max-h-80 overflow-y-auto">
-                      {notifications.length === 0 ? (
-                        <div className="p-8 text-center">
-                          <Bell className="w-10 h-10 text-zinc-200 dark:text-zinc-700 mx-auto mb-3" />
-                          <p className="text-sm text-zinc-400">
-                            No notifications yet
-                          </p>
-                        </div>
-                      ) : (
-                        notifications.map((notification) => (
-                          <button
-                            key={notification._id}
-                            onClick={() =>
-                              handleNotificationClick(notification)
-                            }
-                            className={`w-full p-4 flex items-start gap-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-all text-left border-b border-zinc-100 dark:border-zinc-800 last:border-0 ${
-                              !notification.read
-                                ? "bg-blue-50/50 dark:bg-blue-900/10"
-                                : ""
-                            }`}
-                          >
-                            <div
-                              className={`p-2 rounded-xl ${
-                                notification.type === "success"
-                                  ? "bg-emerald-100 dark:bg-emerald-900/30"
-                                  : notification.type === "warning"
-                                    ? "bg-amber-100 dark:bg-amber-900/30"
-                                    : notification.type === "error"
-                                      ? "bg-red-100 dark:bg-red-900/30"
-                                      : "bg-blue-100 dark:bg-blue-900/30"
-                              }`}
-                            >
-                              {getNotificationIcon(notification.type)}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p
-                                className={`text-sm ${!notification.read ? "font-bold" : "font-medium"} text-zinc-900 dark:text-white`}
-                              >
-                                {notification.title}
-                              </p>
-                              <p className="text-xs text-zinc-500 mt-0.5 line-clamp-2">
-                                {notification.message}
-                              </p>
-                              <p className="text-[10px] text-zinc-400 mt-1">
-                                {getRelativeTime(notification.createdAt)}
-                              </p>
-                            </div>
-                            {!notification.read && (
-                              <div className="w-2 h-2 rounded-full bg-blue-500 mt-2" />
-                            )}
-                          </button>
-                        ))
-                      )}
-                    </div>
-
-                    {notifications.length > 0 && (
-                      <div className="p-3 border-t border-zinc-200 dark:border-zinc-700">
-                        <button
-                          onClick={() => {
-                            navigate("/notifications");
-                            setShowNotifications(false);
-                          }}
-                          className="w-full text-center text-sm text-[#812349] font-bold hover:underline"
-                        >
-                          View All Notifications
-                        </button>
-                      </div>
+              {/* Notification Dropdown */}
+              {showNotifications && currentUser && (
+                <div className="absolute top-14 right-0 w-96 glass-card rounded-2xl shadow-2xl z-50 max-h-[32rem] overflow-hidden animate-slide-up">
+                  <div className="p-4 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
+                    <h3 className="font-bold text-zinc-900 dark:text-white">
+                      Notifications
+                    </h3>
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={markAllAsRead}
+                        className="text-xs text-primary hover:underline font-bold flex items-center gap-1"
+                      >
+                        <CheckCheck className="w-3 h-3" />
+                        Mark all read
+                      </button>
                     )}
                   </div>
-                )}
-              </div>
+
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="p-8 text-center">
+                        <Bell className="w-10 h-10 text-zinc-200 dark:text-zinc-700 mx-auto mb-3" />
+                        <p className="text-sm text-zinc-400">
+                          No notifications yet
+                        </p>
+                      </div>
+                    ) : (
+                      notifications.map((notification) => (
+                        <button
+                          key={notification._id}
+                          onClick={() =>
+                            handleNotificationClick(notification)
+                          }
+                          className={`w-full p-4 flex items-start gap-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-all text-left border-b border-zinc-100 dark:border-zinc-800 last:border-0 ${
+                            !notification.read
+                              ? "bg-blue-50/50 dark:bg-blue-900/10"
+                              : ""
+                          }`}
+                        >
+                          <div
+                            className={`p-2 rounded-xl ${
+                              notification.type === "success"
+                                ? "bg-emerald-100 dark:bg-emerald-900/30"
+                                : notification.type === "warning"
+                                  ? "bg-amber-100 dark:bg-amber-900/30"
+                                  : notification.type === "error"
+                                    ? "bg-red-100 dark:bg-red-900/30"
+                                    : "bg-blue-100 dark:bg-blue-900/30"
+                            }`}
+                          >
+                            {getNotificationIcon(notification.type)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p
+                              className={`text-sm ${!notification.read ? "font-bold" : "font-medium"} text-zinc-900 dark:text-white`}
+                            >
+                              {notification.title}
+                            </p>
+                            <p className="text-xs text-zinc-500 mt-0.5 line-clamp-2">
+                              {notification.message}
+                            </p>
+                            <p className="text-[10px] text-zinc-400 mt-1">
+                              {getRelativeTime(notification.createdAt)}
+                            </p>
+                          </div>
+                          {!notification.read && (
+                            <div className="w-2 h-2 rounded-full bg-blue-500 mt-2" />
+                          )}
+                        </button>
+                      ))
+                    )}
+                  </div>
+
+                  {notifications.length > 0 && (
+                    <div className="p-3 border-t border-zinc-200 dark:border-zinc-700">
+                      <button
+                        onClick={() => {
+                          navigate("/notifications");
+                          setShowNotifications(false);
+                        }}
+                        className="w-full text-center text-sm text-[#812349] font-bold hover:underline"
+                      >
+                        View All Notifications
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </header>

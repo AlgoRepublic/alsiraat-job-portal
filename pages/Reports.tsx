@@ -20,6 +20,9 @@ import {
 import { Loading, LoadingOverlay } from "../components/Loading";
 import { useToast } from "../components/Toast";
 import { API_BASE_URL } from "../services/api";
+import { db } from "../services/database";
+import { User } from "../types";
+import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 
 interface ReportStats {
   totalTasks: number;
@@ -41,6 +44,10 @@ interface TaskSummary {
   applicationsCount: number;
   createdAt: string;
   category: string;
+  organisation?: unknown;
+  organization?: unknown;
+  archivedAt?: string | null;
+  deletedAt?: string | null;
 }
 
 export const Reports: React.FC = () => {
@@ -49,6 +56,7 @@ export const Reports: React.FC = () => {
   const [exporting, setExporting] = useState(false);
   const [stats, setStats] = useState<ReportStats | null>(null);
   const [recentTasks, setRecentTasks] = useState<TaskSummary[]>([]);
+  const [reportUser, setReportUser] = useState<User | null>(null);
   const [dateRange, setDateRange] = useState<
     "week" | "month" | "quarter" | "year"
   >("month");
@@ -60,6 +68,8 @@ export const Reports: React.FC = () => {
   const loadReportData = async () => {
     setLoading(true);
     try {
+      const reportUserPromise = db.getCurrentUser().catch(() => null);
+
       // Fetch stats from API
       const [statsResponse, tasksResponse] = await Promise.all([
         fetch(`${API_BASE_URL}/tasks/stats?range=${dateRange}`, {
@@ -67,7 +77,7 @@ export const Reports: React.FC = () => {
             Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
           },
         }),
-        fetch(`${API_BASE_URL}/tasks?limit=10&sort=-createdAt`, {
+        fetch(`${API_BASE_URL}/tasks?limit=10&lifecycle=active`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
           },
@@ -97,6 +107,8 @@ export const Reports: React.FC = () => {
         const tasksData = await tasksResponse.json();
         setRecentTasks(tasksData.tasks || tasksData || []);
       }
+
+      setReportUser(await reportUserPromise);
     } catch (err: any) {
       showError("Failed to load report data");
     } finally {
@@ -149,7 +161,8 @@ export const Reports: React.FC = () => {
     csv += "RECENT TASKS\n";
     csv += "Title,Status,Applications,Category,Created\n";
     recentTasks.forEach((task) => {
-      csv += `"${task.title}",${task.status},${task.applicationsCount || 0},${task.category},${new Date(task.createdAt).toLocaleDateString()}\n`;
+      const dateStr = task.createdAt && !isNaN(new Date(task.createdAt).getTime()) ? new Date(task.createdAt).toLocaleDateString() : "—";
+      csv += `"${task.title}",${task.status},${task.applicationsCount || 0},${task.category},${dateStr}\n`;
     });
 
     return csv;
@@ -442,13 +455,16 @@ export const Reports: React.FC = () => {
                 <th className="px-6 py-4 text-left text-xs font-bold text-zinc-500 uppercase tracking-widest">
                   Created
                 </th>
+                <th className="px-6 py-4 text-right text-xs font-bold text-zinc-500 uppercase tracking-widest">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
               {recentTasks.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-6 py-12 text-center text-zinc-500"
                   >
                     No tasks found
@@ -490,8 +506,16 @@ export const Reports: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-sm text-zinc-500">
-                        {new Date(task.createdAt).toLocaleDateString()}
+                        {task.createdAt && !isNaN(new Date(task.createdAt).getTime()) ? new Date(task.createdAt).toLocaleDateString() : "—"}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <TaskLifecycleActions
+                        job={{ ...task, id: task._id }}
+                        currentUser={reportUser}
+                        layout="compact"
+                        onAfterMutation={() => void loadReportData()}
+                      />
                     </td>
                   </tr>
                 ))

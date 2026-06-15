@@ -1,10 +1,11 @@
-import express from "express";
+import express, { type Router } from "express";
 import {
   getPermissions,
   createPermission,
   updatePermission,
   deletePermission,
   getRoles,
+  getRolesPublic,
   getRole,
   createRole,
   updateRole,
@@ -19,7 +20,7 @@ import {
   Permission,
 } from "../middleware/rbac.js";
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // ============================================================================
 // PERMISSION ROUTES
@@ -61,7 +62,10 @@ router.delete(
 // ROLE ROUTES
 // ============================================================================
 
-// Get all roles
+// Get all roles (public read-only - no permissions required)
+router.get("/public", authenticate, getRolesPublic);
+
+// Get all roles (admin only - with full details)
 router.get(
   "/",
   authenticate,

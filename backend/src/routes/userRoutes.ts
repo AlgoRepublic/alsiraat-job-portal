@@ -1,17 +1,22 @@
-import express from "express";
+import express, { type Router } from "express";
 import {
   getUsers,
   getUserById,
+  getUserTasks,
+  getUserApplications,
   updateUserRole,
+  updateUser,
   deleteUser,
+  importUsers,
 } from "../controllers/userController.js";
 import {
   authenticate,
   requirePermission,
   Permission,
 } from "../middleware/rbac.js";
+import { upload, handleUploadError } from "../middleware/upload.js";
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // All routes require authentication and user:read or admin permission
 router.get(
@@ -27,7 +32,39 @@ router.get(
   getUserById,
 );
 
+// Admin-only: tasks created by a specific user
+router.get(
+  "/:id/tasks",
+  authenticate,
+  requirePermission(Permission.USER_READ),
+  getUserTasks,
+);
+
+// Admin-only: applications submitted by a specific user
+router.get(
+  "/:id/applications",
+  authenticate,
+  requirePermission(Permission.USER_READ),
+  getUserApplications,
+);
+
+// Import requires specific permission
+router.post(
+  "/import",
+  authenticate,
+  requirePermission(Permission.USER_IMPORT),
+  upload.single("file"),
+  handleUploadError,
+  importUsers,
+);
+
 // Update/Delete require specific permissions
+router.put(
+  "/:id",
+  authenticate,
+  requirePermission(Permission.USER_MANAGE_ROLES),
+  updateUser,
+);
 router.patch(
   "/:id/role",
   authenticate,

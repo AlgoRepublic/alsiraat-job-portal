@@ -9,6 +9,9 @@ export const ApplicationStatus = {
   OFFERED: "Offered",
   ACCEPTED: "Accepted",
   DECLINED: "Declined",
+  COMPLETION_REQUESTED: "Completion Requested",
+  COMPLETED: "Completed",
+  COMPLETION_REJECTED: "Completion Rejected",
 } as const;
 export type ApplicationStatus =
   (typeof ApplicationStatus)[keyof typeof ApplicationStatus];
@@ -19,6 +22,9 @@ export interface IApplication extends Document {
   status: ApplicationStatus;
   coverLetter: string;
   availability: string;
+  rejectionReason?: string;
+  rating?: number;
+  reviewText?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,6 +40,9 @@ const ApplicationSchema: Schema = new Schema(
     },
     coverLetter: { type: String },
     availability: { type: String },
+    rejectionReason: { type: String },
+    rating: { type: Number, min: 1, max: 5 },
+    reviewText: { type: String },
   },
   { timestamps: true },
 );

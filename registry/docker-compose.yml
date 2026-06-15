@@ -1,0 +1,92 @@
+# ============================================
+# Docker Registry with Authentication
+# ============================================
+#
+# SETUP:
+# ------
+#   # 1. Create directories and generate htpasswd file:
+#   mkdir -p ./auth ./data
+#   docker run --rm httpd:alpine htpasswd -Bbn USERNAME PASSWORD > ./auth/htpasswd
+#
+#   # 2. Start the registry:
+#   docker compose up -d
+#
+# USAGE:
+# ------
+#   BASE_URL=http://localhost:5000
+#
+#   # Start registry:
+#   docker compose up -d
+#
+#   # Check status:
+#   docker compose ps
+#
+#   # View logs:
+#   docker compose logs -f
+#
+#   # Stop registry:
+#   docker compose down
+#
+#   # Restart registry:
+#   docker compose restart
+#
+#   # Login to registry:
+#   docker login $BASE_URL -u USERNAME -p PASSWORD
+#
+#   # Logout from registry:
+#   docker logout $BASE_URL
+#
+#   # Tag and push an image:
+#   docker tag myimage:latest $BASE_URL/myimage:latest
+#   docker push $BASE_URL/myimage:latest
+#
+#   # Pull an image:
+#   docker pull $BASE_URL/myimage:latest
+#
+#   # List all images in registry:
+#   curl -u USERNAME:PASSWORD $BASE_URL/v2/_catalog
+#
+#   # List tags for an image:
+#   curl -u USERNAME:PASSWORD $BASE_URL/v2/myimage/tags/list
+#
+#   # Check registry health:
+#   curl -u USERNAME:PASSWORD $BASE_URL/v2/
+
+services:
+  # ============================================
+  # REGISTRY - Docker Registry v2
+  # ============================================
+  registry:
+    image: registry:2
+    container_name: tasker-registry
+    restart: unless-stopped
+    ports:
+      # IMPORTANT: Only bind to localhost (127.0.0.1) for local access
+      # For public access, use a reverse proxy with SSL (see README.md)
+      - "127.0.0.1:5000:5000"
+    volumes:
+      # Persistent storage for Docker images
+      - ./data:/var/lib/registry
+      # Authentication file (htpasswd)
+      - ./auth:/auth
+    environment:
+      # ----------------------------------------
+      # Authentication Configuration
+      # ----------------------------------------
+      REGISTRY_AUTH: htpasswd
+      REGISTRY_AUTH_HTPASSWD_REALM: "Tasker Registry"
+      REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
+      
+      # ----------------------------------------
+      # Storage Configuration
+      # ----------------------------------------
+      # Enable deletion of images via API
+      REGISTRY_STORAGE_DELETE_ENABLED: "false"
+
+    # Health check for registry
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:5000/v2/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

@@ -23,7 +23,7 @@ export const Permission = {
   TASK_APPROVE: "task:approve",
   TASK_PUBLISH: "task:publish",
   TASK_ARCHIVE: "task:archive",
-  TASK_VIEW_INTERNAL: "task:view_internal",
+  TASK_COMPLETE: "task:complete",
   TASK_VIEW_PENDING: "task:view_pending",
   TASK_AUTO_PUBLISH: "task:auto_publish",
 
@@ -31,15 +31,19 @@ export const Permission = {
   APPLICATION_CREATE: "application:create", // Apply for a task
   APPLICATION_READ: "application:read", // View applications
   APPLICATION_READ_OWN: "application:read_own", // View own applications only
+  APPLICATION_ASSIGN_DIRECT: "application:assign", // Directly assign a task to a user
+  TASK_ASSIGN: "task:assign", // Fallback for direct assign if user configured this instead
   APPLICATION_SHORTLIST: "application:shortlist",
   APPLICATION_APPROVE: "application:approve",
   APPLICATION_REJECT: "application:reject",
   APPLICATION_CONFIRM: "application:confirm",
 
   // User Management
+  USER_CREATE: "user:create",
   USER_READ: "user:read",
   USER_UPDATE: "user:update",
   USER_DELETE: "user:delete",
+  USER_IMPORT: "user:import",
   USER_IMPERSONATE: "user:impersonate",
   USER_MANAGE_ROLES: "user:manage_roles",
 
@@ -72,12 +76,7 @@ export type Permission = (typeof Permission)[keyof typeof Permission];
 // ============================================================================
 
 export const RolePermissions: Record<UserRole, Permission[]> = {
-  [UserRole.GLOBAL_ADMIN]: [
-    // Admins have ALL permissions
-    ...Object.values(Permission),
-  ],
-
-  [UserRole.SCHOOL_ADMIN]: [
+  [UserRole.ORGANIZATION_ADMIN]: [
     // Task Management - Full control within scope
     Permission.TASK_CREATE,
     Permission.TASK_READ,
@@ -87,7 +86,7 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.TASK_APPROVE,
     Permission.TASK_PUBLISH,
     Permission.TASK_ARCHIVE,
-    Permission.TASK_VIEW_INTERNAL,
+    Permission.TASK_COMPLETE,
     Permission.TASK_VIEW_PENDING,
     Permission.TASK_AUTO_PUBLISH,
 
@@ -96,6 +95,7 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.APPLICATION_SHORTLIST,
     Permission.APPLICATION_APPROVE,
     Permission.APPLICATION_REJECT,
+    Permission.APPLICATION_ASSIGN_DIRECT,
 
     // Organization
     Permission.ORG_READ,
@@ -103,8 +103,10 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.ORG_MANAGE_MEMBERS,
 
     // User Management (scoped)
+    Permission.USER_CREATE,
     Permission.USER_READ,
     Permission.USER_UPDATE,
+    Permission.USER_IMPORT,
     Permission.USER_MANAGE_ROLES,
 
     // Dashboard & Analytics
@@ -113,6 +115,9 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
 
     // Reporting
     Permission.REPORTS_VIEW,
+
+    // Admin Settings (needed to access org management, users, etc.)
+    Permission.ADMIN_SETTINGS,
   ],
 
   [UserRole.TASK_MANAGER]: [
@@ -120,13 +125,13 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.TASK_READ,
     Permission.TASK_APPROVE,
     Permission.TASK_PUBLISH,
-    Permission.TASK_VIEW_INTERNAL,
     Permission.TASK_VIEW_PENDING,
     Permission.TASK_AUTO_PUBLISH,
 
     // Manages applications
     Permission.APPLICATION_READ,
     Permission.APPLICATION_SHORTLIST,
+    Permission.APPLICATION_ASSIGN_DIRECT,
 
     // Dashboard
     Permission.DASHBOARD_VIEW,
@@ -141,6 +146,7 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
 
     // View own applications
     Permission.APPLICATION_READ_OWN,
+    Permission.APPLICATION_ASSIGN_DIRECT, // Can assign to applicants for their own tasks
   ],
 
   [UserRole.APPLICANT]: [
@@ -179,7 +185,7 @@ export async function hasPermissionAsync(
     // Import Role model dynamically to avoid circular dependencies
     const { default: Role } = await import("../models/Role.js");
 
-    // Map UserRole enum to role code (e.g., "Global Admin" -> "global_admin")
+    // Map UserRole enum to role code (e.g., "Organisation Admin" -> "organization_admin")
     // Use BOTH name (exact match) and code (with underscores) for maximum compatibility
     const roleCode = role.toLowerCase().replace(/ /g, "_");
 
@@ -202,6 +208,21 @@ export async function hasPermissionAsync(
     // Fallback to static permissions on error
     return hasPermission(role, permission);
   }
+}
+
+/**
+ * Check if any of the roles have a specific permission (DYNAMIC - uses database)
+ */
+export async function hasPermissionMultiAsync(
+  roles: UserRole[],
+  permission: Permission,
+): Promise<boolean> {
+  for (const role of roles) {
+    if (await hasPermissionAsync(role, permission)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -240,6 +261,21 @@ export async function hasAnyPermissionAsync(
 }
 
 /**
+ * Check if any of the roles have any of the specified permissions (DYNAMIC - uses database)
+ */
+export async function hasAnyPermissionMultiAsync(
+  roles: UserRole[],
+  permissions: Permission[],
+): Promise<boolean> {
+  for (const role of roles) {
+    if (await hasAnyPermissionAsync(role, permissions)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Get all permissions for a role
  */
 export function getPermissionsForRole(role: UserRole): Permission[] {
@@ -261,7 +297,7 @@ export interface PermissionContext {
 
 /**
  * Check permission with context (e.g., resource ownership)
- * This allows Independent users to manage their own tasks' applications
+ * This allows users to manage their own tasks' applications
  * @deprecated Use canWithContextAsync for database-driven permissions
  */
 export function canWithContext(
@@ -269,9 +305,6 @@ export function canWithContext(
   permission: Permission,
   context: PermissionContext,
 ): boolean {
-  // Admin always has access
-  if (role === UserRole.GLOBAL_ADMIN) return true;
-
   // First check static permission
   if (hasPermission(role, permission)) {
     // For org-scoped permissions, verify same organization
@@ -306,16 +339,17 @@ export function canWithContext(
 
 /**
  * Check permission with context (DYNAMIC - uses database)
- * This allows Independent users to manage their own tasks' applications
+ * This allows users to manage their own tasks' applications
+ */
+/**
+ * Check permission with context (DYNAMIC - uses database)
+ * This allows users to manage their own tasks' applications
  */
 export async function canWithContextAsync(
   role: UserRole,
   permission: Permission,
   context: PermissionContext,
 ): Promise<boolean> {
-  // Admin always has access
-  if (role === UserRole.GLOBAL_ADMIN) return true;
-
   // First check database permission
   if (await hasPermissionAsync(role, permission)) {
     // For org-scoped permissions, verify same organization
@@ -349,13 +383,28 @@ export async function canWithContextAsync(
 }
 
 /**
+ * Check permission with context across multiple roles (DYNAMIC - uses database)
+ */
+export async function canWithContextMultiAsync(
+  roles: UserRole[],
+  permission: Permission,
+  context: PermissionContext,
+): Promise<boolean> {
+  for (const role of roles) {
+    if (await canWithContextAsync(role, permission, context)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Determines if a role's tasks are auto-published (STATIC)
  * @deprecated Use canAutoPublishAsync for database-driven check
  */
 export function canAutoPublish(role: UserRole): boolean {
   const autoPublishRoles = [
-    UserRole.GLOBAL_ADMIN,
-    UserRole.SCHOOL_ADMIN,
+    UserRole.ORGANIZATION_ADMIN,
     UserRole.TASK_MANAGER,
   ];
   return (autoPublishRoles as UserRole[]).includes(role);

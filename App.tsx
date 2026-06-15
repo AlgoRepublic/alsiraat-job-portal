@@ -10,29 +10,103 @@ import { Layers } from "lucide-react";
 import { ToastProvider } from "./components/Toast";
 import { User, UserRole, Permission } from "./types";
 import { db } from "./services/database";
+import {
+  dispatchActiveOrgChanged,
+  getUserRolesForActiveOrg,
+} from "./utils/orgScopedRoles";
 
 import { Loading } from "./components/Loading";
 import { ThemeToggle } from "./components/ThemeToggle";
 
 // Lazy loaded components
-const Layout = lazy(() => import("./components/Layout").then(module => ({ default: module.Layout })));
-const Dashboard = lazy(() => import("./pages/Dashboard").then(module => ({ default: module.Dashboard })));
-const JobWizard = lazy(() => import("./pages/JobWizard").then(module => ({ default: module.JobWizard })));
-const JobList = lazy(() => import("./pages/JobList").then(module => ({ default: module.JobList })));
-const JobDetails = lazy(() => import("./pages/JobDetails").then(module => ({ default: module.JobDetails })));
-const Profile = lazy(() => import("./pages/Profile").then(module => ({ default: module.Profile })));
-const Login = lazy(() => import("./pages/Login").then(module => ({ default: module.Login })));
-const LandingPage = lazy(() => import("./components/LandingPage").then(module => ({ default: module.LandingPage })));
-const JobApplicants = lazy(() => import("./pages/JobApplicants").then(module => ({ default: module.JobApplicants })));
-const ApplicationReview = lazy(() => import("./pages/ApplicationReview").then(module => ({ default: module.ApplicationReview })));
-const MyTasks = lazy(() => import("./pages/MyTasks").then(module => ({ default: module.MyTasks })));
-const UserManagement = lazy(() => import("./pages/UserManagement").then(module => ({ default: module.UserManagement })));
+const Layout = lazy(() =>
+  import("./components/Layout").then((module) => ({ default: module.Layout })),
+);
+const Dashboard = lazy(() =>
+  import("./pages/Dashboard").then((module) => ({ default: module.Dashboard })),
+);
+const JobWizard = lazy(() =>
+  import("./pages/JobWizard").then((module) => ({ default: module.JobWizard })),
+);
+const JobList = lazy(() =>
+  import("./pages/JobList").then((module) => ({ default: module.JobList })),
+);
+const JobDetails = lazy(() =>
+  import("./pages/JobDetails").then((module) => ({
+    default: module.JobDetails,
+  })),
+);
+const Profile = lazy(() =>
+  import("./pages/Profile").then((module) => ({ default: module.Profile })),
+);
+const Login = lazy(() =>
+  import("./pages/Login").then((module) => ({ default: module.Login })),
+);
+const LandingPage = lazy(() =>
+  import("./components/LandingPage").then((module) => ({
+    default: module.LandingPage,
+  })),
+);
+const JobApplicants = lazy(() =>
+  import("./pages/JobApplicants").then((module) => ({
+    default: module.JobApplicants,
+  })),
+);
+const ApplicationReview = lazy(() =>
+  import("./pages/ApplicationReview").then((module) => ({
+    default: module.ApplicationReview,
+  })),
+);
+const MyAds = lazy(() =>
+  import("./pages/MyTasks").then((module) => ({ default: module.MyAds })),
+);
+const MyAssignedTasks = lazy(() =>
+  import("./pages/MyAssignedTasks").then((module) => ({
+    default: module.MyAssignedTasks,
+  })),
+);
+const UserManagement = lazy(() =>
+  import("./pages/UserManagement").then((module) => ({
+    default: module.UserManagement,
+  })),
+);
 const MyApplications = lazy(() => import("./pages/MyApplications"));
-const AdminSettings = lazy(() => import("./pages/AdminSettings").then(module => ({ default: module.AdminSettings })));
-const Reports = lazy(() => import("./pages/Reports").then(module => ({ default: module.Reports })));
-const Signup = lazy(() => import("./pages/Signup").then(module => ({ default: module.Signup })));
-const ForgotPassword = lazy(() => import("./pages/ForgotPassword").then(module => ({ default: module.ForgotPassword })));
-const ResetPassword = lazy(() => import("./pages/ResetPassword").then(module => ({ default: module.ResetPassword })));
+const PendingApprovals = lazy(() =>
+  import("./pages/PendingApprovals").then((module) => ({
+    default: module.PendingApprovals,
+  })),
+);
+const AdminSettings = lazy(() =>
+  import("./pages/AdminSettings").then((module) => ({
+    default: module.AdminSettings,
+  })),
+);
+const Reports = lazy(() =>
+  import("./pages/Reports").then((module) => ({ default: module.Reports })),
+);
+const Signup = lazy(() =>
+  import("./pages/Signup").then((module) => ({ default: module.Signup })),
+);
+const ForgotPassword = lazy(() =>
+  import("./pages/ForgotPassword").then((module) => ({
+    default: module.ForgotPassword,
+  })),
+);
+const ResetPassword = lazy(() =>
+  import("./pages/ResetPassword").then((module) => ({
+    default: module.ResetPassword,
+  })),
+);
+const Privacy = lazy(() =>
+  import("./pages/Privacy").then((module) => ({
+    default: module.Privacy,
+  })),
+);
+const Terms = lazy(() =>
+  import("./pages/Terms").then((module) => ({
+    default: module.Terms,
+  })),
+);
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -42,6 +116,16 @@ const App: React.FC = () => {
     if (stored === "dark") return true;
     return false;
   });
+
+  // Redirect from SSO logout: base URL with ?redirect-to-login=true → #/login
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("redirect-to-login") === "true") {
+      const base = `${window.location.origin}${window.location.pathname || "/"}`;
+      window.location.replace(`${base}#/login`);
+      return;
+    }
+  }, []);
 
   useEffect(() => {
     const initUser = async () => {
@@ -75,6 +159,23 @@ const App: React.FC = () => {
     const user = await db.getCurrentUser();
     setCurrentUser(user);
   };
+
+  const handleSwitchOrg = async (orgId: string) => {
+    try {
+      await db.switchOrganisation(orgId);
+      // Refresh user from localStorage (already updated by api.ts)
+      const user = await db.getCurrentUser();
+      setCurrentUser(user);
+      dispatchActiveOrgChanged();
+    } catch (err) {
+      console.error("Failed to switch organisation:", err);
+    }
+  };
+
+  const activeOrgId =
+    typeof currentUser?.activeOrganisation === "object"
+      ? currentUser?.activeOrganisation?._id
+      : (currentUser?.activeOrganisation as any);
 
   if (loading) {
     return <Loading fullScreen message="Loading Tasker..." />;
@@ -142,14 +243,34 @@ const App: React.FC = () => {
                 </div>
               }
             />
+            <Route
+              path="/privacy"
+              element={
+                <div className="relative">
+                  <ThemeToggle isDarkMode={isDarkMode} onToggle={toggleTheme} />
+                  <Privacy />
+                </div>
+              }
+            />
+            <Route
+              path="/terms"
+              element={
+                <div className="relative">
+                  <ThemeToggle isDarkMode={isDarkMode} onToggle={toggleTheme} />
+                  <Terms />
+                </div>
+              }
+            />
 
             {/* All other routes wrapped in Layout */}
             <Route
               path="/*"
               element={
                 <Layout
+                  key={`org-${activeOrgId || "none"}`}
                   currentUser={currentUser}
                   onSwitchUser={handleSwitchUser}
+                  onSwitchOrg={handleSwitchOrg}
                   isDarkMode={isDarkMode}
                   onToggleTheme={toggleTheme}
                 >
@@ -163,7 +284,11 @@ const App: React.FC = () => {
                         <>
                           <Route
                             path="/dashboard"
-                            element={<Dashboard role={currentUser.role} />}
+                            element={
+                              <Dashboard
+                                roles={getUserRolesForActiveOrg(currentUser) as UserRole[]}
+                              />
+                            }
                           />
                           <Route path="/post-job" element={<JobWizard />} />
                           <Route path="/edit-job/:id" element={<JobWizard />} />
@@ -171,7 +296,12 @@ const App: React.FC = () => {
                             path="/jobs/:id/applicants"
                             element={<JobApplicants />}
                           />
-                          <Route path="/my-tasks" element={<MyTasks />} />
+                          <Route path="/my-ads" element={<MyAds />} />
+                          <Route path="/my-tasks" element={<MyAssignedTasks />} />
+                          <Route
+                            path="/pending-approvals"
+                            element={<PendingApprovals />}
+                          />
                           <Route
                             path="/my-applications"
                             element={<MyApplications />}
@@ -189,10 +319,6 @@ const App: React.FC = () => {
                                 path="/admin/settings"
                                 element={<AdminSettings />}
                               />
-                              <Route
-                                path="/admin/users"
-                                element={<UserManagement />}
-                              />
                             </>
                           )}
                           {/* Admin and Owner routes */}
@@ -206,7 +332,10 @@ const App: React.FC = () => {
                         </>
                       )}
 
-                      <Route path="*" element={<Navigate to="/jobs" replace />} />
+                      <Route
+                        path="*"
+                        element={<Navigate to="/jobs" replace />}
+                      />
                     </Routes>
                   </Suspense>
                 </Layout>

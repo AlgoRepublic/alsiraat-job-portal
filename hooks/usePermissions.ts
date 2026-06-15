@@ -60,43 +60,49 @@ interface UsePermissionsResult {
 }
 
 export function usePermissions(
-  user: { id?: string; role?: UserRole } | null,
+  user: { id?: string; role?: UserRole; isSuperAdmin?: boolean } | null,
 ): UsePermissionsResult {
   return useMemo(() => {
     const role = user?.role;
     const userId = user?.id;
+    const opt = { isSuperAdmin: user?.isSuperAdmin };
+    const superUser = !!user?.isSuperAdmin;
 
     return {
       // Core permission checks
-      can: (permission: Permission) => hasPermission(role, permission),
+      can: (permission: Permission) =>
+        superUser || hasPermission(role, permission, opt),
       canAny: (permissions: Permission[]) =>
-        hasAnyPermission(role, permissions),
+        superUser || hasAnyPermission(role, permissions, opt),
       canAll: (permissions: Permission[]) =>
-        hasAllPermissions(role, permissions),
+        superUser || hasAllPermissions(role, permissions, opt),
       canWithContext: (permission: Permission, context: PermissionContext) =>
-        canWithContext(role, permission, { ...context, userId }),
+        superUser ||
+        canWithContext(role, permission, { ...context, userId }, opt),
 
       // Convenience methods
-      canAutoPublish: checkAutoPublish(role),
-      canViewDashboard: checkViewDashboard(role),
-      canApplyForTasks: checkApplyForTasks(role),
+      canAutoPublish: superUser || checkAutoPublish(role, opt),
+      canViewDashboard: superUser || checkViewDashboard(role),
+      canApplyForTasks: superUser || checkApplyForTasks(role),
       canViewApplicants: (taskCreatorId?: string) =>
-        checkViewApplicants(role, taskCreatorId, userId),
+        superUser || checkViewApplicants(role, taskCreatorId, userId),
       canManageApplication: (
         action: "shortlist" | "approve" | "reject",
         taskCreatorId?: string,
-      ) => checkManageAppStatus(role, action, taskCreatorId, userId),
+      ) =>
+        superUser ||
+        checkManageAppStatus(role, action, taskCreatorId, userId),
 
       // User info
       role,
       userId,
-      isAdmin: role === UserRole.GLOBAL_ADMIN,
-      isOwner: role === UserRole.SCHOOL_ADMIN,
+      isAdmin: superUser,
+      isOwner: role === UserRole.ORGANIZATION_ADMIN,
       isApprover: role === UserRole.TASK_MANAGER,
       isMember: role === UserRole.TASK_ADVERTISER,
       isIndependent: role === UserRole.APPLICANT,
     };
-  }, [user?.id, user?.role]);
+  }, [user?.id, user?.role, user?.isSuperAdmin]);
 }
 
 // Re-export Permission enum for convenience

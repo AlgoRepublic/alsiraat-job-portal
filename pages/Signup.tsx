@@ -1,67 +1,156 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Mail,
   Lock,
   User as UserIcon,
-  Shield,
   AlertCircle,
-  Layers,
   ArrowLeft,
   Building2,
-  Users,
+  Phone,
 } from "lucide-react";
 import { db } from "../services/database";
 import { UserRole } from "../types";
-
-// Roles available for signup (Admin is excluded)
-const SIGNUP_ROLES = [
-  {
-    value: UserRole.APPLICANT,
-    label: "Applicant / Student",
-    description: "Browse, apply, manage history and skills",
-  },
-  {
-    value: UserRole.TASK_ADVERTISER,
-    label: "Task Advertiser",
-    description: "Create, edit, submit tasks",
-  },
-  {
-    value: UserRole.TASK_MANAGER,
-    label: "Task Manager",
-    description: "Review, publish, shortlist, issue offers",
-  },
-  {
-    value: UserRole.SCHOOL_ADMIN,
-    label: "School Admin",
-    description: "Oversee tasks, manage roles, run reports",
-  },
-];
-
 import { LoadingOverlay } from "../components/Loading";
 
+/** Formats input as an Australian phone number (mobile or landline) */
+const formatAustralianPhone = (raw: string): string => {
+  const digits = raw.replace(/\D/g, "").slice(0, 10);
+  if (digits.startsWith("04")) {
+    const p1 = digits.slice(0, 4);
+    const p2 = digits.slice(4, 7);
+    const p3 = digits.slice(7, 10);
+    return [p1, p2, p3].filter(Boolean).join(" ");
+  } else if (digits.startsWith("0")) {
+    const area = digits.slice(0, 2);
+    const p1 = digits.slice(2, 6);
+    const p2 = digits.slice(6, 10);
+    let result = area ? `(${area}` : "";
+    if (digits.length > 2) result += `) ${p1}`;
+    if (digits.length > 6) result += ` ${p2}`;
+    return result;
+  }
+  return digits;
+};
+
 export const Signup: React.FC = () => {
-  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const invitationToken = searchParams.get("token");
+
   const [isLoading, setIsLoading] = useState(false);
+  const [step, setStep] = useState<"FORM" | "OTP">("FORM");
   const [firstName, setFirstName] = useState("");
   const [surname, setSurname] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [otp, setOtp] = useState("");
+  const [contactNumber, setContactNumber] = useState("");
   const [error, setError] = useState("");
+  const [invitationOrg, setInvitationOrg] = useState<string | null>(null);
+  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const OTP_LENGTH = 6;
+
+  useEffect(() => {
+    if (invitationToken) {
+      const fetchInvitation = async () => {
+        setIsLoading(true);
+        try {
+          const details = await db.getInvitationDetails(invitationToken);
+          setEmail(details.email);
+          setInvitationOrg(details.organisation.name);
+        } catch (err: any) {
+          setError(
+            err.message || "This invitation link is invalid or has expired."
+          );
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchInvitation();
+    }
+  }, [invitationToken]);
+
+  useEffect(() => {
+    if (step === "OTP") {
+      const t = window.setTimeout(() => otpInputRefs.current[0]?.focus(), 150);
+      return () => window.clearTimeout(t);
+    }
+  }, [step]);
+
+  const handleOtpBoxChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, "");
+    if (raw.length > 1) {
+      setOtp(raw.slice(0, OTP_LENGTH));
+      otpInputRefs.current[Math.min(raw.length, OTP_LENGTH - 1)]?.focus();
+      return;
+    }
+    const next =
+      otp.slice(0, index) + (raw || "") + otp.slice(index + 1);
+    setOtp(next.slice(0, OTP_LENGTH));
+    if (raw && index < OTP_LENGTH - 1) {
+      otpInputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpBoxKeyDown = (
+    index: number,
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (e.key !== "Backspace") return;
+    if (otp[index] || e.currentTarget.value) return;
+    e.preventDefault();
+    if (index === 0) return;
+    setOtp(otp.slice(0, index - 1) + otp.slice(index));
+    otpInputRefs.current[index - 1]?.focus();
+  };
+
+  const handleOtpPaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const text = e.clipboardData
+      .getData("text")
+      .replace(/\D/g, "")
+      .slice(0, OTP_LENGTH);
+    setOtp(text);
+    const focusIdx = Math.min(Math.max(text.length - 1, 0), OTP_LENGTH - 1);
+    otpInputRefs.current[focusIdx]?.focus();
+  };
+
+  const handleRequestOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
+    try {
+      await db.sendOtp({
+        firstName: firstName.trim(),
+        lastName: surname.trim(),
+        email: email.trim(),
+      });
+      setStep("OTP");
+    } catch (err: any) {
+      setError(err.message || "Failed to send verification code.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
     try {
-      await db.signup({
-        name: `${firstName} ${surname}`.trim(),
-        email,
+      await db.verifyOtp({
+        firstName: firstName.trim(),
+        lastName: surname.trim(),
+        email: email.trim(),
         password,
-        role: UserRole.APPLICANT,
+        otp: otp.trim(),
+        invitationToken,
+        ...(contactNumber.trim()
+          ? { contactNumber: contactNumber.trim() }
+          : {}),
       });
       setTimeout(() => {
-        window.location.reload();
+        window.location.href = "/";
       }, 100);
     } catch (err: any) {
       setError(err.message || "Signup failed. Please try again.");
@@ -71,7 +160,13 @@ export const Signup: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 transition-colors relative overflow-hidden bg-zinc-50 dark:bg-black">
-      {isLoading && <LoadingOverlay message="Creating Account..." />}
+      {isLoading && (
+        <LoadingOverlay
+          message={
+            step === "FORM" ? "Sending Verification..." : "Verifying Account..."
+          }
+        />
+      )}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-red-500/10 rounded-full blur-[100px]"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[100px]"></div>
@@ -86,15 +181,51 @@ export const Signup: React.FC = () => {
         </Link>
 
         <div className="text-center mb-8 mt-4">
-          <div className="w-16 h-16 bg-gradient-to-tr from-primary to-primaryHover rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-primary/20 relative">
-            <Layers className="text-white w-9 h-9" strokeWidth={2.5} />
+          <div className="w-16 h-16 flex items-center justify-center mx-auto mb-6 relative">
+            <img
+              src="/logo-light.png"
+              alt="Al Siraat"
+              className="w-full h-full object-contain dark:hidden drop-shadow-sm"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+                e.currentTarget.parentElement!.innerHTML =
+                  '<div class="w-16 h-16 bg-gradient-to-tr from-primary to-primaryHover rounded-2xl flex items-center justify-center shadow-xl shadow-primary/20"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-white w-9 h-9"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg></div>';
+              }}
+            />
+            <img
+              src="/logo-dark.png"
+              alt="Al Siraat"
+              className="w-full h-full object-contain hidden dark:block drop-shadow-sm"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+                if (!e.currentTarget.parentElement!.querySelector("svg")) {
+                  e.currentTarget.parentElement!.innerHTML =
+                    '<div class="w-16 h-16 bg-gradient-to-tr from-primary to-primaryHover rounded-2xl flex items-center justify-center shadow-xl shadow-primary/20"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-white w-9 h-9"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg></div>';
+                }
+              }}
+            />
           </div>
           <h1 className="text-3xl font-black text-zinc-900 dark:text-white mb-2 tracking-tighter">
-            Create Account
+            {step === "FORM"
+              ? invitationToken
+                ? "Complete Your Onboarding"
+                : "Create Account"
+              : "Verify Email"}
           </h1>
-          <p className="text-zinc-500 dark:text-zinc-400 text-sm font-bold uppercase tracking-widest text-[10px]">
-            Join Tasker
-          </p>
+          {invitationOrg ? (
+            <div className="flex items-center justify-center gap-2 mb-2 p-2 bg-primary/10 rounded-xl border border-primary/20 animate-pulse">
+              <Building2 className="w-4 h-4 text-primary" />
+              <span className="text-[10px] font-black uppercase tracking-wider text-primary">
+                Joining {invitationOrg}
+              </span>
+            </div>
+          ) : (
+            <p className="text-zinc-500 dark:text-zinc-400 text-sm font-bold uppercase tracking-widest text-[10px]">
+              {step === "FORM"
+                ? "Join Tasker"
+                : `Code sent to ${email.toLowerCase()}`}
+            </p>
+          )}
         </div>
 
         {error && (
@@ -106,70 +237,156 @@ export const Signup: React.FC = () => {
           </div>
         )}
 
-        <form onSubmit={handleSignup} className="space-y-5">
+        <form
+          onSubmit={step === "FORM" ? handleRequestOtp : handleSignup}
+          className="space-y-5"
+        >
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="relative group">
-                <UserIcon className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
-                <input
-                  type="text"
-                  required
-                  placeholder="Name"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
-                />
-              </div>
-              <div className="relative group">
-                <UserIcon className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
-                <input
-                  type="text"
-                  required
-                  placeholder="Surname"
-                  value={surname}
-                  onChange={(e) => setSurname(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
-                />
-              </div>
-            </div>
+            {step === "FORM" ? (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="relative group">
+                    <UserIcon className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="First Name"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
+                    />
+                  </div>
+                  <div className="relative group">
+                    <UserIcon className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="Last Name"
+                      value={surname}
+                      onChange={(e) => setSurname(e.target.value)}
+                      className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
+                    />
+                  </div>
+                </div>
 
-            <div className="relative group">
-              <Mail className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
-              <input
-                type="email"
-                required
-                placeholder="Email Address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-[#812349]/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
-              />
-            </div>
-            <div className="relative group">
-              <Lock className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
-              <input
-                type="password"
-                required
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-[#812349]/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
-              />
-            </div>
+                <div className="relative group">
+                  <Mail className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
+                  <input
+                    type="email"
+                    required
+                    placeholder="Email Address"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={!!invitationToken}
+                    className={`w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-[#812349]/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md ${
+                      invitationToken ? "opacity-70 cursor-not-allowed" : ""
+                    }`}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="space-y-3">
+                  <p className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 text-center">
+                    Verification code
+                  </p>
+                  <div
+                    className="flex gap-2 sm:gap-3 justify-center"
+                    onPaste={handleOtpPaste}
+                  >
+                    {Array.from({ length: OTP_LENGTH }, (_, i) => (
+                      <input
+                        key={i}
+                        ref={(el) => {
+                          otpInputRefs.current[i] = el;
+                        }}
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete={i === 0 ? "one-time-code" : "off"}
+                        maxLength={1}
+                        required
+                        aria-label={`Verification code digit ${i + 1} of ${OTP_LENGTH}`}
+                        value={otp[i] ?? ""}
+                        onChange={(e) => handleOtpBoxChange(i, e)}
+                        onKeyDown={(e) => handleOtpBoxKeyDown(i, e)}
+                        className="w-10 h-12 sm:w-11 sm:h-14 shrink-0 rounded-xl border-2 border-primary/35 dark:border-primary/45 bg-primary/10 dark:bg-primary/15 text-center text-xl font-bold tabular-nums tracking-normal text-zinc-900 dark:text-white outline-none transition-all focus:border-primary focus:ring-4 focus:ring-primary/20 focus:bg-white dark:focus:bg-zinc-900/80"
+                      />
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium pt-1 text-center uppercase tracking-wide leading-relaxed">
+                    Enter the 6-digit code sent to your email
+                  </p>
+                </div>
+
+                <div className="relative group">
+                  <Phone className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
+                  <input
+                    type="tel"
+                    placeholder="04XX XXX XXX (optional)"
+                    value={contactNumber}
+                    onChange={(e) =>
+                      setContactNumber(formatAustralianPhone(e.target.value))
+                    }
+                    maxLength={13}
+                    className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
+                  />
+                </div>
+
+                <div className="relative group">
+                  <Lock className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
+                  <input
+                    type="password"
+                    required
+                    placeholder="Create Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-[#812349]/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
+                  />
+                </div>
+              </>
+            )}
           </div>
 
           <button
             disabled={isLoading}
             className="w-full py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primaryHover shadow-xl shadow-primary/30 transition-all hover:-translate-y-1 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
           >
-            Create Account
+            {step === "FORM" ? (
+              <>
+                Send Verification Code
+                <Mail className="w-4 h-4 ml-2" />
+              </>
+            ) : (
+              "Complete Registration"
+            )}
           </button>
+
+          {step === "OTP" && (
+            <button
+              type="button"
+              onClick={() => setStep("FORM")}
+              className="w-full py-2 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-primary transition-colors"
+            >
+              Change Email Address
+            </button>
+          )}
         </form>
 
-        <div className="mt-8 text-center">
+        <div className="mt-8 text-center space-y-4">
           <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">
             Already have access?{" "}
             <Link to="/login" className="text-primary hover:underline ml-1">
               Sign In
+            </Link>
+          </p>
+          <p className="text-[10px] text-zinc-400 font-medium">
+            By creating an account, you agree to our{" "}
+            <Link to="/terms" className="text-primary hover:underline">
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link to="/privacy" className="text-primary hover:underline">
+              Privacy Policy
             </Link>
           </p>
         </div>

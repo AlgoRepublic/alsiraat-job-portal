@@ -1,6 +1,7 @@
-import express from "express";
+import express, { type Router } from "express";
 import {
   getRewardTypes,
+  getRewardTypesAdmin,
   getRewardType,
   createRewardType,
   updateRewardType,
@@ -9,17 +10,29 @@ import {
 } from "../controllers/rewardTypeController.js";
 import {
   authenticate,
+  optionalAuthenticate,
   requirePermission,
   Permission,
 } from "../middleware/rbac.js";
 
-const router = express.Router();
+const router: Router = express.Router();
 
-// Public route - get all active reward types
-router.get("/", getRewardTypes);
+// Optional auth: JWT org scopes results; unauthenticated = platform defaults only
+router.get("/", optionalAuthenticate, getRewardTypes);
+
+// Admin list (inactive included) — same handler as ?all=true
+router.get(
+  "/admin/all",
+  authenticate,
+  requirePermission(Permission.ADMIN_SETTINGS),
+  async (req, res) => {
+    req.query.all = "true";
+    return getRewardTypes(req, res);
+  },
+);
 
 // Get single reward type
-router.get("/:id", getRewardType);
+router.get("/:id", optionalAuthenticate, getRewardType);
 
 // Admin routes - require ADMIN_SETTINGS permission
 router.post(

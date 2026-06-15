@@ -1,4 +1,4 @@
-import express from "express";
+import express, { type Router } from "express";
 import {
   getTaskCategories,
   getTaskCategory,
@@ -9,17 +9,18 @@ import {
 } from "../controllers/taskCategoryController.js";
 import {
   authenticate,
+  optionalAuthenticate,
   requirePermission,
   Permission,
 } from "../middleware/rbac.js";
 
-const router = express.Router();
+const router: Router = express.Router();
 
-// Public route - get all active categories
-router.get("/", getTaskCategories);
+// Categories: optional auth so JWT org scopes results for members; unauthenticated = platform defaults only
+router.get("/", optionalAuthenticate, getTaskCategories);
 
 // Get single category
-router.get("/:id", getTaskCategory);
+router.get("/:id", optionalAuthenticate, getTaskCategory);
 
 // Admin routes
 router.post(

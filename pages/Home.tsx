@@ -5,57 +5,26 @@ import {
   Briefcase,
   Users,
   Award,
-  Shield,
-  Layers,
-  Rocket,
-  Zap,
-  Target,
+  GraduationCap,
   MapPin,
   Clock,
-  PartyPopper,
-  BarChart3,
-  GraduationCap,
-  Wrench,
-  BookOpen,
-  Sparkles,
-  FolderOpen,
-  Laptop,
-  Backpack,
-  Palette,
-  CalendarDays,
-  LayoutGrid,
-  Presentation,
-  Hammer,
-  Lightbulb,
-  Waves,
-  Building2,
-  Cpu,
-  School,
-  Brush,
   UserRound,
   ShieldHalf,
 } from "lucide-react";
 import { db } from "../services/database";
-import { Job, JobStatus } from "../types";
-
-// Map category codes to Lucide icons
-const categoryIcons: Record<string, any> = {
-  events: CalendarDays,
-  programs: LayoutGrid,
-  seminar: Presentation,
-  maintenance: Hammer,
-  tutoring: Lightbulb,
-  cleaning: Waves,
-  administration: Building2,
-  technology: Cpu,
-  education: School,
-  creative: Brush,
-};
+import { resolveCatalogOrganisationId } from "../services/platformOrganisations";
+import { Job, JobStatus, User } from "../types";
+import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
   const [publicJobs, setPublicJobs] = useState<Job[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    void db.getCurrentUser().then(setCurrentUser).catch(() => setCurrentUser(null));
+  }, []);
 
   useEffect(() => {
     const fetchPublicJobs = async () => {
@@ -73,7 +42,9 @@ export const Home: React.FC = () => {
 
     const fetchCategories = async () => {
       try {
-        const cats = await db.getTaskCategories();
+        const orgId = await resolveCatalogOrganisationId();
+        if (!orgId) return;
+        const cats = await db.getTaskCategories(orgId);
         setCategories(cats);
       } catch (err) {
         console.error("Failed to fetch categories", err);
@@ -242,45 +213,39 @@ export const Home: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {categories.map((cat) => {
-              const IconComponent = categoryIcons[cat.code] || Briefcase;
-              return (
+            {categories.map((cat) => (
+              <div
+                key={cat.code}
+                onClick={() =>
+                  navigate(`/jobs?category=${encodeURIComponent(cat.name)}`)
+                }
+                className="group relative bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-6 hover:shadow-xl transition-all cursor-pointer hover:-translate-y-1 overflow-hidden"
+                style={{
+                  borderColor: cat.color + "20",
+                }}
+              >
                 <div
-                  key={cat.code}
-                  onClick={() =>
-                    navigate(`/jobs?category=${encodeURIComponent(cat.name)}`)
-                  }
-                  className="group relative bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-6 hover:shadow-xl transition-all cursor-pointer hover:-translate-y-1 overflow-hidden"
-                  style={{
-                    borderColor: cat.color + "20",
-                  }}
-                >
+                  className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity"
+                  style={{ backgroundColor: cat.color }}
+                />
+                <div className="relative z-10 text-center">
                   <div
-                    className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity"
-                    style={{ backgroundColor: cat.color }}
-                  />
-                  <div className="relative z-10 text-center">
-                    <div
-                      className="mb-3 mx-auto w-16 h-16 rounded-2xl flex items-center justify-center"
-                      style={{
-                        backgroundColor: cat.color + "20",
-                      }}
-                    >
-                      <IconComponent
-                        className="w-8 h-8"
-                        style={{ color: cat.color }}
-                      />
-                    </div>
-                    <h3
-                      className="font-black text-sm tracking-tight"
-                      style={{ color: cat.color }}
-                    >
-                      {cat.name}
-                    </h3>
+                    className="mb-3 mx-auto w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
+                    style={{
+                      backgroundColor: cat.color + "20",
+                    }}
+                  >
+                    {cat.icon || "📋"}
                   </div>
+                  <h3
+                    className="font-black text-sm tracking-tight"
+                    style={{ color: cat.color }}
+                  >
+                    {cat.name}
+                  </h3>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -339,6 +304,26 @@ export const Home: React.FC = () => {
                   {job.hoursRequired} Hrs
                 </div>
               </div>
+              <div
+                className="mt-3 flex justify-end"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <TaskLifecycleActions
+                  job={job}
+                  currentUser={currentUser}
+                  layout="compact"
+                  onAfterMutation={() =>
+                    void db.getJobs().then((jobs) => {
+                      const visible = jobs.filter(
+                        (j) =>
+                          j.status === JobStatus.PUBLISHED ||
+                          j.status === JobStatus.APPROVED,
+                      );
+                      setPublicJobs(visible);
+                    })
+                  }
+                />
+              </div>
             </div>
           ))}
         </div>
@@ -365,7 +350,7 @@ export const Home: React.FC = () => {
             For Staff
           </h3>
           <p className="text-zinc-500 dark:text-zinc-400 font-medium leading-relaxed">
-            Post tasks and find students to help you.
+            Create tasks and find students to help you.
           </p>
         </div>
         <div className="glass-card p-10 rounded-[2.5rem] text-center group hover:shadow-2xl transition-all">

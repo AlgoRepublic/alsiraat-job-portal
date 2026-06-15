@@ -6,9 +6,10 @@ import User from "../models/User.js";
 dotenv.config();
 
 const MONGODB_URI =
-  // process.env.MONGODB_URI ||
+  process.env.MONGODB_URI ||
   // "mongodb://tasker:WdE0urFVi93pYYOLOzUGn7AGgvfFhe2adPaSj49kbqgG_3IG@1023b557-eaa1-419e-bd02-4df4d15f4409.africa-south1.firestore.goog:443/alsiraat-tasker?loadBalanced=true&tls=true&authMechanism=SCRAM-SHA-256&retryWrites=false";  process.env.MONGODB_URI || "mongodb://localhost:27017/tasker";
-  process.env.MONGODB_URI || "mongodb://localhost:27017/tasker";
+  process.env.MONGODB_URI ||
+  "mongodb://localhost:27017/tasker";
 
 async function main() {
   try {
@@ -16,11 +17,10 @@ async function main() {
     console.log("✅ Connected to MongoDB");
 
     const mapping = {
-      admin: "Global Admin",
-      owner: "School Admin",
+      admin: "Organisation Admin",
+      owner: "Organisation Admin",
       approver: "Task Manager",
       member: "Task Advertiser",
-      independent: "Applicant",
     };
 
     console.log("🔄 Starting migration...");
@@ -37,6 +37,16 @@ async function main() {
           `   ✨ Updated ${result.modifiedCount} users from '${oldRole}' to '${newRole}'`,
         );
       }
+    }
+
+    const schoolAdminRename = await User.updateMany(
+      { role: { $regex: /^school admin$/i } },
+      { role: "Organisation Admin" },
+    );
+    if (schoolAdminRename.matchedCount > 0) {
+      console.log(
+        `   ✨ Renamed ${schoolAdminRename.modifiedCount} users from 'School Admin' to 'Organisation Admin'`,
+      );
     }
 
     console.log("✅ Migration complete");
