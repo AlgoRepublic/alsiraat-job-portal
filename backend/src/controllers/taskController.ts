@@ -1341,63 +1341,69 @@ export const getTaskById = async (req: any, res: Response) => {
         return res.status(404).json({ message: "Task not found" });
       }
 
-      const userMemberKind = task.organisation
-        ? getMemberKindForOrg(req.user, String(task.organisation))
-        : null;
-      const privateAudiences = Array.isArray((task as any).privateAudiences)
-        ? (task as any).privateAudiences.map(String)
-        : [];
-      const allowsInternal = privateAudiences.includes(TaskVisibility.INTERNAL);
-      const allowsExternal = privateAudiences.includes(TaskVisibility.EXTERNAL);
+      const taskOrgId =
+        typeof task.organisation === "object" &&
+        task.organisation !== null &&
+        "_id" in task.organisation
+          ? String((task.organisation as { _id: unknown })._id)
+          : String(task.organisation ?? "");
 
-      const Group = (await import("../models/Group.js")).default;
-      const userGroups = await Group.find({ members: req.user._id }).select(
-        "_id",
-      );
-      const userGroupIds = userGroups.map((g: any) => g._id.toString());
-
-      const createdById = typeof task.createdBy === "object" && task.createdBy !== null
-        ? task.createdBy._id?.toString?.() || ""
-        : (task.createdBy as any)?.toString?.() || "";
-      const isOwner = createdById === req.user._id.toString();
-      const hasInternalAccess =
-        userMemberKind === OrgMemberKind.INTERNAL && allowsInternal;
-      const hasExternalAccess =
-        userMemberKind === OrgMemberKind.EXTERNAL && allowsExternal;
-
-      if (!isOwner && !hasInternalAccess && !hasExternalAccess) {
-        return res.status(404).json({ message: "Task not found" });
+      let canBypassPrivateVisibility = isSuperAdminUser(req.user);
+      if (!canBypassPrivateVisibility && taskOrgId) {
+        const rolesInTaskOrg = getRolesForOrganisation(req.user, taskOrgId);
+        const { hasPermissionMultiAsync } =
+          await import("../config/permissions.js");
+        canBypassPrivateVisibility = await hasPermissionMultiAsync(
+          rolesInTaskOrg,
+          Permission.TASK_VIEW_PENDING,
+        );
       }
 
-      if (!isOwner && hasInternalAccess) {
-        const allowedGroups = Array.isArray((task as any).allowedGroups)
-          ? (task as any).allowedGroups.map((gid: any) => String(gid))
+      if (!canBypassPrivateVisibility) {
+        const userMemberKind = taskOrgId
+          ? getMemberKindForOrg(req.user, taskOrgId)
+          : null;
+        const privateAudiences = Array.isArray((task as any).privateAudiences)
+          ? (task as any).privateAudiences.map(String)
           : [];
-        const hasGroupAccess =
-          allowedGroups.length === 0 ||
-          allowedGroups.some((gid: string) => userGroupIds.includes(gid));
+        const allowsInternal = privateAudiences.includes(
+          TaskVisibility.INTERNAL,
+        );
+        const allowsExternal = privateAudiences.includes(
+          TaskVisibility.EXTERNAL,
+        );
 
-        const taskOrgId =
-          typeof task.organisation === "object" &&
-          task.organisation !== null &&
-          "_id" in task.organisation
-            ? String((task.organisation as { _id: unknown })._id)
-            : String(task.organisation ?? "");
+        const Group = (await import("../models/Group.js")).default;
+        const userGroups = await Group.find({ members: req.user._id }).select(
+          "_id",
+        );
+        const userGroupIds = userGroups.map((g: any) => g._id.toString());
 
-        // Group targeting limits who may apply / browse as an applicant — same as pending internal tasks in `getTasks`.
-        let bypassGroupForStaff = isSuperAdminUser(req.user);
-        if (!bypassGroupForStaff && taskOrgId) {
-          const rolesInTaskOrg = getRolesForOrganisation(req.user, taskOrgId);
-          const { hasPermissionMultiAsync } =
-            await import("../config/permissions.js");
-          bypassGroupForStaff = await hasPermissionMultiAsync(
-            rolesInTaskOrg,
-            Permission.TASK_VIEW_PENDING,
-          );
+        const createdById =
+          typeof task.createdBy === "object" && task.createdBy !== null
+            ? task.createdBy._id?.toString?.() || ""
+            : (task.createdBy as any)?.toString?.() || "";
+        const isOwner = createdById === req.user._id.toString();
+        const hasInternalAccess =
+          userMemberKind === OrgMemberKind.INTERNAL && allowsInternal;
+        const hasExternalAccess =
+          userMemberKind === OrgMemberKind.EXTERNAL && allowsExternal;
+
+        if (!isOwner && !hasInternalAccess && !hasExternalAccess) {
+          return res.status(404).json({ message: "Task not found" });
         }
 
-        if (!hasGroupAccess && !bypassGroupForStaff) {
-          return res.status(404).json({ message: "Task not found" });
+        if (!isOwner && hasInternalAccess) {
+          const allowedGroups = Array.isArray((task as any).allowedGroups)
+            ? (task as any).allowedGroups.map((gid: any) => String(gid))
+            : [];
+          const hasGroupAccess =
+            allowedGroups.length === 0 ||
+            allowedGroups.some((gid: string) => userGroupIds.includes(gid));
+
+          if (!hasGroupAccess) {
+            return res.status(404).json({ message: "Task not found" });
+          }
         }
       }
     }
