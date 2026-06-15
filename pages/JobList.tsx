@@ -24,6 +24,7 @@ import {
   resolveCatalogOrganisationId,
 } from "../services/platformOrganisations";
 import { getStatusColor } from "./Dashboard";
+import { APPLICATION_WINDOW_NOT_YET_OPEN_FILTER } from "../utils/applicationWindow";
 
 import { Loading } from "../components/Loading";
 import { Pagination } from "../components/Pagination";
@@ -400,6 +401,9 @@ export const JobList: React.FC = () => {
                       {s}
                     </option>
                   ))}
+                  <option value={APPLICATION_WINDOW_NOT_YET_OPEN_FILTER}>
+                    Not Yet Open
+                  </option>
                 </select>
               </div>
               {(canArchiveFilter || canDeleteFilter) && (
@@ -497,7 +501,9 @@ export const JobList: React.FC = () => {
             )}
             {filterStatus !== "All" && (
               <span className="px-3 py-1.5 glass-card rounded-xl text-[10px] font-black uppercase text-zinc-600 dark:text-zinc-400 flex items-center">
-                {filterStatus}{" "}
+                {filterStatus === APPLICATION_WINDOW_NOT_YET_OPEN_FILTER
+                  ? "Not Yet Open"
+                  : filterStatus}{" "}
                 <X
                   className="w-3 h-3 ml-2 cursor-pointer"
                   onClick={() => updateParam("status", "All")}

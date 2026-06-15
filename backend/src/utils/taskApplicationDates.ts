@@ -242,3 +242,14 @@ export function applicationWindowClosedBeforeFilter(before: Date): object {
     ],
   };
 }
+
+/** Search/dashboard filter value for published tasks whose application window has not opened yet. */
+export const APPLICATION_WINDOW_NOT_YET_OPEN_FILTER = "NotYetOpen";
+
+/** Application open date is after the given calendar day's end. */
+export function applicationWindowNotYetOpenFilter(now: Date = new Date()): object {
+  const dayEnd = endOfCalendarDay(now);
+  return {
+    applicationOpenDate: { $gt: dayEnd },
+  };
+}

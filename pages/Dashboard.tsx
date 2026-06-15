@@ -338,6 +338,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
             </div>
           </div>
 
+          {/* Not Yet Open Tasks */}
+          <div
+            onClick={() => navigate("/jobs?status=NotYetOpen")}
+            className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-sky-100 dark:bg-sky-900/20 rounded-xl group-hover:scale-110 transition-transform">
+                <Calendar className="w-5 h-5 text-sky-600 dark:text-sky-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                  {tasks.notYetOpen ?? 0}
+                </p>
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                  Not Yet Open
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Total Applications */}
           <div
             onClick={() => navigate("/jobs")}

@@ -40,6 +40,8 @@ import {
   applicationOpenDateActiveToFilter,
   applicationWindowNotExpiredFilter,
   applicationWindowClosedBeforeFilter,
+  applicationWindowNotYetOpenFilter,
+  APPLICATION_WINDOW_NOT_YET_OPEN_FILTER,
 } from "../utils/taskApplicationDates.js";
 
 const parseArrayField = (value: any): string[] => {
@@ -850,6 +852,9 @@ export const getSearchTasks = async (req: any, res: Response) => {
     const { search, includeExpired } = req.query;
     const statusFilter = String(req.query.status || "");
     const isClosedFilter = statusFilter === TaskStatus.CLOSED;
+    const isNotYetOpenFilter =
+      statusFilter === APPLICATION_WINDOW_NOT_YET_OPEN_FILTER;
+    const isApplicationWindowFilter = isClosedFilter || isNotYetOpenFilter;
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
     let query: any = {};
@@ -988,13 +993,17 @@ export const getSearchTasks = async (req: any, res: Response) => {
       });
     }
     if (req.query.category) additionalFilters.push({ category: req.query.category });
-    if (statusFilter && !isClosedFilter) {
+    if (statusFilter && !isApplicationWindowFilter) {
       additionalFilters.push({ status: statusFilter });
     }
     if (isClosedFilter) {
       additionalFilters.push(
         applicationWindowClosedBeforeFilter(startOfToday),
       );
+    }
+    if (isNotYetOpenFilter) {
+      additionalFilters.push({ status: TaskStatus.PUBLISHED });
+      additionalFilters.push(applicationWindowNotYetOpenFilter());
     }
     if (req.query.reward) additionalFilters.push({ rewardType: req.query.reward });
 
@@ -1025,7 +1034,7 @@ export const getSearchTasks = async (req: any, res: Response) => {
 
     const isAdmin = hasSuperAdminRole;
     const shouldIncludeExpired =
-      (includeExpired === "true" && isAdmin) || isClosedFilter;
+      (includeExpired === "true" && isAdmin) || isApplicationWindowFilter;
     if (!shouldIncludeExpired && user) {
       const expirationFilter = applicationWindowNotExpiredFilter();
       if (Object.keys(query).length > 0) {
