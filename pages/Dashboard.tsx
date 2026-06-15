@@ -21,6 +21,7 @@ import {
   BarChart3,
   Award,
   Send,
+  XCircle,
 } from "lucide-react";
 import { UserRole, JobStatus, Permission } from "../types";
 import { db } from "../services/database";
@@ -370,6 +371,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
                 </p>
                 <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
                   Completed
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div
+            onClick={() => navigate("/jobs?status=Closed")}
+            className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-red-100 dark:bg-red-900/20 rounded-xl group-hover:scale-110 transition-transform">
+                <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                  {tasks.closed ?? 0}
+                </p>
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                  Closed
                 </p>
               </div>
             </div>

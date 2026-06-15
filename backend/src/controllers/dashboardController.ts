@@ -5,7 +5,22 @@ import User from "../models/User.js";
 import { Permission } from "../config/permissions.js";
 import { checkPermissionAsync } from "../middleware/rbac.js";
 import { andWithLifecycle } from "../utils/taskLifecycleQuery.js";
-import { applicationWindowNotExpiredFilter } from "../utils/taskApplicationDates.js";
+import {
+  applicationWindowClosedBeforeFilter,
+  applicationWindowNotExpiredFilter,
+} from "../utils/taskApplicationDates.js";
+
+/** Combine Mongo filters without clobbering nested `$and` via object spread. */
+function mergeMongoFilters(
+  ...filters: Array<Record<string, unknown> | object>
+): Record<string, unknown> {
+  const parts = filters.filter(
+    (f) => f && Object.keys(f as Record<string, unknown>).length > 0,
+  ) as Record<string, unknown>[];
+  if (parts.length === 0) return {};
+  if (parts.length === 1) return parts[0]!;
+  return { $and: parts };
+}
 
 /**
  * GET /api/dashboard/stats
@@ -61,6 +76,9 @@ export const getDashboardStats = async (req: any, res: Response) => {
     taskFilter = andWithLifecycle(taskFilter, "active");
 
     const nonExpiredTaskFilter = applicationWindowNotExpiredFilter();
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const closedWindowFilter = applicationWindowClosedBeforeFilter(startOfToday);
 
     const [
       totalTasks,
@@ -71,14 +89,37 @@ export const getDashboardStats = async (req: any, res: Response) => {
       createdByMe,
     ] = await Promise.all([
       Task.countDocuments(taskFilter),
-      Task.countDocuments({ ...taskFilter, status: TaskStatus.PUBLISHED }),
-      Task.countDocuments({
-        ...taskFilter,
-        status: TaskStatus.PENDING,
-        ...nonExpiredTaskFilter,
-      }),
-      Task.countDocuments({ ...taskFilter, status: TaskStatus.COMPLETED }),
-      Task.countDocuments({ ...taskFilter, status: TaskStatus.CLOSED }),
+      // Active = published and accepting applications (matches Search Tasks browse)
+      Task.countDocuments(
+        mergeMongoFilters(
+          taskFilter,
+          { status: TaskStatus.PUBLISHED },
+          nonExpiredTaskFilter,
+        ),
+      ),
+      Task.countDocuments(
+        mergeMongoFilters(
+          taskFilter,
+          { status: TaskStatus.PENDING },
+          nonExpiredTaskFilter,
+        ),
+      ),
+      Task.countDocuments(
+        mergeMongoFilters(taskFilter, { status: TaskStatus.COMPLETED }),
+      ),
+      Task.countDocuments(
+        mergeMongoFilters(taskFilter, {
+          $or: [
+            { status: TaskStatus.CLOSED },
+            {
+              $and: [
+                { status: TaskStatus.PUBLISHED },
+                closedWindowFilter,
+              ],
+            },
+          ],
+        }),
+      ),
       Task.countDocuments(andWithLifecycle({ createdBy: userId }, "active")),
     ]);
 
