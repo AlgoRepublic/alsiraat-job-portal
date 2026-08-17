@@ -176,6 +176,15 @@ export const requirePermissionWithContext = (
 };
 
 /**
+ * Helper function to get all permissions for a user from the database
+ */
+export async function getPermissionsAsync(user: any): Promise<Permission[]> {
+  if (!user || !user.role) return [];
+  const { getRolePermissionsAsync } = await import("../config/permissions.js");
+  return getRolePermissionsAsync(user.role as UserRole);
+}
+
+/**
  * Helper function to check permission within a controller (DYNAMIC - uses database)
  * Returns true/false and the error response if denied
  */
@@ -183,6 +192,7 @@ export async function checkPermissionAsync(
   user: any,
   permission: Permission,
   context?: PermissionContext,
+  preFetchedPermissions?: Permission[],
 ): Promise<{ allowed: boolean; error?: { status: number; message: string } }> {
   if (!user) {
     return {
@@ -195,31 +205,30 @@ export async function checkPermissionAsync(
   const { hasPermissionAsync, canWithContextAsync } =
     await import("../config/permissions.js");
 
+  let hasAccess = false;
+
   if (context) {
     context.userId = user._id.toString();
     context.userOrganizationId = user.organisation?.toString();
 
-    const hasAccess = await canWithContextAsync(userRole, permission, context);
-    if (!hasAccess) {
-      return {
-        allowed: false,
-        error: {
-          status: 403,
-          message: `You don't have permission to perform this action (${permission})`,
-        },
-      };
-    }
+    // If we have pre-fetched permissions, we can potentially optimize canWithContextAsync too,
+    // but for now let's focus on the basic case or use preFetchedPermissions if available.
+    // canWithContextAsync currently calls hasPermissionAsync internally.
+    hasAccess = await canWithContextAsync(userRole, permission, context);
+  } else if (preFetchedPermissions) {
+    hasAccess = preFetchedPermissions.includes(permission);
   } else {
-    const hasAccess = await hasPermissionAsync(userRole, permission);
-    if (!hasAccess) {
-      return {
-        allowed: false,
-        error: {
-          status: 403,
-          message: `You don't have permission to perform this action (${permission})`,
-        },
-      };
-    }
+    hasAccess = await hasPermissionAsync(userRole, permission);
+  }
+
+  if (!hasAccess) {
+    return {
+      allowed: false,
+      error: {
+        status: 403,
+        message: `You don't have permission to perform this action (${permission})`,
+      },
+    };
   }
 
   return { allowed: true };
