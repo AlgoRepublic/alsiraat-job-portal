@@ -19,6 +19,7 @@ import {
   authenticate,
   optionalAuthenticate,
   requirePermission,
+  requireAnyPermission,
   requireTaskApproval,
   Permission,
 } from "../middleware/rbac.js";
@@ -82,7 +83,7 @@ router.get("/:id", optionalAuthenticate, getTaskById);
 router.put(
   "/:id",
   authenticate,
-  requirePermission(Permission.TASK_UPDATE),
+  requireAnyPermission([Permission.TASK_UPDATE, Permission.TASK_APPROVE]),
   upload.array("attachments", 5),
   handleUploadError,
   updateTask,

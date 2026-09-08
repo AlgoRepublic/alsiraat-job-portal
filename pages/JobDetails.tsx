@@ -36,6 +36,7 @@ import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 import { formatTaskDate } from "../utils/formatTaskDate";
 import {
   canViewPrivilegedTaskDetail,
+  canEditTask,
   buildTaskProvenanceHeader,
   buildAudienceTargetingPresentation,
   type GroupCatalogueEntry,
@@ -475,6 +476,25 @@ export const JobDetails: React.FC = () => {
     !isArchived &&
     !isSoftDeleted;
 
+  const activeOrgId =
+    organisationIdToString(
+      currentUser?.organisation ??
+        (currentUser as { organization?: unknown })?.organization,
+    ) ?? organisationIdToString(currentUser?.activeOrganisation);
+
+  const showEditTask = canEditTask(
+    currentUser,
+    {
+      status: job.status,
+      createdBy: job.createdBy,
+      createdById: job.createdById,
+      organisation: job.organisation ?? (job as { organization?: unknown }).organization,
+      archivedAt: job.archivedAt,
+      deletedAt: job.deletedAt,
+    },
+    activeOrgId,
+  );
+
   const showPrivilegedDetail = canViewPrivilegedTaskDetail(currentUser, {
     createdById: job.createdById,
     createdBy: job.createdBy,
@@ -519,7 +539,7 @@ export const JobDetails: React.FC = () => {
               onAfterMutation={refreshJobFromApi}
               layout="detail"
             />
-            {isJobOwner && (
+            {showEditTask && (
               <button
                 onClick={() => navigate(`/edit-job/${job.id}`)}
                 className="flex items-center px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white text-sm font-bold rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"

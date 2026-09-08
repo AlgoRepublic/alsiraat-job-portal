@@ -37,6 +37,46 @@ export interface TaskDetailViewer {
   permissions?: string[];
 }
 
+export interface TaskEditViewer extends TaskDetailViewer {
+  /** Active organisation id for approver org matching (mirrors request `orgId` on the API). */
+  activeOrgId?: string;
+}
+
+export interface TaskEditAccessInput {
+  status?: string;
+  createdBy?: string;
+  createdById?: string;
+  organisation?: string;
+  organisationId?: string;
+  archivedAt?: string | Date | null;
+  deletedAt?: string | Date | null;
+}
+
+const CREATOR_EDITABLE_STATUSES = new Set(["Pending", "Changes Requested"]);
+
+function resolveTaskOrgId(task: TaskEditAccessInput): string | null {
+  if (task.organisationId != null && String(task.organisationId).trim()) {
+    return String(task.organisationId);
+  }
+  if (task.organisation != null && String(task.organisation).trim()) {
+    return String(task.organisation);
+  }
+  return null;
+}
+
+function isTaskCreator(
+  viewerId: string,
+  task: { createdById?: string; createdBy?: string },
+): boolean {
+  if (task.createdById && viewerId === String(task.createdById)) return true;
+  if (task.createdBy && viewerId === String(task.createdBy)) return true;
+  return false;
+}
+
+function isArchivedOrDeleted(task: TaskEditAccessInput): boolean {
+  return !!(task.archivedAt || task.deletedAt);
+}
+
 export interface TaskDetailProvenanceInput {
   createdBy?: string;
   createdById?: string;
@@ -68,6 +108,45 @@ export function canViewPrivilegedTaskDetail(
     if (task.createdById && viewer.id === task.createdById) return true;
     // Align with JobDetails isJobOwner fallback when createdBy holds a raw id.
     if (task.createdBy && viewer.id === task.createdBy) return true;
+  }
+
+  return false;
+}
+
+/** Whether the viewer may edit the task (UI gate and API parity). */
+export function canEditTask(
+  viewer: TaskEditViewer | null | undefined,
+  task: TaskEditAccessInput,
+  viewerOrgId?: string,
+): boolean {
+  if (!viewer) return false;
+  if (isArchivedOrDeleted(task)) return false;
+
+  if (viewer.isSuperAdmin) return true;
+
+  const activeOrgId =
+    viewerOrgId != null && String(viewerOrgId).trim()
+      ? String(viewerOrgId)
+      : viewer.activeOrgId != null && String(viewer.activeOrgId).trim()
+        ? String(viewer.activeOrgId)
+        : null;
+
+  if (
+    viewer.permissions?.includes(TASK_APPROVE_PERMISSION) &&
+    activeOrgId
+  ) {
+    const taskOrgId = resolveTaskOrgId(task);
+    if (taskOrgId && taskOrgId === activeOrgId) return true;
+  }
+
+  if (viewer.id) {
+    const status = task.status ?? "";
+    if (
+      isTaskCreator(String(viewer.id), task) &&
+      CREATOR_EDITABLE_STATUSES.has(status)
+    ) {
+      return true;
+    }
   }
 
   return false;

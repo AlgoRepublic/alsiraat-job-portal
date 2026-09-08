@@ -14,7 +14,9 @@ import { Loading } from "../components/Loading";
 import { AssignTaskModal } from "../components/AssignTaskModal";
 import { hasAnyPermission, Permission } from "../services/permissions";
 import { Pagination } from "../components/Pagination";
-import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
+import { getActiveOrgIdFromStorage, getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
+import { organisationIdToString } from "../utils/organisationId";
+import { canEditTask } from "../utils/taskDetailPresentation";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 
 const PAGE_SIZE = 10;
@@ -124,13 +126,14 @@ export const MyAds: React.FC = () => {
     !task.archivedAt &&
     !task.deletedAt;
 
-  /** Tasks the owner is still allowed to edit */
-  const isEditable = (task: Job) =>
-    !task.archivedAt &&
-    !task.deletedAt &&
-    [JobStatus.PENDING, JobStatus.CHANGES_REQUESTED, JobStatus.DRAFT].includes(
-      task.status as JobStatus,
-    );
+  const activeOrgId =
+    organisationIdToString(
+      currentUser?.organisation ??
+        (currentUser as { organization?: unknown })?.organization,
+    ) ??
+    organisationIdToString(currentUser?.activeOrganisation) ??
+    getActiveOrgIdFromStorage() ??
+    undefined;
 
   const canAdsArchive =
     !!currentUser?.isSuperAdmin ||
@@ -305,7 +308,20 @@ export const MyAds: React.FC = () => {
                             Assign
                           </button>
                         )}
-                        {isEditable(task) && (
+                        {canEditTask(
+                          currentUser,
+                          {
+                            status: task.status,
+                            createdBy: task.createdBy,
+                            createdById: task.createdById,
+                            organisation:
+                              task.organisation ??
+                              (task as { organization?: unknown }).organization,
+                            archivedAt: task.archivedAt,
+                            deletedAt: task.deletedAt,
+                          },
+                          activeOrgId,
+                        ) && (
                           <button
                             onClick={() => navigate(`/edit-job/${task._id}`)}
                             className="px-4 py-2.5 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-all"

@@ -20,7 +20,7 @@ import {
   Layers,
 } from "lucide-react";
 
-import { LoadingOverlay } from "../components/Loading";
+import { Loading, LoadingOverlay } from "../components/Loading";
 import { CustomDropdown, CustomDatePicker } from "../components/CustomUI";
 import { useToast } from "../components/Toast";
 
@@ -48,6 +48,7 @@ import {
   normalizePrivateAudiences,
   normalizeVisibilityMode,
 } from "../utils/taskVisibility";
+import { canEditTask } from "../utils/taskDetailPresentation";
 
 function getActiveOrganisationNameFromUser(user: any): string | null {
   if (!user) return null;
@@ -245,6 +246,7 @@ export const JobWizard: React.FC = () => {
   const [rewardTypesOrgReady, setRewardTypesOrgReady] = useState(false);
 
   const [formData, setFormData] = useState<Partial<Job>>(getInitialFormData);
+  const [editAccessResolved, setEditAccessResolved] = useState(!id);
 
   React.useEffect(() => {
     const syncActiveOrg = async () => {
@@ -276,8 +278,10 @@ export const JobWizard: React.FC = () => {
       setStep(1);
       setErrors({});
       setSkillInput("");
+      setEditAccessResolved(true);
     } else {
       setUploadedFiles([]);
+      setEditAccessResolved(false);
     }
 
     const fetchData = async () => {
@@ -299,7 +303,30 @@ export const JobWizard: React.FC = () => {
       if (id) {
         try {
           const job = await db.getJob(id);
+          if (cancelled) return;
           if (job) {
+            const user = await db.getCurrentUser().catch(() => null);
+            if (cancelled) return;
+            const editAllowed = canEditTask(
+              user,
+              {
+                status: job.status,
+                createdBy: job.createdBy,
+                createdById: job.createdById,
+                organisation:
+                  job.organisation ?? (job as { organization?: unknown }).organization,
+                archivedAt: job.archivedAt,
+                deletedAt: job.deletedAt,
+              },
+              activeOrgId ?? undefined,
+            );
+            if (!editAllowed) {
+              showError("You are not authorized to edit this task.");
+              navigate(`/jobs/${id}`);
+              return;
+            }
+            setEditAccessResolved(true);
+
             const selectableTypes = [...activeTypes];
             if (job.rewardType) {
               const current = orgScopedTypes.find(
@@ -658,6 +685,10 @@ export const JobWizard: React.FC = () => {
     : null;
 
   // ─── Render ───────────────────────────────────────────────────────────────
+  if (id && !editAccessResolved) {
+    return <Loading message="Loading task..." />;
+  }
+
   return (
     <div className="max-w-3xl mx-auto space-y-8 pb-24">
       {isSubmitting && <LoadingOverlay message="Publishing Task..." />}

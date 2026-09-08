@@ -27,6 +27,7 @@ import {
   isCentralOrganisationId,
   resolveCentralOrganisationId,
 } from "../utils/centralOrg.js";
+import { canEditTask } from "../utils/taskEditAccess.js";
 import {
   parseApplicationOpenDate,
   parseApplicationCloseDate,
@@ -354,38 +355,40 @@ export const updateTask = async (req: any, res: Response) => {
       return res.status(404).json({ message: "Task not found" });
     }
 
-    const isSuperAdmin = !!req.user?.isSuperAdmin;
     const td = (task as any).deletedAt;
     const ta = (task as any).archivedAt;
-    if ((td || ta) && !isSuperAdmin) {
+    if (td || ta) {
       return res
         .status(403)
         .json({ message: "Cannot edit an archived or deleted task" });
     }
 
-    // Check permissions
-    const isCreator = task.createdBy.toString() === req.user._id.toString();
+    const { checkPermissionAsync } = await import("../middleware/rbac.js");
+    const { allowed: hasTaskApprove } = await checkPermissionAsync(
+      req.user,
+      Permission.TASK_APPROVE,
+    );
 
-    // Permission logic:
-    // 1. Super Admin can edit any task
-    // 2. Creator can edit task ONLY if it is PENDING
-    // 3. Others cannot edit
-    if (!isSuperAdmin) {
-      if (!isCreator) {
-        return res
-          .status(403)
-          .json({ message: "You are not authorized to edit this task" });
-      }
+    const editAllowed = canEditTask(
+      {
+        isSuperAdmin: !!req.user?.isSuperAdmin,
+        userId: req.user._id.toString(),
+        hasTaskApprove,
+        viewerOrgId: req.orgId ? String(req.orgId) : null,
+      },
+      {
+        status: task.status,
+        createdBy: task.createdBy.toString(),
+        organisation: task.organisation ? String(task.organisation) : null,
+        archivedAt: ta ?? null,
+        deletedAt: td ?? null,
+      },
+    );
 
-      if (
-        task.status !== TaskStatus.PENDING &&
-        task.status !== TaskStatus.CHANGES_REQUESTED
-      ) {
-        return res.status(403).json({
-          message:
-            "Only pending tasks or tasks with changes requested can be edited",
-        });
-      }
+    if (!editAllowed) {
+      return res
+        .status(403)
+        .json({ message: "You are not authorized to edit this task" });
     }
 
     // Handle file attachments
