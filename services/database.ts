@@ -110,6 +110,7 @@ const mapTaskToJob = (task: any): Job => {
         : "Unknown",
     createdById,
     createdAt: task.createdAt,
+    updatedAt: toIso(task.updatedAt),
     applicantsCount: task.applicantsCount || 0,
     hasApplied: task.hasApplied || false,
     archivedAt: toIso(task.archivedAt),

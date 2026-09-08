@@ -35,6 +35,13 @@ import { TaskRewardText } from "../components/TaskRewardText";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 import { formatTaskDate } from "../utils/formatTaskDate";
 import {
+  canViewPrivilegedTaskDetail,
+  buildTaskProvenanceHeader,
+  buildAudienceTargetingPresentation,
+  type GroupCatalogueEntry,
+} from "../utils/taskDetailPresentation";
+import { PrivilegedTaskDetailSections } from "../components/PrivilegedTaskDetailSections";
+import {
   getApplicationWindowStatus,
   isApplicationWindowOpen,
 } from "../utils/applicationWindow";
@@ -107,6 +114,10 @@ export const JobDetails: React.FC = () => {
   const [reposting, setReposting] = useState(false);
   const [showArchiveDeclineModal, setShowArchiveDeclineModal] = useState(false);
   const [archiveDeclineSubmitting, setArchiveDeclineSubmitting] = useState(false);
+  const [groupsCatalogue, setGroupsCatalogue] = useState<GroupCatalogueEntry[] | null>(
+    null,
+  );
+  const [groupsLoadFailed, setGroupsLoadFailed] = useState(false);
   useEffect(() => {
     const loadJob = async () => {
       if (id) {
@@ -164,6 +175,37 @@ export const JobDetails: React.FC = () => {
     };
     loadJob();
   }, [id]);
+
+  useEffect(() => {
+    if (!job || !currentUser) return;
+
+    const privileged = canViewPrivilegedTaskDetail(currentUser, {
+      createdById: job.createdById,
+      createdBy: job.createdBy,
+    });
+    if (!privileged) return;
+
+    let cancelled = false;
+    db.getGroupsPublic()
+      .then((groups) => {
+        if (!cancelled) {
+          setGroupsCatalogue(
+            groups.map((g: { _id: string; name: string }) => ({
+              _id: String(g._id),
+              name: g.name,
+            })),
+          );
+          setGroupsLoadFailed(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setGroupsLoadFailed(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [job?.id, currentUser]);
 
   const rewardOrgId =
     organisationIdToString(job?.organisation) ??
@@ -433,6 +475,31 @@ export const JobDetails: React.FC = () => {
     !isArchived &&
     !isSoftDeleted;
 
+  const showPrivilegedDetail = canViewPrivilegedTaskDetail(currentUser, {
+    createdById: job.createdById,
+    createdBy: job.createdBy,
+  });
+  const provenanceHeader = showPrivilegedDetail
+    ? buildTaskProvenanceHeader({
+        createdBy: job.createdBy,
+        updatedAt: job.updatedAt,
+        organisationName: job.organisationName,
+      })
+    : null;
+  const audiencePresentation = showPrivilegedDetail
+    ? buildAudienceTargetingPresentation(
+        {
+          visibility: job.visibility,
+          privateAudiences: job.privateAudiences,
+          allowedGroups: job.allowedGroups,
+          eligibility: job.eligibility,
+          allowedRoles: job.allowedRoles,
+        },
+        groupsCatalogue,
+        groupsLoadFailed,
+      )
+    : null;
+
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pb-20">
       {/* Header */}
@@ -601,7 +668,15 @@ export const JobDetails: React.FC = () => {
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Content - Left Side */}
+        {showPrivilegedDetail && provenanceHeader && audiencePresentation ? (
+          <PrivilegedTaskDetailSections
+            job={job}
+            provenance={provenanceHeader}
+            audience={audiencePresentation}
+            rewardOrganisationId={rewardOrgId}
+          />
+        ) : (
+        <>
         <div className="lg:col-span-2 space-y-8">
           {/* Metadata Card */}
           <div className="glass-card rounded-2xl p-6 shadow-sm border border-zinc-100 dark:border-zinc-800 flex flex-wrap gap-6">
@@ -745,6 +820,8 @@ export const JobDetails: React.FC = () => {
             )}
           </div>
         </div>
+        </>
+        )}
 
         {/* Sidebar - Right Side */}
         <div className="lg:col-span-1">

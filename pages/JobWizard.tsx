@@ -44,6 +44,10 @@ import {
   getRewardFormFieldConfig,
   resolveRewardTypeConfig,
 } from "../utils/rewardType";
+import {
+  normalizePrivateAudiences,
+  normalizeVisibilityMode,
+} from "../utils/taskVisibility";
 
 function getActiveOrganisationNameFromUser(user: any): string | null {
   if (!user) return null;
@@ -89,26 +93,6 @@ function getRewardTypeOrgId(rt: { organisation?: unknown }): string | null {
   if (typeof organisation === "string") return organisation;
   return null;
 }
-
-const normalizeVisibilityMode = (value?: string): Visibility => {
-  if (
-    value === Visibility.PRIVATE ||
-    value === Visibility.INTERNAL ||
-    value === Visibility.EXTERNAL
-  ) {
-    return Visibility.PRIVATE;
-  }
-  if (value === Visibility.CENTRAL) return Visibility.CENTRAL;
-  return Visibility.PRIVATE;
-};
-
-const normalizePrivateAudiences = (value: unknown): Visibility[] => {
-  if (!Array.isArray(value)) return [];
-  return value.filter(
-    (item): item is Visibility =>
-      item === Visibility.INTERNAL || item === Visibility.EXTERNAL,
-  );
-};
 
 const getInitialFormData = (): Partial<Job> => ({
   title: "",

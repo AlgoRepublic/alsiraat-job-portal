@@ -40,3 +40,7 @@ test-final-backend.js
 test-task-approval.js
 debug-auth.js
 yarn.lock
+.data
+.scratch
+.agents
+skills-lock.json

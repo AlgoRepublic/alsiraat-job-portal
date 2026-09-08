@@ -113,6 +113,8 @@ export interface Job {
   createdBy: string;
   createdById?: string;
   createdAt: string;
+  /** ISO timestamp when the task was last modified (used for provenance on resubmissions). */
+  updatedAt?: string;
   applicantsCount: number;
   hasApplied?: boolean;
   /** ISO timestamp when task was archived (lifecycle; not a JobStatus). */
