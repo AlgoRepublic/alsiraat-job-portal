@@ -8,7 +8,7 @@ import { andWithLifecycle } from "../utils/taskLifecycleQuery.js";
 import {
   applicationWindowClosedBeforeFilter,
   applicationWindowNotExpiredFilter,
-  applicationWindowNotYetOpenFilter,
+  applicationWindowNotYetOpenTasksFilter,
 } from "../utils/taskApplicationDates.js";
 
 /** Combine Mongo filters without clobbering nested `$and` via object spread. */
@@ -126,8 +126,10 @@ export const getDashboardStats = async (req: any, res: Response) => {
       Task.countDocuments(
         mergeMongoFilters(
           activeTaskFilter,
-          { status: TaskStatus.PUBLISHED },
-          applicationWindowNotYetOpenFilter(),
+          applicationWindowNotYetOpenTasksFilter(undefined, {
+            publishedStatus: TaskStatus.PUBLISHED,
+            pendingStatus: TaskStatus.PENDING,
+          }),
         ),
       ),
       Task.countDocuments(

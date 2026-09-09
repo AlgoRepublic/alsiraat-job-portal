@@ -1,8 +1,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
+  APPLICATION_WINDOW_NOT_YET_OPEN_FILTER,
   applicationWindowActiveFilter,
   applicationWindowApplyBlockMessage,
+  buildApplicationWindowStatusFilters,
   getApplicationWindowStatus,
   isApplicationWindowOpen,
 } from "../taskApplicationDates.js";
@@ -53,5 +55,27 @@ describe("applicationWindowActiveFilter", () => {
     const filter = applicationWindowActiveFilter(today) as { $and: unknown[] };
     assert.ok(Array.isArray(filter.$and));
     assert.equal(filter.$and.length, 2);
+  });
+});
+
+describe("buildApplicationWindowStatusFilters", () => {
+  it("maps NotYetOpen to published and pending tasks with a future application open date", () => {
+    const { isApplicationWindowFilter, filters } =
+      buildApplicationWindowStatusFilters(APPLICATION_WINDOW_NOT_YET_OPEN_FILTER, {
+        now: today,
+      });
+    assert.equal(isApplicationWindowFilter, true);
+    assert.equal(filters.length, 1);
+    assert.deepEqual(filters[0], {
+      status: { $in: ["Published", "Pending"] },
+      applicationOpenDate: { $gt: new Date("2026-06-11T23:59:59.999") },
+    });
+  });
+
+  it("passes lifecycle statuses through unchanged", () => {
+    const { isApplicationWindowFilter, filters } =
+      buildApplicationWindowStatusFilters("Pending", { now: today });
+    assert.equal(isApplicationWindowFilter, false);
+    assert.deepEqual(filters, [{ status: "Pending" }]);
   });
 });

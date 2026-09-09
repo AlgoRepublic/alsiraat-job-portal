@@ -2,7 +2,7 @@
 
 export type ApplicationWindowStatus = "open" | "not_yet_open" | "closed";
 
-/** Search/dashboard filter value for tasks whose application window has not opened yet. */
+/** Search/dashboard filter value for published or pending tasks whose application window has not opened yet. */
 export const APPLICATION_WINDOW_NOT_YET_OPEN_FILTER = "NotYetOpen";
 
 export function startOfCalendarDay(date: Date = new Date()): Date {

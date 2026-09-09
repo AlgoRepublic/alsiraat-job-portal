@@ -243,7 +243,7 @@ export function applicationWindowClosedBeforeFilter(before: Date): object {
   };
 }
 
-/** Search/dashboard filter value for published tasks whose application window has not opened yet. */
+/** Search/dashboard filter value for tasks whose application window has not opened yet. */
 export const APPLICATION_WINDOW_NOT_YET_OPEN_FILTER = "NotYetOpen";
 
 /** Application open date is after the given calendar day's end. */
@@ -252,4 +252,69 @@ export function applicationWindowNotYetOpenFilter(now: Date = new Date()): objec
   return {
     applicationOpenDate: { $gt: dayEnd },
   };
+}
+
+/** Published or pending tasks with a future application open date. */
+export function applicationWindowNotYetOpenTasksFilter(
+  now: Date = new Date(),
+  options?: { publishedStatus?: string; pendingStatus?: string },
+): object {
+  const publishedStatus = options?.publishedStatus ?? "Published";
+  const pendingStatus = options?.pendingStatus ?? "Pending";
+  return {
+    status: { $in: [publishedStatus, pendingStatus] },
+    ...applicationWindowNotYetOpenFilter(now),
+  };
+}
+
+/** Whether `status` is a synthetic application-window filter (not a task lifecycle status). */
+export function isApplicationWindowStatusFilter(
+  statusFilter: string,
+  closedStatus = "Closed",
+): boolean {
+  return (
+    statusFilter === APPLICATION_WINDOW_NOT_YET_OPEN_FILTER ||
+    statusFilter === closedStatus
+  );
+}
+
+/**
+ * Mongo filters for application-window pseudo-statuses (`NotYetOpen`, `Closed`).
+ * Lifecycle statuses pass through as `{ status }` only.
+ */
+export function buildApplicationWindowStatusFilters(
+  statusFilter: string,
+  options?: {
+    now?: Date;
+    publishedStatus?: string;
+    pendingStatus?: string;
+    closedStatus?: string;
+  },
+): { isApplicationWindowFilter: boolean; filters: object[] } {
+  const now = options?.now ?? new Date();
+  const publishedStatus = options?.publishedStatus ?? "Published";
+  const pendingStatus = options?.pendingStatus ?? "Pending";
+  const closedStatus = options?.closedStatus ?? "Closed";
+  const isClosedFilter = statusFilter === closedStatus;
+  const isNotYetOpenFilter =
+    statusFilter === APPLICATION_WINDOW_NOT_YET_OPEN_FILTER;
+  const isApplicationWindowFilter = isClosedFilter || isNotYetOpenFilter;
+  const filters: object[] = [];
+
+  if (statusFilter && !isApplicationWindowFilter) {
+    filters.push({ status: statusFilter });
+  }
+  if (isClosedFilter) {
+    filters.push(applicationWindowClosedBeforeFilter(startOfCalendarDay(now)));
+  }
+  if (isNotYetOpenFilter) {
+    filters.push(
+      applicationWindowNotYetOpenTasksFilter(now, {
+        publishedStatus,
+        pendingStatus,
+      }),
+    );
+  }
+
+  return { isApplicationWindowFilter, filters };
 }

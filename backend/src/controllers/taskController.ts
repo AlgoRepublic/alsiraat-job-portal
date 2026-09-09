@@ -40,10 +40,29 @@ import {
   applicationCloseDateActiveFromFilter,
   applicationOpenDateActiveToFilter,
   applicationWindowNotExpiredFilter,
-  applicationWindowClosedBeforeFilter,
-  applicationWindowNotYetOpenFilter,
-  APPLICATION_WINDOW_NOT_YET_OPEN_FILTER,
+  buildApplicationWindowStatusFilters,
 } from "../utils/taskApplicationDates.js";
+
+/** Signed-in applicants browse the active application window; managers see the full shelf. */
+async function shouldApplyActiveApplicationWindowFilter(
+  user: any,
+  opts: {
+    includeExpired?: string;
+    isSuperAdmin: boolean;
+    isApplicationWindowFilter: boolean;
+  },
+): Promise<boolean> {
+  if (!user) return false;
+  if (opts.isApplicationWindowFilter) return false;
+  if (opts.includeExpired === "true" && opts.isSuperAdmin) return false;
+  const { checkPermissionAsync } = await import("../middleware/rbac.js");
+  const { allowed: canViewPending } = await checkPermissionAsync(
+    user,
+    Permission.TASK_VIEW_PENDING,
+  );
+  if (canViewPending) return false;
+  return true;
+}
 
 const parseArrayField = (value: any): string[] => {
   if (!value) return [];
@@ -510,6 +529,13 @@ export const getTasks = async (req: any, res: Response) => {
     const organisation = req.orgId;
     const hasSuperAdminRole = !!user?.isSuperAdmin;
     const { search, includeExpired, createdByMe } = req.query;
+    const statusFilter = String(req.query.status || "");
+    const { isApplicationWindowFilter, filters: applicationWindowStatusFilters } =
+      buildApplicationWindowStatusFilters(statusFilter, {
+        publishedStatus: TaskStatus.PUBLISHED,
+        pendingStatus: TaskStatus.PENDING,
+        closedStatus: TaskStatus.CLOSED,
+      });
     let query: any = {};
 
     // If createdByMe is true, only return tasks created by this user
@@ -723,18 +749,18 @@ export const getTasks = async (req: any, res: Response) => {
     // Specific field filters
     if (req.query.category)
       additionalFilters.push({ category: req.query.category });
-    if (req.query.status) additionalFilters.push({ status: req.query.status });
+    additionalFilters.push(...applicationWindowStatusFilters);
     if (req.query.reward)
       additionalFilters.push({ rewardType: req.query.reward });
 
-    if (req.query.dateFrom) {
+    if (!isApplicationWindowFilter && req.query.dateFrom) {
       const df = new Date(String(req.query.dateFrom));
       if (!Number.isNaN(df.getTime())) {
         df.setHours(0, 0, 0, 0);
         additionalFilters.push(applicationCloseDateActiveFromFilter(df));
       }
     }
-    if (req.query.dateTo) {
+    if (!isApplicationWindowFilter && req.query.dateTo) {
       const dt = new Date(String(req.query.dateTo));
       if (!Number.isNaN(dt.getTime())) {
         dt.setHours(23, 59, 59, 999);
@@ -753,12 +779,17 @@ export const getTasks = async (req: any, res: Response) => {
       }
     }
 
-    // Filter out expired tasks by default (unless admin requests includeExpired)
-    const isAdmin = hasSuperAdminRole;
-    const shouldIncludeExpired = includeExpired === "true" && isAdmin;
+    // Applicants: active application window only. Managers (`task:view_pending`): full shelf.
+    const shouldApplyWindowFilter = await shouldApplyActiveApplicationWindowFilter(
+      user,
+      {
+        includeExpired: String(includeExpired || ""),
+        isSuperAdmin: hasSuperAdminRole,
+        isApplicationWindowFilter,
+      },
+    );
 
-    // Anonymous browse: show Central org board even when application close has passed (signed-in users keep the cut-off).
-    if (!shouldIncludeExpired && user) {
+    if (shouldApplyWindowFilter) {
       const expirationFilter = applicationWindowNotExpiredFilter();
 
       // Merge with existing query
@@ -854,12 +885,12 @@ export const getSearchTasks = async (req: any, res: Response) => {
     const hasSuperAdminRole = !!user?.isSuperAdmin;
     const { search, includeExpired } = req.query;
     const statusFilter = String(req.query.status || "");
-    const isClosedFilter = statusFilter === TaskStatus.CLOSED;
-    const isNotYetOpenFilter =
-      statusFilter === APPLICATION_WINDOW_NOT_YET_OPEN_FILTER;
-    const isApplicationWindowFilter = isClosedFilter || isNotYetOpenFilter;
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+    const { isApplicationWindowFilter, filters: applicationWindowStatusFilters } =
+      buildApplicationWindowStatusFilters(statusFilter, {
+        publishedStatus: TaskStatus.PUBLISHED,
+        pendingStatus: TaskStatus.PENDING,
+        closedStatus: TaskStatus.CLOSED,
+      });
     let query: any = {};
 
     const { checkPermissionAsync } = await import("../middleware/rbac.js");
@@ -996,28 +1027,17 @@ export const getSearchTasks = async (req: any, res: Response) => {
       });
     }
     if (req.query.category) additionalFilters.push({ category: req.query.category });
-    if (statusFilter && !isApplicationWindowFilter) {
-      additionalFilters.push({ status: statusFilter });
-    }
-    if (isClosedFilter) {
-      additionalFilters.push(
-        applicationWindowClosedBeforeFilter(startOfToday),
-      );
-    }
-    if (isNotYetOpenFilter) {
-      additionalFilters.push({ status: TaskStatus.PUBLISHED });
-      additionalFilters.push(applicationWindowNotYetOpenFilter());
-    }
+    additionalFilters.push(...applicationWindowStatusFilters);
     if (req.query.reward) additionalFilters.push({ rewardType: req.query.reward });
 
-    if (req.query.dateFrom) {
+    if (!isApplicationWindowFilter && req.query.dateFrom) {
       const df = new Date(String(req.query.dateFrom));
       if (!Number.isNaN(df.getTime())) {
         df.setHours(0, 0, 0, 0);
         additionalFilters.push(applicationCloseDateActiveFromFilter(df));
       }
     }
-    if (req.query.dateTo) {
+    if (!isApplicationWindowFilter && req.query.dateTo) {
       const dt = new Date(String(req.query.dateTo));
       if (!Number.isNaN(dt.getTime())) {
         dt.setHours(23, 59, 59, 999);
@@ -1035,10 +1055,15 @@ export const getSearchTasks = async (req: any, res: Response) => {
       }
     }
 
-    const isAdmin = hasSuperAdminRole;
-    const shouldIncludeExpired =
-      (includeExpired === "true" && isAdmin) || isApplicationWindowFilter;
-    if (!shouldIncludeExpired && user) {
+    const shouldApplyWindowFilter = await shouldApplyActiveApplicationWindowFilter(
+      user,
+      {
+        includeExpired: String(includeExpired || ""),
+        isSuperAdmin: hasSuperAdminRole,
+        isApplicationWindowFilter,
+      },
+    );
+    if (shouldApplyWindowFilter) {
       const expirationFilter = applicationWindowNotExpiredFilter();
       if (Object.keys(query).length > 0) {
         query = { $and: [query, expirationFilter] };

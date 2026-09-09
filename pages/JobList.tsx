@@ -393,7 +393,27 @@ export const JobList: React.FC = () => {
                 <select
                   className="w-full px-5 py-3 rounded-xl bg-white/90 dark:bg-zinc-900 border-0 focus:ring-2 focus:ring-[#812349] outline-none font-bold text-sm"
                   value={filterStatus}
-                  onChange={(e) => updateParam("status", e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const clearsTimeline =
+                      val === APPLICATION_WINDOW_NOT_YET_OPEN_FILTER ||
+                      val === JobStatus.CLOSED;
+                    if (clearsTimeline) {
+                      setSearchParams((prev) => {
+                        const newParams = new URLSearchParams(prev);
+                        if (val && val !== "All") newParams.set("status", val);
+                        else newParams.delete("status");
+                        newParams.delete("dateFrom");
+                        newParams.delete("dateTo");
+                        newParams.set("page", "1");
+                        return newParams;
+                      }, { replace: true });
+                      setDateFromDraft("");
+                      setDateToDraft("");
+                      return;
+                    }
+                    updateParam("status", val);
+                  }}
                 >
                   <option value="All">All Statuses</option>
                   {Object.values(JobStatus).map((s) => (
