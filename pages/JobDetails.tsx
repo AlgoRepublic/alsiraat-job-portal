@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   ArrowLeft,
   MapPin,
@@ -84,9 +84,17 @@ function validateRepostDates(dates: RepostDates): Record<string, string> {
   return errors;
 }
 
+type JobDetailsLocationState = {
+  toastMessage?: string;
+};
+
+/** Survives Strict Mode remounts so navigation toasts are not shown twice. */
+const shownNavigationToastKeys = new Set<string>();
+
 export const JobDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { showSuccess, showError } = useToast();
   const [job, setJob] = useState<Job | undefined>();
   const [loading, setLoading] = useState(true);
@@ -119,6 +127,28 @@ export const JobDetails: React.FC = () => {
     null,
   );
   const [groupsLoadFailed, setGroupsLoadFailed] = useState(false);
+  useEffect(() => {
+    const toastMessage = (location.state as JobDetailsLocationState | null)
+      ?.toastMessage;
+    if (!toastMessage) return;
+    if (shownNavigationToastKeys.has(location.key)) return;
+
+    shownNavigationToastKeys.add(location.key);
+    showSuccess(toastMessage);
+    navigate(
+      { pathname: location.pathname, search: location.search, hash: location.hash },
+      { replace: true, state: null },
+    );
+  }, [
+    location.key,
+    location.state,
+    location.pathname,
+    location.search,
+    location.hash,
+    navigate,
+    showSuccess,
+  ]);
+
   useEffect(() => {
     const loadJob = async () => {
       if (id) {
@@ -246,7 +276,7 @@ export const JobDetails: React.FC = () => {
       if (action === "approve") {
         await db.approveJob(job.id, "approve");
         setJob({ ...job, status: JobStatus.PUBLISHED });
-        showSuccess("Task has been approved and published!");
+        showSuccess("Task published successfully!");
       }
     } catch (err: any) {
       console.error("Manager action failed", err);
@@ -455,7 +485,8 @@ export const JobDetails: React.FC = () => {
 
   const showManagerActions =
     canApprove &&
-    job.status === JobStatus.PENDING &&
+    (job.status === JobStatus.PENDING ||
+      job.status === JobStatus.CHANGES_REQUESTED) &&
     !isArchived &&
     !isSoftDeleted;
 

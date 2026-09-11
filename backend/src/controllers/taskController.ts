@@ -8,11 +8,7 @@ import User, {
 } from "../models/User.js";
 import { Permission } from "../config/permissions.js";
 import Application from "../models/Application.js";
-import {
-  notify,
-  sendNotificationToAll,
-  sendNotificationToOrganization,
-} from "../services/notificationService.js";
+import { notify } from "../services/notificationService.js";
 import { isSuperAdminUser } from "../utils/superAdmin.js";
 import {
   taskChangesRequestedEmail,
@@ -28,6 +24,13 @@ import {
   resolveCentralOrganisationId,
 } from "../utils/centralOrg.js";
 import { canEditTask } from "../utils/taskEditAccess.js";
+import {
+  hasReviewAuthority,
+  inferReviewAction,
+  resolveStatusAfterUpdate,
+  validatePublishAttempt,
+} from "../utils/taskReviewActions.js";
+import { runTaskPublishSideEffects } from "../services/taskPublishSideEffects.js";
 import {
   parseApplicationOpenDate,
   parseApplicationCloseDate,
@@ -364,6 +367,7 @@ export const updateTask = async (req: any, res: Response) => {
       eligibility,
       visibility,
       privateAudiences,
+      status: requestedStatus,
     } = req.body;
 
     delete (req.body as any).deletedAt;
@@ -409,6 +413,36 @@ export const updateTask = async (req: any, res: Response) => {
         .status(403)
         .json({ message: "You are not authorized to edit this task" });
     }
+
+    const reviewViewer = {
+      isSuperAdmin: !!req.user?.isSuperAdmin,
+      userId: req.user._id.toString(),
+      hasTaskApprove,
+      viewerOrgId: req.orgId ? String(req.orgId) : null,
+    };
+    const reviewTask = {
+      status: task.status,
+      createdBy: task.createdBy.toString(),
+      organisation: task.organisation ? String(task.organisation) : null,
+    };
+    const actingAsReviewer = hasReviewAuthority(reviewViewer, reviewTask);
+    const reviewAction = inferReviewAction(requestedStatus, actingAsReviewer);
+
+    if (reviewAction === "publish") {
+      const publishValidation = validatePublishAttempt(reviewViewer, reviewTask);
+      if (!publishValidation.allowed) {
+        if (publishValidation.reason === "unauthorized") {
+          return res
+            .status(403)
+            .json({ message: "You are not authorized to publish this task" });
+        }
+        return res.status(400).json({
+          message: "Task cannot be published from its current status",
+        });
+      }
+    }
+
+    const previousStatus = task.status;
 
     // Handle file attachments
     const newAttachments: any[] = [];
@@ -501,12 +535,23 @@ export const updateTask = async (req: any, res: Response) => {
       task.attachments = [...task.attachments, ...newAttachments];
     }
 
-    // Reset status to PENDING if it was CHANGES_REQUESTED so it can be reviewed again
-    if (task.status === TaskStatus.CHANGES_REQUESTED) {
-      task.status = TaskStatus.PENDING;
+    const statusResolution = resolveStatusAfterUpdate(reviewTask, reviewAction);
+    task.status = statusResolution.status as TaskStatus;
+    if (statusResolution.clearRejectionReason) {
+      task.rejectionReason = undefined;
+    }
+    if (statusResolution.setApprovedBy) {
+      task.approvedBy = req.user._id;
     }
 
     await task.save();
+
+    if (
+      reviewAction === "publish" &&
+      previousStatus !== TaskStatus.PUBLISHED
+    ) {
+      await runTaskPublishSideEffects(task);
+    }
 
     res.json(task);
   } catch (err: any) {
@@ -1527,53 +1572,7 @@ export const approveTask = async (req: any, res: Response) => {
       normalizedStatus === "approve" &&
       previousStatus !== TaskStatus.PUBLISHED
     ) {
-      // Task published → notify creator
-      const creatorUser = await User.findById(task.createdBy).select("name");
-      await notify({
-        recipientId: task.createdBy.toString(),
-        title: "✅ Task Published!",
-        message: `Your task "${task.title}" has been approved and is now live.`,
-        type: "success",
-        link: `/jobs/${task._id}`,
-      });
-
-      // Notify members about new task
-      if (
-        task.visibility === TaskVisibility.CENTRAL ||
-        task.visibility === TaskVisibility.EXTERNAL
-      ) {
-        await sendNotificationToAll(
-          "📢 New Task Available!",
-          `A new task "${task.title}" has been posted.`,
-          "info",
-          `/jobs/${task._id}`,
-          task.createdBy.toString(),
-        );
-      } else if (
-        task.visibility === TaskVisibility.INTERNAL &&
-        task.organisation
-      ) {
-        await sendNotificationToOrganization(
-          task.organisation.toString(),
-          "📢 New Internal Task",
-          `A new internal task "${task.title}" has been posted.`,
-          "info",
-          `/jobs/${task._id}`,
-          task.createdBy.toString(),
-        );
-      } else if (
-        task.visibility === TaskVisibility.PRIVATE &&
-        task.organisation
-      ) {
-        await sendNotificationToOrganization(
-          task.organisation.toString(),
-          "📢 New Private Task",
-          `A new private task "${task.title}" has been posted.`,
-          "info",
-          `/jobs/${task._id}`,
-          task.createdBy.toString(),
-        );
-      }
+      await runTaskPublishSideEffects(task);
     } else if (normalizedStatus === "decline") {
       // Changes requested → notify creator + email
       const creatorUser = await User.findById(task.createdBy).select("name");

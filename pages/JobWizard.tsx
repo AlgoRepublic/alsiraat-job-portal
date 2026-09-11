@@ -48,7 +48,12 @@ import {
   normalizePrivateAudiences,
   normalizeVisibilityMode,
 } from "../utils/taskVisibility";
-import { canEditTask } from "../utils/taskDetailPresentation";
+import {
+  canEditTask,
+  canShowReviewerEditActions,
+  resolveViewerOrgIdForTaskReview,
+} from "../utils/taskDetailPresentation";
+import { organisationIdToString } from "../utils/organisationId";
 
 function getActiveOrganisationNameFromUser(user: any): string | null {
   if (!user) return null;
@@ -216,6 +221,13 @@ export const JobWizard: React.FC = () => {
   const [step, setStep] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitAction, setSubmitAction] = useState<
+    "save" | "publish" | "resubmit" | "create" | null
+  >(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [taskOrganisationId, setTaskOrganisationId] = useState<string | null>(
+    null,
+  );
   const [skillInput, setSkillInput] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -251,6 +263,7 @@ export const JobWizard: React.FC = () => {
   React.useEffect(() => {
     const syncActiveOrg = async () => {
       const user = await db.getCurrentUser().catch(() => null);
+      setCurrentUser(user);
       setActiveOrgName(
         user ? getActiveOrganisationNameFromUser(user) : readActiveOrganisationNameFromStorage(),
       );
@@ -278,9 +291,11 @@ export const JobWizard: React.FC = () => {
       setStep(1);
       setErrors({});
       setSkillInput("");
+      setTaskOrganisationId(null);
       setEditAccessResolved(true);
     } else {
       setUploadedFiles([]);
+      setTaskOrganisationId(null);
       setEditAccessResolved(false);
     }
 
@@ -307,6 +322,13 @@ export const JobWizard: React.FC = () => {
           if (job) {
             const user = await db.getCurrentUser().catch(() => null);
             if (cancelled) return;
+            setCurrentUser(user);
+            setTaskOrganisationId(
+              organisationIdToString(
+                job.organisation ??
+                  (job as { organization?: unknown }).organization,
+              ) ?? null,
+            );
             const editAllowed = canEditTask(
               user,
               {
@@ -579,7 +601,9 @@ export const JobWizard: React.FC = () => {
     goToStep(3);
   };
 
-  const handleSubmit = async () => {
+  const submitTask = async (
+    action: "resubmit" | "save" | "publish" | "create",
+  ) => {
     const step1Errors = validateStep1();
     if (Object.keys(step1Errors).length > 0) {
       setErrors(step1Errors);
@@ -611,6 +635,7 @@ export const JobWizard: React.FC = () => {
     }
     setErrors({});
     setIsSubmitting(true);
+    setSubmitAction(action);
     try {
       const selectedPrivateAudiences =
         formData.visibility === Visibility.PRIVATE
@@ -621,9 +646,9 @@ export const JobWizard: React.FC = () => {
               return audiences.length > 0 ? audiences : [Visibility.INTERNAL];
             })()
           : [];
-      const submissionData = {
-        ...formData,
-        status: "Pending",
+      const { status: _formStatus, ...formFields } = formData;
+      const submissionData: Record<string, unknown> = {
+        ...formFields,
         privateAudiences: selectedPrivateAudiences,
         allowedGroups:
           formData.visibility === Visibility.PRIVATE &&
@@ -632,6 +657,32 @@ export const JobWizard: React.FC = () => {
             : [],
       };
 
+      const taskForReview = {
+        status: formData.status,
+        organisation: taskOrganisationId ?? undefined,
+        organisationId: taskOrganisationId ?? undefined,
+      };
+      const viewerOrgIdForReview = resolveViewerOrgIdForTaskReview(
+        currentUser,
+        activeOrgId,
+      );
+      const actingAsReviewer = Boolean(
+        id &&
+          canShowReviewerEditActions(
+            currentUser,
+            taskForReview,
+            viewerOrgIdForReview ?? undefined,
+          ),
+      );
+      const effectiveAction =
+        actingAsReviewer && action === "resubmit" ? "save" : action;
+
+      if (effectiveAction === "resubmit" || effectiveAction === "create") {
+        submissionData.status = "Pending";
+      } else if (effectiveAction === "publish") {
+        submissionData.status = "Published";
+      }
+
       const selectedRt = rewardTypes.find(
         (rt) => rt.name === formData.rewardType,
       );
@@ -639,13 +690,13 @@ export const JobWizard: React.FC = () => {
         ? resolveRewardTypeConfig(selectedRt)
         : null;
       if (submitCfg?.valueKind === "text") {
-        (submissionData as any).rewardText = (formData.rewardText || "").trim();
-        (submissionData as any).rewardValue = undefined;
+        submissionData.rewardText = (formData.rewardText || "").trim();
+        submissionData.rewardValue = undefined;
       } else {
-        (submissionData as any).rewardText = undefined;
+        submissionData.rewardText = undefined;
       }
       if (!submitCfg?.requiresValue) {
-        (submissionData as any).rewardValue = undefined;
+        submissionData.rewardValue = undefined;
       }
 
       if (id) {
@@ -654,7 +705,16 @@ export const JobWizard: React.FC = () => {
         } else {
           await db.updateJob(id, submissionData);
         }
-        showSuccess("Task updated and resubmitted for approval!");
+        if (actingAsReviewer && effectiveAction === "save") {
+          navigate(`/jobs/${id}`, { state: { toastMessage: "Task updated." } });
+        } else if (actingAsReviewer && effectiveAction === "publish") {
+          navigate(`/jobs/${id}`, {
+            state: { toastMessage: "Task published successfully!" },
+          });
+        } else {
+          showSuccess("Task updated and resubmitted for approval!");
+          navigate("/jobs");
+        }
       } else {
         if (uploadedFiles.length > 0) {
           await api.createTaskWithFiles(submissionData, uploadedFiles);
@@ -664,15 +724,18 @@ export const JobWizard: React.FC = () => {
         showSuccess(
           "Task submitted for approval! You'll be notified when it's published.",
         );
+        navigate("/jobs");
       }
-      navigate("/jobs");
     } catch (err: any) {
       console.error("Task submission failed", err);
       showError(err.message || "Failed to submit task. Please try again.");
     } finally {
       setIsSubmitting(false);
+      setSubmitAction(null);
     }
   };
+
+  const handleSubmit = () => submitTask(id ? "resubmit" : "create");
 
   const selectedRewardType = rewardTypes.find(
     (rt) => rt.name === formData.rewardType,
@@ -684,6 +747,27 @@ export const JobWizard: React.FC = () => {
     ? getRewardFormFieldConfig(selectedRewardConfig)
     : null;
 
+  const viewerOrgIdForReview = resolveViewerOrgIdForTaskReview(
+    currentUser,
+    activeOrgId,
+  );
+  const taskForReview = {
+    status: formData.status,
+    organisation: taskOrganisationId ?? undefined,
+    organisationId: taskOrganisationId ?? undefined,
+  };
+  const showReviewerActions = Boolean(
+    id &&
+      canShowReviewerEditActions(
+        currentUser,
+        taskForReview,
+        viewerOrgIdForReview ?? undefined,
+      ),
+  );
+
+  const submitOverlayMessage =
+    submitAction === "publish" ? "Publishing task…" : "Saving task…";
+
   // ─── Render ───────────────────────────────────────────────────────────────
   if (id && !editAccessResolved) {
     return <Loading message="Loading task..." />;
@@ -691,7 +775,7 @@ export const JobWizard: React.FC = () => {
 
   return (
     <div className="max-w-3xl mx-auto space-y-8 pb-24">
-      {isSubmitting && <LoadingOverlay message="Publishing Task..." />}
+      {isSubmitting && <LoadingOverlay message={submitOverlayMessage} />}
       {isGenerating && (
         <LoadingOverlay message="AI is drafting description..." />
       )}
@@ -703,7 +787,9 @@ export const JobWizard: React.FC = () => {
         </h1>
         <p className="text-zinc-500 font-medium mt-2">
           {id
-            ? "Update task details and resubmit for approval."
+            ? showReviewerActions
+              ? "Review and update task details before publishing."
+              : "Update task details and resubmit for approval."
             : "Create a new task for students, faculty, or staff within your organisation."}
         </p>
       </div>
@@ -1512,10 +1598,12 @@ export const JobWizard: React.FC = () => {
             <CheckCircle className="w-10 h-10 text-emerald-600 flex-shrink-0" />
             <div>
               <p className="font-black text-emerald-900 dark:text-emerald-400 tracking-tight">
-                Ready to Publish
+                {showReviewerActions ? "Ready to review" : "Ready to Publish"}
               </p>
               <p className="text-xs text-emerald-700 dark:text-emerald-500 mt-0.5">
-                Review all details below. Once you're happy, hit Submit for Approval.
+                {showReviewerActions
+                  ? "Save changes or publish when ready."
+                  : "Review all details below. Once you're happy, hit Submit for Approval."}
               </p>
             </div>
           </div>
@@ -1646,15 +1734,37 @@ export const JobWizard: React.FC = () => {
               Back
             </button>
 
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-              className="px-10 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-emerald-700 shadow-2xl shadow-emerald-600/20 flex items-center transition-all hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
-            >
-              <ClipboardCopy className="w-4 h-4 mr-3" />
-              {id ? "Update & Resubmit" : "Submit for Approval"}
-            </button>
+            {showReviewerActions ? (
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => submitTask("save")}
+                  disabled={isSubmitting}
+                  className="px-8 py-4 rounded-2xl text-zinc-600 dark:text-zinc-300 font-black uppercase tracking-widest text-xs hover:bg-white/60 dark:hover:bg-zinc-800/60 transition-all flex items-center border border-zinc-200 dark:border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Save changes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => submitTask("publish")}
+                  disabled={isSubmitting}
+                  className="px-10 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-emerald-700 shadow-2xl shadow-emerald-600/20 flex items-center transition-all hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                >
+                  <ClipboardCopy className="w-4 h-4 mr-3" />
+                  Publish
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                className="px-10 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-emerald-700 shadow-2xl shadow-emerald-600/20 flex items-center transition-all hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+              >
+                <ClipboardCopy className="w-4 h-4 mr-3" />
+                {id ? "Update & Resubmit" : "Submit for Approval"}
+              </button>
+            )}
           </div>
         </div>
       )}

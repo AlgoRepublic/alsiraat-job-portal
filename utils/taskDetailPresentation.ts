@@ -1,4 +1,5 @@
 import { formatTaskDateOrNA } from "./formatTaskDate";
+import { organisationIdToString } from "./organisationId";
 import {
   TASK_VISIBILITY,
   formatPrivateAudienceLabel,
@@ -53,6 +54,45 @@ export interface TaskEditAccessInput {
 }
 
 const CREATOR_EDITABLE_STATUSES = new Set(["Pending", "Changes Requested"]);
+const REVIEWABLE_STATUSES = new Set(["Pending", "Changes Requested"]);
+
+/** Mirrors `JobDetails` approver org matching: primary org, then active org. */
+export function resolveViewerOrgIdForTaskReview(
+  viewer: TaskEditViewer | null | undefined,
+  fallbackActiveOrgId?: string | null,
+): string | null {
+  if (!viewer) {
+    return fallbackActiveOrgId != null && String(fallbackActiveOrgId).trim()
+      ? String(fallbackActiveOrgId)
+      : null;
+  }
+
+  const fromOrganisation =
+    organisationIdToString(
+      (viewer as { organisation?: unknown; organization?: unknown })
+        .organisation ??
+        (viewer as { organization?: unknown }).organization,
+    ) ?? null;
+  const fromActiveOrganisation =
+    organisationIdToString(
+      (viewer as { activeOrganisation?: unknown }).activeOrganisation,
+    ) ?? null;
+  const fromExplicitActive =
+    viewer.activeOrgId != null && String(viewer.activeOrgId).trim()
+      ? String(viewer.activeOrgId)
+      : null;
+  const fromFallback =
+    fallbackActiveOrgId != null && String(fallbackActiveOrgId).trim()
+      ? String(fallbackActiveOrgId)
+      : null;
+
+  return (
+    fromOrganisation ??
+    fromActiveOrganisation ??
+    fromExplicitActive ??
+    fromFallback
+  );
+}
 
 function resolveTaskOrgId(task: TaskEditAccessInput): string | null {
   if (task.organisationId != null && String(task.organisationId).trim()) {
@@ -124,12 +164,7 @@ export function canEditTask(
 
   if (viewer.isSuperAdmin) return true;
 
-  const activeOrgId =
-    viewerOrgId != null && String(viewerOrgId).trim()
-      ? String(viewerOrgId)
-      : viewer.activeOrgId != null && String(viewer.activeOrgId).trim()
-        ? String(viewer.activeOrgId)
-        : null;
+  const activeOrgId = resolveViewerOrgIdForTaskReview(viewer, viewerOrgId);
 
   if (
     viewer.permissions?.includes(TASK_APPROVE_PERMISSION) &&
@@ -147,6 +182,32 @@ export function canEditTask(
     ) {
       return true;
     }
+  }
+
+  return false;
+}
+
+/** Whether the viewer sees reviewer save/publish actions on the edit wizard (mirrors backend publish gate). */
+export function canShowReviewerEditActions(
+  viewer: TaskEditViewer | null | undefined,
+  task: TaskEditAccessInput,
+  viewerOrgId?: string,
+): boolean {
+  if (!viewer) return false;
+
+  const status = task.status ?? "";
+  if (!REVIEWABLE_STATUSES.has(status)) return false;
+
+  if (viewer.isSuperAdmin) return true;
+
+  const activeOrgId = resolveViewerOrgIdForTaskReview(viewer, viewerOrgId);
+
+  if (
+    viewer.permissions?.includes(TASK_APPROVE_PERMISSION) &&
+    activeOrgId
+  ) {
+    const taskOrgId = resolveTaskOrgId(task);
+    if (taskOrgId && taskOrgId === activeOrgId) return true;
   }
 
   return false;
