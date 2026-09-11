@@ -24,7 +24,6 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { UserRole, User, Job, Permission, type OrgContext } from "../types";
-import { SnowBackground } from "./SnowBackground";
 import { api, API_BASE_URL, LOGIN_SOURCE_KEY } from "../services/api";
 import {
   getPublicCentralOrganisation,
@@ -546,9 +545,8 @@ export const Layout: React.FC<LayoutProps> = ({
 
   if (!currentUser && location.pathname === "/") {
     return (
-      <div className="transition-colors duration-300 relative overflow-x-hidden">
-        <SnowBackground isDarkMode={isDarkMode} />
-        <div className="relative z-10">{children}</div>
+      <div className="transition-colors duration-300 overflow-x-hidden">
+        {children}
       </div>
     );
   }
@@ -683,9 +681,7 @@ export const Layout: React.FC<LayoutProps> = ({
     : browseShellOrg;
 
   return (
-    <div className="flex h-screen overflow-hidden font-sans text-zinc-900 dark:text-zinc-100 transition-colors duration-300 relative">
-      <SnowBackground isDarkMode={isDarkMode} />
-
+    <div className="flex h-screen overflow-hidden font-sans text-zinc-900 dark:text-zinc-100 transition-colors duration-300">
       {isSidebarOpen && (
         <div
           className="fixed inset-0 bg-black/40 backdrop-blur-md z-40 lg:hidden animate-fade-in"
@@ -943,7 +939,7 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden relative z-10">
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         <header className="glass sticky top-0 z-30 flex h-20 sm:h-24 items-center justify-between gap-3 px-4 sm:px-8">
           <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
             <HeaderIconButton
