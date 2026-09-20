@@ -1,6 +1,6 @@
 import Organization from "../models/Organization.js";
-import Group from "../models/Group.js";
 import { OrgMemberKind } from "../models/User.js";
+import { addUserToOrganisationDefaultGroup } from "../services/groupKindMembership.js";
 import { DefaultRoleCode } from "@taskunity/shared/defaultRoleCodes.js";
 import { resolveRoleCodeToId } from "../services/orgMemberRoleResolver.js";
 import { upsertOrgMembershipRoleIds } from "../services/orgMemberRoleAssignment.js";
@@ -102,9 +102,10 @@ export async function assignCentralOrganisationMembership(
   }
 
   if (options?.addToAllMembersGroup !== false && user._id) {
-    await Group.findOneAndUpdate(
-      { organisation: orgId, name: "All Members" },
-      { $addToSet: { members: user._id } },
+    await addUserToOrganisationDefaultGroup(
+      user._id,
+      orgId,
+      OrgMemberKind.INTERNAL,
     );
   }
 

@@ -227,13 +227,6 @@ export const AssignTaskModal: React.FC<AssignTaskModalProps> = ({
   }, [preselectedTask?._id]);
 
   const selectedTaskAllowedRoleIds = normalizeTaskAllowedRoleIds(selectedTask);
-  const selectedTaskAllowedRoleLabels =
-    selectedTaskAllowedRoleIds.length > 0
-      ? selectedTaskAllowedRoleIds.map((id) => {
-          const match = orgRoles.find((r) => r._id === id);
-          return match?.name?.trim() || "Unknown role";
-        })
-      : [];
 
   // ── Fetch tasks (created by me) ───────────────────────────────────────────
   const fetchTasks = useCallback(async (search: string) => {
@@ -412,17 +405,6 @@ export const AssignTaskModal: React.FC<AssignTaskModalProps> = ({
                   )}
                 />
               </div>
-
-              {selectedTaskAllowedRoleLabels.length > 0 && (
-                <div className="flex items-start gap-3 p-4 rounded-xl bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800">
-                  <AlertCircle className="w-4 h-4 text-violet-600 shrink-0 mt-0.5" />
-                  <p className="text-xs text-violet-800 dark:text-violet-200 leading-relaxed">
-                    This task is restricted to members with{" "}
-                    <strong>{selectedTaskAllowedRoleLabels.join(", ")}</strong>.
-                    Only matching users are shown below.
-                  </p>
-                </div>
-              )}
 
               {/* User picker */}
               <div className="relative">

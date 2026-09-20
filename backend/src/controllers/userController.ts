@@ -2,7 +2,6 @@ import { Request, Response } from "express";
 import mongoose from "mongoose";
 import User, { normalizeOrgMemberKind } from "../models/User.js";
 import Organization from "../models/Organization.js";
-import Group from "../models/Group.js";
 import Role from "../models/Role.js";
 import fs from "fs";
 import Papa from "papaparse";
@@ -22,6 +21,15 @@ import {
   assertTaskLifecycleAccess,
 } from "../utils/taskLifecycleQuery.js";
 import { DefaultRoleCode } from "@taskunity/shared/defaultRoleCodes.js";
+import {
+  GroupKindError,
+  addUserToOrganisationDefaultGroup,
+  applyMemberKindChangeGroups,
+  applyMemberProvisioningGroups,
+  removeUserFromOrganisationGroups,
+  resolveMemberKindForOrg,
+  setMemberGroupsForKind,
+} from "../services/groupKindMembership.js";
 import {
   assertGrantableRoleIdsInOrg,
   assertNoLegacyRoleNameFields,
@@ -106,7 +114,9 @@ export const getUsers = async (req: Request, res: Response) => {
     ]);
 
     const users = await Promise.all(
-      userDocs.map((doc) => userDocumentToClientJson(doc)),
+      userDocs.map((doc) =>
+        userDocumentToClientJson(doc, orgId ? { orgId: String(orgId) } : undefined),
+      ),
     );
 
     res.json({
@@ -139,7 +149,12 @@ export const getUserById = async (req: Request, res: Response) => {
       if (!inOrg) return res.status(404).json({ message: "User not found" });
     }
 
-    res.json(await userDocumentToClientJson(user));
+    res.json(
+      await userDocumentToClientJson(
+        user,
+        orgId ? { orgId: String(orgId) } : undefined,
+      ),
+    );
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -173,16 +188,51 @@ export const updateUserRole = async (req: Request, res: Response) => {
       throw e;
     }
 
+    const previousKind = resolveMemberKindForOrg(user, String(currentOrgId));
+    const newKind =
+      (req as any).body?.memberKind !== undefined
+        ? normalizeOrgMemberKind((req as any).body.memberKind)
+        : previousKind;
+
     upsertOrgMembershipRoleIds(
       user,
       currentOrgId,
       roleIds,
-      (req as any).body?.memberKind !== undefined
-        ? normalizeOrgMemberKind((req as any).body.memberKind)
-        : undefined,
+      (req as any).body?.memberKind !== undefined ? newKind : undefined,
       "set",
     );
     await user.save();
+
+    try {
+      if (previousKind !== newKind) {
+        await applyMemberKindChangeGroups(
+          user._id,
+          currentOrgId,
+          previousKind,
+          newKind,
+        );
+        if ((req as any).body?.groupIds !== undefined) {
+          await setMemberGroupsForKind(
+            user._id,
+            currentOrgId,
+            newKind,
+            (req as any).body.groupIds,
+          );
+        }
+      } else if ((req as any).body?.groupIds !== undefined) {
+        await setMemberGroupsForKind(
+          user._id,
+          currentOrgId,
+          newKind,
+          (req as any).body.groupIds,
+        );
+      }
+    } catch (e) {
+      if (e instanceof GroupKindError) {
+        return res.status(e.status).json({ message: e.message });
+      }
+      throw e;
+    }
 
     res.json({ message: "User roles updated successfully", user });
   } catch (err: any) {
@@ -301,6 +351,13 @@ export const updateUser = async (req: Request, res: Response) => {
       }
 
       if (reqOrgId) {
+        const previousKind = resolveMemberKindForOrg(user, reqOrgId);
+        const entry = normalized[0];
+        const newKind = entry?.memberKind ?? previousKind;
+        const groupIdsFromBody =
+          (req.body as { groupIds?: unknown }).groupIds ??
+          organisationRoles[0]?.groupIds;
+
         const other = (user.organisationRoles ?? []).filter(
           (o: any) => o.organisation.toString() !== reqOrgId,
         );
@@ -313,10 +370,46 @@ export const updateUser = async (req: Request, res: Response) => {
         );
         if (!hasOrg) {
           user.organisations = [...(user.organisations ?? []), reqOrgId] as any;
-          await Group.findOneAndUpdate(
-            { organisation: reqOrgId, name: "All Members" },
-            { $addToSet: { members: user._id } },
-          );
+        }
+
+        await user.save();
+
+        try {
+          if (!hasOrg) {
+            await applyMemberProvisioningGroups(
+              user._id,
+              reqOrgId,
+              newKind,
+              groupIdsFromBody,
+            );
+          } else if (previousKind !== newKind) {
+            await applyMemberKindChangeGroups(
+              user._id,
+              reqOrgId,
+              previousKind,
+              newKind,
+            );
+            if (groupIdsFromBody !== undefined) {
+              await setMemberGroupsForKind(
+                user._id,
+                reqOrgId,
+                newKind,
+                groupIdsFromBody,
+              );
+            }
+          } else if (groupIdsFromBody !== undefined) {
+            await setMemberGroupsForKind(
+              user._id,
+              reqOrgId,
+              newKind,
+              groupIdsFromBody,
+            );
+          }
+        } catch (e) {
+          if (e instanceof GroupKindError) {
+            return res.status(e.status).json({ message: e.message });
+          }
+          throw e;
         }
       } else {
         user.organisationRoles = normalized as any;
@@ -336,7 +429,6 @@ export const updateUser = async (req: Request, res: Response) => {
           }
         }
 
-        // Diff old vs new orgs to sync "All Members" groups
         const oldOrgIds = (user.organisations ?? []).map((o: any) => o.toString());
         const newOrgIds = organisations.map((o: string) => o.toString());
         const addedOrgs = newOrgIds.filter((id) => !oldOrgIds.includes(id));
@@ -351,18 +443,16 @@ export const updateUser = async (req: Request, res: Response) => {
         }
         await user.save();
 
-        // Sync "All Members" groups for newly added / removed orgs
         for (const orgId of addedOrgs) {
-          await Group.findOneAndUpdate(
-            { organisation: orgId, name: "All Members" },
-            { $addToSet: { members: user._id } }
+          const memberKind = resolveMemberKindForOrg(user, orgId);
+          await addUserToOrganisationDefaultGroup(
+            user._id,
+            orgId,
+            memberKind,
           );
         }
         for (const orgId of removedOrgs) {
-          await Group.findOneAndUpdate(
-            { organisation: orgId, name: "All Members" },
-            { $pull: { members: user._id } }
-          );
+          await removeUserFromOrganisationGroups(user._id, orgId);
         }
       }
     } else if (!skipOrgWrites && organisation !== undefined) {
@@ -382,15 +472,11 @@ export const updateUser = async (req: Request, res: Response) => {
       }
       // Legacy single-org handling (backward compat)
       if (organisation === null) {
-        // Remove from all current org "All Members" groups
         const oldOrgIds = (user.organisations ?? []).map((o: any) => o.toString());
         user.organisations = [];
         await user.save();
         for (const orgId of oldOrgIds) {
-          await Group.findOneAndUpdate(
-            { organisation: orgId, name: "All Members" },
-            { $pull: { members: user._id } }
-          );
+          await removeUserFromOrganisationGroups(user._id, orgId);
         }
       } else if (organisation) {
         const orgExists = await Organization.findById(organisation);
@@ -402,10 +488,11 @@ export const updateUser = async (req: Request, res: Response) => {
         if (!alreadyMember) {
           user.organisations = [...(user.organisations ?? []), organisation];
           await user.save();
-          // Add to new org's "All Members" group
-          await Group.findOneAndUpdate(
-            { organisation: organisation, name: "All Members" },
-            { $addToSet: { members: user._id } }
+          const memberKind = resolveMemberKindForOrg(user, organisation.toString());
+          await addUserToOrganisationDefaultGroup(
+            user._id,
+            organisation,
+            memberKind,
           );
         } else {
           await user.save();
@@ -425,7 +512,10 @@ export const updateUser = async (req: Request, res: Response) => {
 
     res.json({
       message: "User updated successfully",
-      user: await userDocumentToClientJson(updated),
+      user: await userDocumentToClientJson(
+        updated,
+        reqOrgId ? { orgId: reqOrgId } : undefined,
+      ),
     });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
@@ -537,10 +627,7 @@ export const deleteUser = async (req: Request, res: Response) => {
         (o: any) => o.organisation.toString() !== orgId.toString(),
       ) as any;
 
-      await Group.findOneAndUpdate(
-        { organisation: orgId, name: "All Members" },
-        { $pull: { members: user._id } },
-      );
+      await removeUserFromOrganisationGroups(user._id, orgId);
 
       if (remaining.length === 0) {
         await user.deleteOne();
@@ -713,9 +800,10 @@ export const importUsers = async (req: Request, res: Response) => {
           };
           user = new User(userObj);
           await user.save();
-          await Group.findOneAndUpdate(
-            { organisation: organisationId, name: "All Members" },
-            { $addToSet: { members: user._id } },
+          await applyMemberProvisioningGroups(
+            user._id,
+            organisationId,
+            normalizeOrgMemberKind(row.member_kind),
           );
           imported++;
         } else {
@@ -738,9 +826,10 @@ export const importUsers = async (req: Request, res: Response) => {
           }
 
           if (dirty) {
-            await Group.findOneAndUpdate(
-              { organisation: organisationId, name: "All Members" },
-              { $addToSet: { members: user._id } },
+            await applyMemberProvisioningGroups(
+              user._id,
+              organisationId,
+              normalizeOrgMemberKind(row.member_kind),
             );
             await user.save();
             updated++;

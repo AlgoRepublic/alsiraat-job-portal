@@ -3,6 +3,18 @@ import mongoose from "mongoose";
 import Group from "../models/Group.js";
 import User from "../models/User.js";
 import { groupDocumentToClientJson } from "../services/hydrateOrganisationRolesPayload.js";
+import {
+  assertDefaultGroupMemberChangeAllowed,
+  assertDefaultGroupNotDeletable,
+  assertDefaultGroupUpdateAllowed,
+  assertCustomGroupNameAllowed,
+  assertGroupKindRequiredForCreate,
+  assertOidcMappingAllowedForGroup,
+  assertUsersMatchGroupKind,
+  GroupKindError,
+  normalizeGroupKind,
+  sanitizeOidcMappingForGroupKind,
+} from "../services/groupKindMembership.js";
 
 function requireOrgId(req: any, res: Response): string | null {
   const orgId = req.orgId?.toString?.() ?? null;
@@ -49,7 +61,7 @@ export const getGroupsPublic = async (req: Request, res: Response) => {
     if (!orgId) return;
 
     const groups = await Group.find({ isActive: true, organisation: orgId })
-      .select("name description color members")
+      .select("name description color members kind isDefault")
       .sort({ name: 1 });
 
     res.json(groups);
@@ -89,11 +101,35 @@ export const createGroup = async (req: any, res: Response) => {
     const orgId = requireOrgId(req, res);
     if (!orgId) return;
 
-    const { name, description, color, members, oidcMapping } = req.body;
+    const { name, description, color, members, oidcMapping, kind } = req.body;
 
     if (!name?.trim()) {
       return res.status(400).json({ message: "Group name is required" });
     }
+
+    try {
+      assertCustomGroupNameAllowed(name);
+    } catch (e) {
+      if (e instanceof GroupKindError) {
+        return res.status(e.status).json({ message: e.message });
+      }
+      throw e;
+    }
+
+    let groupKind;
+    try {
+      groupKind = assertGroupKindRequiredForCreate(kind);
+    } catch (e) {
+      if (e instanceof GroupKindError) {
+        return res.status(e.status).json({ message: e.message });
+      }
+      throw e;
+    }
+
+    const normalizedOidc = sanitizeOidcMappingForGroupKind(
+      groupKind,
+      oidcMapping,
+    );
 
     // Validate members exist
     if (members && members.length > 0) {
@@ -103,6 +139,14 @@ export const createGroup = async (req: any, res: Response) => {
           .status(400)
           .json({ message: "One or more member users not found" });
       }
+      try {
+        assertUsersMatchGroupKind(foundUsers, orgId, groupKind);
+      } catch (e) {
+        if (e instanceof GroupKindError) {
+          return res.status(e.status).json({ message: e.message });
+        }
+        throw e;
+      }
     }
 
     const group = new Group({
@@ -110,7 +154,9 @@ export const createGroup = async (req: any, res: Response) => {
       description: description?.trim() || "",
       color: color || "#6B7280",
       members: members || [],
-      oidcMapping: Array.isArray(oidcMapping) ? oidcMapping.map((v: string) => String(v).trim()).filter(Boolean) : [],
+      oidcMapping: normalizedOidc,
+      kind: groupKind,
+      isDefault: false,
       organisation: orgId,
       createdBy: req.user._id,
     });
@@ -142,12 +188,39 @@ export const updateGroup = async (req: any, res: Response) => {
     });
     if (!group) return res.status(404).json({ message: "Group not found" });
 
-    if (name !== undefined) group.name = name.trim();
+    try {
+      assertDefaultGroupUpdateAllowed(group, { name, isActive });
+      if (Array.isArray(oidcMapping)) {
+        assertOidcMappingAllowedForGroup(group, oidcMapping);
+      }
+    } catch (e) {
+      if (e instanceof GroupKindError) {
+        return res.status(e.status).json({ message: e.message });
+      }
+      throw e;
+    }
+
+    const groupKind = normalizeGroupKind(group.kind);
+
+    if (name !== undefined) {
+      try {
+        assertCustomGroupNameAllowed(name, { isDefault: group.isDefault });
+      } catch (e) {
+        if (e instanceof GroupKindError) {
+          return res.status(e.status).json({ message: e.message });
+        }
+        throw e;
+      }
+      group.name = name.trim();
+    }
     if (description !== undefined) group.description = description.trim();
     if (color !== undefined) group.color = color;
     if (isActive !== undefined) group.isActive = isActive;
     if (Array.isArray(oidcMapping)) {
-      group.oidcMapping = oidcMapping.map((v: string) => String(v).trim()).filter(Boolean);
+      group.oidcMapping = sanitizeOidcMappingForGroupKind(
+        groupKind,
+        oidcMapping,
+      );
     }
 
     await group.save();
@@ -174,6 +247,15 @@ export const deleteGroup = async (req: Request, res: Response) => {
       organisation: orgId,
     });
     if (!group) return res.status(404).json({ message: "Group not found" });
+
+    try {
+      assertDefaultGroupNotDeletable(group);
+    } catch (e) {
+      if (e instanceof GroupKindError) {
+        return res.status(e.status).json({ message: e.message });
+      }
+      throw e;
+    }
 
     await group.deleteOne();
     res.json({ message: "Group deleted successfully" });
@@ -207,6 +289,19 @@ export const addMembers = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "One or more users not found" });
     }
 
+    try {
+      assertUsersMatchGroupKind(
+        foundUsers,
+        orgId,
+        normalizeGroupKind(group.kind),
+      );
+    } catch (e) {
+      if (e instanceof GroupKindError) {
+        return res.status(e.status).json({ message: e.message });
+      }
+      throw e;
+    }
+
     // Add only new members (avoid duplicates)
     const existingIds = group.members.map((m) => m.toString());
     const newIds = userIds.filter((id: string) => !existingIds.includes(id));
@@ -238,6 +333,15 @@ export const removeMember = async (req: Request, res: Response) => {
       organisation: orgId,
     });
     if (!group) return res.status(404).json({ message: "Group not found" });
+
+    try {
+      assertDefaultGroupMemberChangeAllowed(group);
+    } catch (e) {
+      if (e instanceof GroupKindError) {
+        return res.status(e.status).json({ message: e.message });
+      }
+      throw e;
+    }
 
     group.members = group.members.filter((m) => m.toString() !== userId) as any;
     await group.save();

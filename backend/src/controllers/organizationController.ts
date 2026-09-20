@@ -1,11 +1,16 @@
 import { Request, Response } from "express";
 import crypto from "crypto";
+import mongoose from "mongoose";
 import Organization from "../models/Organization.js";
 import User, { normalizeOrgMemberKind } from "../models/User.js";
 import Invitation from "../models/Invitation.js";
 import { sendEmail } from "../services/notificationService.js";
 import { onboardingInvitationEmail } from "../services/emailTemplates.js";
-import Group from "../models/Group.js";
+import {
+  GroupKindError,
+  applyMemberProvisioningGroups,
+  seedDefaultGroupsForOrganisation,
+} from "../services/groupKindMembership.js";
 import { isSuperAdminUser } from "../utils/superAdmin.js";
 import { setAlSiraatOrganisationFlag } from "../utils/alSiraatOrg.js";
 import {
@@ -122,21 +127,10 @@ export const createOrganization = async (req: Request, res: Response) => {
     );
     await owner.save();
 
-    // Create the default "All Members" group for the new organisation
-    await Group.findOneAndUpdate(
-      { organisation: org._id, name: "All Members" },
-      {
-        name: "All Members",
-        description: "Default group — contains all organisation members",
-        color: "#6366F1",
-        organisation: org._id,
-        members: [owner._id],
-        createdBy: owner._id,
-        isActive: true,
-        oidcMapping: [],
-      },
-      { upsert: true, new: true }
-    );
+    // Seed immutable default internal and external groups for the new organisation
+    await seedDefaultGroupsForOrganisation(org._id, owner._id, {
+      initialInternalMemberIds: [owner._id as mongoose.Types.ObjectId],
+    });
 
     res.status(201).json(org);
   } catch (err: any) {
@@ -338,11 +332,19 @@ export const addMember = async (req: Request, res: Response) => {
 
     await user.save();
 
-    // Auto-add to the org's "All Members" default group
-    await Group.findOneAndUpdate(
-      { organisation: organization._id, name: "All Members" },
-      { $addToSet: { members: user._id } }
-    );
+    try {
+      await applyMemberProvisioningGroups(
+        user._id,
+        organization._id,
+        normalizeOrgMemberKind(memberKind),
+        req.body.groupIds,
+      );
+    } catch (e) {
+      if (e instanceof GroupKindError) {
+        return res.status(e.status).json({ message: e.message });
+      }
+      throw e;
+    }
 
     res.json({ message: "Member added successfully", user });
   } catch (err: any) {
@@ -425,21 +427,7 @@ export const inviteOrganisation = async (req: any, res: Response) => {
       targetOrgId = newOrg._id;
       targetOrgName = newOrg.name;
 
-      // Create default "All Members" group for the new organisation
-      await Group.findOneAndUpdate(
-        { organisation: newOrg._id, name: "All Members" },
-        {
-          name: "All Members",
-          description: "Default group — contains all organisation members",
-          color: "#6366F1",
-          organisation: newOrg._id,
-          members: [],
-          createdBy: req.user._id,
-          isActive: true,
-          oidcMapping: [],
-        },
-        { upsert: true, new: true }
-      );
+      await seedDefaultGroupsForOrganisation(newOrg._id, req.user._id);
     }
 
     // Check if the owner email is already registered

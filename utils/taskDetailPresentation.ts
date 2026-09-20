@@ -1,11 +1,13 @@
-import { formatTaskDateOrNA } from "./formatTaskDate";
-import { organisationIdToString } from "./organisationId";
+import { formatTaskDateOrNA } from "./formatTaskDate.ts";
+import { organisationIdToString } from "./organisationId.ts";
 import {
   TASK_VISIBILITY,
   formatPrivateAudienceLabel,
   formatVisibilityLabel,
   normalizeTaskVisibilityForDisplay,
-} from "./taskVisibility";
+  type TaskVisibilityValue,
+} from "./taskVisibility.ts";
+import { normalizeAllowedGroupsForSubmit } from "./taskWizardAllowedGroups.ts";
 
 /** Matches `Permission.TASK_APPROVE` — kept local so Node unit tests avoid bundler resolution. */
 const TASK_APPROVE_PERMISSION = "task:approve";
@@ -13,6 +15,13 @@ const TASK_APPROVE_PERMISSION = "task:approve";
 export interface GroupCatalogueEntry {
   _id: string;
   name: string;
+  kind?: string;
+  isDefault?: boolean;
+}
+
+export interface AudienceGroupSection {
+  kindLabel: string;
+  labels: string[];
 }
 
 export interface RoleCatalogueEntry {
@@ -27,6 +36,7 @@ export interface AudienceTargetingPresentation {
   privateAudienceLabels: string[] | null;
   showTargetGroups: boolean;
   targetGroupLabels: string[] | null;
+  targetGroupSections: AudienceGroupSection[] | null;
   targetGroupsLoadFailed: boolean;
   showAllowedRoles: boolean;
   allowedRoleLabels: string[] | null;
@@ -241,71 +251,100 @@ export function buildTaskProvenanceHeader(
   };
 }
 
-function findAllMembersGroup(
-  catalogue: GroupCatalogueEntry[] | null | undefined,
-): GroupCatalogueEntry | undefined {
-  return catalogue?.find((g) => g.name?.toLowerCase() === "all members");
+const DEFAULT_GROUP_LABEL = "Default";
+
+function normalizeCatalogueKind(value: string | undefined): string {
+  return value === TASK_VISIBILITY.EXTERNAL ? TASK_VISIBILITY.EXTERNAL : TASK_VISIBILITY.INTERNAL;
 }
 
-/** Resolve allowed group IDs to display labels; empty/default → All Members. */
+function catalogueGroupsForAudience(
+  catalogue: GroupCatalogueEntry[] | null | undefined,
+  audience: TaskVisibilityValue,
+): GroupCatalogueEntry[] {
+  if (!catalogue) return [];
+  return catalogue.filter(
+    (g) => normalizeCatalogueKind(g.kind) === audience,
+  );
+}
+
+function defaultGroupForAudience(
+  catalogue: GroupCatalogueEntry[] | null | undefined,
+  audience: TaskVisibilityValue,
+): GroupCatalogueEntry | undefined {
+  const inKind = catalogueGroupsForAudience(catalogue, audience);
+  return inKind.find((g) => g.isDefault);
+}
+
+/** Resolve allowed group IDs to display labels for one private audience kind. */
+export function resolveTargetGroupLabelsForAudience(
+  allowedGroups: string[] | undefined,
+  audience: TaskVisibilityValue,
+  groupsCatalogue: GroupCatalogueEntry[] | null,
+  catalogueLoadFailed = false,
+): string[] {
+  const ids = (allowedGroups ?? []).map(String);
+  const inKind = catalogueGroupsForAudience(groupsCatalogue, audience);
+  const kindIds = new Set(inKind.map((g) => String(g._id)));
+  const subset = ids.filter((id) => kindIds.has(id));
+  const defaultLabel = DEFAULT_GROUP_LABEL;
+  const defaultGroup = defaultGroupForAudience(groupsCatalogue, audience);
+  const defaultId = defaultGroup?._id ? String(defaultGroup._id) : null;
+
+  if (subset.length === 0) {
+    return [];
+  }
+
+  if (subset.length === 1 && defaultId && subset[0] === defaultId) {
+    return [defaultLabel];
+  }
+
+  if (catalogueLoadFailed || !groupsCatalogue) {
+    return subset.map((id) => `Group (${id})`);
+  }
+
+  return subset.map((id) => {
+    const match = inKind.find((g) => String(g._id) === id);
+    return match?.name?.trim() || "Unknown group";
+  });
+}
+
+export function resolvePrivateTargetGroupSections(
+  allowedGroups: string[] | undefined,
+  privateAudiences: TaskVisibilityValue[],
+  groupsCatalogue: GroupCatalogueEntry[] | null,
+  catalogueLoadFailed = false,
+): AudienceGroupSection[] {
+  return privateAudiences
+    .map((audience) => ({
+      kindLabel: formatPrivateAudienceLabel(audience),
+      labels: resolveTargetGroupLabelsForAudience(
+        allowedGroups,
+        audience,
+        groupsCatalogue,
+        catalogueLoadFailed,
+      ),
+    }))
+    .filter((section) => section.labels.length > 0);
+}
+
+/** Resolve allowed group IDs to display labels (internal default when empty). */
 export function resolveTargetGroupLabels(
   allowedGroups: string[] | undefined,
   groupsCatalogue: GroupCatalogueEntry[] | null,
   catalogueLoadFailed = false,
 ): string[] {
-  const ids = allowedGroups ?? [];
-  const allMembers = findAllMembersGroup(groupsCatalogue);
-  const allMembersId = allMembers?._id ? String(allMembers._id) : null;
-
-  if (ids.length === 0) {
-    return ["All Members"];
-  }
-
-  if (
-    ids.length === 1 &&
-    allMembersId &&
-    String(ids[0]) === allMembersId
-  ) {
-    return ["All Members"];
-  }
-
-  if (catalogueLoadFailed || !groupsCatalogue) {
-    return ids.map((id) => `Group (${id})`);
-  }
-
-  return ids.map((id) => {
-    const match = groupsCatalogue.find((g) => String(g._id) === String(id));
-    return match?.name?.trim() || "Unknown group";
-  });
-}
-
-function resolveAllowedRoleLabels(
-  roleIds: string[] | undefined,
-  rolesCatalogue: RoleCatalogueEntry[] | null,
-  catalogueLoadFailed: boolean,
-): string[] | null {
-  const ids = (roleIds ?? []).map((id) => String(id).trim()).filter(Boolean);
-  if (ids.length === 0) return null;
-
-  if (catalogueLoadFailed || !rolesCatalogue) {
-    return ids.map((id) => `Role (${id})`);
-  }
-
-  return ids.map((id) => {
-    const match = rolesCatalogue.find((r) => String(r._id) === id);
-    const name = match?.name?.trim();
-    if (!name) return "Unknown role";
-    if (match?.isActive === false) return `${name} (inactive)`;
-    return name;
-  });
+  return resolveTargetGroupLabelsForAudience(
+    allowedGroups,
+    TASK_VISIBILITY.INTERNAL,
+    groupsCatalogue,
+    catalogueLoadFailed,
+  );
 }
 
 export function buildAudienceTargetingPresentation(
   task: TaskAudienceInput,
   groupsCatalogue: GroupCatalogueEntry[] | null,
   catalogueLoadFailed = false,
-  rolesCatalogue: RoleCatalogueEntry[] | null = null,
-  rolesCatalogueLoadFailed = false,
 ): AudienceTargetingPresentation {
   const { mode, privateAudiences } = normalizeTaskVisibilityForDisplay(task);
   const visibilityLabel = formatVisibilityLabel(mode);
@@ -316,6 +355,7 @@ export function buildAudienceTargetingPresentation(
       privateAudienceLabels: null,
       showTargetGroups: false,
       targetGroupLabels: null,
+      targetGroupSections: null,
       targetGroupsLoadFailed: false,
       showAllowedRoles: false,
       allowedRoleLabels: null,
@@ -324,31 +364,35 @@ export function buildAudienceTargetingPresentation(
   }
 
   const privateAudienceLabels = privateAudiences.map(formatPrivateAudienceLabel);
-  const includesInternal = privateAudiences.includes(TASK_VISIBILITY.INTERNAL);
-  const showTargetGroups = includesInternal;
-  const targetGroupLabels = showTargetGroups
-    ? resolveTargetGroupLabels(
-        task.allowedGroups,
-        groupsCatalogue,
-        catalogueLoadFailed,
-      )
-    : null;
-  const allowedRoleLabels = resolveAllowedRoleLabels(
-    task.allowedRoles,
-    rolesCatalogue,
-    rolesCatalogueLoadFailed,
+  const allowedGroupsForDisplay =
+    groupsCatalogue && groupsCatalogue.length > 0
+      ? normalizeAllowedGroupsForSubmit(
+          (task.allowedGroups ?? []).map(String),
+          groupsCatalogue,
+          privateAudiences,
+        )
+      : (task.allowedGroups ?? []).map(String);
+  const targetGroupSections = resolvePrivateTargetGroupSections(
+    allowedGroupsForDisplay,
+    privateAudiences,
+    groupsCatalogue,
+    catalogueLoadFailed,
   );
-  const showAllowedRoles = (allowedRoleLabels?.length ?? 0) > 0;
+  const showTargetGroups = targetGroupSections.length > 0;
+  const targetGroupLabels = showTargetGroups
+    ? targetGroupSections.flatMap((section) => section.labels)
+    : null;
 
   return {
     visibilityLabel,
     privateAudienceLabels,
     showTargetGroups,
     targetGroupLabels,
+    targetGroupSections,
     targetGroupsLoadFailed: showTargetGroups && catalogueLoadFailed,
-    showAllowedRoles,
-    allowedRoleLabels,
-    allowedRolesLoadFailed: showAllowedRoles && rolesCatalogueLoadFailed,
+    showAllowedRoles: false,
+    allowedRoleLabels: null,
+    allowedRolesLoadFailed: false,
   };
 }
 

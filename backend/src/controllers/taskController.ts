@@ -40,6 +40,14 @@ import {
   userCanAccessTaskByRoleAudience,
 } from "../services/taskAudienceByRoleId.js";
 import {
+  TaskPrivateAudienceError,
+  appendInternalVisibilityBrowseConditions,
+  appendPrivateAudienceConditions,
+  assertPrivateTaskGroupAccess,
+  loadOrgGroupIdsByKind,
+  validateTaskAllowedGroupsForPrivateAudiences,
+} from "../services/taskPrivateAudience.js";
+import {
   parseApplicationOpenDate,
   parseApplicationCloseDate,
   parseApplicationOpenDateForUpdate,
@@ -166,72 +174,6 @@ const normalizeIncomingTaskVisibility = (value: unknown): TaskVisibility => {
   return TaskVisibility.INTERNAL;
 };
 
-function appendPrivateAudienceConditions(
-  conditions: any[],
-  args: {
-    organisation: string | undefined | null;
-    userMemberKind: OrgMemberKind | null;
-    userGroupIds: any[];
-    canViewPending: boolean;
-  },
-) {
-  const { organisation, userMemberKind, userGroupIds, canViewPending } = args;
-  if (!organisation || !userMemberKind) return;
-
-  if (userMemberKind === OrgMemberKind.INTERNAL) {
-    conditions.push({
-      visibility: TaskVisibility.PRIVATE,
-      organisation,
-      status: TaskStatus.PUBLISHED,
-      privateAudiences: { $in: [TaskVisibility.INTERNAL] },
-      $or: [
-        { allowedGroups: { $exists: false } },
-        { allowedGroups: { $size: 0 } },
-        { allowedGroups: { $in: userGroupIds } },
-      ],
-    });
-
-    if (canViewPending) {
-      conditions.push({
-        visibility: TaskVisibility.PRIVATE,
-        organisation,
-        status: TaskStatus.PENDING,
-        privateAudiences: { $in: [TaskVisibility.INTERNAL] },
-      });
-      conditions.push({
-        visibility: TaskVisibility.PRIVATE,
-        organisation,
-        status: TaskStatus.CHANGES_REQUESTED,
-        privateAudiences: { $in: [TaskVisibility.INTERNAL] },
-      });
-    }
-  }
-
-  if (userMemberKind === OrgMemberKind.EXTERNAL) {
-    conditions.push({
-      visibility: TaskVisibility.PRIVATE,
-      organisation,
-      status: TaskStatus.PUBLISHED,
-      privateAudiences: { $in: [TaskVisibility.EXTERNAL] },
-    });
-
-    if (canViewPending) {
-      conditions.push({
-        visibility: TaskVisibility.PRIVATE,
-        organisation,
-        status: TaskStatus.PENDING,
-        privateAudiences: { $in: [TaskVisibility.EXTERNAL] },
-      });
-      conditions.push({
-        visibility: TaskVisibility.PRIVATE,
-        organisation,
-        status: TaskStatus.CHANGES_REQUESTED,
-        privateAudiences: { $in: [TaskVisibility.EXTERNAL] },
-      });
-    }
-  }
-}
-
 export const createTask = async (req: any, res: Response) => {
   try {
     const {
@@ -341,6 +283,14 @@ export const createTask = async (req: any, res: Response) => {
       req.body.allowedRoles,
     );
 
+    if (taskData.visibility === TaskVisibility.PRIVATE) {
+      await validateTaskAllowedGroupsForPrivateAudiences(
+        String(req.orgId),
+        taskData.privateAudiences,
+        taskData.allowedGroups,
+      );
+    }
+
     const applicationOpenDate = parseApplicationOpenDate(req.body);
     const applicationCloseDate = parseApplicationCloseDate(req.body);
     const startDateResult = requireTaskStartDateFromBody(req.body);
@@ -387,6 +337,9 @@ export const createTask = async (req: any, res: Response) => {
     res.status(201).json(task);
   } catch (err: any) {
     if (err instanceof TaskAudienceError) {
+      return res.status(err.status).json({ message: err.message });
+    }
+    if (err instanceof TaskPrivateAudienceError) {
       return res.status(err.status).json({ message: err.message });
     }
     res.status(500).json({ message: err.message });
@@ -632,6 +585,25 @@ export const updateTask = async (req: any, res: Response) => {
       task.approvedBy = req.user._id;
     }
 
+    if (task.visibility === TaskVisibility.PRIVATE) {
+      const postingOrgId = task.organisation
+        ? String(task.organisation)
+        : req.orgId
+          ? String(req.orgId)
+          : null;
+      if (postingOrgId) {
+        const audiences = Array.isArray((task as any).privateAudiences)
+          ? (task as any).privateAudiences
+          : [TaskVisibility.INTERNAL];
+        const groupIds = parseArrayField((task as any).allowedGroups);
+        await validateTaskAllowedGroupsForPrivateAudiences(
+          postingOrgId,
+          audiences,
+          groupIds,
+        );
+      }
+    }
+
     await task.save();
 
     if (
@@ -644,6 +616,9 @@ export const updateTask = async (req: any, res: Response) => {
     res.json(task);
   } catch (err: any) {
     if (err instanceof TaskAudienceError) {
+      return res.status(err.status).json({ message: err.message });
+    }
+    if (err instanceof TaskPrivateAudienceError) {
       return res.status(err.status).json({ message: err.message });
     }
     res.status(500).json({ message: err.message });
@@ -803,40 +778,17 @@ export const getTasks = async (req: any, res: Response) => {
       const userMemberKind = organisation
         ? getMemberKindForOrg(user, organisation)
         : null;
+      const orgGroupIdsByKind = organisation
+        ? await loadOrgGroupIdsByKind(organisation)
+        : { internal: [], external: [] };
 
-      if (canViewInternal && organisation) {
-        // Published internal tasks remain group-restricted for normal browsing.
-        conditions.push({
-          visibility: TaskVisibility.INTERNAL,
-          organisation: organisation,
-          status: TaskStatus.PUBLISHED,
-          $or: [
-            // No group restriction — visible to all internal users
-            { allowedGroups: { $exists: false } },
-            { allowedGroups: { $size: 0 } },
-            // User is in one of the allowed groups
-            { allowedGroups: { $in: userGroupIds } },
-          ],
-        });
-
-        // Pending internal tasks should be visible to approvers irrespective of group targeting.
-        // Group-based visibility controls applicant audience, not approval authority.
-        if (canViewPending) {
-          conditions.push({
-            visibility: TaskVisibility.INTERNAL,
-            organisation: organisation,
-            status: TaskStatus.PENDING,
-          });
-        }
-      } else if (organisation && userGroupIds.length > 0) {
-        // Users WITHOUT task:view_internal but who ARE members of a group
-        // can still see Published internal tasks explicitly targeted at their group(s).
-        // This ensures group members always see tasks meant for them.
-        conditions.push({
-          visibility: TaskVisibility.INTERNAL,
-          organisation: organisation,
-          status: TaskStatus.PUBLISHED,
-          allowedGroups: { $in: userGroupIds },
+      if (organisation) {
+        appendInternalVisibilityBrowseConditions(conditions, {
+          organisation,
+          userGroupIds,
+          orgGroupIdsByKind,
+          canViewInternal,
+          canViewPending,
         });
       }
 
@@ -844,6 +796,7 @@ export const getTasks = async (req: any, res: Response) => {
         organisation,
         userMemberKind,
         userGroupIds,
+        orgGroupIdsByKind,
         canViewPending,
       });
 
@@ -1121,11 +1074,15 @@ export const getSearchTasks = async (req: any, res: Response) => {
       const userMemberKind = organisation
         ? getMemberKindForOrg(user, organisation)
         : null;
+      const orgGroupIdsByKind = organisation
+        ? await loadOrgGroupIdsByKind(organisation)
+        : { internal: [], external: [] };
 
       appendPrivateAudienceConditions(conditions, {
         organisation,
         userMemberKind,
         userGroupIds,
+        orgGroupIdsByKind,
         canViewPending,
       });
 
@@ -1595,15 +1552,18 @@ export const getTaskById = async (req: any, res: Response) => {
           return res.status(404).json({ message: "Task not found" });
         }
 
-        if (!isOwner && hasInternalAccess) {
+        if (!isOwner && (hasInternalAccess || hasExternalAccess)) {
           const allowedGroups = Array.isArray((task as any).allowedGroups)
             ? (task as any).allowedGroups.map((gid: any) => String(gid))
             : [];
-          const hasGroupAccess =
-            allowedGroups.length === 0 ||
-            allowedGroups.some((gid: string) => userGroupIds.includes(gid));
-
-          if (!hasGroupAccess) {
+          try {
+            await assertPrivateTaskGroupAccess({
+              organisationId: taskOrgId,
+              viewerMemberKind: userMemberKind,
+              allowedGroups,
+              userGroupIds,
+            });
+          } catch {
             return res.status(404).json({ message: "Task not found" });
           }
         }

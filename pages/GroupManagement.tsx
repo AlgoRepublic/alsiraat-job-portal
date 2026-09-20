@@ -18,8 +18,10 @@ import {
 import { Loading } from "../components/Loading";
 import {
   getActiveOrgIdFromStorage,
+  getMemberKindForActiveOrg,
   getMemberRolesForActiveOrg,
 } from "../utils/orgScopedRoles";
+import type { OrgMemberKind } from "../types";
 import type { MemberRoleView } from "@/shared/memberRoleView";
 
 type OrgRoleCatalogueEntry = {
@@ -88,6 +90,8 @@ interface Group {
   color: string;
   members: any[];
   isActive: boolean;
+  kind?: OrgMemberKind;
+  isDefault?: boolean;
   oidcMapping?: string[];
 }
 
@@ -105,9 +109,14 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
   const [name, setName] = useState(initial?.name || "");
   const [description, setDescription] = useState(initial?.description || "");
   const [color, setColor] = useState(initial?.color || GROUP_COLORS[0]);
+  const [kind, setKind] = useState<OrgMemberKind>(
+    initial?.kind ?? "Internal",
+  );
   const [oidcMapping, setOidcMapping] = useState<string[]>(initial?.oidcMapping ?? []);
   const [oidcMappingInput, setOidcMappingInput] = useState("");
   const [saving, setSaving] = useState(false);
+  const isDefaultGroup = Boolean(initial?.isDefault);
+  const isExternalKind = kind === "External";
 
   const handleSave = async () => {
     if (!name.trim()) return;
@@ -117,7 +126,8 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
         name: name.trim(),
         description: description.trim(),
         color,
-        oidcMapping,
+        oidcMapping: isExternalKind ? [] : oidcMapping,
+        ...(initial ? {} : { kind }),
       });
       onClose();
     } finally {
@@ -141,16 +151,47 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
         </div>
 
         <div className="space-y-5">
+          {!initial && (
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                Group kind *
+              </label>
+              <select
+                className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 font-bold text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+                value={kind}
+                onChange={(e) =>
+                  setKind(e.target.value as OrgMemberKind)
+                }
+              >
+                <option value="Internal">Internal</option>
+                <option value="External">External</option>
+              </select>
+            </div>
+          )}
+
+          {initial?.kind && (
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                Kind
+              </span>
+              <span className="px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+                {initial.kind}
+                {isDefaultGroup ? " · Default" : ""}
+              </span>
+            </div>
+          )}
+
           <div className="space-y-2">
             <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
               Group Name *
             </label>
             <input
               type="text"
-              className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 font-bold text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+              className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 font-bold text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-primary/30 transition-all disabled:opacity-60"
               placeholder="e.g. Parents, Teachers, Year 7..."
               value={name}
               onChange={(e) => setName(e.target.value)}
+              disabled={isDefaultGroup}
               autoFocus
             />
           </div>
@@ -167,6 +208,7 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
             />
           </div>
 
+          {!isExternalKind && (
           <div className="space-y-2">
             <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
               SSO / ADFS group mapping
@@ -230,6 +272,7 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
               </button>
             </div>
           </div>
+          )}
 
           <div className="space-y-2">
             <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
@@ -295,6 +338,7 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [removedMemberIds, setRemovedMemberIds] = useState<string[]>([]);
   const canRemoveOrDeleteUser = (user: any) => !user?.isSuperAdmin;
+  const isDefaultGroup = Boolean(group.isDefault);
 
   const existingMembers = group.members
     .map((member: any) => resolveMemberUser(member, allUsers))
@@ -302,10 +346,12 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
     .filter((member: any) => !removedMemberIds.includes(member._id));
 
   const existingMemberIds = existingMembers.map((m: any) => m._id);
+  const requiredMemberKind = group.kind ?? "Internal";
 
   const filtered = allUsers.filter(
     (u) =>
       !existingMemberIds.includes(u._id) &&
+      getMemberKindForActiveOrg(u, activeOrgId) === requiredMemberKind &&
       (u.name.toLowerCase().includes(search.toLowerCase()) ||
         u.email.toLowerCase().includes(search.toLowerCase())),
   );
@@ -409,7 +455,7 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
                         )}
                       </div>
                     </div>
-                    {canRemoveOrDeleteUser(user) && (
+                    {canRemoveOrDeleteUser(user) && !isDefaultGroup && (
                       <button
                         onClick={() => handleRemove(user._id)}
                         disabled={removingId === user._id || saving}
@@ -517,6 +563,7 @@ export const GroupManagement: React.FC<{
   const [loading, setLoading] = useState(true);
   const activeOrgId = getActiveOrgIdFromStorage();
   const [searchTerm, setSearchTerm] = useState("");
+  const [kindFilter, setKindFilter] = useState<"All" | OrgMemberKind>("All");
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingGroup, setEditingGroup] = useState<Group | null>(null);
@@ -616,9 +663,28 @@ export const GroupManagement: React.FC<{
     }
   };
 
-  const filteredGroups = groups.filter((g) =>
-    g.name.toLowerCase().includes(searchTerm.toLowerCase()),
+  const matchesSearch = (g: Group) =>
+    g.name.toLowerCase().includes(searchTerm.toLowerCase());
+
+  const internalGroups = groups.filter(
+    (g) => (g.kind ?? "Internal") === "Internal" && matchesSearch(g),
   );
+  const externalGroups = groups.filter(
+    (g) => g.kind === "External" && matchesSearch(g),
+  );
+
+  const filteredGroups =
+    kindFilter === "All"
+      ? groups.filter(matchesSearch)
+      : kindFilter === "Internal"
+        ? internalGroups
+        : externalGroups;
+
+  const kindTabCounts = {
+    All: groups.filter(matchesSearch).length,
+    Internal: internalGroups.length,
+    External: externalGroups.length,
+  };
   const canRemoveOrDeleteUser = (user: any) => !user?.isSuperAdmin;
 
   return (
@@ -645,8 +711,8 @@ export const GroupManagement: React.FC<{
       <div className="grid md:grid-cols-4 gap-6">
         <div className="md:col-span-3 space-y-6">
           {/* Search */}
-          <div className="flex flex-col sm:flex-row gap-4 bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800">
-            <div className="relative flex-1">
+          <div className="flex flex-col gap-4 bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+            <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
               <input
                 type="text"
@@ -655,6 +721,31 @@ export const GroupManagement: React.FC<{
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {(["All", "Internal", "External"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setKindFilter(tab)}
+                  className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                    kindFilter === tab
+                      ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-700"
+                      : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                  }`}
+                >
+                  {tab === "All" ? "All kinds" : tab}
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                      kindFilter === tab
+                        ? "bg-primary/10 text-primary"
+                        : "bg-zinc-200 dark:bg-zinc-700 text-zinc-500"
+                    }`}
+                  >
+                    {kindTabCounts[tab]}
+                  </span>
+                </button>
+              ))}
             </div>
           </div>
 
@@ -665,9 +756,11 @@ export const GroupManagement: React.FC<{
             <div className="bg-white dark:bg-zinc-900 rounded-[2rem] border border-zinc-100 dark:border-zinc-800 p-20 text-center">
               <Layers className="w-16 h-16 text-zinc-200 dark:text-zinc-800 mx-auto mb-4" />
               <p className="text-zinc-500 font-bold">
-                {searchTerm ? "No groups match your search" : "No groups yet"}
+                {searchTerm || kindFilter !== "All"
+                  ? "No groups match your filters"
+                  : "No groups yet"}
               </p>
-              {!searchTerm && (
+              {!searchTerm && kindFilter === "All" && (
                 <button
                   onClick={() => setShowCreateModal(true)}
                   className="mt-4 px-6 py-3 bg-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-primaryHover transition-all"
@@ -706,6 +799,12 @@ export const GroupManagement: React.FC<{
                           <h3 className="font-black text-zinc-900 dark:text-white text-lg leading-tight">
                             {group.name}
                           </h3>
+                          {group.kind && (
+                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
+                              {group.kind}
+                              {group.isDefault ? " · Default" : ""}
+                            </span>
+                          )}
                           <span
                             className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white"
                             style={{ backgroundColor: group.color }}
@@ -744,6 +843,8 @@ export const GroupManagement: React.FC<{
                         >
                           <UserPlus className="w-5 h-5" />
                         </button>
+                        {!group.isDefault && (
+                          <>
                         <button
                           onClick={() => setEditingGroup(group)}
                           className="p-2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all"
@@ -760,6 +861,8 @@ export const GroupManagement: React.FC<{
                         >
                           <Trash2 className="w-5 h-5" />
                         </button>
+                          </>
+                        )}
                         <button
                           onClick={() =>
                             setExpandedGroup(isExpanded ? null : group._id)
@@ -856,7 +959,8 @@ export const GroupManagement: React.FC<{
                                       </div>
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                      {canRemoveOrDeleteUser(member) && (
+                                      {canRemoveOrDeleteUser(member) &&
+                                        !group.isDefault && (
                                         <button
                                           onClick={() =>
                                             handleRemoveMember(

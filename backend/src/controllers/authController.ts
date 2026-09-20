@@ -1,7 +1,11 @@
 import type { Request, Response } from "express";
+import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import User, { normalizeOrgMemberKind } from "../models/User.js";
+import User, {
+  OrgMemberKind,
+  normalizeOrgMemberKind,
+} from "../models/User.js";
 import Group from "../models/Group.js";
 import dotenv from "dotenv";
 import crypto from "crypto";
@@ -36,6 +40,11 @@ import {
   pickPreferredPlatformOrganisation,
   serializeOrganisationForPayload,
 } from "../utils/platformOrganisation.js";
+import {
+  GroupKindError,
+  applyMemberProvisioningGroups,
+  resolveMemberProvisioningGroupIds,
+} from "../services/groupKindMembership.js";
 
 dotenv.config();
 
@@ -337,13 +346,21 @@ export const verifyOtp = async (req: Request, res: Response) => {
         invitation.status = "Accepted";
         await invitation.save();
 
-        // Auto-add to the "All Members" group for this org
         if (orgId) {
-          const Group = (await import("../models/Group.js")).default;
-          await Group.findOneAndUpdate(
-            { organisation: orgId, name: "All Members" },
-            { $addToSet: { members: user._id } }
-          );
+          const invitedKind = normalizeOrgMemberKind(invitation.memberKind);
+          try {
+            await applyMemberProvisioningGroups(
+              user._id,
+              orgId,
+              invitedKind,
+              invitation.groupIds?.map((id) => id.toString()),
+            );
+          } catch (e) {
+            if (e instanceof GroupKindError) {
+              return res.status(e.status).json({ message: e.message });
+            }
+            throw e;
+          }
         }
       }
     }
@@ -474,10 +491,19 @@ export const signup = async (req: Request, res: Response) => {
       );
 
       await user.save();
-      await Group.findOneAndUpdate(
-        { organisation: permissionOrgId, name: "All Members" },
-        { $addToSet: { members: user._id } },
-      );
+      try {
+        await applyMemberProvisioningGroups(
+          user._id,
+          permissionOrgId,
+          nextMemberKind,
+          req.body.groupIds,
+        );
+      } catch (e) {
+        if (e instanceof GroupKindError) {
+          return res.status(e.status).json({ message: e.message });
+        }
+        throw e;
+      }
 
       const rolesArray = await getOrgScopedRoles(user, permissionOrgId);
       const permissions = await buildPermissionListForUser(user, permissionOrgId);
@@ -517,6 +543,60 @@ export const signup = async (req: Request, res: Response) => {
       password: hashedPassword,
       ...(contactNumber ? { contactNumber } : {}),
     });
+
+    if (authenticatedActor && permissionOrgId) {
+      let canCreateUsers = !!authenticatedActor.isSuperAdmin;
+      if (!canCreateUsers) {
+        const hasOrgPermission = (req as any).hasOrgPermission as
+          | ((p: string) => boolean)
+          | undefined;
+        canCreateUsers =
+          typeof hasOrgPermission === "function" &&
+          hasOrgPermission(Permission.USER_CREATE);
+      }
+      if (canCreateUsers) {
+        user.organisations = [permissionOrgId];
+
+        const nextMemberKind = normalizeOrgMemberKind(
+          memberKind ?? memberKinds?.[0],
+        );
+        let grantRoleIds: string[];
+        try {
+          grantRoleIds = await resolveGrantRoleIds(
+            permissionOrgId.toString(),
+            req.body as Record<string, unknown>,
+            { defaultRoleCode: DefaultRoleCode.APPLICANT },
+          );
+        } catch (e) {
+          if (e instanceof RoleAssignmentError) {
+            return res.status(e.status).json({ message: e.message });
+          }
+          throw e;
+        }
+        upsertOrgMembershipRoleIds(
+          user,
+          permissionOrgId,
+          grantRoleIds,
+          nextMemberKind,
+          "set",
+        );
+
+        await user.save();
+        try {
+          await applyMemberProvisioningGroups(
+            user._id,
+            permissionOrgId,
+            nextMemberKind,
+            req.body.groupIds,
+          );
+        } catch (e) {
+          if (e instanceof GroupKindError) {
+            return res.status(e.status).json({ message: e.message });
+          }
+          throw e;
+        }
+      }
+    }
 
     const rolesArray = await getOrgScopedRoles(user, permissionOrgId);
     const permissions = await buildPermissionListForUser(user, permissionOrgId);
@@ -1031,6 +1111,12 @@ export const exportUsersCsv = async (req: Request, res: Response) => {
 export const inviteUser = async (req: any, res: Response) => {
   try {
     const { email, memberKind } = req.body;
+    const memberKindNormalized =
+      memberKind === undefined ||
+      memberKind === null ||
+      String(memberKind).trim() === ""
+        ? OrgMemberKind.EXTERNAL
+        : normalizeOrgMemberKind(memberKind);
 
     if (!email) return res.status(400).json({ message: "Email is required" });
 
@@ -1078,16 +1164,25 @@ export const inviteUser = async (req: any, res: Response) => {
         existingUser,
         targetOrgId,
         grantRoleIds,
-        normalizeOrgMemberKind(memberKind),
+        memberKindNormalized,
         "set",
       );
 
       await existingUser.save();
 
-      await Group.findOneAndUpdate(
-        { organisation: targetOrgId, name: "All Members" },
-        { $addToSet: { members: existingUser._id } },
-      );
+      try {
+        await applyMemberProvisioningGroups(
+          existingUser._id,
+          targetOrgId,
+          memberKindNormalized,
+          req.body.groupIds,
+        );
+      } catch (e) {
+        if (e instanceof GroupKindError) {
+          return res.status(e.status).json({ message: e.message });
+        }
+        throw e;
+      }
 
       return res.status(200).json({
         message: `${email} has been added to this organisation`,
@@ -1103,6 +1198,25 @@ export const inviteUser = async (req: any, res: Response) => {
     if (!org)
       return res.status(404).json({ message: "Organisation not found" });
 
+    let resolvedInviteGroupIds: mongoose.Types.ObjectId[] | undefined;
+    if (req.body.groupIds !== undefined) {
+      try {
+        const resolved = await resolveMemberProvisioningGroupIds(
+          targetOrgId,
+          memberKindNormalized,
+          req.body.groupIds,
+        );
+        resolvedInviteGroupIds = resolved.map(
+          (id) => new mongoose.Types.ObjectId(id),
+        );
+      } catch (e) {
+        if (e instanceof GroupKindError) {
+          return res.status(e.status).json({ message: e.message });
+        }
+        throw e;
+      }
+    }
+
     // Create or update invitation for this email
     await Invitation.findOneAndUpdate(
       { email },
@@ -1114,8 +1228,12 @@ export const inviteUser = async (req: any, res: Response) => {
         invitedBy: req.user._id,
         expiresAt,
         status: "Pending",
-        memberKind: normalizeOrgMemberKind(memberKind),
-        $unset: { role: "" },
+        memberKind: memberKindNormalized,
+        ...(resolvedInviteGroupIds ? { groupIds: resolvedInviteGroupIds } : {}),
+        $unset: {
+          role: "",
+          ...(resolvedInviteGroupIds ? {} : { groupIds: "" }),
+        },
       },
       { upsert: true }
     );

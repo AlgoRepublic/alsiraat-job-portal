@@ -25,6 +25,10 @@ import {
   type RoleCatalogDocument,
 } from "../services/orgMemberRoleResolver.js";
 import { applySsoOrganisationMembership } from "../services/ssoOrganisationMembership.js";
+import {
+  OrgMemberKind,
+  syncSsoInternalGroupMembership,
+} from "../services/groupKindMembership.js";
 
 function toRoleCatalogDocument(doc: {
   _id: unknown;
@@ -228,7 +232,9 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
               );
               const [defaultOrg, dbGroups] = await Promise.all([
                 findAlSiraatOrganisation(),
-                Group.find({ isActive: true }).select("name oidcMapping").lean(),
+                Group.find({ isActive: true })
+                  .select("name oidcMapping kind organisation")
+                  .lean(),
               ]);
               const { catalog, oidcMappingRows: dbRoles } = defaultOrg
                 ? await loadOrgRoleCatalog(defaultOrg._id)
@@ -246,7 +252,24 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                       orgIdStr,
                     )
                   : null;
-              const mappedGroupIds = mapAdfsGroupsToGroupIds(adfsGroups, dbGroups as Array<{ _id: unknown; name: string; oidcMapping?: string[] }>);
+              const internalGroupsForMapping = (
+                dbGroups as Array<{
+                  _id: unknown;
+                  name: string;
+                  oidcMapping?: string[];
+                  kind?: string;
+                  organisation?: mongoose.Types.ObjectId;
+                }>
+              ).filter(
+                (g) =>
+                  (!g.organisation ||
+                    g.organisation.toString() === orgIdStr) &&
+                  (g.kind === OrgMemberKind.INTERNAL || g.kind === undefined),
+              );
+              const mappedGroupIds = mapAdfsGroupsToGroupIds(
+                adfsGroups,
+                internalGroupsForMapping,
+              );
               const superAdminClaims =
                 process.env.OIDC_SUPERADMIN_MAPPING?.split(",")
                   .map((s) => s.trim())
@@ -324,22 +347,12 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                   await user.save();
                 }
               }
-              // Sync SSO-mapped groups: remove user from all groups, then add only to incoming SSO-mapped groups
-              if (user) {
-                const userId = (user as any)._id;
-                await Group.updateMany(
-                  { members: userId },
-                  { $pull: { members: userId } },
+              if (user && defaultOrg) {
+                await syncSsoInternalGroupMembership(
+                  (user as any)._id,
+                  defaultOrg._id,
+                  mappedGroupIds,
                 );
-                for (const gid of mappedGroupIds) {
-                  const group = await Group.findById(gid);
-                  if (!group) continue;
-                  const hasUser = group.members.some((m) => m.toString() === userId.toString());
-                  if (!hasUser) {
-                    group.members.push(userId as mongoose.Types.ObjectId);
-                    await group.save();
-                  }
-                }
               }
               // Pass idToken to callback so it can be sent to frontend for localStorage
               const idTokenStr = typeof idToken === "string" ? idToken : (idToken ? JSON.stringify(idToken) : undefined);

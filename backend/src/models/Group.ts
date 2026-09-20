@@ -1,4 +1,10 @@
 import mongoose, { Document, Schema } from "mongoose";
+import {
+  OrgMemberKind,
+  type OrgMemberKind as OrgMemberKindType,
+} from "./User.js";
+
+export type GroupKind = OrgMemberKindType;
 
 export interface IGroup extends Document {
   name: string;
@@ -7,6 +13,10 @@ export interface IGroup extends Document {
   members: mongoose.Types.ObjectId[];
   organisation?: mongoose.Types.ObjectId;
   isActive: boolean;
+  /** Internal vs external cohort; aligns with member kind for membership rules. */
+  kind: GroupKind;
+  /** Built-in default group for this kind (immutable name / lifecycle). */
+  isDefault: boolean;
   /** ADFS/OIDC claim values that auto-add users to this group on SSO login (e.g. "Tasker - Group - Students"). */
   oidcMapping: string[];
   createdBy: mongoose.Types.ObjectId;
@@ -43,6 +53,15 @@ const GroupSchema = new Schema<IGroup>(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    kind: {
+      type: String,
+      enum: Object.values(OrgMemberKind),
+      default: OrgMemberKind.INTERNAL,
+    },
+    isDefault: {
+      type: Boolean,
+      default: false,
     },
     oidcMapping: [{ type: String, trim: true }],
     createdBy: {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import { db } from "../services/database";
 import { useToast } from "../components/Toast";
 import { api, API_BASE_URL } from "../services/api";
@@ -48,6 +48,49 @@ import {
   getOrgId,
   getUserRoleIdsForActiveOrg,
 } from "../utils/orgScopedRoles";
+import {
+  groupKindOfGroup,
+  normalizeOrgMemberKind,
+} from "../utils/orgMemberKind";
+
+type OrgGroupOption = {
+  _id: string;
+  name: string;
+  kind?: OrgMemberKind;
+  isDefault?: boolean;
+  isActive?: boolean;
+  color?: string;
+};
+
+const groupKindOf = (group: OrgGroupOption): OrgMemberKind =>
+  groupKindOfGroup(group);
+
+const normalizeOrgGroupsForPicker = (
+  rows: unknown[],
+): OrgGroupOption[] =>
+  rows
+    .map((row) => {
+      const g = row as OrgGroupOption & { id?: string };
+      return {
+        ...g,
+        _id: String(g._id ?? g.id ?? ""),
+      };
+    })
+    .filter((g) => g._id);
+
+/** Optional cohort ids for forms — excludes built-in default (server always adds it). */
+const memberExtraGroupIdsForForm = (
+  memberKind: OrgMemberKind,
+  groups: OrgGroupOption[],
+  ids: string[],
+): string[] => {
+  const byId = new Map(groups.map((g) => [g._id, g]));
+  return ids.filter((id) => {
+    const group = byId.get(id);
+    if (!group || group.isDefault) return false;
+    return groupKindOf(group) === memberKind;
+  });
+};
 
 interface EditForm {
   name: string;
@@ -55,8 +98,98 @@ interface EditForm {
   password?: string;
   roleId: string;
   memberKind: OrgMemberKind;
+  groupIds: string[];
   organisationIds: string[]; // multi-org: array of selected org IDs
 }
+
+const defaultGroupIdForKind = (
+  groups: OrgGroupOption[],
+  memberKind: OrgMemberKind,
+): string | null => {
+  const match = groups.find(
+    (g) =>
+      g.isDefault && groupKindOf(g) === normalizeOrgMemberKind(memberKind),
+  );
+  return match?._id ?? null;
+};
+
+const MemberGroupMultiSelect: React.FC<{
+  memberKind: OrgMemberKind;
+  groups: OrgGroupOption[];
+  selectedIds: string[];
+  onChange: (ids: string[]) => void;
+  /** Keep inactive groups visible when already selected (edit) so they can be removed. */
+  retainInactiveSelections?: boolean;
+}> = ({
+  memberKind,
+  groups,
+  selectedIds,
+  onChange,
+  retainInactiveSelections = false,
+}) => {
+  const visibleGroups = groups
+    .filter((group) => {
+      if (groupKindOf(group) !== normalizeOrgMemberKind(memberKind)) {
+        return false;
+      }
+      if (group.isActive === false) {
+        return (
+          retainInactiveSelections && selectedIds.includes(group._id)
+        );
+      }
+      return true;
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  if (visibleGroups.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {visibleGroups.map((group) => {
+        const isInactive = group.isActive === false;
+        const isSelected = selectedIds.includes(group._id);
+
+        const title =
+          isInactive && isSelected
+            ? "Inactive group — click to remove"
+            : undefined;
+
+        return (
+          <button
+            key={group._id}
+            type="button"
+            onClick={() => {
+              if (isSelected) {
+                onChange(selectedIds.filter((id) => id !== group._id));
+              } else {
+                onChange([...selectedIds, group._id]);
+              }
+            }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border-2 flex items-center gap-1.5 ${
+              isSelected
+                ? "border-transparent text-white shadow-md"
+                : "bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-primary/50"
+            }`}
+            style={
+              isSelected
+                ? {
+                    backgroundColor: group.color || "#6366F1",
+                    borderColor: group.color || "#6366F1",
+                  }
+                : {}
+            }
+            title={title}
+          >
+            {group.name}
+            {isInactive ? " (inactive)" : ""}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
 
 const resolveDefaultApplicantRoleId = (catalogue: { _id: string; code?: string }[]) =>
   catalogue.find((r) => r.code === DefaultRoleCode.APPLICANT)?._id ??
@@ -443,12 +576,14 @@ export const UserManagement: React.FC = () => {
   const [viewingUser, setViewingUser] = useState<any | null>(null);
 
   const [editingUser, setEditingUser] = useState<any | null>(null);
+  const [orgGroups, setOrgGroups] = useState<OrgGroupOption[]>([]);
   const [editForm, setEditForm] = useState<EditForm>({
     name: "",
     email: "",
     password: "",
     roleId: "",
-    memberKind: "Internal",
+    memberKind: "External",
+    groupIds: [],
     organisationIds: [],
   });
   const [isCreating, setIsCreating] = useState(false);
@@ -489,6 +624,15 @@ export const UserManagement: React.FC = () => {
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isInviting, setIsInviting] = useState(false);
 
+  const loadOrgGroups = useCallback(async () => {
+    try {
+      const data = await db.getGroups();
+      setOrgGroups(normalizeOrgGroupsForPicker(Array.isArray(data) ? data : []));
+    } catch {
+      setOrgGroups([]);
+    }
+  }, []);
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -519,13 +663,14 @@ export const UserManagement: React.FC = () => {
     }
   };
 
-  const openEditModal = (user: any) => {
+  const openEditModal = async (user: any) => {
     const oid =
       getOrgId(currentUser?.activeOrganisation) || getActiveOrgIdFromStorage();
     if (!oid) {
       showError("Select an organisation in the sidebar first");
       return;
     }
+    void loadOrgGroups();
     setEditingUser(user);
     const orEntry = (user.organisationRoles ?? []).find(
       (entry: any) =>
@@ -534,11 +679,38 @@ export const UserManagement: React.FC = () => {
     const existingRoleId =
       getUserRoleIdsForActiveOrg(user, oid)[0] ??
       resolveDefaultApplicantRoleId(roles);
+    const memberKind: OrgMemberKind =
+      orEntry?.memberKind === "External" ? "External" : "Internal";
+    let groupIds: string[] = Array.isArray(user.groupIds)
+      ? user.groupIds.map(String)
+      : [];
+    let groupsList = orgGroups;
+    try {
+      const detail = await db.getUser(user._id);
+      if (Array.isArray(detail?.groupIds)) {
+        groupIds = detail.groupIds.map(String);
+      }
+    } catch {
+      /* keep list payload or empty */
+    }
+    if (!groupsList.length) {
+      try {
+        const data = await db.getGroups();
+        groupsList = normalizeOrgGroupsForPicker(
+          Array.isArray(data) ? data : [],
+        );
+        setOrgGroups(groupsList);
+      } catch {
+        groupsList = [];
+      }
+    }
+    groupIds = memberExtraGroupIdsForForm(memberKind, groupsList, groupIds);
     setEditForm({
       name: user.name || "",
       email: user.email || "",
       roleId: existingRoleId,
-      memberKind: orEntry?.memberKind === "External" ? "External" : "Internal",
+      memberKind,
+      groupIds,
       organisationIds: [oid],
     });
   };
@@ -550,13 +722,15 @@ export const UserManagement: React.FC = () => {
       showError("Select an organisation in the sidebar first");
       return;
     }
+    void loadOrgGroups();
     setIsCreating(true);
     setEditForm({
       name: "",
       email: "",
       password: "",
       roleId: resolveDefaultApplicantRoleId(roles),
-      memberKind: "Internal",
+      memberKind: "External",
+      groupIds: [],
       organisationIds: [oid],
     });
   };
@@ -580,26 +754,15 @@ export const UserManagement: React.FC = () => {
       const lastName = names.slice(1).join(" ") || "User";
       const roleId =
         editForm.roleId || resolveDefaultApplicantRoleId(roles);
-      const organisationRoles = [
-        {
-          organisation: orgId,
-          roleIds: [roleId],
-          memberKind: editForm.memberKind,
-        },
-      ];
-      const created = await db.adminCreateUser({
+      await db.adminCreateUser({
         firstName,
         lastName,
         email: editForm.email,
         password: editForm.password,
+        roleId,
+        memberKind: editForm.memberKind,
+        groupIds: editForm.groupIds,
       });
-
-      const createdUserId = created?.user?._id || created?.user?.id;
-      if (createdUserId) {
-        await db.updateUser(createdUserId, {
-          organisationRoles,
-        });
-      }
 
       showSuccess("User created successfully");
       closeEditModal();
@@ -633,6 +796,7 @@ export const UserManagement: React.FC = () => {
         name: editForm.name,
         email: editForm.email,
         organisationRoles,
+        groupIds: editForm.groupIds,
       });
       showSuccess("User updated successfully");
       closeEditModal();
@@ -727,10 +891,15 @@ export const UserManagement: React.FC = () => {
     email: string,
     roleId: string,
     memberKind: OrgMemberKind,
+    groupIds: string[],
   ) => {
     setIsInviting(true);
     try {
-      const response = await db.inviteUser(email, { roleId, memberKind });
+      const response = await db.inviteUser(email, {
+        roleId,
+        memberKind,
+        groupIds,
+      });
       showSuccess(response.message);
       setIsInviteModalOpen(false);
     } catch (err: any) {
@@ -1374,12 +1543,18 @@ export const UserManagement: React.FC = () => {
                   </select>
                   <select
                     value={editForm.memberKind}
-                    onChange={(e) =>
-                      setEditForm({
-                        ...editForm,
-                        memberKind: e.target.value as OrgMemberKind,
-                      })
-                    }
+                    onChange={(e) => {
+                      const nextKind = e.target.value as OrgMemberKind;
+                      setEditForm((prev) => ({
+                        ...prev,
+                        memberKind: nextKind,
+                        groupIds: memberExtraGroupIdsForForm(
+                          nextKind,
+                          orgGroups,
+                          prev.groupIds,
+                        ),
+                      }));
+                    }}
                     className="flex-1 text-sm font-semibold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-2 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-primary outline-none transition-all"
                     aria-label="Member type"
                   >
@@ -1387,9 +1562,21 @@ export const UserManagement: React.FC = () => {
                     <option value="External">External</option>
                   </select>
                 </div>
-                <p className="text-[10px] text-zinc-400 mt-1.5 font-medium">
-                  Internal is staff and students; External is partners or others outside the main body.
-                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest mb-2">
+                  Groups
+                </label>
+                <MemberGroupMultiSelect
+                  memberKind={editForm.memberKind}
+                  groups={orgGroups}
+                  selectedIds={editForm.groupIds}
+                  retainInactiveSelections={!isCreating}
+                  onChange={(ids) =>
+                    setEditForm({ ...editForm, groupIds: ids })
+                  }
+                />
               </div>
             </div>
 
@@ -1433,6 +1620,8 @@ export const UserManagement: React.FC = () => {
           isInviting={isInviting}
           roles={roles}
           defaultRoleId={resolveDefaultApplicantRoleId(roles)}
+          groups={orgGroups}
+          onOpen={loadOrgGroups}
         />
       )}
     </div>
@@ -1447,10 +1636,13 @@ const InviteUserModal: React.FC<{
     email: string,
     roleId: string,
     memberKind: OrgMemberKind,
+    groupIds: string[],
   ) => Promise<void>;
   isInviting: boolean;
   roles: { _id: string; name: string; isActive?: boolean }[];
   defaultRoleId: string;
+  groups: OrgGroupOption[];
+  onOpen: () => void;
 }> = ({
   isOpen,
   onClose,
@@ -1458,16 +1650,32 @@ const InviteUserModal: React.FC<{
   isInviting,
   roles,
   defaultRoleId,
+  groups,
+  onOpen,
 }) => {
   const [email, setEmail] = useState("");
   const [roleId, setRoleId] = useState(defaultRoleId);
-  const [memberKind, setMemberKind] = useState<OrgMemberKind>("Internal");
+  const [memberKind, setMemberKind] = useState<OrgMemberKind>("External");
+  const [groupIds, setGroupIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setEmail("");
+    setRoleId(defaultRoleId);
+    setMemberKind("External");
+    setGroupIds([]);
+  }, [isOpen, defaultRoleId]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    onOpen();
+  }, [isOpen, onOpen]);
 
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onInvite(email, roleId || defaultRoleId, memberKind);
+    onInvite(email, roleId || defaultRoleId, memberKind, groupIds);
   };
 
   return (
@@ -1528,15 +1736,30 @@ const InviteUserModal: React.FC<{
                 </label>
                 <select
                   value={memberKind}
-                  onChange={(e) =>
-                    setMemberKind(e.target.value as OrgMemberKind)
-                  }
+                  onChange={(e) => {
+                    const next = e.target.value as OrgMemberKind;
+                    setMemberKind(next);
+                    setGroupIds((prev) =>
+                      memberExtraGroupIdsForForm(next, groups, prev),
+                    );
+                  }}
                   className="w-full px-3 py-3 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-bold dark:text-white"
                 >
                   <option value="Internal">Internal</option>
                   <option value="External">External</option>
                 </select>
               </div>
+            </div>
+            <div>
+              <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2">
+                Groups
+              </label>
+              <MemberGroupMultiSelect
+                memberKind={memberKind}
+                groups={groups}
+                selectedIds={groupIds}
+                onChange={setGroupIds}
+              />
             </div>
           </div>
 

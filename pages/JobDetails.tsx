@@ -29,8 +29,13 @@ import {
   Permission,
 } from "../types";
 import { useToast } from "../components/Toast";
-import { getUserRoleCodesForActiveOrg } from "../utils/orgScopedRoles";
+import { getUserRoleCodesForActiveOrg, getMemberKindForActiveOrg } from "../utils/orgScopedRoles";
 import { organisationIdToString } from "../utils/organisationId";
+import { memberSatisfiesPrivateTaskGroupRestriction } from "../utils/taskPrivateGroupAccess";
+import {
+  TASK_VISIBILITY,
+  normalizeTaskVisibilityForDisplay,
+} from "../utils/taskVisibility";
 import { TaskRewardText } from "../components/TaskRewardText";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 import {
@@ -47,7 +52,6 @@ import {
   buildTaskProvenanceHeader,
   buildAudienceTargetingPresentation,
   type GroupCatalogueEntry,
-  type RoleCatalogueEntry,
 } from "../utils/taskDetailPresentation";
 import { PrivilegedTaskDetailSections } from "../components/PrivilegedTaskDetailSections";
 import {
@@ -112,10 +116,6 @@ export const JobDetails: React.FC = () => {
     null,
   );
   const [groupsLoadFailed, setGroupsLoadFailed] = useState(false);
-  const [rolesCatalogue, setRolesCatalogue] = useState<RoleCatalogueEntry[] | null>(
-    null,
-  );
-  const [rolesLoadFailed, setRolesLoadFailed] = useState(false);
   useEffect(() => {
     const toastMessage = (location.state as JobDetailsLocationState | null)
       ?.toastMessage;
@@ -210,41 +210,25 @@ export const JobDetails: React.FC = () => {
       .then((groups) => {
         if (!cancelled) {
           setGroupsCatalogue(
-            groups.map((g: { _id: string; name: string }) => ({
-              _id: String(g._id),
-              name: g.name,
-            })),
+            groups.map(
+              (g: {
+                _id: string;
+                name: string;
+                kind?: string;
+                isDefault?: boolean;
+              }) => ({
+                _id: String(g._id),
+                name: g.name,
+                kind: g.kind,
+                isDefault: g.isDefault,
+              }),
+            ),
           );
           setGroupsLoadFailed(false);
         }
       })
       .catch(() => {
         if (!cancelled) setGroupsLoadFailed(true);
-      });
-
-    db.getRoles()
-      .then((roles) => {
-        if (!cancelled) {
-          setRolesCatalogue(
-            roles.map(
-              (r: {
-                _id: string;
-                name: string;
-                code?: string;
-                isActive?: boolean;
-              }) => ({
-                _id: String(r._id),
-                name: r.name,
-                code: r.code,
-                isActive: r.isActive,
-              }),
-            ),
-          );
-          setRolesLoadFailed(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setRolesLoadFailed(true);
       });
 
     return () => {
@@ -425,18 +409,37 @@ export const JobDetails: React.FC = () => {
   const isArchived = !!job.archivedAt;
   const isSoftDeleted = !!job.deletedAt;
 
+  const activeOrgId =
+    organisationIdToString(
+      currentUser?.organisation ??
+        (currentUser as { organization?: unknown })?.organization,
+    ) ?? organisationIdToString(currentUser?.activeOrganisation);
 
   // Permission-based applicant viewing (respects role management API)
   const canSeeApplicants =
     currentUser?.permissions?.includes(Permission.APPLICATION_READ) ||
     isJobOwner;
 
-  // User is a member of one of the task's allowedGroups (or task has no group restriction)
+  // Apply eligibility is enforced on the server (applicationController); this mirrors
+  // backend/src/services/taskPrivateAudience.ts for UI (hide apply when ineligible).
   const userGroupIds: string[] = (currentUser as any)?._groupIds ?? [];
   const taskAllowedGroups: string[] = (job as any).allowedGroups ?? [];
+  const taskVisibility = normalizeTaskVisibilityForDisplay(job);
+  const viewerMemberKind = currentUser
+    ? getMemberKindForActiveOrg(currentUser, activeOrgId)
+    : "Internal";
   const passesGroupRestriction =
-    taskAllowedGroups.length === 0 ||
-    taskAllowedGroups.some((gid: string) => userGroupIds.includes(String(gid)));
+    taskVisibility.mode === TASK_VISIBILITY.PRIVATE
+      ? memberSatisfiesPrivateTaskGroupRestriction({
+          viewerMemberKind,
+          allowedGroups: taskAllowedGroups.map(String),
+          userGroupIds: userGroupIds.map(String),
+          groupsCatalogue,
+        })
+      : taskAllowedGroups.length === 0 ||
+        taskAllowedGroups.some((gid: string) =>
+          userGroupIds.includes(String(gid)),
+        );
 
   const hasApplied =
     !!job.hasApplied ||
@@ -524,12 +527,6 @@ export const JobDetails: React.FC = () => {
     !isArchived &&
     !isSoftDeleted;
 
-  const activeOrgId =
-    organisationIdToString(
-      currentUser?.organisation ??
-        (currentUser as { organization?: unknown })?.organization,
-    ) ?? organisationIdToString(currentUser?.activeOrganisation);
-
   const showEditTask = canEditTask(
     currentUser,
     {
@@ -561,12 +558,9 @@ export const JobDetails: React.FC = () => {
           privateAudiences: job.privateAudiences,
           allowedGroups: job.allowedGroups,
           eligibility: job.eligibility,
-          allowedRoles: job.allowedRoles,
         },
         groupsCatalogue,
         groupsLoadFailed,
-        rolesCatalogue,
-        rolesLoadFailed,
       )
     : null;
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowRight,
@@ -55,11 +55,22 @@ import {
   validateWizardStep2,
 } from "../utils/taskFormValidation";
 import {
+  buildAudienceTargetingPresentation,
   canEditTask,
   canShowReviewerEditActions,
   resolveViewerOrgIdForTaskReview,
+  type GroupCatalogueEntry,
 } from "../utils/taskDetailPresentation";
 import { organisationIdToString } from "../utils/organisationId";
+import {
+  normalizeAllowedGroupsForSubmit,
+  stripWizardGroupIdsForKind,
+  wizardGroupsForKind,
+} from "../utils/taskWizardAllowedGroups";
+
+type WizardGroupRow = GroupCatalogueEntry & {
+  color?: string;
+};
 
 function getActiveOrganisationNameFromUser(user: any): string | null {
   if (!user) return null;
@@ -255,9 +266,6 @@ export const JobWizard: React.FC = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
-  const [orgRoles, setOrgRoles] = useState<
-    { _id: string; name: string; code?: string; isActive?: boolean }[]
-  >([]);
   const [activeOrgName, setActiveOrgName] = useState<string | null>(() =>
     readActiveOrganisationNameFromStorage(),
   );
@@ -268,6 +276,41 @@ export const JobWizard: React.FC = () => {
 
   const [formData, setFormData] = useState<Partial<Job>>(getInitialFormData);
   const [editAccessResolved, setEditAccessResolved] = useState(!id);
+
+  const reviewAudiencePresentation = useMemo(() => {
+    if (formData.visibility !== Visibility.PRIVATE) return null;
+    const audiences = normalizePrivateAudiences(formData.privateAudiences);
+    const selectedAudiences =
+      audiences.length > 0 ? audiences : [Visibility.INTERNAL];
+    const groupsCatalogue: GroupCatalogueEntry[] = groups.map((g) => ({
+      _id: String(g._id),
+      name:
+        typeof g.name === "string" && g.name.trim()
+          ? g.name.trim()
+          : "Unknown",
+      kind: g.kind,
+      isDefault: g.isDefault,
+    }));
+    const reviewAllowed = normalizeAllowedGroupsForSubmit(
+      formData.allowedGroups ?? [],
+      groupsCatalogue,
+      selectedAudiences,
+    );
+    return buildAudienceTargetingPresentation(
+      {
+        visibility: Visibility.PRIVATE,
+        privateAudiences: selectedAudiences,
+        allowedGroups: reviewAllowed,
+      },
+      groupsCatalogue,
+      false,
+    );
+  }, [
+    formData.visibility,
+    formData.privateAudiences,
+    formData.allowedGroups,
+    groups,
+  ]);
 
   React.useEffect(() => {
     const syncActiveOrg = async () => {
@@ -309,23 +352,12 @@ export const JobWizard: React.FC = () => {
     }
 
     const fetchData = async () => {
-      const [types, cats, rolesData, groupsData] = await Promise.all([
+      const [types, cats, groupsData] = await Promise.all([
         db.getRewardTypesCatalog(activeOrgId ?? undefined),
         db.getTaskCategories(),
-        db.getRoles(),
         db.getGroupsPublic(),
       ]);
       if (cancelled) return;
-      setOrgRoles(
-        (rolesData ?? []).map(
-          (r: { _id: string; name: string; code?: string; isActive?: boolean }) => ({
-            _id: String(r._id),
-            name: r.name,
-            code: r.code,
-            isActive: r.isActive,
-          }),
-        ),
-      );
       const orgScopedTypes = types.filter((rt: any) => {
         const orgId = getRewardTypeOrgId(rt);
         return activeOrgId ? orgId === activeOrgId : orgId === null;
@@ -424,12 +456,6 @@ export const JobWizard: React.FC = () => {
         setRewardTypes(activeTypes);
         const initialData = getInitialFormData();
         if (cats.length > 0) initialData.category = cats[0].name;
-        const allMembersGroup = groupsData.find(
-          (g: any) => g.name?.toLowerCase() === "all members",
-        );
-        if (allMembersGroup) {
-          initialData.allowedGroups = [allMembersGroup._id];
-        }
         setFormData(initialData);
       }
     };
@@ -592,21 +618,25 @@ export const JobWizard: React.FC = () => {
               return audiences.length > 0 ? audiences : [Visibility.INTERNAL];
             })()
           : [];
-      const { status: _formStatus, ...formFields } = formData;
+      const { status: _formStatus, allowedRoles: _formAllowedRoles, ...formFields } =
+        formData;
       const submissionData: Record<string, unknown> = {
         ...formFields,
         privateAudiences: selectedPrivateAudiences,
         allowedGroups:
-          formData.visibility === Visibility.PRIVATE &&
-          selectedPrivateAudiences.includes(Visibility.INTERNAL)
-            ? formData.allowedGroups ?? []
-            : [],
-        allowedRoles:
           formData.visibility === Visibility.PRIVATE
-            ? formData.allowedRoles ?? []
+            ? normalizeAllowedGroupsForSubmit(
+                formData.allowedGroups ?? [],
+                groups,
+                selectedPrivateAudiences,
+              )
             : [],
         eligibility: [],
       };
+      if (!id) {
+        submissionData.allowedRoles =
+          formData.visibility === Visibility.PRIVATE ? [] : [];
+      }
 
       const taskForReview = {
         status: formData.status,
@@ -1212,18 +1242,6 @@ export const JobWizard: React.FC = () => {
                               if (nextPrivateAudiences.length === 0) {
                                 nextPrivateAudiences = [Visibility.INTERNAL];
                               }
-                              if (
-                                nextPrivateAudiences.includes(Visibility.INTERNAL) &&
-                                nextGroups.length === 0
-                              ) {
-                                const allMembers = groups.find(
-                                  (g: any) =>
-                                    g.name?.toLowerCase() === "all members",
-                                );
-                                if (allMembers?._id) {
-                                  nextGroups = [allMembers._id];
-                                }
-                              }
                             } else {
                               nextPrivateAudiences = [];
                               nextGroups = [];
@@ -1309,7 +1327,7 @@ export const JobWizard: React.FC = () => {
                       Private Audience
                     </label>
                     <p className="text-xs text-zinc-500 mt-0.5">
-                      Choose one or both audiences. Internal can still be narrowed with groups.
+                      Choose one or both audiences. Narrow each side with groups below.
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -1320,28 +1338,32 @@ export const JobWizard: React.FC = () => {
                           key={audience}
                           type="button"
                           onClick={() => {
-                            const current = formData.privateAudiences || [];
-                            const next = isSelected
-                              ? current.filter((item) => item !== audience)
-                              : [...current, audience];
-                            updateField("privateAudiences", next);
-
-                            if (audience === Visibility.INTERNAL && !isSelected) {
-                              const currentGroups = formData.allowedGroups || [];
-                              if (currentGroups.length === 0) {
-                                const allMembers = groups.find(
-                                  (g: any) =>
-                                    g.name?.toLowerCase() === "all members",
-                                );
-                                if (allMembers?._id) {
-                                  updateField("allowedGroups", [allMembers._id]);
-                                }
+                            setFormData((prev) => {
+                              const current = prev.privateAudiences || [];
+                              let nextAudiences = isSelected
+                                ? current.filter((item) => item !== audience)
+                                : [...current, audience];
+                              if (nextAudiences.length === 0) {
+                                nextAudiences = [Visibility.INTERNAL];
                               }
-                            }
 
-                            if (audience === Visibility.INTERNAL && isSelected) {
-                              updateField("allowedGroups", []);
-                            }
+                              let nextGroups = prev.allowedGroups || [];
+                              if (isSelected) {
+                                nextGroups = stripWizardGroupIdsForKind(
+                                  nextGroups,
+                                  groups,
+                                  audience as
+                                    | Visibility.INTERNAL
+                                    | Visibility.EXTERNAL,
+                                );
+                              }
+
+                              return {
+                                ...prev,
+                                privateAudiences: nextAudiences,
+                                allowedGroups: nextGroups,
+                              };
+                            });
 
                             if (errors.visibility) {
                               setErrors((p) => ({ ...p, visibility: "" }));
@@ -1365,118 +1387,83 @@ export const JobWizard: React.FC = () => {
               )}
 
               {formData.visibility === Visibility.PRIVATE &&
-                (formData.privateAudiences || []).includes(Visibility.INTERNAL) &&
-                groups.length > 0 && (
-                  <div className="space-y-3 animate-fade-in bg-zinc-50 dark:bg-zinc-800/30 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800">
-                    <div>
-                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                        Allowed Groups
-                      </label>
-                      <p className="text-xs text-zinc-500 mt-0.5">
-                        Defaults to All Members for{" "}
-                        <span className="font-semibold text-zinc-600 dark:text-zinc-400">
-                          {orgScopeLabel}
-                        </span>
-                        ; pick groups to narrow who can see this task.
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {groups.map((group) => {
-                        const isSelected = (
-                          formData.allowedGroups || []
-                        ).includes(group._id);
-                        return (
-                          <button
-                            key={group._id}
-                            type="button"
-                            onClick={() => {
-                              const current = formData.allowedGroups || [];
-                              updateField(
-                                "allowedGroups",
-                                isSelected
-                                  ? current.filter((g) => g !== group._id)
-                                  : [...current, group._id],
-                              );
-                            }}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border-2 flex items-center gap-1.5 ${
-                              isSelected
-                                ? "border-transparent text-white shadow-md"
-                                : "bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-primary/50"
-                            }`}
-                            style={
-                              isSelected
-                                ? {
-                                    backgroundColor: group.color,
-                                    borderColor: group.color,
-                                    boxShadow: `0 4px 12px ${group.color}40`,
-                                  }
-                                : {}
-                            }
-                          >
-                            <span
-                              className="w-2 h-2 rounded-full flex-shrink-0"
-                              style={{
-                                backgroundColor: isSelected
-                                  ? "rgba(255,255,255,0.7)"
-                                  : group.color,
+                [Visibility.INTERNAL, Visibility.EXTERNAL].map((audienceKind) => {
+                  const audienceGroups = wizardGroupsForKind(groups, audienceKind);
+                  if (
+                    !(formData.privateAudiences || []).includes(audienceKind) ||
+                    audienceGroups.length === 0
+                  ) {
+                    return null;
+                  }
+                  return (
+                    <div
+                      key={audienceKind}
+                      className="space-y-3 animate-fade-in bg-zinc-50 dark:bg-zinc-800/30 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800"
+                    >
+                      <div>
+                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                          {audienceKind} Groups
+                        </label>
+                        <p className="text-xs text-zinc-500 mt-0.5">
+                          Leave all groups unselected to include every{" "}
+                          {audienceKind.toLowerCase()} member in{" "}
+                          <span className="font-semibold text-zinc-600 dark:text-zinc-400">
+                            {orgScopeLabel}
+                          </span>
+                          ; select one or more groups to narrow who can see this
+                          task.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {audienceGroups.map((group) => {
+                          const isSelected = (
+                            formData.allowedGroups || []
+                          ).includes(group._id);
+                          return (
+                            <button
+                              key={group._id}
+                              type="button"
+                              onClick={() => {
+                                const current = formData.allowedGroups || [];
+                                updateField(
+                                  "allowedGroups",
+                                  isSelected
+                                    ? current.filter((g) => g !== group._id)
+                                    : [...current, group._id],
+                                );
                               }}
-                            />
-                            {group.name}
-                          </button>
-                        );
-                      })}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border-2 flex items-center gap-1.5 ${
+                                isSelected
+                                  ? "border-transparent text-white shadow-md"
+                                  : "bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-primary/50"
+                              }`}
+                              style={
+                                isSelected
+                                  ? {
+                                      backgroundColor: group.color,
+                                      borderColor: group.color,
+                                      boxShadow: `0 4px 12px ${group.color}40`,
+                                    }
+                                  : {}
+                              }
+                            >
+                              <span
+                                className="w-2 h-2 rounded-full flex-shrink-0"
+                                style={{
+                                  backgroundColor: isSelected
+                                    ? "rgba(255,255,255,0.7)"
+                                    : group.color,
+                                }}
+                              />
+                              {group.name}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })}
 
-              {formData.visibility === Visibility.PRIVATE && orgRoles.length > 0 && (
-                <div className="space-y-3 animate-fade-in bg-zinc-50 dark:bg-zinc-800/30 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800">
-                  <div>
-                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                      Allowed Member Roles
-                    </label>
-                    <p className="text-xs text-zinc-500 mt-0.5">
-                      Optional. Leave empty to allow any member who matches the
-                      audience above. Select roles to restrict who can browse and
-                      apply.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {orgRoles.map((role) => {
-                      const isSelected = (formData.allowedRoles || []).includes(
-                        role._id,
-                      );
-                      return (
-                        <button
-                          key={role._id}
-                          type="button"
-                          onClick={() => {
-                            const current = formData.allowedRoles || [];
-                            updateField(
-                              "allowedRoles",
-                              isSelected
-                                ? current.filter((id) => id !== role._id)
-                                : [...current, role._id],
-                            );
-                          }}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border-2 flex items-center gap-1.5 ${
-                            isSelected
-                              ? "border-primary bg-primary text-white shadow-md"
-                              : "bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-primary/50"
-                          }`}
-                        >
-                          {role.name}
-                          {role.isActive === false && (
-                            <span className="text-[9px] font-black uppercase opacity-70">
-                              inactive
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
             </div>
           </AccordionSection>
 
@@ -1661,6 +1648,27 @@ export const JobWizard: React.FC = () => {
                   </div>
                 ))}
               </div>
+
+              {reviewAudiencePresentation?.showTargetGroups &&
+                reviewAudiencePresentation.targetGroupSections && (
+                  <div className="bg-zinc-50 dark:bg-zinc-800/40 rounded-xl p-4 space-y-3">
+                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                      Target Groups
+                    </p>
+                    {reviewAudiencePresentation.targetGroupSections.map(
+                      (section) => (
+                        <div key={section.kindLabel}>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-1.5">
+                            {section.kindLabel}
+                          </p>
+                          <p className="font-bold text-sm text-zinc-900 dark:text-white">
+                            {section.labels.join(", ")}
+                          </p>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                )}
 
               {formData.description && (
                 <div className="bg-zinc-50 dark:bg-zinc-800/40 rounded-xl p-4">

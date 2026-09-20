@@ -158,7 +158,40 @@ export const PrivilegedTaskDetailSections: React.FC<
               </div>
             </div>
           )}
-          {audience.showTargetGroups && audience.targetGroupLabels && (
+          {audience.showTargetGroups && audience.targetGroupSections && (
+            <div>
+              <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase font-bold mb-2">
+                Target Groups
+              </p>
+              {audience.targetGroupsLoadFailed && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">
+                  Some group names could not be loaded.
+                </p>
+              )}
+              <div className="space-y-3">
+                {audience.targetGroupSections.map((section) => (
+                  <div key={section.kindLabel}>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-1.5">
+                      {section.kindLabel}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {section.labels.map((label) => (
+                        <span
+                          key={`${section.kindLabel}-${label}`}
+                          className="px-3 py-1 text-[10px] font-black uppercase tracking-widest bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 rounded-xl"
+                        >
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {audience.showTargetGroups &&
+            !audience.targetGroupSections &&
+            audience.targetGroupLabels && (
             <div>
               <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase font-bold mb-2">
                 Target Groups
@@ -173,28 +206,6 @@ export const PrivilegedTaskDetailSections: React.FC<
                   <span
                     key={label}
                     className="px-3 py-1 text-[10px] font-black uppercase tracking-widest bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 rounded-xl"
-                  >
-                    {label}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-          {audience.showAllowedRoles && audience.allowedRoleLabels && (
-            <div>
-              <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase font-bold mb-2">
-                Allowed Member Roles
-              </p>
-              {audience.allowedRolesLoadFailed && (
-                <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">
-                  Some role names could not be loaded.
-                </p>
-              )}
-              <div className="flex flex-wrap gap-2">
-                {audience.allowedRoleLabels.map((label) => (
-                  <span
-                    key={label}
-                    className="px-3 py-1 text-[10px] font-black uppercase tracking-widest bg-violet-100 dark:bg-violet-900/30 text-violet-800 dark:text-violet-200 rounded-xl"
                   >
                     {label}
                   </span>

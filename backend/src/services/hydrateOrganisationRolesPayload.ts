@@ -1,4 +1,8 @@
 import { normalizeOrgMemberKind } from "../models/User.js";
+import {
+  listMemberGroupIdsForOrgKind,
+  resolveMemberKindForOrg,
+} from "./groupKindMembership.js";
 import { resolveOrgMemberRoles } from "./orgMemberRoleResolver.js";
 import type { MemberRoleView } from "@taskunity/shared/memberRoleView.js";
 
@@ -50,12 +54,28 @@ export async function hydrateUsersOrganisationRolesInPlace(
   );
 }
 
-export async function userDocumentToClientJson(user: {
-  toObject: () => Record<string, unknown>;
-  organisationRoles?: Array<Record<string, unknown>>;
-}): Promise<Record<string, unknown>> {
+export type UserDocumentToClientJsonOptions = {
+  orgId?: string;
+};
+
+export async function userDocumentToClientJson(
+  user: {
+    _id?: unknown;
+    toObject: () => Record<string, unknown>;
+    organisationRoles?: Array<Record<string, unknown>>;
+  },
+  options?: UserDocumentToClientJsonOptions,
+): Promise<Record<string, unknown>> {
   const obj = user.toObject();
   obj.organisationRoles = await hydrateOrganisationRolesForPayload(user);
+  const orgId = options?.orgId?.trim();
+  if (orgId && user._id != null) {
+    const userId =
+      (user._id as { toString?: () => string }).toString?.() ??
+      String(user._id);
+    const memberKind = resolveMemberKindForOrg(user, orgId);
+    obj.groupIds = await listMemberGroupIdsForOrgKind(userId, orgId, memberKind);
+  }
   return obj;
 }
 

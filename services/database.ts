@@ -402,7 +402,11 @@ class DatabaseService {
 
   async inviteUser(
     email: string,
-    options?: { roleId?: string; memberKind?: "Internal" | "External" },
+    options?: {
+      roleId?: string;
+      memberKind?: "Internal" | "External";
+      groupIds?: string[];
+    },
   ): Promise<{ message: string }> {
     return await api.inviteUser(email, options);
   }
@@ -794,6 +798,7 @@ class DatabaseService {
         roles?: import("@/shared/memberRoleView").MemberRoleView[];
         memberKind?: OrgMemberKind;
       }[];
+      groupIds?: string[];
     },
   ): Promise<any> {
     return api.put(`/users/${id}`, data);
@@ -830,6 +835,8 @@ class DatabaseService {
     description?: string;
     color?: string;
     members?: string[];
+    kind: OrgMemberKind;
+    oidcMapping?: string[];
   }): Promise<any> {
     return api.createGroup(data);
   }

@@ -3,6 +3,7 @@ import {
   Application,
   ApplicantProfile,
   JobStatus,
+  OrgMemberKind,
 } from "../types";
 
 // In production (single container), use relative path. In dev, use full URL.
@@ -192,12 +193,19 @@ class ApiService {
 
   async inviteUser(
     email: string,
-    options?: { roleId?: string; memberKind?: "Internal" | "External" },
+    options?: {
+      roleId?: string;
+      memberKind?: "Internal" | "External";
+      groupIds?: string[];
+    },
   ): Promise<{ message: string }> {
     return this.post<{ message: string }>("/auth/invite", {
       email,
       ...(options?.roleId ? { roleId: options.roleId } : {}),
       ...(options?.memberKind ? { memberKind: options.memberKind } : {}),
+      ...(options?.groupIds !== undefined
+        ? { groupIds: options.groupIds }
+        : {}),
     });
   }
 
@@ -575,6 +583,8 @@ class ApiService {
     description?: string;
     color?: string;
     members?: string[];
+    kind: OrgMemberKind;
+    oidcMapping?: string[];
   }): Promise<any> {
     return this.request<any>("/groups", {
       method: "POST",

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import User from "../models/User.js";
 import Application, { ApplicationStatus } from "../models/Application.js";
-import Task from "../models/Task.js";
+import Task, { TaskVisibility } from "../models/Task.js";
 import { notify } from "../services/notificationService.js";
 import {
   newApplicationEmail,
@@ -24,6 +24,11 @@ import {
   resolveApplicantFallbackRoleIdForOrg,
 } from "../services/taskAudienceByRoleId.js";
 import { getOrganisationMembershipSlice } from "../services/authOrgMemberContext.js";
+import {
+  loadGroupKindMapForOrganisation,
+  memberSatisfiesPrivateTaskGroupRestriction,
+} from "../services/taskPrivateAudience.js";
+import { resolveMemberKindForOrg } from "../services/groupKindMembership.js";
 
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -218,12 +223,38 @@ export const applyForTask = async (req: any, res: Response) => {
     const taskAllowedGroups = (task as any).allowedGroups as
       | string[]
       | undefined;
-    if (taskAllowedGroups && taskAllowedGroups.length > 0) {
-      const Group = (await import("../models/Group.js")).default;
-      const userGroups = await Group.find({ members: req.user._id }).select(
-        "_id",
+    const Group = (await import("../models/Group.js")).default;
+    const userGroups = await Group.find({ members: req.user._id }).select(
+      "_id",
+    );
+    const userGroupIds = userGroups.map((g: any) => g._id.toString());
+
+    if (task.visibility === TaskVisibility.PRIVATE) {
+      const taskOrgId = task.organisation ? String(task.organisation) : "";
+      const viewerKind = taskOrgId
+        ? resolveMemberKindForOrg(req.user, taskOrgId)
+        : null;
+      const kindById = taskOrgId
+        ? await loadGroupKindMapForOrganisation(taskOrgId)
+        : new Map();
+      const allowed = (taskAllowedGroups ?? []).map((gid: unknown) =>
+        String(gid),
       );
-      const userGroupIds = userGroups.map((g: any) => g._id.toString());
+      const groupAllowed =
+        viewerKind &&
+        memberSatisfiesPrivateTaskGroupRestriction({
+          viewerMemberKind: viewerKind,
+          allowedGroups: allowed,
+          userGroupIds,
+          groupKindById: kindById,
+        });
+      if (!groupAllowed) {
+        return res.status(403).json({
+          message:
+            "This task is restricted to specific groups. You are not a member of any of the allowed groups.",
+        });
+      }
+    } else if (taskAllowedGroups && taskAllowedGroups.length > 0) {
       const inGroup = taskAllowedGroups.some((gid: any) =>
         userGroupIds.includes(gid.toString()),
       );
