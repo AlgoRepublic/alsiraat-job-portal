@@ -18,6 +18,7 @@ import { DEFAULT_REWARD_TYPES } from "../config/defaultRewardTypes.js";
 import { Permission, RolePermissions } from "../config/permissions.js";
 
 import { UserRole } from "../models/UserRole.js";
+import { DefaultRoleCode } from "@taskunity/shared/defaultRoleCodes.js";
 
 const TaskStatus = {
   PENDING: "Pending",
@@ -133,28 +134,28 @@ async function resetDatabase() {
         code: "organization_admin",
         description: "organisation administrator managing organisation tasks",
         isSystem: true,
-        permissions: RolePermissions[UserRole.ORGANIZATION_ADMIN],
+        permissions: RolePermissions[DefaultRoleCode.ORGANIZATION_ADMIN],
       },
       {
         name: UserRole.TASK_MANAGER,
         code: "task_manager",
         description: "Manages and coordinates tasks within organisation",
         isSystem: true,
-        permissions: RolePermissions[UserRole.TASK_MANAGER],
+        permissions: RolePermissions[DefaultRoleCode.TASK_MANAGER],
       },
       {
         name: UserRole.TASK_ADVERTISER,
         code: "task_advertiser",
         description: "Creates and advertises tasks",
         isSystem: true,
-        permissions: RolePermissions[UserRole.TASK_ADVERTISER],
+        permissions: RolePermissions[DefaultRoleCode.TASK_ADVERTISER],
       },
       {
         name: UserRole.APPLICANT,
         code: "applicant",
         description: "Applies to available tasks",
         isSystem: true,
-        permissions: RolePermissions[UserRole.APPLICANT],
+        permissions: RolePermissions[DefaultRoleCode.APPLICANT],
       },
     ];
 
@@ -165,6 +166,30 @@ async function resetDatabase() {
       );
     }
     console.log("✅ All roles created");
+
+    const seededRoles = await Role.find({}).select("_id code").lean();
+    const roleIdByCode = new Map(
+      seededRoles.map((r) => [r.code, r._id] as const),
+    );
+    const requireRoleId = (code: DefaultRoleCode) => {
+      const id = roleIdByCode.get(code);
+      if (!id) {
+        throw new Error(`Missing seeded Role for code "${code}"`);
+      }
+      return id;
+    };
+    const orgMembership = (
+      orgId: mongoose.Types.ObjectId,
+      roleCode: DefaultRoleCode,
+    ) => ({
+      organisations: [orgId],
+      organisationRoles: [
+        {
+          organisation: orgId,
+          roleIds: [requireRoleId(roleCode)],
+        },
+      ],
+    });
 
     // Step 4: Create Test Users
     console.log("\n👤 Creating test users...");
@@ -189,8 +214,10 @@ async function resetDatabase() {
       name: "Admin Smith",
       email: "admin@alsiraat.edu.au",
       password: hashedPassword,
-      role: UserRole.ORGANIZATION_ADMIN,
-      organisations: [organization._id],
+      ...orgMembership(
+        organization._id,
+        DefaultRoleCode.ORGANIZATION_ADMIN,
+      ),
     } as any)) as any;
     console.log(`   Created user: admin@alsiraat.edu.au (organisation Admin)`);
 
@@ -198,8 +225,7 @@ async function resetDatabase() {
       name: "Task Coordinator",
       email: "coordinator@alsiraat.edu.au",
       password: hashedPassword,
-      role: UserRole.TASK_MANAGER,
-      organisations: [organization._id],
+      ...orgMembership(organization._id, DefaultRoleCode.TASK_MANAGER),
     } as any)) as any;
     console.log(`   Created user: coordinator@alsiraat.edu.au (Task Manager)`);
 
@@ -207,8 +233,7 @@ async function resetDatabase() {
       name: "Teacher Johnson",
       email: "teacher@alsiraat.edu.au",
       password: hashedPassword,
-      role: UserRole.TASK_ADVERTISER,
-      organisations: [organization._id],
+      ...orgMembership(organization._id, DefaultRoleCode.TASK_ADVERTISER),
     } as any)) as any;
     console.log(`   Created user: teacher@alsiraat.edu.au (Task Advertiser)`);
 
@@ -216,8 +241,7 @@ async function resetDatabase() {
       name: "Ahmed Khan",
       email: "student@alsiraat.edu.au",
       password: hashedPassword,
-      role: UserRole.APPLICANT,
-      organisations: [organization._id],
+      ...orgMembership(organization._id, DefaultRoleCode.APPLICANT),
     } as any)) as any;
     console.log(`   Created user: student@alsiraat.edu.au (Applicant)`);
 
@@ -236,8 +260,10 @@ async function resetDatabase() {
       name: "Sarah admin",
       email: "admin@crescent.edu.au",
       password: hashedPassword,
-      role: UserRole.ORGANIZATION_ADMIN,
-      organisations: [crescentOrg._id],
+      ...orgMembership(
+        crescentOrg._id,
+        DefaultRoleCode.ORGANIZATION_ADMIN,
+      ),
     } as any)) as any;
     console.log(
       `   Created user: admin@crescent.edu.au (organisation Admin - Crescent)`,
@@ -247,8 +273,7 @@ async function resetDatabase() {
       name: "Omar Student",
       email: "omar@crescent.edu.au",
       password: hashedPassword,
-      role: UserRole.APPLICANT,
-      organisations: [crescentOrg._id],
+      ...orgMembership(crescentOrg._id, DefaultRoleCode.APPLICANT),
     } as any)) as any;
     console.log(`   Created user: omar@crescent.edu.au (Applicant - Crescent)`);
 
@@ -267,8 +292,7 @@ async function resetDatabase() {
       name: "Ali Coordinator",
       email: "coordinator@minaret.edu.au",
       password: hashedPassword,
-      role: UserRole.TASK_MANAGER,
-      organisations: [minaretOrg._id],
+      ...orgMembership(minaretOrg._id, DefaultRoleCode.TASK_MANAGER),
     } as any)) as any;
     console.log(
       `   Created user: coordinator@minaret.edu.au (Task Manager - Minaret)`,
@@ -278,8 +302,7 @@ async function resetDatabase() {
       name: "Fatima Teacher",
       email: "fatima@minaret.edu.au",
       password: hashedPassword,
-      role: UserRole.TASK_ADVERTISER,
-      organisations: [minaretOrg._id],
+      ...orgMembership(minaretOrg._id, DefaultRoleCode.TASK_ADVERTISER),
     } as any)) as any;
     console.log(
       `   Created user: fatima@minaret.edu.au (Task Advertiser - Minaret)`,

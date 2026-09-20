@@ -2,7 +2,6 @@ import {
   Job,
   Application,
   ApplicantProfile,
-  UserRole,
   JobStatus,
 } from "../types";
 
@@ -191,9 +190,14 @@ class ApiService {
     });
   }
 
-  async inviteUser(email: string): Promise<{ message: string }> {
+  async inviteUser(
+    email: string,
+    options?: { roleId?: string; memberKind?: "Internal" | "External" },
+  ): Promise<{ message: string }> {
     return this.post<{ message: string }>("/auth/invite", {
       email,
+      ...(options?.roleId ? { roleId: options.roleId } : {}),
+      ...(options?.memberKind ? { memberKind: options.memberKind } : {}),
     });
   }
 

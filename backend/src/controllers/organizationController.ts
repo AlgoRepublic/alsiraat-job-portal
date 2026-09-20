@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import crypto from "crypto";
 import Organization from "../models/Organization.js";
-import User, { UserRole, normalizeOrgMemberKind } from "../models/User.js";
+import User, { normalizeOrgMemberKind } from "../models/User.js";
 import Invitation from "../models/Invitation.js";
 import { sendEmail } from "../services/notificationService.js";
 import { onboardingInvitationEmail } from "../services/emailTemplates.js";
@@ -13,6 +13,13 @@ import {
   setCentralOrganisationFlag,
 } from "../utils/centralOrg.js";
 import { findAlSiraatOrganisation } from "../utils/alSiraatOrg.js";
+import { DefaultRoleCode } from "@taskunity/shared/defaultRoleCodes.js";
+import {
+  organisationRoleEntryHasAssignedRoles,
+  resolveGrantRoleIds,
+  RoleAssignmentError,
+  upsertOrgMembershipRoleIds,
+} from "../services/orgMemberRoleAssignment.js";
 
 /**
  * Normalise an organisation name so it is always stored consistently.
@@ -85,6 +92,20 @@ export const createOrganization = async (req: Request, res: Response) => {
       ...(typeof tc === "string" ? { themeColor: tc } : {}),
     });
 
+    let ownerGrantRoleIds: string[];
+    try {
+      ownerGrantRoleIds = await resolveGrantRoleIds(
+        (org._id as any).toString(),
+        req.body as Record<string, unknown>,
+        { defaultRoleCode: DefaultRoleCode.ORGANIZATION_ADMIN },
+      );
+    } catch (e) {
+      if (e instanceof RoleAssignmentError) {
+        return res.status(e.status).json({ message: e.message });
+      }
+      throw e;
+    }
+
     // Assign org + Organisation Admin role to owner (multi-org: push to array)
     const alreadyMember = (owner.organisations ?? []).some(
       (o: any) => o.toString() === (org._id as any).toString(),
@@ -92,16 +113,13 @@ export const createOrganization = async (req: Request, res: Response) => {
     if (!alreadyMember) {
       owner.organisations = [...(owner.organisations ?? []), org._id as any];
     }
-    owner.organisationRoles = [
-      ...(owner.organisationRoles ?? []),
-      {
-        organisation: org._id as any,
-        roles: [UserRole.ORGANIZATION_ADMIN],
-        memberKind: normalizeOrgMemberKind(
-          (req as any).body?.ownerMemberKind,
-        ),
-      },
-    ];
+    upsertOrgMembershipRoleIds(
+      owner,
+      org._id as any,
+      ownerGrantRoleIds,
+      normalizeOrgMemberKind((req as any).body?.ownerMemberKind),
+      "set",
+    );
     await owner.save();
 
     // Create the default "All Members" group for the new organisation
@@ -270,7 +288,7 @@ export const getPublicAlSiraatOrganisation = async (
 export const addMember = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { email, role, memberKind } = req.body;
+    const { email, memberKind } = req.body;
 
     const organization = await Organization.findById(id);
     if (!organization) {
@@ -292,29 +310,31 @@ export const addMember = async (req: Request, res: Response) => {
         .json({ message: "User is already a member of this organisation" });
     }
 
+    let grantRoleIds: string[];
+    try {
+      grantRoleIds = await resolveGrantRoleIds(
+        (organization._id as any).toString(),
+        req.body as Record<string, unknown>,
+        { required: true },
+      );
+    } catch (e) {
+      if (e instanceof RoleAssignmentError) {
+        return res.status(e.status).json({ message: e.message });
+      }
+      throw e;
+    }
+
     user.organisations = [
       ...(user.organisations ?? []),
       organization._id as any,
     ];
-    if (role) {
-      const orgRoleIndex = (user.organisationRoles ?? []).findIndex(
-        (o: any) => o.organisation.toString() === (organization._id as any).toString()
-      );
-      const kind = normalizeOrgMemberKind(memberKind);
-      if (orgRoleIndex > -1 && user.organisationRoles) {
-        (user.organisationRoles as any)[orgRoleIndex].roles = [role];
-        (user.organisationRoles as any)[orgRoleIndex].memberKind = kind;
-      } else {
-        user.organisationRoles = [
-          ...(user.organisationRoles ?? []),
-          {
-            organisation: organization._id as any,
-            roles: [role],
-            memberKind: kind,
-          },
-        ];
-      }
-    }
+    upsertOrgMembershipRoleIds(
+      user,
+      organization._id as any,
+      grantRoleIds,
+      normalizeOrgMemberKind(memberKind),
+      "set",
+    );
 
     await user.save();
 
@@ -345,7 +365,6 @@ export const inviteOrganisation = async (req: any, res: Response) => {
       type,
       ownerEmail,
       organisationId,
-      role,
       memberKind,
       themeColor,
     } = req.body;
@@ -426,12 +445,26 @@ export const inviteOrganisation = async (req: any, res: Response) => {
     // Check if the owner email is already registered
     const existingUser = await User.findOne({ email: ownerEmail });
     const existingUserHasRoles = (existingUser?.organisationRoles ?? []).some(
-      (entry: any) => (entry.roles?.length ?? 0) > 0,
+      (entry) => organisationRoleEntryHasAssignedRoles(entry),
     );
     if (existingUser && existingUserHasRoles) {
       return res.status(400).json({
         message: "A user with this email already exists in the system",
       });
+    }
+
+    let inviteRoleIds: string[];
+    try {
+      inviteRoleIds = await resolveGrantRoleIds(
+        targetOrgId.toString(),
+        req.body as Record<string, unknown>,
+        { defaultRoleCode: DefaultRoleCode.ORGANIZATION_ADMIN },
+      );
+    } catch (e) {
+      if (e instanceof RoleAssignmentError) {
+        return res.status(e.status).json({ message: e.message });
+      }
+      throw e;
     }
 
     // Generate secure invitation token (48h expiry)
@@ -444,12 +477,13 @@ export const inviteOrganisation = async (req: any, res: Response) => {
       {
         email: ownerEmail,
         organisation: targetOrgId,
-        role: role || UserRole.ORGANIZATION_ADMIN, // Default to Organisation Admin
+        roleId: inviteRoleIds[0],
         memberKind: normalizeOrgMemberKind(memberKind),
         token,
         invitedBy: req.user._id,
         expiresAt,
         status: "Pending",
+        $unset: { role: "" },
       },
       { upsert: true, new: true },
     );
@@ -784,10 +818,26 @@ export const markOrganisationActive = async (req: Request | any, res: Response) 
         (o: any) => o.organisation.toString() === (org._id as any).toString()
       );
       if (!hasOrgRole) {
-        ownerUser.organisationRoles = [
-          ...(ownerUser.organisationRoles ?? []),
-          { organisation: org._id as any, roles: [UserRole.ORGANIZATION_ADMIN] }
-        ];
+        let grantRoleIds: string[];
+        try {
+          grantRoleIds = await resolveGrantRoleIds(
+            (org._id as any).toString(),
+            req.body as Record<string, unknown>,
+            { defaultRoleCode: DefaultRoleCode.ORGANIZATION_ADMIN },
+          );
+        } catch (e) {
+          if (e instanceof RoleAssignmentError) {
+            return res.status(e.status).json({ message: e.message });
+          }
+          throw e;
+        }
+        upsertOrgMembershipRoleIds(
+          ownerUser,
+          org._id as any,
+          grantRoleIds,
+          normalizeOrgMemberKind(req.body?.memberKind),
+          "set",
+        );
       }
       // org-scoped roles are persisted in organisationRoles only
       await ownerUser.save();

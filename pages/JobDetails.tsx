@@ -24,12 +24,12 @@ import { db } from "../services/database";
 import {
   Job,
   Application,
-  UserRole,
+  DefaultRoleCode,
   JobStatus,
   Permission,
 } from "../types";
 import { useToast } from "../components/Toast";
-import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
+import { getUserRoleCodesForActiveOrg } from "../utils/orgScopedRoles";
 import { organisationIdToString } from "../utils/organisationId";
 import { TaskRewardText } from "../components/TaskRewardText";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
@@ -40,6 +40,7 @@ import {
   buildTaskProvenanceHeader,
   buildAudienceTargetingPresentation,
   type GroupCatalogueEntry,
+  type RoleCatalogueEntry,
 } from "../utils/taskDetailPresentation";
 import { PrivilegedTaskDetailSections } from "../components/PrivilegedTaskDetailSections";
 import {
@@ -127,6 +128,10 @@ export const JobDetails: React.FC = () => {
     null,
   );
   const [groupsLoadFailed, setGroupsLoadFailed] = useState(false);
+  const [rolesCatalogue, setRolesCatalogue] = useState<RoleCatalogueEntry[] | null>(
+    null,
+  );
+  const [rolesLoadFailed, setRolesLoadFailed] = useState(false);
   useEffect(() => {
     const toastMessage = (location.state as JobDetailsLocationState | null)
       ?.toastMessage;
@@ -170,17 +175,17 @@ export const JobDetails: React.FC = () => {
                 const appList = await db.getApplicationsForJob(id);
 
                 // For internal users, this shows all applicants
-                const activeOrgRoles = getUserRolesForActiveOrg(user);
+                const activeOrgRoleCodes = getUserRoleCodesForActiveOrg(user);
                 const isInternal =
                   !!user.isSuperAdmin ||
-                  activeOrgRoles.some((r: string) =>
+                  activeOrgRoleCodes.some((code) =>
                     (
                       [
-                        UserRole.ORGANIZATION_ADMIN,
-                        UserRole.TASK_MANAGER,
-                        UserRole.TASK_ADVERTISER,
-                      ] as UserRole[]
-                    ).includes(r as UserRole),
+                        DefaultRoleCode.ORGANIZATION_ADMIN,
+                        DefaultRoleCode.TASK_MANAGER,
+                        DefaultRoleCode.TASK_ADVERTISER,
+                      ] as string[]
+                    ).includes(code),
                   );
 
                 if (isInternal) {
@@ -231,6 +236,31 @@ export const JobDetails: React.FC = () => {
       })
       .catch(() => {
         if (!cancelled) setGroupsLoadFailed(true);
+      });
+
+    db.getRoles()
+      .then((roles) => {
+        if (!cancelled) {
+          setRolesCatalogue(
+            roles.map(
+              (r: {
+                _id: string;
+                name: string;
+                code?: string;
+                isActive?: boolean;
+              }) => ({
+                _id: String(r._id),
+                name: r.name,
+                code: r.code,
+                isActive: r.isActive,
+              }),
+            ),
+          );
+          setRolesLoadFailed(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setRolesLoadFailed(true);
       });
 
     return () => {
@@ -548,6 +578,8 @@ export const JobDetails: React.FC = () => {
         },
         groupsCatalogue,
         groupsLoadFailed,
+        rolesCatalogue,
+        rolesLoadFailed,
       )
     : null;
 

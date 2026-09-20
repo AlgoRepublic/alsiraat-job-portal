@@ -16,7 +16,59 @@ import {
   Check,
 } from "lucide-react";
 import { Loading } from "../components/Loading";
-import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
+import {
+  getActiveOrgIdFromStorage,
+  getMemberRolesForActiveOrg,
+} from "../utils/orgScopedRoles";
+import type { MemberRoleView } from "@/shared/memberRoleView";
+
+type OrgRoleCatalogueEntry = {
+  _id: string;
+  code?: string;
+  name: string;
+  isActive?: boolean;
+};
+
+const resolveMemberUser = (member: unknown, allUsers: { _id: string }[]) => {
+  const memberId =
+    typeof member === "string" ? member : (member as { _id?: string })?._id;
+  const fullUser =
+    memberId && allUsers.length > 0
+      ? allUsers.find((user) => user._id === memberId)
+      : null;
+  if (fullUser) {
+    return { ...(typeof member === "object" && member ? member : {}), ...fullUser };
+  }
+  return typeof member === "string" ? null : member;
+};
+
+const renderMemberRoleBadges = (
+  user: Parameters<typeof getMemberRolesForActiveOrg>[0],
+  activeOrgId?: string | null,
+  roleCatalogue?: OrgRoleCatalogueEntry[],
+) => {
+  const displayRoles = getMemberRolesForActiveOrg(
+    user,
+    activeOrgId,
+    roleCatalogue,
+  );
+  if (displayRoles.length === 0) {
+    return null;
+  }
+  return displayRoles.map((r: MemberRoleView) => (
+    <span
+      key={r.id}
+      className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg ${
+        r.isActive === false
+          ? "text-amber-700 bg-amber-50 dark:bg-amber-900/30 dark:text-amber-200"
+          : "text-zinc-400 bg-zinc-100 dark:bg-zinc-800"
+      }`}
+    >
+      {r.name}
+      {r.isActive === false ? " (inactive)" : ""}
+    </span>
+  ));
+};
 
 const GROUP_COLORS = [
   "#812349", // AlSiraat
@@ -221,6 +273,8 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
 interface AddMembersModalProps {
   group: Group;
   allUsers: any[];
+  activeOrgId: string | null;
+  roleCatalogue: OrgRoleCatalogueEntry[];
   onClose: () => void;
   onAdd: (userIds: string[]) => Promise<void>;
   onRemove: (userId: string) => Promise<void>;
@@ -229,6 +283,8 @@ interface AddMembersModalProps {
 const AddMembersModal: React.FC<AddMembersModalProps> = ({
   group,
   allUsers,
+  activeOrgId,
+  roleCatalogue,
   onClose,
   onAdd,
   onRemove,
@@ -241,18 +297,7 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
   const canRemoveOrDeleteUser = (user: any) => !user?.isSuperAdmin;
 
   const existingMembers = group.members
-    .map((member: any) => {
-      const memberId = typeof member === "string" ? member : member?._id;
-      const fullUser =
-        memberId && allUsers.length > 0
-          ? allUsers.find((user) => user._id === memberId)
-          : null;
-      if (fullUser) {
-        // Prefer full user payload so role chips can resolve from organisationRoles.
-        return { ...member, ...fullUser };
-      }
-      return typeof member === "string" ? null : member;
-    })
+    .map((member: any) => resolveMemberUser(member, allUsers))
     .filter(Boolean)
     .filter((member: any) => !removedMemberIds.includes(member._id));
 
@@ -357,19 +402,11 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
                       </p>
                       <p className="text-xs text-zinc-400 truncate">{user.email}</p>
                       <div className="flex flex-wrap gap-1 mt-1 max-h-11 overflow-hidden">
-                        {(() => {
-                          const displayRoles = getUserRolesForActiveOrg(user);
-                          return displayRoles.length > 0
-                            ? displayRoles.map((r: string) => (
-                                <span
-                                  key={r}
-                                  className="text-[10px] font-black uppercase tracking-widest text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded-lg"
-                                >
-                                  {r}
-                                </span>
-                              ))
-                            : null;
-                        })()}
+                        {renderMemberRoleBadges(
+                          user,
+                          activeOrgId,
+                          roleCatalogue,
+                        )}
                       </div>
                     </div>
                     {canRemoveOrDeleteUser(user) && (
@@ -430,19 +467,11 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
                       {user.email}
                     </p>
                     <div className="flex flex-wrap gap-1 mt-1 max-h-11 overflow-hidden">
-                      {(() => {
-                        const displayRoles = getUserRolesForActiveOrg(user);
-                        return displayRoles.length > 0
-                          ? displayRoles.map((r: string) => (
-                              <span
-                                key={r}
-                                className="text-[10px] font-black uppercase tracking-widest text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded-lg"
-                              >
-                                {r}
-                              </span>
-                            ))
-                          : null;
-                      })()}
+                      {renderMemberRoleBadges(
+                        user,
+                        activeOrgId,
+                        roleCatalogue,
+                      )}
                     </div>
                   </div>
                   {isSelected && (
@@ -482,7 +511,11 @@ export const GroupManagement: React.FC<{
 }> = ({ scopeRevision = 0 }) => {
   const [groups, setGroups] = useState<Group[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [roleCatalogue, setRoleCatalogue] = useState<OrgRoleCatalogueEntry[]>(
+    [],
+  );
   const [loading, setLoading] = useState(true);
+  const activeOrgId = getActiveOrgIdFromStorage();
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -497,12 +530,28 @@ export const GroupManagement: React.FC<{
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [groupsData, usersData] = await Promise.all([
+      const [groupsData, usersData, rolesData] = await Promise.all([
         db.getGroups(),
         db.getUsers(),
+        db.getRoles(),
       ]);
       setGroups(groupsData);
       setAllUsers(usersData);
+      setRoleCatalogue(
+        (rolesData ?? []).map(
+          (r: {
+            _id: string;
+            code?: string;
+            name: string;
+            isActive?: boolean;
+          }) => ({
+            _id: String(r._id),
+            code: r.code,
+            name: r.name,
+            isActive: r.isActive,
+          }),
+        ),
+      );
     } catch (err) {
       showError("Failed to load groups");
     } finally {
@@ -760,7 +809,12 @@ export const GroupManagement: React.FC<{
                                 </tr>
                               </thead>
                               <tbody>
-                                {group.members.map((member: any) => (
+                                {group.members
+                                  .map((member: any) =>
+                                    resolveMemberUser(member, allUsers),
+                                  )
+                                  .filter(Boolean)
+                                  .map((member: any) => (
                                   <tr
                                     key={member._id}
                                     className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/50 transition-colors border-b border-zinc-50 dark:border-zinc-800 last:border-none"
@@ -790,16 +844,14 @@ export const GroupManagement: React.FC<{
                                     </td>
                                     <td className="px-6 py-4">
                                       <div className="flex flex-wrap gap-1">
-                                        {getUserRolesForActiveOrg(member).map((r: string) => (
-                                          <span
-                                            key={r}
-                                            className="px-2 py-1 text-[10px] font-black uppercase tracking-widest bg-zinc-100 dark:bg-zinc-800 text-zinc-500 rounded-lg"
-                                          >
-                                            {r}
+                                        {renderMemberRoleBadges(
+                                          member,
+                                          activeOrgId,
+                                          roleCatalogue,
+                                        ) ?? (
+                                          <span className="text-xs text-zinc-400">
+                                            —
                                           </span>
-                                        ))}
-                                        {getUserRolesForActiveOrg(member).length === 0 && (
-                                          <span className="text-xs text-zinc-400">—</span>
                                         )}
                                       </div>
                                     </td>
@@ -920,6 +972,8 @@ export const GroupManagement: React.FC<{
         <AddMembersModal
           group={addMembersGroup}
           allUsers={allUsers}
+          activeOrgId={activeOrgId}
+          roleCatalogue={roleCatalogue}
           onClose={() => setAddMembersGroup(null)}
           onAdd={handleAddMembers}
           onRemove={(userId: string) =>

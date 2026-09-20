@@ -55,8 +55,11 @@ router.post("/login", (req, res, next) => {
       const selectedOrgId = user.organisations?.[0]?.toString?.() ?? null;
 
       (async () => {
-        const rolesArray = getOrgScopedRoles(user, selectedOrgId);
-        const permissions = await buildPermissionListForUser(user, rolesArray);
+        const rolesArray = await getOrgScopedRoles(user, selectedOrgId);
+        const permissions = await buildPermissionListForUser(
+          user,
+          selectedOrgId,
+        );
 
         const groups = await Group.find({ members: user._id })
           .select("_id")

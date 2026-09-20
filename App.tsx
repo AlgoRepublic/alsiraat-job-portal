@@ -8,11 +8,11 @@ import {
 } from "react-router-dom";
 import { Layers } from "lucide-react";
 import { ToastProvider } from "./components/Toast";
-import { User, UserRole, Permission } from "./types";
+import { User, Permission, type DefaultRoleCodeType } from "./types";
 import { db } from "./services/database";
 import {
   dispatchActiveOrgChanged,
-  getUserRolesForActiveOrg,
+  getUserRoleCodesForActiveOrg,
 } from "./utils/orgScopedRoles";
 
 import { Loading } from "./components/Loading";
@@ -148,8 +148,9 @@ const App: React.FC = () => {
     }
   }, [isDarkMode]);
 
-  const handleSwitchUser = async (role: UserRole) => {
-    const updatedUser = await db.updateCurrentUserRole(role);
+  /** DEV-ONLY: local role switcher wired through Layout (not a production API). */
+  const handleSwitchUser = async (roleCode: DefaultRoleCodeType) => {
+    const updatedUser = await db.updateCurrentUserRole(roleCode);
     setCurrentUser(updatedUser);
   };
 
@@ -286,7 +287,7 @@ const App: React.FC = () => {
                             path="/dashboard"
                             element={
                               <Dashboard
-                                roles={getUserRolesForActiveOrg(currentUser) as UserRole[]}
+                                roles={getUserRoleCodesForActiveOrg(currentUser)}
                               />
                             }
                           />

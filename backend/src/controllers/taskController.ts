@@ -2,10 +2,10 @@ import { Request, Response } from "express";
 import Task, { TaskStatus, TaskVisibility } from "../models/Task.js";
 import Organization from "../models/Organization.js";
 import User, {
-  UserRole,
   OrgMemberKind,
   normalizeOrgMemberKind,
 } from "../models/User.js";
+import { membershipHasPermission } from "../services/orgMemberRoleResolver.js";
 import { Permission } from "../config/permissions.js";
 import Application from "../models/Application.js";
 import { notify } from "../services/notificationService.js";
@@ -31,6 +31,14 @@ import {
   validatePublishAttempt,
 } from "../utils/taskReviewActions.js";
 import { runTaskPublishSideEffects } from "../services/taskPublishSideEffects.js";
+import {
+  TaskAudienceError,
+  enrichBrowseQueryWithTaskRoleAudience,
+  normalizeTaskAllowedRoleIds,
+  resolveAndValidateTaskAllowedRoles,
+  shouldSkipRoleAudienceForBrowse,
+  userCanAccessTaskByRoleAudience,
+} from "../services/taskAudienceByRoleId.js";
 import {
   parseApplicationOpenDate,
   parseApplicationCloseDate,
@@ -102,11 +110,7 @@ function getMemberKindForOrg(user: any, orgId: string): OrgMemberKind {
   return normalizeOrgMemberKind(entry?.memberKind);
 }
 
-/** Roles the user holds specifically for `organisationId` (not merged across orgs). */
-function getRolesForOrganisation(
-  user: any,
-  organisationId: string,
-): UserRole[] {
+function getMembershipSliceForOrganisation(user: any, organisationId: string) {
   const oid = String(organisationId);
   const entry = (user?.organisationRoles || []).find((o: any) => {
     const raw = o.organisation;
@@ -116,7 +120,19 @@ function getRolesForOrganisation(
         : String(raw);
     return entryOrg === oid;
   });
-  return (entry?.roles || []) as UserRole[];
+  const roleIds = (entry?.roleIds ?? []).map((id: any) =>
+    typeof id === "string" ? id : id?.toString?.() ?? String(id),
+  );
+  return { roleIds };
+}
+
+async function memberHasPermissionInOrg(
+  user: any,
+  organisationId: string,
+  permission: Permission,
+): Promise<boolean> {
+  const slice = getMembershipSliceForOrganisation(user, organisationId);
+  return membershipHasPermission(organisationId, slice, permission);
 }
 
 /** Accepts API values; maps legacy `"Global"` to Central visibility. */
@@ -227,13 +243,11 @@ export const createTask = async (req: any, res: Response) => {
 
     // All tasks start as PENDING and require explicit approval
     // Only users with TASK_AUTO_PUBLISH permission can skip approval
-    const { canAutoPublishAsync } = await import("../config/permissions.js");
     let isAutoPublish = false;
-    for (const role of req.orgRoles || []) {
-      if (await canAutoPublishAsync(role)) {
-        isAutoPublish = true;
-        break;
-      }
+    if (typeof req.hasOrgPermission === "function") {
+      isAutoPublish = req.hasOrgPermission(
+        (await import("../config/permissions.js")).Permission.TASK_AUTO_PUBLISH,
+      );
     }
     const taskStatus = isAutoPublish
       ? TaskStatus.PUBLISHED
@@ -272,7 +286,6 @@ export const createTask = async (req: any, res: Response) => {
               return audiences.length > 0 ? audiences : [TaskVisibility.INTERNAL];
             })()
           : [],
-      allowedRoles: parseArrayField(req.body.allowedRoles),
       allowedGroups: parseArrayField(req.body.allowedGroups),
       status: taskStatus,
       createdBy: req.user._id,
@@ -300,6 +313,11 @@ export const createTask = async (req: any, res: Response) => {
       });
     }
     taskData.organisation = req.orgId;
+
+    taskData.allowedRoles = await resolveAndValidateTaskAllowedRoles(
+      String(req.orgId),
+      req.body.allowedRoles,
+    );
 
     const applicationOpenDate = parseApplicationOpenDate(req.body);
     const applicationCloseDate = parseApplicationCloseDate(req.body);
@@ -346,6 +364,9 @@ export const createTask = async (req: any, res: Response) => {
 
     res.status(201).json(task);
   } catch (err: any) {
+    if (err instanceof TaskAudienceError) {
+      return res.status(err.status).json({ message: err.message });
+    }
     res.status(500).json({ message: err.message });
   }
 };
@@ -525,8 +546,22 @@ export const updateTask = async (req: any, res: Response) => {
             })()
           : [];
     }
-    if (req.body.allowedRoles !== undefined)
-      (task as any).allowedRoles = parseArrayField(req.body.allowedRoles);
+    if (req.body.allowedRoles !== undefined) {
+      const postingOrgId = task.organisation
+        ? String(task.organisation)
+        : req.orgId
+          ? String(req.orgId)
+          : null;
+      if (!postingOrgId) {
+        return res.status(400).json({
+          message: "Task organisation is required to set allowed Roles",
+        });
+      }
+      (task as any).allowedRoles = await resolveAndValidateTaskAllowedRoles(
+        postingOrgId,
+        req.body.allowedRoles,
+      );
+    }
     if (req.body.allowedGroups !== undefined)
       (task as any).allowedGroups = parseArrayField(req.body.allowedGroups);
 
@@ -555,6 +590,9 @@ export const updateTask = async (req: any, res: Response) => {
 
     res.json(task);
   } catch (err: any) {
+    if (err instanceof TaskAudienceError) {
+      return res.status(err.status).json({ message: err.message });
+    }
     res.status(500).json({ message: err.message });
   }
 };
@@ -661,6 +699,12 @@ export const getTasks = async (req: any, res: Response) => {
             visibility: TaskVisibility.CENTRAL,
           }
         : { _id: { $in: [] } };
+      query = await enrichBrowseQueryWithTaskRoleAudience(query, {
+        user: null,
+        organisation: centralOrgId,
+        skipRoleFilter: false,
+        isGuest: true,
+      });
     } else {
       const { allowed: canViewAll } = await checkPermissionAsync(
         user,
@@ -778,6 +822,20 @@ export const getTasks = async (req: any, res: Response) => {
       } else {
         query = { $or: conditions };
       }
+
+      query = await enrichBrowseQueryWithTaskRoleAudience(query, {
+        user,
+        userId: String(userId),
+        organisation,
+        skipRoleFilter: shouldSkipRoleAudienceForBrowse({
+          canViewAll,
+          canViewInternal,
+          canViewPending,
+          organisation,
+          hasSuperAdminRole,
+        }),
+        isGuest: false,
+      });
     }
 
     // Collect all top-level logical filters
@@ -949,6 +1007,12 @@ export const getSearchTasks = async (req: any, res: Response) => {
             visibility: TaskVisibility.CENTRAL,
           }
         : { _id: { $in: [] } };
+      query = await enrichBrowseQueryWithTaskRoleAudience(query, {
+        user: null,
+        organisation: centralOrgId,
+        skipRoleFilter: false,
+        isGuest: true,
+      });
     } else {
       const userId = user._id;
       const { allowed: canViewAll } = await checkPermissionAsync(
@@ -1062,6 +1126,20 @@ export const getSearchTasks = async (req: any, res: Response) => {
       } else {
         query = { $or: conditions };
       }
+
+      query = await enrichBrowseQueryWithTaskRoleAudience(query, {
+        user,
+        userId: String(userId),
+        organisation,
+        skipRoleFilter: shouldSkipRoleAudienceForBrowse({
+          canViewAll,
+          canViewInternal,
+          canViewPending,
+          organisation,
+          hasSuperAdminRole,
+        }),
+        isGuest: false,
+      });
     }
 
     const additionalFilters: any[] = [];
@@ -1423,11 +1501,9 @@ export const getTaskById = async (req: any, res: Response) => {
 
       let canBypassPrivateVisibility = isSuperAdminUser(req.user);
       if (!canBypassPrivateVisibility && taskOrgId) {
-        const rolesInTaskOrg = getRolesForOrganisation(req.user, taskOrgId);
-        const { hasPermissionMultiAsync } =
-          await import("../config/permissions.js");
-        canBypassPrivateVisibility = await hasPermissionMultiAsync(
-          rolesInTaskOrg,
+        canBypassPrivateVisibility = await memberHasPermissionInOrg(
+          req.user,
+          taskOrgId,
           Permission.TASK_VIEW_PENDING,
         );
       }
@@ -1479,6 +1555,40 @@ export const getTaskById = async (req: any, res: Response) => {
           }
         }
       }
+    }
+
+    const taskOrgIdForRole =
+      typeof task.organisation === "object" &&
+      task.organisation !== null &&
+      "_id" in task.organisation
+        ? String((task.organisation as { _id: unknown })._id)
+        : String(task.organisation ?? "");
+
+    const createdByIdForRole =
+      typeof task.createdBy === "object" && task.createdBy !== null
+        ? task.createdBy._id?.toString?.() || ""
+        : (task.createdBy as any)?.toString?.() || "";
+    const isTaskOwner =
+      !!req.user && createdByIdForRole === req.user._id.toString();
+
+    let canBypassRoleAudience = !req.user || isSuperAdminUser(req.user);
+    if (req.user && !canBypassRoleAudience && taskOrgIdForRole) {
+      canBypassRoleAudience = await memberHasPermissionInOrg(
+        req.user,
+        taskOrgIdForRole,
+        Permission.TASK_VIEW_PENDING,
+      );
+    }
+
+    const roleAudienceOk = await userCanAccessTaskByRoleAudience({
+      user: req.user,
+      taskOrganisationId: taskOrgIdForRole,
+      taskAllowedRoleIds: normalizeTaskAllowedRoleIds((task as any).allowedRoles),
+      bypass: canBypassRoleAudience,
+      isTaskOwner,
+    });
+    if (!roleAudienceOk) {
+      return res.status(404).json({ message: "Task not found" });
     }
 
     // Get applicants count
@@ -1680,13 +1790,11 @@ export const repostTask = async (req: any, res: Response) => {
       clonedTaskData.visibility = TaskVisibility.CENTRAL;
     }
 
-    const { canAutoPublishAsync } = await import("../config/permissions.js");
     let isAutoPublish = false;
-    for (const role of req.orgRoles || []) {
-      if (await canAutoPublishAsync(role)) {
-        isAutoPublish = true;
-        break;
-      }
+    if (typeof req.hasOrgPermission === "function") {
+      isAutoPublish = req.hasOrgPermission(
+        (await import("../config/permissions.js")).Permission.TASK_AUTO_PUBLISH,
+      );
     }
     clonedTaskData.status = isAutoPublish
       ? TaskStatus.PUBLISHED

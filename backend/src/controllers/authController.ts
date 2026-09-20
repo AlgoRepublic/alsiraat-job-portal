@@ -1,7 +1,7 @@
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import User, { UserRole, normalizeOrgMemberKind } from "../models/User.js";
+import User, { normalizeOrgMemberKind } from "../models/User.js";
 import Group from "../models/Group.js";
 import dotenv from "dotenv";
 import crypto from "crypto";
@@ -14,12 +14,22 @@ import {
 } from "../services/emailTemplates.js";
 import Invitation from "../models/Invitation.js";
 import Organization from "../models/Organization.js";
-import { hasPermissionAsync, Permission } from "../config/permissions.js";
+import { Permission } from "../config/permissions.js";
+import { resolveAuthenticatedOrgMemberContext } from "../services/authOrgMemberContext.js";
+import { hydrateOrganisationRolesForPayload } from "../services/hydrateOrganisationRolesPayload.js";
 import {
   getOIDCEndSessionEndpoint,
   fetchOIDCConfiguration,
 } from "../config/oidcDiscovery.js";
 import { assignCentralOrganisationMembership } from "../utils/centralOrg.js";
+import { DefaultRoleCode } from "@taskunity/shared/defaultRoleCodes.js";
+import {
+  resolveGrantRoleIds,
+  resolveInvitationStoredRoleId,
+  RoleAssignmentError,
+  upsertOrgMembershipRoleIds,
+} from "../services/orgMemberRoleAssignment.js";
+import { resolveRoleCodeToId } from "../services/orgMemberRoleResolver.js";
 import { resolveUserPrimaryOrganisationId } from "../utils/userOrganisation.js";
 import {
   PLATFORM_ORG_SELECT_FIELDS,
@@ -34,20 +44,14 @@ const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_here";
 export const generateToken = (
   user: any,
   orgId?: string | null,
-  rolesOverride?: UserRole[],
+  roleCodesOverride?: string[],
 ) => {
   const selectedOrgId =
     orgId ||
     user.organisations?.[0]?.toString?.() ||
     user.organisations?.[0] ||
     null;
-  const roles =
-    rolesOverride ||
-    Array.from(
-      new Set(
-        (user.organisationRoles || []).flatMap((entry: any) => entry.roles || []),
-      ),
-    );
+  const roles = roleCodesOverride ?? [];
   return jwt.sign(
     { id: user._id, roles, act_org: selectedOrgId },
     JWT_SECRET,
@@ -57,23 +61,11 @@ export const generateToken = (
   );
 };
 
-/**
- * Build organisation fields for auth responses.
- * Super admins receive a virtual org graph (all organisations + synthetic organisationRoles); not persisted.
- */
-function serializeOrganisationRolesForPayload(user: any) {
-  return (user.organisationRoles ?? []).map((e: any) => ({
-    organisation: e.organisation?._id ?? e.organisation,
-    roles: Array.isArray(e.roles) ? e.roles : [],
-    memberKind: normalizeOrgMemberKind(e.memberKind),
-  }));
-}
-
 export async function buildOrgPayload(user: any, selectedOrgId?: string | null) {
   if (user.isSuperAdmin) {
     const { buildVirtualOrgPayload } = await import("../utils/superAdmin.js");
     const v = await buildVirtualOrgPayload(selectedOrgId);
-    const persistedOrgRoles = serializeOrganisationRolesForPayload(user);
+    const persistedOrgRoles = await hydrateOrganisationRolesForPayload(user);
     if (persistedOrgRoles.length === 0) {
       return {
         organisation: v.organisation,
@@ -118,7 +110,7 @@ export async function buildOrgPayload(user: any, selectedOrgId?: string | null) 
     organisation: active,
     activeOrganisation: active,
     organisations: populatedOrgs,
-    organisationRoles: serializeOrganisationRolesForPayload(user),
+    organisationRoles: await hydrateOrganisationRolesForPayload(user),
   };
 }
 
@@ -166,44 +158,35 @@ async function ensureOrganisationMembership(user: any): Promise<void> {
   await user.save();
 }
 
-export function getOrgScopedRoles(user: any, selectedOrgId?: string | null): UserRole[] {
+/** Role codes for the active organisation (hydrated from roleIds). */
+export async function getOrgScopedRoles(
+  user: any,
+  selectedOrgId?: string | null,
+): Promise<string[]> {
+  if (!selectedOrgId) return [];
   if (user.isSuperAdmin) {
-    const allSuperAdminOrgRoles = Array.from(
-      new Set(
-        (user.organisationRoles || []).flatMap((entry: any) => entry.roles || []),
-      ),
-    ) as UserRole[];
-    if (allSuperAdminOrgRoles.length > 0) return allSuperAdminOrgRoles;
-    return [UserRole.ORGANIZATION_ADMIN];
+    const entry = (user.organisationRoles ?? []).find(
+      (o: any) => o.organisation?.toString() === selectedOrgId.toString(),
+    );
+    if (!entry?.roleIds?.length) return [];
   }
-  const allRoles = Array.from(
-    new Set(
-      (user.organisationRoles || []).flatMap((entry: any) => entry.roles || []),
-    ),
-  ) as UserRole[];
-  if (!selectedOrgId) return allRoles;
-  const orgRoleEntry = (user.organisationRoles || []).find(
-    (o: any) => o.organisation?.toString() === selectedOrgId.toString(),
+  const { roleCodes } = await resolveAuthenticatedOrgMemberContext(
+    user,
+    selectedOrgId,
   );
-  if (orgRoleEntry?.roles?.length) {
-    return orgRoleEntry.roles as UserRole[];
-  }
-  return [UserRole.APPLICANT];
+  return roleCodes;
 }
 
 export async function buildPermissionListForUser(
   user: any,
-  rolesArray: UserRole[],
+  organisationId?: string | null,
 ): Promise<string[]> {
   if (user.isSuperAdmin) return Object.values(Permission) as string[];
-  const permissions: string[] = [];
-  for (const p of Object.values(Permission)) {
-    for (const r of rolesArray) {
-      if (await hasPermissionAsync(r, p)) {
-        if (!permissions.includes(p)) permissions.push(p);
-      }
-    }
-  }
+  if (!organisationId) return [];
+  const { permissions } = await resolveAuthenticatedOrgMemberContext(
+    user,
+    organisationId,
+  );
   return permissions;
 }
 
@@ -311,9 +294,6 @@ export const verifyOtp = async (req: Request, res: Response) => {
     user.password = hashedPassword;
     if (contactNumber) user.contactNumber = contactNumber;
 
-    // Default roles (will be overridden by invitation if present)
-    const fallbackRoles: UserRole[] = [UserRole.APPLICANT];
-
     // Handle invitation if present
     if (invitationToken) {
       const invitation = await Invitation.findOne({
@@ -333,17 +313,27 @@ export const verifyOtp = async (req: Request, res: Response) => {
             user.organisations = [...(user.organisations ?? []), orgId];
           }
         }
-        // Use the role from invitation if specified, otherwise keep Applicant default
-        const assignedRole = (invitation.role as UserRole) || UserRole.APPLICANT;
-        const invitationRoles: UserRole[] = [assignedRole];
-        user.organisationRoles = [
-          ...(user.organisationRoles ?? []),
-          {
-            organisation: orgId,
-            roles: invitationRoles,
-            memberKind: normalizeOrgMemberKind(invitation.memberKind),
-          },
-        ];
+        const orgIdStr = orgId.toString();
+        const storedRoleId = await resolveInvitationStoredRoleId(
+          orgIdStr,
+          invitation,
+        );
+        const fallbackApplicantId = await resolveRoleCodeToId(
+          orgIdStr,
+          DefaultRoleCode.APPLICANT,
+        );
+        const roleIdsToGrant = storedRoleId
+          ? [storedRoleId]
+          : fallbackApplicantId
+            ? [fallbackApplicantId]
+            : [];
+        upsertOrgMembershipRoleIds(
+          user,
+          orgId,
+          roleIdsToGrant,
+          normalizeOrgMemberKind(invitation.memberKind),
+          "append",
+        );
         invitation.status = "Accepted";
         await invitation.save();
 
@@ -359,9 +349,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
     }
     // If no invitation, assign to the flagged Central organisation as Applicant
     if (!invitationToken && (!user.organisations || user.organisations.length === 0)) {
-      await assignCentralOrganisationMembership(user, {
-        roles: fallbackRoles,
-      });
+      await assignCentralOrganisationMembership(user);
     }
 
     // Clear OTP
@@ -370,8 +358,8 @@ export const verifyOtp = async (req: Request, res: Response) => {
     await user.save();
 
     const permissionOrgId = (req as any).orgId || null;
-    const rolesArray = getOrgScopedRoles(user, permissionOrgId);
-    const permissions = await buildPermissionListForUser(user, rolesArray);
+    const rolesArray = await getOrgScopedRoles(user, permissionOrgId);
+    const permissions = await buildPermissionListForUser(user, permissionOrgId);
 
     const selectedOrgId =
       permissionOrgId || (user.organisations?.[0]?.toString?.() ?? null);
@@ -435,15 +423,14 @@ export const signup = async (req: Request, res: Response) => {
         return res.status(400).json({ message: "User already exists" });
       }
 
-      const actorOrgRoles = ((req as any).orgRoles || []) as UserRole[];
       let canCreateUsers = !!authenticatedActor.isSuperAdmin;
       if (!canCreateUsers) {
-        for (const r of actorOrgRoles) {
-          if (await hasPermissionAsync(r, Permission.USER_CREATE)) {
-            canCreateUsers = true;
-            break;
-          }
-        }
+        const hasOrgPermission = (req as any).hasOrgPermission as
+          | ((p: string) => boolean)
+          | undefined;
+        canCreateUsers =
+          typeof hasOrgPermission === "function" &&
+          hasOrgPermission(Permission.USER_CREATE);
       }
       if (!canCreateUsers) {
         return res.status(403).json({
@@ -462,31 +449,29 @@ export const signup = async (req: Request, res: Response) => {
 
       user.organisations = [...(user.organisations ?? []), permissionOrgId];
 
-      const requestedRoles = Array.isArray(roles) && roles.length > 0 ? roles : [];
-      const nextRoles = (requestedRoles.length > 0
-        ? requestedRoles
-        : [UserRole.APPLICANT]) as UserRole[];
       const nextMemberKind = normalizeOrgMemberKind(
         memberKind ?? memberKinds?.[0],
       );
-      const orgRoleIndex = (user.organisationRoles ?? []).findIndex(
-        (entry: any) =>
-          entry.organisation?.toString() === permissionOrgId.toString(),
-      );
-      if (orgRoleIndex > -1 && user.organisationRoles) {
-        (user.organisationRoles as any)[orgRoleIndex].roles = nextRoles;
-        (user.organisationRoles as any)[orgRoleIndex].memberKind =
-          nextMemberKind;
-      } else {
-        user.organisationRoles = [
-          ...(user.organisationRoles ?? []),
-          {
-            organisation: permissionOrgId,
-            roles: nextRoles,
-            memberKind: nextMemberKind,
-          },
-        ];
+      let grantRoleIds: string[];
+      try {
+        grantRoleIds = await resolveGrantRoleIds(
+          permissionOrgId.toString(),
+          req.body as Record<string, unknown>,
+          { defaultRoleCode: DefaultRoleCode.APPLICANT },
+        );
+      } catch (e) {
+        if (e instanceof RoleAssignmentError) {
+          return res.status(e.status).json({ message: e.message });
+        }
+        throw e;
       }
+      upsertOrgMembershipRoleIds(
+        user,
+        permissionOrgId,
+        grantRoleIds,
+        nextMemberKind,
+        "set",
+      );
 
       await user.save();
       await Group.findOneAndUpdate(
@@ -494,8 +479,8 @@ export const signup = async (req: Request, res: Response) => {
         { $addToSet: { members: user._id } },
       );
 
-      const rolesArray = getOrgScopedRoles(user, permissionOrgId);
-      const permissions = await buildPermissionListForUser(user, rolesArray);
+      const rolesArray = await getOrgScopedRoles(user, permissionOrgId);
+      const permissions = await buildPermissionListForUser(user, permissionOrgId);
       const token = generateToken(user, permissionOrgId, rolesArray);
       const orgPayload = await buildClientOrgPayload(user, permissionOrgId);
 
@@ -533,8 +518,8 @@ export const signup = async (req: Request, res: Response) => {
       ...(contactNumber ? { contactNumber } : {}),
     });
 
-    const rolesArray = getOrgScopedRoles(user, permissionOrgId);
-    const permissions = await buildPermissionListForUser(user, rolesArray);
+    const rolesArray = await getOrgScopedRoles(user, permissionOrgId);
+    const permissions = await buildPermissionListForUser(user, permissionOrgId);
 
     const selectedOrgId =
       permissionOrgId || user.organisations?.[0]?.toString?.() || null;
@@ -582,14 +567,14 @@ export const login = async (req: Request, res: Response) => {
 
 export type OAuthLoginSource = "google" | "oidc";
 
-export const authCallback = (
+export const authCallback = async (
   req: Request,
   res: Response,
   source?: OAuthLoginSource,
 ) => {
   const user: any = req.user;
   const selectedOrgId = user.organisations?.[0]?.toString?.() ?? null;
-  const scopedRoles = getOrgScopedRoles(user, selectedOrgId);
+  const scopedRoles = await getOrgScopedRoles(user, selectedOrgId);
   const token = generateToken(user, selectedOrgId, scopedRoles);
   const idToken = (req as any).idToken as string | undefined;
 
@@ -651,8 +636,8 @@ export const getMe = async (req: Request, res: Response) => {
     // await ensureOrganisationMembership(user);
 
     const selectedOrgId = (req as any).orgId || user.organisations?.[0]?.toString?.() || null;
-    const rolesArray = getOrgScopedRoles(user, selectedOrgId);
-    const permissions = await buildPermissionListForUser(user, rolesArray);
+    const rolesArray = await getOrgScopedRoles(user, selectedOrgId);
+    const permissions = await buildPermissionListForUser(user, selectedOrgId);
 
     const groups = await Group.find({ members: user._id }).select("_id").lean();
     const _groupIds = groups.map((g: any) => g._id.toString());
@@ -692,8 +677,8 @@ export const impersonate = async (req: Request, res: Response) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const selectedOrgId = user.organisations?.[0]?.toString?.() ?? null;
-    const rolesArray = getOrgScopedRoles(user, selectedOrgId);
-    const permissions = await buildPermissionListForUser(user, rolesArray);
+    const rolesArray = await getOrgScopedRoles(user, selectedOrgId);
+    const permissions = await buildPermissionListForUser(user, selectedOrgId);
 
     const groups = await Group.find({ members: user._id }).select("_id").lean();
     const _groupIds = groups.map((g: any) => g._id.toString());
@@ -862,8 +847,8 @@ export const updateProfile = async (req: Request, res: Response) => {
     await user.save();
 
     const selectedOrgId = (req as any).orgId || null;
-    const rolesArray = getOrgScopedRoles(user, selectedOrgId);
-    const permissions = await buildPermissionListForUser(user, rolesArray);
+    const rolesArray = await getOrgScopedRoles(user, selectedOrgId);
+    const permissions = await buildPermissionListForUser(user, selectedOrgId);
 
     const groups = await Group.find({ members: user._id }).select("_id").lean();
     const _groupIds = groups.map((g) => g._id.toString());
@@ -987,13 +972,17 @@ export const exportUsersCsv = async (req: Request, res: Response) => {
       "Joined",
     ];
 
-    const rows = users.map((u: any) => {
-      const orgEntry = (u.organisationRoles || []).find(
-        (or: any) =>
-          (or.organisation?.toString?.() ?? or.organisation) ===
-          orgId.toString(),
+    const rows = await Promise.all(
+      users.map(async (u: any) => {
+      const hydratedOrgRoles = await hydrateOrganisationRolesForPayload(u);
+      const orgEntry = hydratedOrgRoles.find(
+        (or) =>
+          ((or.organisation as { toString?: () => string })?.toString?.() ??
+            String(or.organisation)) === orgId.toString(),
       );
-      const roleLabels = (orgEntry?.roles || []).join("; ");
+      const roleLabels = (orgEntry?.roles ?? [])
+        .map((r) => r.name)
+        .join("; ");
       const orgName =
         (u.organisations || []).find(
           (o: any) => (o._id ?? o)?.toString?.() === orgId.toString(),
@@ -1017,7 +1006,8 @@ export const exportUsersCsv = async (req: Request, res: Response) => {
           : "",
       ),
     ];
-    });
+    }),
+    );
 
     const csv =
       [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
@@ -1040,7 +1030,7 @@ export const exportUsersCsv = async (req: Request, res: Response) => {
  */
 export const inviteUser = async (req: any, res: Response) => {
   try {
-    const { email, role, memberKind } = req.body;
+    const { email, memberKind } = req.body;
 
     if (!email) return res.status(400).json({ message: "Email is required" });
 
@@ -1050,6 +1040,20 @@ export const inviteUser = async (req: any, res: Response) => {
       return res.status(400).json({
         message: "Select an organisation before sending invitations",
       });
+    }
+
+    let grantRoleIds: string[];
+    try {
+      grantRoleIds = await resolveGrantRoleIds(
+        targetOrgId.toString(),
+        req.body as Record<string, unknown>,
+        { required: true },
+      );
+    } catch (e) {
+      if (e instanceof RoleAssignmentError) {
+        return res.status(e.status).json({ message: e.message });
+      }
+      throw e;
     }
 
     // If the user already exists globally, add them to this org directly
@@ -1070,28 +1074,13 @@ export const inviteUser = async (req: any, res: Response) => {
         targetOrgId as any,
       ];
 
-      const orgRoleIndex = (existingUser.organisationRoles ?? []).findIndex(
-        (entry: any) =>
-          entry.organisation?.toString() === targetOrgId.toString(),
+      upsertOrgMembershipRoleIds(
+        existingUser,
+        targetOrgId,
+        grantRoleIds,
+        normalizeOrgMemberKind(memberKind),
+        "set",
       );
-      const assignedRole = (role as UserRole) || UserRole.APPLICANT;
-      const assignedMemberKind = normalizeOrgMemberKind(memberKind);
-      if (orgRoleIndex > -1 && existingUser.organisationRoles) {
-        (existingUser.organisationRoles as any)[orgRoleIndex].roles = [
-          assignedRole,
-        ];
-        (existingUser.organisationRoles as any)[orgRoleIndex].memberKind =
-          assignedMemberKind;
-      } else {
-        existingUser.organisationRoles = [
-          ...(existingUser.organisationRoles ?? []),
-          {
-            organisation: targetOrgId,
-            roles: [assignedRole],
-            memberKind: assignedMemberKind,
-          },
-        ];
-      }
 
       await existingUser.save();
 
@@ -1120,11 +1109,13 @@ export const inviteUser = async (req: any, res: Response) => {
       {
         email,
         organisation: targetOrgId,
-        role: role || "Applicant",
+        roleId: grantRoleIds[0],
         token,
         invitedBy: req.user._id,
         expiresAt,
         status: "Pending",
+        memberKind: normalizeOrgMemberKind(memberKind),
+        $unset: { role: "" },
       },
       { upsert: true }
     );
@@ -1216,15 +1207,8 @@ export const switchOrganisation = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Organisation not found" });
     }
 
-    const orgRoleEntry = user.organisationRoles?.find(
-      (o) => o.organisation.toString() === organisationId.toString()
-    );
-    if (orgRoleEntry && orgRoleEntry.roles && orgRoleEntry.roles.length > 0) {
-      // no-op; org-scoped roles resolved below
-    }
-
-    const rolesArray = getOrgScopedRoles(user, organisationId);
-    const permissions = await buildPermissionListForUser(user, rolesArray);
+    const rolesArray = await getOrgScopedRoles(user, organisationId);
+    const permissions = await buildPermissionListForUser(user, organisationId);
 
     const groups = await Group.find({ members: user._id }).select("_id").lean();
     const _groupIds = groups.map((g: any) => g._id.toString());

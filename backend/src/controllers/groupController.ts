@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import mongoose from "mongoose";
 import Group from "../models/Group.js";
 import User from "../models/User.js";
+import { groupDocumentToClientJson } from "../services/hydrateOrganisationRolesPayload.js";
 
 function requireOrgId(req: any, res: Response): string | null {
   const orgId = req.orgId?.toString?.() ?? null;
@@ -33,7 +34,9 @@ export const getGroups = async (req: Request, res: Response) => {
       .populate("organisation", "name")
       .sort({ createdAt: -1 });
 
-    res.json(groups);
+    res.json(
+      await Promise.all(groups.map((g) => groupDocumentToClientJson(g))),
+    );
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -74,7 +77,7 @@ export const getGroup = async (req: Request, res: Response) => {
       .populate("organisation", "name");
 
     if (!group) return res.status(404).json({ message: "Group not found" });
-    res.json(group);
+    res.json(await groupDocumentToClientJson(group));
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -118,7 +121,7 @@ export const createGroup = async (req: any, res: Response) => {
       "name email avatar role roles organisationRoles isSuperAdmin",
     );
 
-    res.status(201).json(group);
+    res.status(201).json(await groupDocumentToClientJson(group));
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -153,7 +156,7 @@ export const updateGroup = async (req: any, res: Response) => {
       "name email avatar role roles organisationRoles isSuperAdmin",
     );
 
-    res.json(group);
+    res.json(await groupDocumentToClientJson(group));
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -215,7 +218,7 @@ export const addMembers = async (req: Request, res: Response) => {
       "name email avatar role roles organisationRoles isSuperAdmin",
     );
 
-    res.json(group);
+    res.json(await groupDocumentToClientJson(group));
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -243,7 +246,7 @@ export const removeMember = async (req: Request, res: Response) => {
       "name email avatar role roles organisationRoles isSuperAdmin",
     );
 
-    res.json(group);
+    res.json(await groupDocumentToClientJson(group));
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }

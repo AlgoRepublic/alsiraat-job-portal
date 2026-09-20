@@ -7,7 +7,12 @@ import Role from "../models/Role.js";
 import fs from "fs";
 import Papa from "papaparse";
 import bcrypt from "bcryptjs";
-import { UserRole, normalizeUserRole } from "../models/UserRole.js";
+import {
+  buildOrgRoleCodeIndex,
+  mapLegacyRoleStringsToDefaultCodes,
+  resolveDefaultCodesToRoleIds,
+} from "../services/legacyMemberRoleMapping.js";
+import { catalogReadFilter } from "../utils/orgScopedCatalogRead.js";
 import { isSuperAdminUser } from "../utils/superAdmin.js";
 import Task from "../models/Task.js";
 import Application from "../models/Application.js";
@@ -16,11 +21,24 @@ import {
   andWithLifecycle,
   assertTaskLifecycleAccess,
 } from "../utils/taskLifecycleQuery.js";
+import { DefaultRoleCode } from "@taskunity/shared/defaultRoleCodes.js";
+import {
+  assertGrantableRoleIdsInOrg,
+  assertNoLegacyRoleNameFields,
+  organisationRolesElemMatchForRoleIds,
+  parseRoleIdsFromBody,
+  resolveGrantRoleIds,
+  resolveMemberListRoleFilter,
+  RoleAssignmentError,
+  upsertOrgMembershipRoleIds,
+  LEGACY_ROLE_NAME_REJECTED,
+} from "../services/orgMemberRoleAssignment.js";
+import { userDocumentToClientJson } from "../services/hydrateOrganisationRolesPayload.js";
 
 export const getUsers = async (req: Request, res: Response) => {
   try {
     const caller = (req as any).user;
-    const { search, role } = req.query;
+    const { search, role, roleCode, roleId } = req.query;
 
     // Pagination
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
@@ -35,28 +53,39 @@ export const getUsers = async (req: Request, res: Response) => {
     const orgId = (req as any).orgId as string | null | undefined;
     // User directory is organisation-scoped when an active org is selected.
     // Super admins without org context can search platform-wide (e.g. organisation onboarding / mark-active).
+    const roleFilterInput = { role, roleCode, roleId };
+    let roleFilterResult: Awaited<
+      ReturnType<typeof resolveMemberListRoleFilter>
+    > = null;
+
+    if (role || roleCode || roleId) {
+      if (!orgId) {
+        return res.status(400).json({
+          message: "Select an organisation to filter members by role",
+        });
+      }
+      roleFilterResult = await resolveMemberListRoleFilter(
+        String(orgId),
+        roleFilterInput,
+      );
+      if (roleFilterResult && "error" in roleFilterResult) {
+        return res.status(400).json({ message: roleFilterResult.error });
+      }
+    }
+
     if (orgId) {
       query.organisations = orgId;
-      if (role) {
+      if (roleFilterResult?.roleIds?.length) {
         query.organisationRoles = {
-          $elemMatch: {
-            organisation: new mongoose.Types.ObjectId(String(orgId)),
-            roles: role,
-          },
+          $elemMatch: organisationRolesElemMatchForRoleIds(
+            String(orgId),
+            roleFilterResult.roleIds,
+          ),
         };
       }
     } else if (!isSuperAdminUser(caller)) {
       // Non-super with no active org → can only see themselves
       query._id = caller?._id;
-      if (role) {
-        query.organisationRoles = {
-          $elemMatch: { roles: role },
-        };
-      }
-    } else if (role) {
-      query.organisationRoles = {
-        $elemMatch: { roles: role },
-      };
     }
 
     if (search) {
@@ -66,7 +95,7 @@ export const getUsers = async (req: Request, res: Response) => {
       ];
     }
 
-    const [users, total] = await Promise.all([
+    const [userDocs, total] = await Promise.all([
       User.find(query)
         .populate("organisations", "name logo")
         .select("-password")
@@ -75,6 +104,10 @@ export const getUsers = async (req: Request, res: Response) => {
         .limit(limit),
       User.countDocuments(query),
     ]);
+
+    const users = await Promise.all(
+      userDocs.map((doc) => userDocumentToClientJson(doc)),
+    );
 
     res.json({
       users,
@@ -106,7 +139,7 @@ export const getUserById = async (req: Request, res: Response) => {
       if (!inOrg) return res.status(404).json({ message: "User not found" });
     }
 
-    res.json(user);
+    res.json(await userDocumentToClientJson(user));
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -114,40 +147,42 @@ export const getUserById = async (req: Request, res: Response) => {
 
 export const updateUserRole = async (req: Request, res: Response) => {
   try {
-    const { roles } = req.body;
     const user = await User.findById(req.params.id);
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    if (roles) {
-      const currentOrgId =
-        (req as any).orgId || (user.organisations?.[0]?.toString?.() ?? null);
-      if (!currentOrgId) {
-        return res.status(400).json({ message: "No organisation context available" });
-      }
-      const orgRoleIndex = (user.organisationRoles ?? []).findIndex(
-        (o: any) => o.organisation.toString() === currentOrgId.toString(),
-      );
-      if (orgRoleIndex > -1 && user.organisationRoles) {
-        (user.organisationRoles as any)[orgRoleIndex].roles = roles;
-        if ((req as any).body?.memberKind !== undefined) {
-          (user.organisationRoles as any)[orgRoleIndex].memberKind =
-            normalizeOrgMemberKind((req as any).body.memberKind);
-        }
-      } else {
-        user.organisationRoles = [
-          ...(user.organisationRoles ?? []),
-          {
-            organisation: currentOrgId as any,
-            roles,
-            memberKind: normalizeOrgMemberKind(
-              (req as any).body?.memberKind,
-            ),
-          },
-        ];
-      }
-      await user.save();
+    const currentOrgId =
+      (req as any).orgId || (user.organisations?.[0]?.toString?.() ?? null);
+    if (!currentOrgId) {
+      return res.status(400).json({ message: "No organisation context available" });
     }
+
+    let roleIds: string[];
+    try {
+      assertNoLegacyRoleNameFields(req.body as Record<string, unknown>);
+      const parsed = parseRoleIdsFromBody(req.body as Record<string, unknown>);
+      if (!parsed?.length) {
+        return res.status(400).json({ message: "roleIds is required" });
+      }
+      roleIds = parsed;
+      await assertGrantableRoleIdsInOrg(String(currentOrgId), roleIds);
+    } catch (e) {
+      if (e instanceof RoleAssignmentError) {
+        return res.status(e.status).json({ message: e.message });
+      }
+      throw e;
+    }
+
+    upsertOrgMembershipRoleIds(
+      user,
+      currentOrgId,
+      roleIds,
+      (req as any).body?.memberKind !== undefined
+        ? normalizeOrgMemberKind((req as any).body.memberKind)
+        : undefined,
+      "set",
+    );
+    await user.save();
 
     res.json({ message: "User roles updated successfully", user });
   } catch (err: any) {
@@ -205,36 +240,8 @@ export const updateUser = async (req: Request, res: Response) => {
       });
     }
 
-    if (roles && !skipOrgWrites) {
-      // Backward compat: when a caller only sends flat roles (+ optional single org),
-      // keep existing behaviour by syncing the target org role entry.
-      if (!Array.isArray(organisationRoles)) {
-        const targetOrg =
-          reqOrgId || organisation || (user.organisations?.[0] as any);
-        if (targetOrg) {
-          const orgRoleIndex = (user.organisationRoles ?? []).findIndex(
-            (o: any) => o.organisation.toString() === targetOrg.toString()
-          );
-          if (orgRoleIndex > -1 && user.organisationRoles) {
-            (user.organisationRoles as any)[orgRoleIndex].roles = roles;
-            if ((req as any).body?.memberKind !== undefined) {
-              (user.organisationRoles as any)[orgRoleIndex].memberKind =
-                normalizeOrgMemberKind((req as any).body.memberKind);
-            }
-          } else {
-            user.organisationRoles = [
-              ...(user.organisationRoles ?? []),
-              {
-                organisation: targetOrg as any,
-                roles,
-                memberKind: normalizeOrgMemberKind(
-                  (req as any).body?.memberKind,
-                ),
-              },
-            ];
-          }
-        }
-      }
+    if (roles !== undefined && !skipOrgWrites && !Array.isArray(organisationRoles)) {
+      return res.status(400).json({ message: LEGACY_ROLE_NAME_REJECTED });
     }
 
     // Preferred multi-org contract: explicit role mapping per organisation.
@@ -259,20 +266,48 @@ export const updateUser = async (req: Request, res: Response) => {
         }
       }
 
-      const normalized = organisationRoles.map((entry: any) => ({
-        organisation: entry.organisation,
-        roles:
-          Array.isArray(entry.roles) && entry.roles.length > 0
-            ? entry.roles
-            : [UserRole.APPLICANT],
-        memberKind: normalizeOrgMemberKind(entry.memberKind),
-      })) as any;
+      const normalized: Array<{
+        organisation: unknown;
+        roleIds: mongoose.Types.ObjectId[];
+        memberKind: ReturnType<typeof normalizeOrgMemberKind>;
+      }> = [];
+
+      for (const entry of organisationRoles) {
+        if (entry?.roles !== undefined) {
+          return res.status(400).json({ message: LEGACY_ROLE_NAME_REJECTED });
+        }
+        const orgIdEntry = entry?.organisation;
+        if (!orgIdEntry) {
+          return res
+            .status(400)
+            .json({ message: "Each organisationRoles entry must include organisation" });
+        }
+        let roleIdList: string[];
+        try {
+          roleIdList = await resolveGrantRoleIds(String(orgIdEntry), entry as Record<string, unknown>, {
+            defaultRoleCode: DefaultRoleCode.APPLICANT,
+          });
+        } catch (e) {
+          if (e instanceof RoleAssignmentError) {
+            return res.status(e.status).json({ message: e.message });
+          }
+          throw e;
+        }
+        normalized.push({
+          organisation: orgIdEntry,
+          roleIds: roleIdList.map((id) => new mongoose.Types.ObjectId(id)),
+          memberKind: normalizeOrgMemberKind(entry.memberKind),
+        });
+      }
 
       if (reqOrgId) {
         const other = (user.organisationRoles ?? []).filter(
           (o: any) => o.organisation.toString() !== reqOrgId,
         );
-        user.organisationRoles = [...other, ...normalized] as any;
+        user.organisationRoles = [
+          ...other,
+          ...(normalized as mongoose.Types.ArraySubdocument[]),
+        ] as any;
         const hasOrg = (user.organisations ?? []).some(
           (o: any) => o.toString() === reqOrgId,
         );
@@ -284,7 +319,7 @@ export const updateUser = async (req: Request, res: Response) => {
           );
         }
       } else {
-        user.organisationRoles = normalized;
+        user.organisationRoles = normalized as any;
       }
     }
 
@@ -384,7 +419,14 @@ export const updateUser = async (req: Request, res: Response) => {
       .populate("organisations", "name logo")
       .select("-password");
 
-    res.json({ message: "User updated successfully", user: updated });
+    if (!updated) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({
+      message: "User updated successfully",
+      user: await userDocumentToClientJson(updated),
+    });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -586,6 +628,18 @@ export const importUsers = async (req: Request, res: Response) => {
       console.log("Sample row data:", results[0]);
     }
 
+    const importOrgIdStr = importOrgId.toString();
+    const roleCatalog = await Role.find(catalogReadFilter(importOrgIdStr)).lean();
+    const catalogDocs = roleCatalog.map((doc) => ({
+      _id: doc._id as mongoose.Types.ObjectId,
+      code: doc.code,
+      name: doc.name,
+      permissions: doc.permissions ?? [],
+      isActive: doc.isActive,
+      organisation: doc.organisation ?? null,
+    }));
+    const roleCodeIndex = buildOrgRoleCodeIndex(catalogDocs, importOrgIdStr);
+
     for (const row of results) {
       try {
         const email = (row.email || "").trim().toLowerCase();
@@ -600,15 +654,31 @@ export const importUsers = async (req: Request, res: Response) => {
         }
 
         const rolesStr = row.roles || row.role || "Applicant";
-        let rolesArray = rolesStr
+        const legacyParts = rolesStr
           .split(",")
-          .map((r: string) => normalizeUserRole(r.trim()))
-          .filter((r: string) =>
-            Object.values(UserRole).includes(r as UserRole),
+          .map((r: string) => r.trim())
+          .filter(Boolean);
+        const { codes, unmapped } =
+          mapLegacyRoleStringsToDefaultCodes(legacyParts);
+        if (unmapped.length > 0) {
+          console.warn(
+            `Skipping unmapped legacy roles for ${email}: ${unmapped.join(", ")}`,
           );
-
-        if (rolesArray.length === 0) {
-          rolesArray = [UserRole.APPLICANT];
+          errors++;
+          continue;
+        }
+        const effectiveCodes =
+          codes.length > 0 ? codes : [DefaultRoleCode.APPLICANT];
+        const { roleIds, missingCodes } = resolveDefaultCodesToRoleIds(
+          effectiveCodes,
+          roleCodeIndex,
+        );
+        if (missingCodes.length > 0 || roleIds.length === 0) {
+          console.warn(
+            `Role catalogue missing codes for ${email}: ${missingCodes.join(", ")}`,
+          );
+          errors++;
+          continue;
         }
 
         const organisationId = importOrgId;
@@ -636,7 +706,7 @@ export const importUsers = async (req: Request, res: Response) => {
             organisationRoles: [
               {
                 organisation: organisationId,
-                roles: rolesArray,
+                roleIds: roleIds.map((id) => new mongoose.Types.ObjectId(id)),
                 memberKind: normalizeOrgMemberKind(row.member_kind),
               },
             ],
@@ -657,14 +727,13 @@ export const importUsers = async (req: Request, res: Response) => {
 
           if (!alreadyInImportOrg && !userIsSAML) {
             user.organisations = [...(user.organisations ?? []), organisationId as any];
-            user.organisationRoles = [
-              ...(user.organisationRoles ?? []),
-              {
-                organisation: organisationId,
-                roles: rolesArray,
-                memberKind: normalizeOrgMemberKind(row.member_kind),
-              },
-            ];
+            upsertOrgMembershipRoleIds(
+              user,
+              organisationId,
+              roleIds,
+              normalizeOrgMemberKind(row.member_kind),
+              "set",
+            );
             dirty = true;
           }
 

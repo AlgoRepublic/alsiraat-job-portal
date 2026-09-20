@@ -20,6 +20,10 @@ import nodemailer from "nodemailer";
 import { EmailClient, KnownEmailSendStatus } from "@azure/communication-email";
 import Notification from "../models/Notification.js";
 import User from "../models/User.js";
+import {
+  organisationRolesElemMatchForRoleFilter,
+  resolveRoleCodesOrIdsForOrgMembershipFilter,
+} from "./orgMemberRoleAssignment.js";
 import EmailSettings from "../models/EmailSettings.js";
 import type { IEmailSettings } from "../models/EmailSettings.js";
 import type { EmailTemplate, BrandConfig } from "./emailTemplates.js";
@@ -343,9 +347,11 @@ export const sendNotificationToAll = async (
 };
 
 /**
- * Send in-app notification to users with specific roles.
+ * Send in-app notification to org members with specific roles.
+ * `roles` entries are Role codes, legacy display strings, or Role document ids.
  */
 export const sendNotificationToRoles = async (
+  organisationId: string,
   roles: string[],
   title: string,
   message: string,
@@ -354,7 +360,22 @@ export const sendNotificationToRoles = async (
   excludeUserId?: string,
 ): Promise<void> => {
   try {
-    const query: any = { roles: { $in: roles }, isActive: { $ne: false } };
+    if (!organisationId?.trim() || roles.length === 0) return;
+
+    const { roleIds } = await resolveRoleCodesOrIdsForOrgMembershipFilter(
+      organisationId,
+      roles,
+    );
+
+    const query: Record<string, unknown> = {
+      isActive: { $ne: false },
+      organisationRoles: {
+        $elemMatch: organisationRolesElemMatchForRoleFilter(
+          organisationId,
+          roleIds,
+        ),
+      },
+    };
     if (excludeUserId) query._id = { $ne: excludeUserId };
 
     const users = await User.find(query).select("_id");

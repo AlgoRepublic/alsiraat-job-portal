@@ -1,3 +1,7 @@
+/**
+ * Legacy English display labels for pre-migration `organisationRoles.roles` strings.
+ * Product logic must use Role codes (`DefaultRoleCode`) and `roleIds` instead.
+ */
 export const UserRole = {
   ORGANIZATION_ADMIN: "Organisation Admin",
   TASK_MANAGER: "Task Manager",
@@ -7,11 +11,8 @@ export const UserRole = {
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 
 /**
- * Normalizes a role string to match the defined UserRole values.
- * Handles case-insensitivity and replaces underscores with spaces.
- *
- * @param v The role string to normalize
- * @returns The normalized UserRole or the original string if no match is found
+ * Migration-only: normalizes legacy CSV / pre-cutover strings to display labels.
+ * Do not use for `roleIds` or runtime permission checks (use `mapLegacyRoleStringToDefaultCode`).
  */
 export const normalizeUserRole = (v: any): any => {
   if (typeof v !== "string" || !v) return v;

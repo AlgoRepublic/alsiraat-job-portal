@@ -10,7 +10,6 @@ import {
   Phone,
 } from "lucide-react";
 import { db } from "../services/database";
-import { UserRole } from "../types";
 import { LoadingOverlay } from "../components/Loading";
 
 /** Formats input as an Australian phone number (mobile or landline) */

@@ -6,9 +6,9 @@ import {
   Visibility,
   FileVisibility,
   Application,
-  UserRole,
   ApplicantProfile,
 } from "../types";
+import { DefaultRoleCode } from "@/shared/defaultRoleCodes";
 
 export const MOCK_JOBS: Job[] = [
   {
@@ -127,7 +127,7 @@ export const MOCK_APPLICATIONS: Application[] = [
 export const INITIAL_USER: ApplicantProfile = {
   id: "u1",
   name: "Alex Johnson",
-  role: UserRole.TASK_MANAGER, // Defaulting to Manager for demo purposes to show flows
+  roles: [DefaultRoleCode.TASK_MANAGER],
   avatar: "https://i.pravatar.cc/150?u=alex",
   email: "alex@hayati.edu",
   about:

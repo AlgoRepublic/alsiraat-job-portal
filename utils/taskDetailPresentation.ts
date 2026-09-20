@@ -15,12 +15,22 @@ export interface GroupCatalogueEntry {
   name: string;
 }
 
+export interface RoleCatalogueEntry {
+  _id: string;
+  name: string;
+  code?: string;
+  isActive?: boolean;
+}
+
 export interface AudienceTargetingPresentation {
   visibilityLabel: string;
   privateAudienceLabels: string[] | null;
   showTargetGroups: boolean;
   targetGroupLabels: string[] | null;
   targetGroupsLoadFailed: boolean;
+  showAllowedRoles: boolean;
+  allowedRoleLabels: string[] | null;
+  allowedRolesLoadFailed: boolean;
 }
 
 export interface TaskAudienceInput {
@@ -269,10 +279,33 @@ export function resolveTargetGroupLabels(
   });
 }
 
+function resolveAllowedRoleLabels(
+  roleIds: string[] | undefined,
+  rolesCatalogue: RoleCatalogueEntry[] | null,
+  catalogueLoadFailed: boolean,
+): string[] | null {
+  const ids = (roleIds ?? []).map((id) => String(id).trim()).filter(Boolean);
+  if (ids.length === 0) return null;
+
+  if (catalogueLoadFailed || !rolesCatalogue) {
+    return ids.map((id) => `Role (${id})`);
+  }
+
+  return ids.map((id) => {
+    const match = rolesCatalogue.find((r) => String(r._id) === id);
+    const name = match?.name?.trim();
+    if (!name) return "Unknown role";
+    if (match?.isActive === false) return `${name} (inactive)`;
+    return name;
+  });
+}
+
 export function buildAudienceTargetingPresentation(
   task: TaskAudienceInput,
   groupsCatalogue: GroupCatalogueEntry[] | null,
   catalogueLoadFailed = false,
+  rolesCatalogue: RoleCatalogueEntry[] | null = null,
+  rolesCatalogueLoadFailed = false,
 ): AudienceTargetingPresentation {
   const { mode, privateAudiences } = normalizeTaskVisibilityForDisplay(task);
   const visibilityLabel = formatVisibilityLabel(mode);
@@ -284,6 +317,9 @@ export function buildAudienceTargetingPresentation(
       showTargetGroups: false,
       targetGroupLabels: null,
       targetGroupsLoadFailed: false,
+      showAllowedRoles: false,
+      allowedRoleLabels: null,
+      allowedRolesLoadFailed: false,
     };
   }
 
@@ -297,6 +333,12 @@ export function buildAudienceTargetingPresentation(
         catalogueLoadFailed,
       )
     : null;
+  const allowedRoleLabels = resolveAllowedRoleLabels(
+    task.allowedRoles,
+    rolesCatalogue,
+    rolesCatalogueLoadFailed,
+  );
+  const showAllowedRoles = (allowedRoleLabels?.length ?? 0) > 0;
 
   return {
     visibilityLabel,
@@ -304,6 +346,9 @@ export function buildAudienceTargetingPresentation(
     showTargetGroups,
     targetGroupLabels,
     targetGroupsLoadFailed: showTargetGroups && catalogueLoadFailed,
+    showAllowedRoles,
+    allowedRoleLabels,
+    allowedRolesLoadFailed: showAllowedRoles && rolesCatalogueLoadFailed,
   };
 }
 

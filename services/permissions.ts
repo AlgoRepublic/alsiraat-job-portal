@@ -5,7 +5,10 @@
  * Use the `usePermissions` hook to check permissions in components.
  */
 
-import { UserRole } from "../types";
+import {
+  DefaultRoleCode,
+  type DefaultRoleCode as DefaultRoleCodeType,
+} from "@/shared/defaultRoleCodes";
 
 // ============================================================================
 // PERMISSION DEFINITIONS
@@ -63,11 +66,11 @@ export const Permission = {
 export type Permission = (typeof Permission)[keyof typeof Permission];
 
 // ============================================================================
-// ROLE-PERMISSION MAPPINGS
+// ROLE-PERMISSION MAPPINGS (default Role codes)
 // ============================================================================
 
-export const RolePermissions: Record<UserRole, Permission[]> = {
-  [UserRole.ORGANIZATION_ADMIN]: [
+export const RolePermissions: Record<DefaultRoleCodeType, Permission[]> = {
+  [DefaultRoleCode.ORGANIZATION_ADMIN]: [
     Permission.TASK_CREATE,
     Permission.TASK_READ,
     Permission.TASK_UPDATE,
@@ -89,7 +92,7 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.REPORTS_EXPORT,
   ],
 
-  [UserRole.TASK_MANAGER]: [
+  [DefaultRoleCode.TASK_MANAGER]: [
     Permission.TASK_CREATE,
     Permission.TASK_READ,
     Permission.TASK_APPROVE,
@@ -101,7 +104,7 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.DASHBOARD_VIEW,
   ],
 
-  [UserRole.TASK_ADVERTISER]: [
+  [DefaultRoleCode.TASK_ADVERTISER]: [
     Permission.TASK_CREATE,
     Permission.TASK_READ,
     Permission.APPLICATION_CREATE,
@@ -110,7 +113,7 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.ORG_READ,
   ],
 
-  [UserRole.APPLICANT]: [
+  [DefaultRoleCode.APPLICANT]: [
     Permission.TASK_CREATE,
     Permission.TASK_READ,
     Permission.APPLICATION_CREATE,
@@ -124,66 +127,72 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
 // PERMISSION CHECK FUNCTIONS
 // ============================================================================
 
-export function hasPermission(
-  role: UserRole | undefined,
+export function hasPermissionForRoleCode(
+  roleCode: string | undefined,
   permission: Permission,
   options?: { isSuperAdmin?: boolean },
 ): boolean {
   if (options?.isSuperAdmin) return true;
-  if (!role) return false;
-  const permissions = RolePermissions[role];
+  if (!roleCode) return false;
+  const permissions = RolePermissions[roleCode as DefaultRoleCodeType];
   if (!permissions) return false;
   return permissions.includes(permission);
 }
 
-export function hasAnyPermission(
-  role: UserRole | undefined,
+export function hasAnyPermissionForRoleCodes(
+  roleCodes: string[] | undefined,
   permissions: Permission[],
   options?: { isSuperAdmin?: boolean },
 ): boolean {
   if (options?.isSuperAdmin) return true;
-  if (!role) return false;
-  return permissions.some((p) => hasPermission(role, p, options));
+  if (!roleCodes?.length) return false;
+  return roleCodes.some((code) =>
+    permissions.some((p) => hasPermissionForRoleCode(code, p, options)),
+  );
 }
 
-export function hasAllPermissions(
-  role: UserRole | undefined,
+export function hasAllPermissionsForRoleCodes(
+  roleCodes: string[] | undefined,
   permissions: Permission[],
   options?: { isSuperAdmin?: boolean },
 ): boolean {
   if (options?.isSuperAdmin) return true;
-  if (!role) return false;
-  return permissions.every((p) => hasPermission(role, p, options));
+  if (!roleCodes?.length) return false;
+  return permissions.every((p) =>
+    roleCodes.some((code) => hasPermissionForRoleCode(code, p, options)),
+  );
 }
 
-// ============================================================================
-// CONTEXT-AWARE CHECKS
-// ============================================================================
-
-export interface PermissionContext {
-  userId?: string;
-  resourceOwnerId?: string;
-  taskCreatorId?: string;
-}
-
-/**
- * Check permission with context (resource ownership)
- */
-export function canWithContext(
-  role: UserRole | undefined,
+export function canWithContextForRoleCodes(
+  roleCodes: string[] | undefined,
   permission: Permission,
   context: PermissionContext,
   options?: { isSuperAdmin?: boolean },
 ): boolean {
   if (options?.isSuperAdmin) return true;
-  if (!role) return false;
+  if (!roleCodes?.length) return false;
+  return roleCodes.some((code) =>
+    canWithContextForRoleCode(code, permission, context, options),
+  );
+}
 
-  if (hasPermission(role, permission, options)) {
+export function canWithContextForRoleCode(
+  roleCode: string | undefined,
+  permission: Permission,
+  context: PermissionContext,
+  options?: { isSuperAdmin?: boolean },
+): boolean {
+  if (options?.isSuperAdmin) return true;
+  if (!roleCode) return false;
+
+  if (hasPermissionForRoleCode(roleCode, permission, options)) {
     return true;
   }
 
-  // Advertiser/Applicant can manage their own task's applications if they are the creator
-  if (role === UserRole.TASK_ADVERTISER || role === UserRole.APPLICANT) {
+  if (
+    roleCode === DefaultRoleCode.TASK_ADVERTISER ||
+    roleCode === DefaultRoleCode.APPLICANT
+  ) {
     const appPermissions = [
       Permission.APPLICATION_READ,
       Permission.APPLICATION_SHORTLIST,
@@ -202,35 +211,60 @@ export function canWithContext(
 }
 
 // ============================================================================
-// CONVENIENCE FUNCTIONS
+// CONTEXT-AWARE CHECKS
 // ============================================================================
 
-export function canAutoPublish(
-  role: UserRole | undefined,
+export interface PermissionContext {
+  userId?: string;
+  resourceOwnerId?: string;
+  taskCreatorId?: string;
+}
+
+export function canAutoPublishForRoleCodes(
+  roleCodes: string[] | undefined,
   options?: { isSuperAdmin?: boolean },
 ): boolean {
   if (options?.isSuperAdmin) return true;
-  if (!role) return false;
-  return (
-    [UserRole.ORGANIZATION_ADMIN, UserRole.TASK_MANAGER] as UserRole[]
-  ).includes(role);
+  if (!roleCodes?.length) return false;
+  return roleCodes.some((code) =>
+    hasPermissionForRoleCode(code, Permission.TASK_PUBLISH, options) &&
+    (code === DefaultRoleCode.ORGANIZATION_ADMIN ||
+      code === DefaultRoleCode.TASK_MANAGER),
+  );
 }
 
-export function canViewDashboard(role: UserRole | undefined): boolean {
-  return hasPermission(role, Permission.DASHBOARD_VIEW);
+export function canViewDashboardForRoleCodes(
+  roleCodes: string[] | undefined,
+): boolean {
+  if (!roleCodes?.length) return false;
+  return roleCodes.some((code) =>
+    hasPermissionForRoleCode(code, Permission.DASHBOARD_VIEW),
+  );
 }
 
-export function canViewApplicants(
-  role: UserRole | undefined,
+export function canViewApplicantsForRoleCodes(
+  roleCodes: string[] | undefined,
   taskCreatorId?: string,
   userId?: string,
 ): boolean {
-  if (!role) return false;
-  if (hasPermission(role, Permission.APPLICATION_READ)) return true;
+  if (!roleCodes?.length) return false;
+  return roleCodes.some((code) =>
+    canViewApplicantsForRoleCode(code, taskCreatorId, userId),
+  );
+}
 
-  // Creators can view applicants for their own tasks
+export function canViewApplicantsForRoleCode(
+  roleCode: string,
+  taskCreatorId?: string,
+  userId?: string,
+): boolean {
+  if (hasPermissionForRoleCode(roleCode, Permission.APPLICATION_READ)) {
+    return true;
+  }
+
   if (
-    (role === UserRole.TASK_ADVERTISER || role === UserRole.APPLICANT) &&
+    (roleCode === DefaultRoleCode.TASK_ADVERTISER ||
+      roleCode === DefaultRoleCode.APPLICANT) &&
     taskCreatorId &&
     userId === taskCreatorId
   ) {
@@ -240,18 +274,38 @@ export function canViewApplicants(
   return false;
 }
 
-export function canApplyForTasks(role: UserRole | undefined): boolean {
-  return hasPermission(role, Permission.APPLICATION_CREATE);
+export function canApplyForTasksForRoleCodes(
+  roleCodes: string[] | undefined,
+): boolean {
+  if (!roleCodes?.length) return false;
+  return roleCodes.some((code) =>
+    hasPermissionForRoleCode(code, Permission.APPLICATION_CREATE),
+  );
 }
 
-export function canManageApplicationStatus(
-  role: UserRole | undefined,
+export function canManageApplicationStatusForRoleCodes(
+  roleCodes: string[] | undefined,
   action: "shortlist" | "approve" | "reject",
   taskCreatorId?: string,
   userId?: string,
 ): boolean {
-  if (!role) return false;
+  if (!roleCodes?.length) return false;
+  return roleCodes.some((code) =>
+    canManageApplicationStatusForRoleCode(
+      code,
+      action,
+      taskCreatorId,
+      userId,
+    ),
+  );
+}
 
+export function canManageApplicationStatusForRoleCode(
+  roleCode: string,
+  action: "shortlist" | "approve" | "reject",
+  taskCreatorId?: string,
+  userId?: string,
+): boolean {
   const permissionMap = {
     shortlist: Permission.APPLICATION_SHORTLIST,
     approve: Permission.APPLICATION_APPROVE,
@@ -260,16 +314,67 @@ export function canManageApplicationStatus(
 
   const permission = permissionMap[action];
 
-  // Check static permission
-  if (hasPermission(role, permission)) return true;
+  if (hasPermissionForRoleCode(roleCode, permission)) return true;
 
-  // Creators can manage their own task's applications
   if (
-    (role === UserRole.TASK_ADVERTISER || role === UserRole.APPLICANT) &&
+    (roleCode === DefaultRoleCode.TASK_ADVERTISER ||
+      roleCode === DefaultRoleCode.APPLICANT) &&
     taskCreatorId &&
     userId === taskCreatorId
   ) {
     return true;
+  }
+
+  return false;
+}
+
+// ============================================================================
+// SESSION PERMISSION UNION (from API / auth; supports custom Roles)
+// ============================================================================
+
+export function hasPermissionInUnion(
+  permissions: string[] | undefined,
+  permission: Permission,
+): boolean {
+  return (permissions ?? []).includes(permission);
+}
+
+export function hasAnyPermissionInUnion(
+  permissions: string[] | undefined,
+  required: Permission[],
+): boolean {
+  const set = permissions ?? [];
+  return required.some((p) => set.includes(p));
+}
+
+const APPLICATION_MANAGEMENT_PERMISSIONS: Permission[] = [
+  Permission.APPLICATION_READ,
+  Permission.APPLICATION_SHORTLIST,
+  Permission.APPLICATION_APPROVE,
+  Permission.APPLICATION_REJECT,
+];
+
+export function canWithContextFromPermissionUnion(
+  permissions: string[] | undefined,
+  roleCodes: string[] | undefined,
+  permission: Permission,
+  context: PermissionContext,
+): boolean {
+  if (hasPermissionInUnion(permissions, permission)) {
+    return true;
+  }
+
+  const hasApplicantCreatorRole = roleCodes?.some(
+    (code) =>
+      code === DefaultRoleCode.TASK_ADVERTISER ||
+      code === DefaultRoleCode.APPLICANT,
+  );
+  if (hasApplicantCreatorRole) {
+    if (APPLICATION_MANAGEMENT_PERMISSIONS.includes(permission)) {
+      if (context.taskCreatorId && context.userId === context.taskCreatorId) {
+        return true;
+      }
+    }
   }
 
   return false;

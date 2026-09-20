@@ -1,8 +1,16 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import User, { UserRole } from "../models/User.js";
+import User from "../models/User.js";
 import { Permission, PermissionContext } from "../config/permissions.js";
 import { isSuperAdminUser } from "../utils/superAdmin.js";
+import {
+  applyOrgMemberContextToRequest,
+  canWithContextMultiFromUnion,
+  hasAnyPermissionInUnion,
+  hasPermissionInUnion,
+  resolveAuthenticatedOrgMemberContext,
+} from "../services/authOrgMemberContext.js";
+import { DefaultRoleCode } from "@taskunity/shared/defaultRoleCodes.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_here";
 
@@ -11,22 +19,38 @@ const getOrgIdFromToken = (decoded: any): string | null => {
   return typeof orgId === "string" && orgId.trim() ? orgId : null;
 };
 
-const getAllUserRoles = (user: any): UserRole[] => {
-  const roles = (user.organisationRoles || []).flatMap(
-    (entry: any) => entry.roles || [],
-  ) as UserRole[];
-  return Array.from(new Set(roles));
-};
+async function attachOrgContext(
+  req: any,
+  user: any,
+  orgId: string | null,
+): Promise<void> {
+  req.orgId = orgId;
+  if (!orgId) {
+    applyOrgMemberContextToRequest(req, null);
+    return;
+  }
 
-const resolveOrgRoles = (user: any, orgId: string): UserRole[] => {
-  const entry = (user.organisationRoles || []).find(
-    (item: any) => item.organisation?.toString() === orgId,
-  );
-  if (entry?.roles?.length) return entry.roles as UserRole[];
-  return isSuperAdminUser(user)
-    ? [UserRole.ORGANIZATION_ADMIN]
-    : [UserRole.APPLICANT];
-};
+  const context = await resolveAuthenticatedOrgMemberContext(user, orgId);
+  applyOrgMemberContextToRequest(req, context);
+
+  (req.user as any).orgId = orgId;
+  (req.user as any).orgRoles = req.orgRoleCodes;
+  (req.user as any).orgMemberRoles = req.orgMemberRoles;
+  (req.user as any).orgPermissions = req.orgPermissions;
+  (req.user as any).hasOrgRoleCode = req.hasOrgRoleCode;
+  (req.user as any).hasOrgPermission = req.hasOrgPermission;
+}
+
+function getResolvedAuthFromUser(user: any): {
+  permissions: string[];
+  roleCodes: string[];
+} | null {
+  const permissions = (user as any).orgPermissions as string[] | undefined;
+  const roleCodes = ((user as any).orgRoles ||
+    (user as any).orgRoleCodes) as string[] | undefined;
+  if (!permissions || !roleCodes) return null;
+  return { permissions, roleCodes };
+}
 
 // ============================================================================
 // AUTHENTICATION MIDDLEWARE
@@ -53,12 +77,10 @@ export const authenticate = async (
     const orgId = getOrgIdFromToken(decoded);
     const superAdmin = isSuperAdminUser(user);
     req.user = user;
+
     if (!orgId) {
-      // Allow auth without org context for non-org-scoped flows (e.g. initial /auth/me after SSO).
       req.orgId = null;
-      req.orgRoles = superAdmin
-        ? [UserRole.ORGANIZATION_ADMIN]
-        : getAllUserRoles(user);
+      applyOrgMemberContextToRequest(req, null);
     } else {
       const isMember = (user.organisations || []).some(
         (o: any) => o.toString() === orgId,
@@ -66,11 +88,8 @@ export const authenticate = async (
       if (!superAdmin && !isMember) {
         return res.status(403).json({ message: "Invalid organisation context" });
       }
-      req.orgId = orgId;
-      req.orgRoles = resolveOrgRoles(user, orgId);
+      await attachOrgContext(req, user, orgId);
     }
-    (req.user as any).orgId = req.orgId;
-    (req.user as any).orgRoles = req.orgRoles;
     next();
   } catch (err) {
     res.status(401).json({ message: "Token is not valid" });
@@ -96,16 +115,41 @@ export const optionalAuthenticate = async (
       req.user = user;
       const orgId = getOrgIdFromToken(decoded);
       if (orgId) {
-        req.orgId = orgId;
-        req.orgRoles = resolveOrgRoles(user, orgId);
-        (req.user as any).orgId = req.orgId;
-        (req.user as any).orgRoles = req.orgRoles;
+        await attachOrgContext(req, user, orgId);
       }
     }
     next();
   } catch (err) {
     next();
   }
+};
+
+// ============================================================================
+// ROLE CODE ALLOW-LISTS
+// ============================================================================
+
+export const requireAnyRoleCode = (allowedCodes: string[]) => {
+  return (req: any, res: Response, next: NextFunction) => {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    if (isSuperAdminUser(user)) return next();
+
+    const hasCode =
+      typeof req.hasOrgRoleCode === "function" &&
+      allowedCodes.some((code) => req.hasOrgRoleCode(code));
+
+    if (!hasCode) {
+      return res.status(403).json({
+        message: "Permission denied",
+        requiredRoleCodes: allowedCodes,
+        userRoleCodes: req.orgRoleCodes ?? [],
+      });
+    }
+
+    next();
+  };
 };
 
 // ============================================================================
@@ -124,18 +168,35 @@ export const requirePermission = (permission: Permission) => {
     }
     if (isSuperAdminUser(user)) return next();
 
-    const userRoles = (req.orgRoles || getAllUserRoles(user)) as UserRole[];
+    const resolved = getResolvedAuthFromUser(user) ?? {
+      permissions: req.orgPermissions ?? [],
+      roleCodes: req.orgRoleCodes ?? [],
+    };
 
-    // Use dynamic permission check from database
+    if (resolved.permissions.length > 0) {
+      const hasAccess = hasPermissionInUnion(resolved.permissions, permission);
+      if (!hasAccess) {
+        return res.status(403).json({
+          message: `Permission denied: ${permission}`,
+          required: permission,
+          userRoleCodes: resolved.roleCodes,
+        });
+      }
+      return next();
+    }
+
     const { hasPermissionMultiAsync } =
       await import("../config/permissions.js");
-    const hasAccess = await hasPermissionMultiAsync(userRoles, permission);
+    const hasAccess = await hasPermissionMultiAsync(
+      resolved.roleCodes,
+      permission,
+    );
 
     if (!hasAccess) {
       return res.status(403).json({
         message: `Permission denied: ${permission}`,
         required: permission,
-        userRoles: userRoles,
+        userRoleCodes: resolved.roleCodes,
       });
     }
 
@@ -172,18 +233,38 @@ export const requireAnyPermission = (permissions: Permission[]) => {
     }
     if (isSuperAdminUser(user)) return next();
 
-    const userRoles = (req.orgRoles || getAllUserRoles(user)) as UserRole[];
+    const resolved = getResolvedAuthFromUser(user) ?? {
+      permissions: req.orgPermissions ?? [],
+      roleCodes: req.orgRoleCodes ?? [],
+    };
 
-    // Use dynamic permission check from database
+    if (resolved.permissions.length > 0) {
+      const hasAccess = hasAnyPermissionInUnion(
+        resolved.permissions,
+        permissions,
+      );
+      if (!hasAccess) {
+        return res.status(403).json({
+          message: "Permission denied",
+          required: permissions,
+          userRoleCodes: resolved.roleCodes,
+        });
+      }
+      return next();
+    }
+
     const { hasAnyPermissionMultiAsync } =
       await import("../config/permissions.js");
-    const hasAccess = await hasAnyPermissionMultiAsync(userRoles, permissions);
+    const hasAccess = await hasAnyPermissionMultiAsync(
+      resolved.roleCodes as any,
+      permissions,
+    );
 
     if (!hasAccess) {
       return res.status(403).json({
         message: "Permission denied",
         required: permissions,
-        userRoles: userRoles,
+        userRoleCodes: resolved.roleCodes,
       });
     }
 
@@ -228,31 +309,42 @@ export const requirePermissionWithContext = (
       return next();
     }
 
-    const userRoles = (req.orgRoles || getAllUserRoles(user)) as UserRole[];
+    const resolved = getResolvedAuthFromUser(user) ?? {
+      permissions: req.orgPermissions ?? [],
+      roleCodes: req.orgRoleCodes ?? [],
+    };
 
     try {
       const context = await getContext(req);
       context.userId = user._id.toString();
       context.userOrganizationId = req.orgId || null;
 
-      // Use dynamic permission check from database
-      const { canWithContextMultiAsync } =
-        await import("../config/permissions.js");
-      const hasAccess = await canWithContextMultiAsync(
-        userRoles,
-        permission,
-        context,
-      );
+      let hasAccess = false;
+      if (resolved.permissions.length > 0) {
+        hasAccess = canWithContextMultiFromUnion(
+          resolved.permissions,
+          resolved.roleCodes,
+          permission,
+          context,
+        );
+      } else {
+        const { canWithContextMultiAsync } =
+          await import("../config/permissions.js");
+        hasAccess = await canWithContextMultiAsync(
+          resolved.roleCodes,
+          permission,
+          context,
+        );
+      }
 
       if (!hasAccess) {
         return res.status(403).json({
           message: `Permission denied: ${permission}`,
           required: permission,
-          userRoles: userRoles,
+          userRoleCodes: resolved.roleCodes,
         });
       }
 
-      // Attach context to request for use in controller
       req.permissionContext = context;
       next();
     } catch (err) {
@@ -280,19 +372,28 @@ export async function checkPermissionAsync(
     return { allowed: true };
   }
 
-  const userRoles = ((user as any).orgRoles || getAllUserRoles(user)) as UserRole[];
-  const { hasPermissionMultiAsync, canWithContextMultiAsync } =
-    await import("../config/permissions.js");
+  const resolved = getResolvedAuthFromUser(user);
+  const permissions = resolved?.permissions ?? [];
+  const roleCodes = resolved?.roleCodes ?? [];
 
   if (context) {
     context.userId = user._id.toString();
     context.userOrganizationId = (user as any).orgId || null;
 
-    const hasAccess = await canWithContextMultiAsync(
-      userRoles,
-      permission,
-      context,
-    );
+    const hasAccess =
+      permissions.length > 0
+        ? canWithContextMultiFromUnion(
+            permissions,
+            roleCodes,
+            permission,
+            context,
+          )
+        : await (async () => {
+            const { canWithContextMultiAsync } =
+              await import("../config/permissions.js");
+            return canWithContextMultiAsync(roleCodes, permission, context);
+          })();
+
     if (!hasAccess) {
       return {
         allowed: false,
@@ -303,7 +404,15 @@ export async function checkPermissionAsync(
       };
     }
   } else {
-    const hasAccess = await hasPermissionMultiAsync(userRoles, permission);
+    const hasAccess =
+      permissions.length > 0
+        ? hasPermissionInUnion(permissions, permission)
+        : await (async () => {
+            const { hasPermissionMultiAsync } =
+              await import("../config/permissions.js");
+            return hasPermissionMultiAsync(roleCodes, permission);
+          })();
+
     if (!hasAccess) {
       return {
         allowed: false,
@@ -367,7 +476,6 @@ export const requireTaskApproval = async (
   const taskId = req.params.id || req.params.taskId;
   const { checkPermissionAsync } = await import("./rbac.js");
 
-  // Fetch the task to check its visibility type
   const Task = (await import("../models/Task.js")).default;
   const task = await Task.findById(taskId);
 
@@ -375,7 +483,6 @@ export const requireTaskApproval = async (
     return res.status(404).json({ message: "Task not found" });
   }
 
-  // Use dynamic permission check with context
   const context: any = {
     organizationId: task.organisation?.toString() || null,
     userOrganizationId: req.orgId || null,
@@ -390,15 +497,12 @@ export const requireTaskApproval = async (
   );
 
   if (!allowed) {
-    // Fallback when permission check fails unexpectedly for Central/External tasks
     return res.status(403).json({
       message: "Insufficient permissions to approve this task",
-      roles: req.orgRoles,
+      roleCodes: req.orgRoleCodes,
     });
   }
 
-  // Cross-organisation check is already handled inside canWithContext via context.organizationId
-  // Non-internal tasks (Central, External) from another org require platform super admin
   const organisationId = task.organisation?.toString();
   const userOrganisationId = req.orgId || null;
 
@@ -418,3 +522,4 @@ export const requireTaskApproval = async (
 
 // Re-export permissions for convenience
 export { Permission } from "../config/permissions.js";
+export { DefaultRoleCode };

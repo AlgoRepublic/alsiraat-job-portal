@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db } from "../services/database";
-import { Application, Job, Permission, Skill, UserRole } from "../types";
+import { Application, Job, Permission, Skill } from "../types";
+import { DefaultRoleCode } from "@/shared/defaultRoleCodes";
 import { API_BASE_URL } from "../services/api";
 import { useToast } from "../components/Toast";
 import {
@@ -26,7 +27,7 @@ import {
 } from "lucide-react";
 
 import { Loading, LoadingOverlay } from "../components/Loading";
-import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
+import { getUserRoleCodesForActiveOrg } from "../utils/orgScopedRoles";
 import { organisationIdToString } from "../utils/organisationId";
 import { TaskRewardText } from "../components/TaskRewardText";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
@@ -296,7 +297,9 @@ export const ApplicationReview: React.FC = () => {
     job?.createdBy === currentUser?._id;
   const advertiserOwnsTask =
     isTaskCreator &&
-    getUserRolesForActiveOrg(currentUser).includes(UserRole.TASK_ADVERTISER);
+    getUserRoleCodesForActiveOrg(currentUser).includes(
+      DefaultRoleCode.TASK_ADVERTISER,
+    );
 
   const canShortlist =
     orgScopeAllows &&

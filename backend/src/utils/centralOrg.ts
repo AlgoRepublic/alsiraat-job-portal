@@ -1,6 +1,9 @@
 import Organization from "../models/Organization.js";
 import Group from "../models/Group.js";
-import { OrgMemberKind, UserRole } from "../models/User.js";
+import { OrgMemberKind } from "../models/User.js";
+import { DefaultRoleCode } from "@taskunity/shared/defaultRoleCodes.js";
+import { resolveRoleCodeToId } from "../services/orgMemberRoleResolver.js";
+import { upsertOrgMembershipRoleIds } from "../services/orgMemberRoleAssignment.js";
 
 type CentralOrgDoc = {
   _id: import("mongoose").Types.ObjectId;
@@ -53,25 +56,29 @@ type MembershipUser = {
   organisations?: import("mongoose").Types.ObjectId[];
   organisationRoles?: Array<{
     organisation?: import("mongoose").Types.ObjectId;
-    roles?: UserRole[];
+    roleIds?: import("mongoose").Types.ObjectId[];
     memberKind?: OrgMemberKind;
   }>;
 };
 
 /**
- * Assign the user to the Central organisation as Applicant (idempotent).
+ * Assign the user to the Central organisation with default Applicant roleIds (idempotent).
  * Returns true when membership was applied or already present.
  */
 export async function assignCentralOrganisationMembership(
   user: MembershipUser,
-  options?: { roles?: UserRole[]; addToAllMembersGroup?: boolean },
+  options?: {
+    defaultRoleCode?: DefaultRoleCode;
+    addToAllMembersGroup?: boolean;
+  },
 ): Promise<boolean> {
   const centralOrg = await findCentralOrganisation();
   if (!centralOrg) return false;
 
   const orgId = centralOrg._id;
   const orgIdStr = orgId.toString();
-  const roles = options?.roles?.length ? options.roles : [UserRole.APPLICANT];
+  const roleCode = options?.defaultRoleCode ?? DefaultRoleCode.APPLICANT;
+  const applicantRoleId = await resolveRoleCodeToId(orgIdStr, roleCode);
 
   const alreadyInOrg = (user.organisations ?? []).some(
     (o) => o.toString() === orgIdStr,
@@ -80,18 +87,18 @@ export async function assignCentralOrganisationMembership(
     user.organisations = [...(user.organisations ?? []), orgId];
   }
 
-  const alreadyHasRole = (user.organisationRoles ?? []).some(
+  const alreadyHasRoleEntry = (user.organisationRoles ?? []).some(
     (entry) => entry.organisation?.toString() === orgIdStr,
   );
-  if (!alreadyHasRole) {
-    user.organisationRoles = [
-      ...(user.organisationRoles ?? []),
-      {
-        organisation: orgId,
-        roles,
-        memberKind: OrgMemberKind.INTERNAL,
-      },
-    ];
+
+  if (!alreadyHasRoleEntry && applicantRoleId) {
+    upsertOrgMembershipRoleIds(
+      user,
+      orgId,
+      [applicantRoleId],
+      OrgMemberKind.INTERNAL,
+      "append",
+    );
   }
 
   if (options?.addToAllMembersGroup !== false && user._id) {

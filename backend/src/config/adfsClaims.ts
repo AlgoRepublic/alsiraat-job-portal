@@ -1,7 +1,12 @@
 import jwt from "jsonwebtoken";
-import { UserRole, normalizeUserRole } from "../models/UserRole.js";
+import { mapLegacyRoleStringToDefaultCode } from "../services/legacyMemberRoleMapping.js";
+import {
+  resolveRoleCodeToIdFromCatalog,
+  type RoleCatalogDocument,
+} from "../services/orgMemberRoleResolver.js";
 
-const MICROSOFT_ROLE_CLAIM = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role";
+const MICROSOFT_ROLE_CLAIM =
+  "http://schemas.microsoft.com/ws/2008/06/identity/claims/role";
 
 const ROLE_CLAIM_KEYS = ["roles", "Roles", "role", "Role", MICROSOFT_ROLE_CLAIM];
 
@@ -67,47 +72,53 @@ export function extractRoles(
   return result;
 }
 
+export type DbRoleOidcMappingRow = {
+  _id: unknown;
+  oidcMapping?: string[];
+};
+
+export type MapAdfsRolesToRoleIdsOptions = {
+  organisationId: string;
+  catalog: RoleCatalogDocument[];
+};
+
 /**
- * Maps ADFS role strings to Taskunity UserRoles using DB role oidcMapping fields.
- * Each DB role has an oidcMapping array of ADFS claim values that should assign it.
+ * Maps ADFS role strings to Role document ids using DB role oidcMapping fields.
  */
-function mapFromDBRoles(
+function mapFromDBRolesToIds(
   adfsRoles: string[],
-  dbRoles: Array<{ name: string; oidcMapping?: string[] }>,
-): UserRole[] {
-  const result = new Set<UserRole>();
+  dbRoles: DbRoleOidcMappingRow[],
+): string[] {
+  const result = new Set<string>();
   for (const dbRole of dbRoles) {
-    if (!dbRole.oidcMapping?.length) continue;
+    if (!dbRole.oidcMapping?.length || dbRole._id == null) continue;
     const hasMatch = adfsRoles.some((ar) => dbRole.oidcMapping!.includes(ar));
-    if (hasMatch) {
-      const normalized = normalizeUserRole(dbRole.name);
-      const matched = Object.values(UserRole).find((r) => r === normalized);
-      if (matched) result.add(matched);
-    }
+    if (hasMatch) result.add(String(dbRole._id));
   }
   return Array.from(result);
 }
 
 /**
- * Maps ADFS role strings using the OIDC_ROLE_MAPPING env var as a fallback.
- * Format: "AdfsValue:Taskunity Role,AdfsValue2:Taskunity Role2"
+ * Maps ADFS role strings using OIDC_ROLE_MAPPING env var to default Role codes.
+ * Format: "AdfsValue:organization_admin,AdfsValue2:task_manager" (code or legacy display/alias)
+ *
+ * @deprecated Legacy dev-only fallback when Role.oidcMapping is unset. Prefer DB oidcMapping in production.
  */
-function mapFromEnvVar(adfsRoles: string[]): UserRole[] {
+function mapFromEnvVarToDefaultCodes(adfsRoles: string[]): string[] {
   const raw = process.env.OIDC_ROLE_MAPPING;
   if (!raw) return [];
 
-  const mapping = new Map<string, UserRole>();
+  const mapping = new Map<string, string>();
   for (const entry of raw.split(",")) {
     const idx = entry.indexOf(":");
     if (idx < 1) continue;
     const adfsValue = entry.slice(0, idx).trim();
     const roleStr = entry.slice(idx + 1).trim();
-    const normalized = normalizeUserRole(roleStr);
-    const matched = Object.values(UserRole).find((r) => r === normalized);
-    if (adfsValue && matched) mapping.set(adfsValue, matched);
+    const code = mapLegacyRoleStringToDefaultCode(roleStr);
+    if (adfsValue && code) mapping.set(adfsValue, code);
   }
 
-  const result = new Set<UserRole>();
+  const result = new Set<string>();
   for (const adfsRole of adfsRoles) {
     const mapped = mapping.get(adfsRole);
     if (mapped) result.add(mapped);
@@ -115,19 +126,39 @@ function mapFromEnvVar(adfsRoles: string[]): UserRole[] {
   return Array.from(result);
 }
 
-/**
- * Maps a list of ADFS role strings to Taskunity UserRoles.
- * Uses DB role oidcMapping fields when provided; falls back to OIDC_ROLE_MAPPING env var.
- */
-export function mapAdfsRolesToUserRoles(
-  adfsRoles: string[],
-  dbRoles?: Array<{ name: string; oidcMapping?: string[] }>,
-): UserRole[] {
-  if (dbRoles?.length) {
-    const dbMapped = mapFromDBRoles(adfsRoles, dbRoles);
-    if (dbMapped.length > 0) return dbMapped;
+function resolveCodesToRoleIds(
+  codes: string[],
+  catalog: RoleCatalogDocument[],
+  organisationId: string,
+): string[] {
+  const ids = new Set<string>();
+  for (const code of codes) {
+    const id = resolveRoleCodeToIdFromCatalog(catalog, code, organisationId);
+    if (id) ids.add(id);
   }
-  return mapFromEnvVar(adfsRoles);
+  return Array.from(ids);
+}
+
+/**
+ * Maps ADFS role claim strings to organisation Role ids.
+ * Uses DB oidcMapping when provided; falls back to OIDC_ROLE_MAPPING resolved via the org catalogue.
+ */
+export function mapAdfsRolesToRoleIds(
+  adfsRoles: string[],
+  dbRoles?: DbRoleOidcMappingRow[],
+  options?: MapAdfsRolesToRoleIdsOptions,
+): string[] {
+  if (dbRoles?.length) {
+    const fromDb = mapFromDBRolesToIds(adfsRoles, dbRoles);
+    if (fromDb.length > 0) return fromDb;
+  }
+
+  if (!options?.organisationId || !options.catalog?.length) return [];
+
+  const codes = mapFromEnvVarToDefaultCodes(adfsRoles);
+  if (codes.length === 0) return [];
+
+  return resolveCodesToRoleIds(codes, options.catalog, options.organisationId);
 }
 
 // ---------------------------------------------------------------------------

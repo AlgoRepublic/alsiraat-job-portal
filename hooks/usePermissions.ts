@@ -2,35 +2,34 @@
  * usePermissions Hook
  *
  * React hook for checking user permissions in components.
- *
- * Usage:
- * ```tsx
- * const { can, canAny, canAll, canViewDashboard } = usePermissions();
- *
- * if (can(Permission.TASK_CREATE)) {
- *   // Show create button
- * }
- * ```
+ * Prefers the session permission union from the API (custom Roles); falls back to
+ * default Role code matrix when permissions are not on the user object.
  */
 
 import { useMemo } from "react";
-import { UserRole } from "../types";
+import {
+  DefaultRoleCode,
+  type DefaultRoleCode as DefaultRoleCodeType,
+} from "@/shared/defaultRoleCodes";
 import {
   Permission,
-  hasPermission,
-  hasAnyPermission,
-  hasAllPermissions,
-  canWithContext,
-  canAutoPublish as checkAutoPublish,
-  canViewDashboard as checkViewDashboard,
-  canViewApplicants as checkViewApplicants,
-  canApplyForTasks as checkApplyForTasks,
-  canManageApplicationStatus as checkManageAppStatus,
+  hasPermissionForRoleCode,
+  hasAnyPermissionForRoleCodes,
+  hasAllPermissionsForRoleCodes,
+  canWithContextForRoleCodes,
+  canWithContextFromPermissionUnion,
+  hasPermissionInUnion,
+  hasAnyPermissionInUnion,
+  canAutoPublishForRoleCodes,
+  canViewDashboardForRoleCodes,
+  canViewApplicantsForRoleCodes,
+  canApplyForTasksForRoleCodes,
+  canManageApplicationStatusForRoleCodes,
   PermissionContext,
 } from "../services/permissions";
+import { getUserRoleCodesForActiveOrg } from "../utils/orgScopedRoles";
 
 interface UsePermissionsResult {
-  // Core permission checks
   can: (permission: Permission) => boolean;
   canAny: (permissions: Permission[]) => boolean;
   canAll: (permissions: Permission[]) => boolean;
@@ -38,8 +37,6 @@ interface UsePermissionsResult {
     permission: Permission,
     context: PermissionContext,
   ) => boolean;
-
-  // Convenience methods
   canAutoPublish: boolean;
   canViewDashboard: boolean;
   canApplyForTasks: boolean;
@@ -48,9 +45,7 @@ interface UsePermissionsResult {
     action: "shortlist" | "approve" | "reject",
     taskCreatorId?: string,
   ) => boolean;
-
-  // User info
-  role: UserRole | undefined;
+  roleCodes: DefaultRoleCodeType[];
   userId: string | undefined;
   isAdmin: boolean;
   isOwner: boolean;
@@ -60,50 +55,136 @@ interface UsePermissionsResult {
 }
 
 export function usePermissions(
-  user: { id?: string; role?: UserRole; isSuperAdmin?: boolean } | null,
+  user:
+    | {
+        id?: string;
+        roles?: string[];
+        permissions?: string[];
+        isSuperAdmin?: boolean;
+        activeOrganisation?: unknown;
+        organisationRoles?: unknown[];
+      }
+    | null,
 ): UsePermissionsResult {
   return useMemo(() => {
-    const role = user?.role;
     const userId = user?.id;
     const opt = { isSuperAdmin: user?.isSuperAdmin };
     const superUser = !!user?.isSuperAdmin;
+    const roleCodes = user ? getUserRoleCodesForActiveOrg(user) : [];
+    const permissionUnion = user?.permissions ?? [];
+    const useUnion = permissionUnion.length > 0;
+
+    const hasCode = (code: DefaultRoleCodeType) => roleCodes.includes(code);
+
+    const canPermission = (permission: Permission) => {
+      if (superUser) return true;
+      if (useUnion) {
+        return hasPermissionInUnion(permissionUnion, permission);
+      }
+      return roleCodes.some((code) =>
+        hasPermissionForRoleCode(code, permission, opt),
+      );
+    };
 
     return {
-      // Core permission checks
-      can: (permission: Permission) =>
-        superUser || hasPermission(role, permission, opt),
-      canAny: (permissions: Permission[]) =>
-        superUser || hasAnyPermission(role, permissions, opt),
-      canAll: (permissions: Permission[]) =>
-        superUser || hasAllPermissions(role, permissions, opt),
-      canWithContext: (permission: Permission, context: PermissionContext) =>
+      can: canPermission,
+      canAny: (permissions: Permission[]) => {
+        if (superUser) return true;
+        if (useUnion) {
+          return hasAnyPermissionInUnion(permissionUnion, permissions);
+        }
+        return hasAnyPermissionForRoleCodes(roleCodes, permissions, opt);
+      },
+      canAll: (permissions: Permission[]) => {
+        if (superUser) return true;
+        if (useUnion) {
+          return permissions.every((p) =>
+            hasPermissionInUnion(permissionUnion, p),
+          );
+        }
+        return hasAllPermissionsForRoleCodes(roleCodes, permissions, opt);
+      },
+      canWithContext: (permission: Permission, context: PermissionContext) => {
+        if (superUser) return true;
+        if (useUnion) {
+          return canWithContextFromPermissionUnion(
+            permissionUnion,
+            roleCodes,
+            permission,
+            { ...context, userId },
+          );
+        }
+        return canWithContextForRoleCodes(
+          roleCodes,
+          permission,
+          { ...context, userId },
+          opt,
+        );
+      },
+      canAutoPublish:
+        superUser || canAutoPublishForRoleCodes(roleCodes, opt),
+      canViewDashboard:
         superUser ||
-        canWithContext(role, permission, { ...context, userId }, opt),
-
-      // Convenience methods
-      canAutoPublish: superUser || checkAutoPublish(role, opt),
-      canViewDashboard: superUser || checkViewDashboard(role),
-      canApplyForTasks: superUser || checkApplyForTasks(role),
+        (useUnion
+          ? hasPermissionInUnion(permissionUnion, Permission.DASHBOARD_VIEW)
+          : canViewDashboardForRoleCodes(roleCodes)),
+      canApplyForTasks:
+        superUser ||
+        (useUnion
+          ? hasPermissionInUnion(permissionUnion, Permission.APPLICATION_CREATE)
+          : canApplyForTasksForRoleCodes(roleCodes)),
       canViewApplicants: (taskCreatorId?: string) =>
-        superUser || checkViewApplicants(role, taskCreatorId, userId),
+        superUser ||
+        (useUnion
+          ? canWithContextFromPermissionUnion(
+              permissionUnion,
+              roleCodes,
+              Permission.APPLICATION_READ,
+              { taskCreatorId, userId },
+            )
+          : canViewApplicantsForRoleCodes(roleCodes, taskCreatorId, userId)),
       canManageApplication: (
         action: "shortlist" | "approve" | "reject",
         taskCreatorId?: string,
-      ) =>
-        superUser ||
-        checkManageAppStatus(role, action, taskCreatorId, userId),
-
-      // User info
-      role,
+      ) => {
+        if (superUser) return true;
+        const permissionMap = {
+          shortlist: Permission.APPLICATION_SHORTLIST,
+          approve: Permission.APPLICATION_APPROVE,
+          reject: Permission.APPLICATION_REJECT,
+        } as const;
+        const permission = permissionMap[action];
+        if (useUnion) {
+          return canWithContextFromPermissionUnion(
+            permissionUnion,
+            roleCodes,
+            permission,
+            { taskCreatorId, userId },
+          );
+        }
+        return canManageApplicationStatusForRoleCodes(
+          roleCodes,
+          action,
+          taskCreatorId,
+          userId,
+        );
+      },
+      roleCodes,
       userId,
       isAdmin: superUser,
-      isOwner: role === UserRole.ORGANIZATION_ADMIN,
-      isApprover: role === UserRole.TASK_MANAGER,
-      isMember: role === UserRole.TASK_ADVERTISER,
-      isIndependent: role === UserRole.APPLICANT,
+      isOwner: hasCode(DefaultRoleCode.ORGANIZATION_ADMIN),
+      isApprover: hasCode(DefaultRoleCode.TASK_MANAGER),
+      isMember: hasCode(DefaultRoleCode.TASK_ADVERTISER),
+      isIndependent: hasCode(DefaultRoleCode.APPLICANT),
     };
-  }, [user?.id, user?.role, user?.isSuperAdmin]);
+  }, [
+    user?.id,
+    user?.isSuperAdmin,
+    user?.roles,
+    user?.permissions,
+    user?.activeOrganisation,
+    user?.organisationRoles,
+  ]);
 }
 
-// Re-export Permission enum for convenience
 export { Permission } from "../services/permissions";

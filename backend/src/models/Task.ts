@@ -39,7 +39,7 @@ export interface ITask extends Document {
   eligibility: string[];
   visibility: TaskVisibility;
   privateAudiences?: TaskVisibility[] | undefined;
-  allowedRoles?: string[] | undefined;
+  allowedRoles?: mongoose.Types.ObjectId[] | undefined;
   allowedGroups?: mongoose.Types.ObjectId[] | undefined;
   status: TaskStatus;
   organisation?: mongoose.Types.ObjectId | undefined;
@@ -83,7 +83,7 @@ const TaskSchema: Schema = new Schema(
       default: TaskVisibility.INTERNAL,
     },
     privateAudiences: [{ type: String, enum: [TaskVisibility.INTERNAL, TaskVisibility.EXTERNAL] }],
-    allowedRoles: [{ type: String }],
+    allowedRoles: [{ type: Schema.Types.ObjectId, ref: "Role" }],
     allowedGroups: [{ type: Schema.Types.ObjectId, ref: "Group" }],
     status: {
       type: String,

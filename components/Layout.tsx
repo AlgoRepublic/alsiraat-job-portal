@@ -23,14 +23,14 @@ import {
   ClipboardCheck,
   ChevronDown,
 } from "lucide-react";
-import { UserRole, User, Job, Permission, type OrgContext } from "../types";
+import { User, Job, Permission, type OrgContext } from "../types";
 import { api, API_BASE_URL, LOGIN_SOURCE_KEY } from "../services/api";
 import {
   getPublicCentralOrganisation,
   type PublicPlatformOrg,
   invalidatePlatformOrganisationCaches,
 } from "../services/platformOrganisations";
-import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
+import { getMemberRolesForActiveOrg } from "../utils/orgScopedRoles";
 import {
   applyAccentPaletteToDocument,
   buildAccentPaletteFromPrimary,
@@ -60,7 +60,7 @@ function getActiveOrganisationDisplayName(user: User): string {
 interface LayoutProps {
   children: React.ReactNode;
   currentUser: User | null;
-  onSwitchUser: (role: UserRole) => void;
+  onSwitchUser: (roleCode: string) => void;
   onSwitchOrg: (orgId: string) => Promise<void>;
   isDarkMode: boolean;
   onToggleTheme: () => void;
@@ -667,8 +667,8 @@ export const Layout: React.FC<LayoutProps> = ({
     window.location.reload();
   };
 
-  const currentUserRoles = currentUser
-    ? getUserRolesForActiveOrg(currentUser as any)
+  const currentMemberRoles = currentUser
+    ? getMemberRolesForActiveOrg(currentUser)
     : [];
 
   const browseShellOrg = currentUser
@@ -892,26 +892,36 @@ export const Layout: React.FC<LayoutProps> = ({
                   <p className="text-sm font-bold text-zinc-900 dark:text-white truncate group-hover:text-primary transition-colors">
                     {currentUser.name}
                   </p>
-                  {currentUserRoles.length > 0 ? (
+                  {currentMemberRoles.length > 0 ? (
                     <div className="flex flex-wrap items-center gap-0.5 mt-0.5">
-                      {currentUserRoles
+                      {currentMemberRoles
                         .slice(0, MAX_VISIBLE_SIDEBAR_ROLES)
-                        .map((r: string) => (
+                        .map((role) => (
                           <span
-                            key={r}
-                            className="text-[9px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-tighter border border-zinc-200 dark:border-zinc-700 px-1 rounded bg-zinc-50/50 dark:bg-white/5"
+                            key={role.id}
+                            className={`text-[9px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-tighter border border-zinc-200 dark:border-zinc-700 px-1 rounded bg-zinc-50/50 dark:bg-white/5 ${
+                              role.isActive === false ? "opacity-60 line-through" : ""
+                            }`}
+                            title={
+                              role.isActive === false
+                                ? `${role.name} (inactive)`
+                                : role.name
+                            }
                           >
-                            {r}
+                            {role.name}
                           </span>
                         ))}
-                      {currentUserRoles.length > MAX_VISIBLE_SIDEBAR_ROLES && (
+                      {currentMemberRoles.length > MAX_VISIBLE_SIDEBAR_ROLES && (
                         <span
                           className="text-[9px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-tighter border border-zinc-200 dark:border-zinc-700 px-1 rounded bg-zinc-50/50 dark:bg-white/5"
-                          title={currentUserRoles
+                          title={currentMemberRoles
                             .slice(MAX_VISIBLE_SIDEBAR_ROLES)
+                            .map((r) =>
+                              r.isActive === false ? `${r.name} (inactive)` : r.name,
+                            )
                             .join(", ")}
                         >
-                          +{currentUserRoles.length - MAX_VISIBLE_SIDEBAR_ROLES} more
+                          +{currentMemberRoles.length - MAX_VISIBLE_SIDEBAR_ROLES} more
                         </span>
                       )}
                     </div>

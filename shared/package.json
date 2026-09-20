@@ -1,0 +1,20 @@
+{
+  "name": "@taskunity/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./defaultRoleCodes.js": {
+      "types": "./dist/defaultRoleCodes.d.ts",
+      "default": "./dist/defaultRoleCodes.js"
+    },
+    "./memberRoleView.js": {
+      "types": "./dist/memberRoleView.d.ts",
+      "default": "./dist/memberRoleView.js"
+    },
+    "./index.js": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  }
+}

@@ -4,102 +4,71 @@ import { Strategy as LocalStrategy } from "passport-local";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { Strategy as OpenIDConnectStrategy, Profile as OpenIDConnectProfile, VerifyCallback as OpenIDConnectVerifyCallback } from "passport-openidconnect";
 import bcrypt from "bcryptjs";
-import User, { UserRole, OrgMemberKind } from "../models/User.js";
-import { normalizeUserRole } from "../models/UserRole.js";
+import User from "../models/User.js";
 import Role from "../models/Role.js";
 import { fetchOIDCConfiguration } from "./oidcDiscovery.js";
 import { oidcStateStore } from "./oidcStateStore.js";
 import jwt from "jsonwebtoken";
-import { extractRoles, mapAdfsRolesToUserRoles, extractGroups, mapAdfsGroupsToGroupIds } from "./adfsClaims.js";
+import {
+  extractRoles,
+  mapAdfsRolesToRoleIds,
+  type DbRoleOidcMappingRow,
+  extractGroups,
+  mapAdfsGroupsToGroupIds,
+} from "./adfsClaims.js";
 import Group from "../models/Group.js";
 import { findAlSiraatOrganisation } from "../utils/alSiraatOrg.js";
+import { DefaultRoleCode } from "@taskunity/shared/defaultRoleCodes.js";
+import { catalogReadFilter } from "../utils/orgScopedCatalogRead.js";
+import {
+  resolveRoleCodeToIdFromCatalog,
+  type RoleCatalogDocument,
+} from "../services/orgMemberRoleResolver.js";
+import { applySsoOrganisationMembership } from "../services/ssoOrganisationMembership.js";
 
-type SsoUserLike = {
-  isSuperAdmin?: boolean;
-  organisations?: mongoose.Types.ObjectId[];
-  organisationRoles?: Array<{
-    organisation: mongoose.Types.ObjectId;
-    roles: UserRole[];
-    memberKind?: OrgMemberKind;
-  }>;
-};
-
-/** Active system + org-scoped roles assignable in the given organisation. */
-async function getOrganisationAssignableRoles(
-  orgId: mongoose.Types.ObjectId,
-): Promise<UserRole[]> {
-  const roles = await Role.find({
-    isActive: true,
-    $or: [
-      { organisation: orgId },
-      { organisation: null },
-      { organisation: { $exists: false } },
-    ],
-  })
-    .select("name")
-    .lean();
-
-  const assignable = new Set<UserRole>();
-  for (const role of roles) {
-    const normalized = normalizeUserRole(role.name);
-    if (Object.values(UserRole).includes(normalized as UserRole)) {
-      assignable.add(normalized as UserRole);
-    }
-  }
-  return Array.from(assignable);
+function toRoleCatalogDocument(doc: {
+  _id: unknown;
+  code: string;
+  name: string;
+  permissions?: string[];
+  isActive: boolean;
+  organisation?: mongoose.Types.ObjectId | null;
+}): RoleCatalogDocument {
+  return {
+    _id: doc._id as mongoose.Types.ObjectId,
+    code: doc.code,
+    name: doc.name,
+    permissions: doc.permissions ?? [],
+    isActive: doc.isActive,
+    organisation: doc.organisation ?? null,
+  };
 }
 
-/** On every SSO login, sync Al Siraat membership and org-scoped roles from IdP claims. */
-function applySsoOrganisationMembership(
-  user: SsoUserLike,
-  defaultOrg: { _id: mongoose.Types.ObjectId } | null,
-  mappedRoles: UserRole[],
-  options: {
-    grantSuperAdmin: boolean;
-    isExistingUser: boolean;
-    allOrgRoles: UserRole[];
-  },
-): void {
-  if (!defaultOrg) return;
+type OrgRoleCatalogLoad = {
+  catalog: RoleCatalogDocument[];
+  oidcMappingRows: DbRoleOidcMappingRow[];
+};
 
-  const defaultOrgId = defaultOrg._id;
-  const defaultOrgIdStr = defaultOrgId.toString();
-
-  const otherOrgs = (user.organisations ?? []).filter(
-    (id) => id.toString() !== defaultOrgIdStr,
-  );
-  user.organisations = [defaultOrgId, ...otherOrgs];
-
-  const orgRoles = [...(user.organisationRoles ?? [])];
-  const orgRoleIndex = orgRoles.findIndex(
-    (entry) => entry.organisation?.toString() === defaultOrgIdStr,
-  );
-  const existingEntry = orgRoleIndex > -1 ? orgRoles[orgRoleIndex] : undefined;
-
-  const isSuperAdmin = !!(user.isSuperAdmin || options.grantSuperAdmin);
-  const roles =
-    options.isExistingUser && isSuperAdmin && options.allOrgRoles.length > 0
-      ? options.allOrgRoles
-      : mappedRoles.length > 0
-        ? mappedRoles
-        : existingEntry?.roles?.length
-          ? existingEntry.roles
-          : [UserRole.APPLICANT];
-
-  if (existingEntry) {
-    orgRoles[orgRoleIndex] = {
-      organisation: existingEntry.organisation,
-      roles,
-      memberKind: existingEntry.memberKind ?? OrgMemberKind.INTERNAL,
-    };
-  } else {
-    orgRoles.push({
-      organisation: defaultOrgId,
-      roles,
-      memberKind: OrgMemberKind.INTERNAL,
-    });
-  }
-  user.organisationRoles = orgRoles;
+async function loadOrgRoleCatalog(
+  orgId: mongoose.Types.ObjectId,
+): Promise<OrgRoleCatalogLoad> {
+  const docs = await Role.find({
+    isActive: true,
+    ...catalogReadFilter(orgId.toString()),
+  })
+    .select("_id code name permissions isActive organisation oidcMapping")
+    .lean();
+  return {
+    catalog: docs.map((doc) => toRoleCatalogDocument(doc as any)),
+    oidcMappingRows: docs.map((doc) => {
+      const row: DbRoleOidcMappingRow = {
+        _id: (doc as { _id: unknown })._id,
+      };
+      const mapping = (doc as { oidcMapping?: string[] }).oidcMapping;
+      if (mapping?.length) row.oidcMapping = mapping;
+      return row;
+    }),
+  };
 }
 
 // Local Strategy
@@ -148,6 +117,17 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
             return done(new Error("No email found in Google profile"));
           }
           const defaultOrg = await findAlSiraatOrganisation();
+          const { catalog } = defaultOrg
+            ? await loadOrgRoleCatalog(defaultOrg._id as mongoose.Types.ObjectId)
+            : { catalog: [] as RoleCatalogDocument[] };
+          const defaultApplicantRoleId =
+            defaultOrg && catalog.length > 0
+              ? resolveRoleCodeToIdFromCatalog(
+                  catalog,
+                  DefaultRoleCode.APPLICANT,
+                  defaultOrg._id.toString(),
+                )
+              : null;
 
           let user = await User.findOne({ googleId: profile.id });
           if (!user) {
@@ -155,9 +135,12 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
             const existingUser = await User.findOne({ email });
             if (existingUser) {
               existingUser.googleId = profile.id;
-              if ((existingUser.organisations?.length ?? 0) === 0 && defaultOrg) {
-                existingUser.organisations = [defaultOrg._id as mongoose.Types.ObjectId];
-              }
+              applySsoOrganisationMembership(
+                existingUser,
+                defaultOrg as { _id: mongoose.Types.ObjectId } | null,
+                [],
+                { defaultApplicantRoleId },
+              );
               await existingUser.save();
               user = existingUser;
             } else {
@@ -166,22 +149,22 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
                 email,
                 googleId: profile.id,
                 avatar: profile.photos?.[0]?.value ?? "",
-                ...(defaultOrg ? { organisations: [defaultOrg._id] } : {}),
-                ...(defaultOrg
-                  ? {
-                      organisationRoles: [
-                        {
-                          organisation: defaultOrg._id,
-                          roles: [UserRole.APPLICANT],
-                          memberKind: OrgMemberKind.INTERNAL,
-                        },
-                      ],
-                    }
-                  : {}),
               });
+              applySsoOrganisationMembership(
+                user,
+                defaultOrg as { _id: mongoose.Types.ObjectId } | null,
+                defaultApplicantRoleId ? [defaultApplicantRoleId] : [],
+                { defaultApplicantRoleId },
+              );
+              await user.save();
             }
           } else if ((user.organisations?.length ?? 0) === 0 && defaultOrg) {
-            user.organisations = [defaultOrg._id as mongoose.Types.ObjectId];
+            applySsoOrganisationMembership(
+              user,
+              defaultOrg as { _id: mongoose.Types.ObjectId } | null,
+              [],
+              { defaultApplicantRoleId },
+            );
             await user.save();
           }
           return done(null, user as Express.User);
@@ -243,15 +226,26 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                 accessToken,
                 profile as unknown as Record<string, unknown>,
               );
-              const [dbRoles, dbGroups, defaultOrg] = await Promise.all([
-                Role.find({ isActive: true }).select("name oidcMapping").lean(),
-                Group.find({ isActive: true }).select("name oidcMapping").lean(),
+              const [defaultOrg, dbGroups] = await Promise.all([
                 findAlSiraatOrganisation(),
+                Group.find({ isActive: true }).select("name oidcMapping").lean(),
               ]);
-              const allOrgRoles = defaultOrg
-                ? await getOrganisationAssignableRoles(defaultOrg._id)
-                : [];
-              const mappedRoles = mapAdfsRolesToUserRoles(adfsRoles, dbRoles);
+              const { catalog, oidcMappingRows: dbRoles } = defaultOrg
+                ? await loadOrgRoleCatalog(defaultOrg._id)
+                : { catalog: [] as RoleCatalogDocument[], oidcMappingRows: [] };
+              const orgIdStr = defaultOrg?._id?.toString() ?? "";
+              const mappedRoleIds = mapAdfsRolesToRoleIds(adfsRoles, dbRoles, {
+                organisationId: orgIdStr,
+                catalog,
+              });
+              const defaultApplicantRoleId =
+                defaultOrg && catalog.length > 0
+                  ? resolveRoleCodeToIdFromCatalog(
+                      catalog,
+                      DefaultRoleCode.APPLICANT,
+                      orgIdStr,
+                    )
+                  : null;
               const mappedGroupIds = mapAdfsGroupsToGroupIds(adfsGroups, dbGroups as Array<{ _id: unknown; name: string; oidcMapping?: string[] }>);
               const superAdminClaims =
                 process.env.OIDC_SUPERADMIN_MAPPING?.split(",")
@@ -280,10 +274,8 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                   user.email = email;
                 }
 
-                applySsoOrganisationMembership(user, defaultOrg, mappedRoles, {
-                  grantSuperAdmin,
-                  isExistingUser: true,
-                  allOrgRoles,
+                applySsoOrganisationMembership(user, defaultOrg, mappedRoleIds, {
+                  defaultApplicantRoleId,
                 });
 
                 if (grantSuperAdmin && !user.isSuperAdmin) {
@@ -302,11 +294,9 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                   applySsoOrganisationMembership(
                     existingUser,
                     defaultOrg,
-                    mappedRoles,
+                    mappedRoleIds,
                     {
-                      grantSuperAdmin,
-                      isExistingUser: true,
-                      allOrgRoles,
+                      defaultApplicantRoleId,
                     },
                   );
 
@@ -328,10 +318,8 @@ if (process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID) {
                     oidcId: profile.id,
                     isSuperAdmin: grantSuperAdmin,
                   });
-                  applySsoOrganisationMembership(user, defaultOrg, mappedRoles, {
-                    grantSuperAdmin,
-                    isExistingUser: false,
-                    allOrgRoles,
+                  applySsoOrganisationMembership(user, defaultOrg, mappedRoleIds, {
+                    defaultApplicantRoleId,
                   });
                   await user.save();
                 }

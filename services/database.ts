@@ -1,7 +1,6 @@
 import {
   Job,
   User,
-  UserRole,
   OrgMemberKind,
   Application,
   ApplicantProfile,
@@ -127,7 +126,16 @@ const mapTaskToJob = (task: any): Job => {
       typeof task.organisation.name === "string"
         ? task.organisation.name
         : undefined,
-    allowedGroups: task.allowedGroups || [],
+    allowedGroups: (task.allowedGroups || []).map((g: unknown) =>
+      typeof g === "object" && g != null && (g as { _id?: unknown })._id != null
+        ? String((g as { _id: unknown })._id)
+        : String(g),
+    ),
+    allowedRoles: (task.allowedRoles || []).map((r: unknown) =>
+      typeof r === "object" && r != null && (r as { _id?: unknown })._id != null
+        ? String((r as { _id: unknown })._id)
+        : String(r),
+    ),
   };
 };
 
@@ -349,11 +357,35 @@ class DatabaseService {
     }
   }
 
-  async updateCurrentUserRole(role: UserRole): Promise<User> {
+  /**
+   * DEV-ONLY: local role switcher (no API). Updates session `roles` and hydrates
+   * `organisationRoles[].roles` for the active organisation so permission hooks stay consistent.
+   */
+  async updateCurrentUserRole(roleCode: string): Promise<User> {
     const user = await this.getCurrentUser();
     if (!user) throw new Error("No user found");
-    // For now, local switch for demo/admin purposes
-    user.roles = [role];
+    user.roles = [roleCode];
+
+    const activeOrgId = extractOrgId(user.activeOrganisation ?? user.organisation);
+    if (activeOrgId && Array.isArray(user.organisationRoles)) {
+      const index = user.organisationRoles.findIndex(
+        (entry) => extractOrgId(entry.organisation) === activeOrgId,
+      );
+      if (index >= 0) {
+        const entry = user.organisationRoles[index];
+        user.organisationRoles[index] = {
+          ...entry,
+          roles: [
+            {
+              id: `dev-${roleCode}`,
+              code: roleCode,
+              name: roleCode,
+            },
+          ],
+        };
+      }
+    }
+
     localStorage.setItem("user_data", JSON.stringify(user));
     return user;
   }
@@ -368,8 +400,11 @@ class DatabaseService {
     return response.user;
   }
 
-  async inviteUser(email: string): Promise<{ message: string }> {
-    return await api.inviteUser(email);
+  async inviteUser(
+    email: string,
+    options?: { roleId?: string; memberKind?: "Internal" | "External" },
+  ): Promise<{ message: string }> {
+    return await api.inviteUser(email, options);
   }
 
   async getInvitationDetails(
@@ -689,10 +724,14 @@ class DatabaseService {
     }
   }
 
-  async getUsers(search?: string, role?: string): Promise<any[]> {
+  async getUsers(
+    search?: string,
+    roleFilter?: { roleId?: string; roleCode?: string },
+  ): Promise<any[]> {
     const params = new URLSearchParams();
     if (search) params.append("search", search);
-    if (role) params.append("role", role);
+    if (roleFilter?.roleId) params.append("roleId", roleFilter.roleId);
+    if (roleFilter?.roleCode) params.append("roleCode", roleFilter.roleCode);
     params.append("limit", "9999"); // legacy: fetch all for non-paginated callers
     const data: any = await api.get(`/users?${params.toString()}`);
     // Handle both old (array) and new (paginated object) response shapes
@@ -701,7 +740,7 @@ class DatabaseService {
 
   async getUsersPaged(
     search?: string,
-    role?: string,
+    roleFilter?: { roleId?: string; roleCode?: string },
     page = 1,
     limit = 20,
   ): Promise<{
@@ -710,7 +749,8 @@ class DatabaseService {
   }> {
     const params = new URLSearchParams();
     if (search) params.append("search", search);
-    if (role) params.append("role", role);
+    if (roleFilter?.roleId) params.append("roleId", roleFilter.roleId);
+    if (roleFilter?.roleCode) params.append("roleCode", roleFilter.roleCode);
     params.append("page", String(page));
     params.append("limit", String(limit));
     const data: any = await api.get(`/users?${params.toString()}`);
@@ -750,7 +790,8 @@ class DatabaseService {
       organisations?: string[];
       organisationRoles?: {
         organisation: string;
-        roles: string[];
+        roleIds?: string[];
+        roles?: import("@/shared/memberRoleView").MemberRoleView[];
         memberKind?: OrgMemberKind;
       }[];
     },

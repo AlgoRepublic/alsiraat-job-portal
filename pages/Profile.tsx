@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { User, Skill, ApplicantProfile, UserRole, Application } from "../types";
+import { User, Skill, ApplicantProfile, Application } from "../types";
 import {
   Camera,
   Upload,
@@ -22,7 +22,7 @@ import { UserAvatar } from "../components/UserAvatar";
 import { db } from "../services/database";
 import { api } from "../services/api";
 import { CustomDropdown } from "../components/CustomUI";
-import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
+import { getMemberRolesForActiveOrg } from "../utils/orgScopedRoles";
 
 interface ProfileProps {
   user: User;
@@ -187,7 +187,7 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
   };
 
   const [isUploadingResume, setIsUploadingResume] = useState(false);
-  const profileRoles = getUserRolesForActiveOrg(profile as any);
+  const profileMemberRoles = getMemberRolesForActiveOrg(profile);
 
   const handleResumeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -343,20 +343,37 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
                 </span>
               )}
               <div className="flex flex-wrap gap-2">
-                {profileRoles.length > 0 ? (
-                  profileRoles.map((r: string) => (
+                {profileMemberRoles.length > 0 ? (
+                  profileMemberRoles.map((role) => (
                     <span
-                      key={r}
-                      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary"
+                      key={role.id}
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary ${
+                        role.isActive === false ? "opacity-60 line-through" : ""
+                      }`}
+                      title={
+                        role.isActive === false
+                          ? `${role.name} (inactive)`
+                          : role.name
+                      }
                     >
-                      {r}
+                      {role.name}
+                      {role.isActive === false ? (
+                        <span className="ml-1 text-[10px] font-semibold normal-case tracking-normal opacity-80">
+                          inactive
+                        </span>
+                      ) : null}
                     </span>
                   ))
-                ) : (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary">
-                    {profile.role}
-                  </span>
-                )}
+                ) : profile.roles?.length ? (
+                  profile.roles.map((code) => (
+                    <span
+                      key={code}
+                      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary"
+                    >
+                      {code}
+                    </span>
+                  ))
+                ) : null}
               </div>
             </div>
           </div>

@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document } from "mongoose";
 
-import { UserRole, normalizeUserRole } from "./UserRole.js";
+import { UserRole } from "./UserRole.js";
 export { UserRole };
 
 /** Whether the user is an internal or external member for a given organisation. */
@@ -41,7 +41,10 @@ export interface IExperience {
 
 export interface IOrganisationRole {
   organisation: mongoose.Types.ObjectId;
-  roles: UserRole[];
+  /** Legacy display strings; removed after migrateMemberRolesToRoleIds. */
+  roles?: UserRole[];
+  /** Role document ids for this Organisation (post-migration source of truth). */
+  roleIds?: mongoose.Types.ObjectId[];
   /** Internal = staff/student body; External = partner or non-staff access for that org. */
   memberKind?: OrgMemberKind;
 }
@@ -120,9 +123,9 @@ const UserSchema: Schema = new Schema(
           {
             type: String,
             enum: Object.values(UserRole),
-            set: normalizeUserRole,
           },
         ],
+        roleIds: [{ type: Schema.Types.ObjectId, ref: "Role" }],
         memberKind: {
           type: String,
           enum: Object.values(OrgMemberKind),

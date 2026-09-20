@@ -6,7 +6,10 @@
  * to check authorization.
  */
 
-import { UserRole } from "../models/UserRole.js";
+import {
+  DefaultRoleCode,
+  type DefaultRoleCode as DefaultRoleCodeType,
+} from "@taskunity/shared/defaultRoleCodes.js";
 
 // ============================================================================
 // PERMISSION DEFINITIONS
@@ -75,8 +78,9 @@ export type Permission = (typeof Permission)[keyof typeof Permission];
 // Define which permissions each role has
 // ============================================================================
 
-export const RolePermissions: Record<UserRole, Permission[]> = {
-  [UserRole.ORGANIZATION_ADMIN]: [
+/** Default permission matrix for seeded Roles (keyed by Role code, not display name). */
+export const RolePermissions: Record<DefaultRoleCodeType, Permission[]> = {
+  [DefaultRoleCode.ORGANIZATION_ADMIN]: [
     // Task Management - Full control within scope
     Permission.TASK_CREATE,
     Permission.TASK_READ,
@@ -120,7 +124,7 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.ADMIN_SETTINGS,
   ],
 
-  [UserRole.TASK_MANAGER]: [
+  [DefaultRoleCode.TASK_MANAGER]: [
     // Reviews tasks
     Permission.TASK_READ,
     Permission.TASK_APPROVE,
@@ -137,7 +141,7 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.DASHBOARD_VIEW,
   ],
 
-  [UserRole.TASK_ADVERTISER]: [
+  [DefaultRoleCode.TASK_ADVERTISER]: [
     // Create/Edit/Submit
     Permission.TASK_CREATE,
     Permission.TASK_READ,
@@ -149,7 +153,7 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.APPLICATION_ASSIGN_DIRECT, // Can assign to applicants for their own tasks
   ],
 
-  [UserRole.APPLICANT]: [
+  [DefaultRoleCode.APPLICANT]: [
     // Browse/Apply
     Permission.TASK_READ,
     Permission.APPLICATION_CREATE,
@@ -164,122 +168,107 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
 // ============================================================================
 
 /**
- * Check if a role has a specific permission (STATIC - uses hardcoded mapping)
- * @deprecated Use hasPermissionAsync for database-driven permissions
+ * Static fallback when Role documents are unavailable (tests, seed scripts).
  */
-export function hasPermission(role: UserRole, permission: Permission): boolean {
-  const permissions = RolePermissions[role];
+export function hasPermissionForRoleCode(
+  roleCode: string | undefined,
+  permission: Permission,
+): boolean {
+  if (!roleCode) return false;
+  const permissions =
+    RolePermissions[roleCode as DefaultRoleCodeType] ?? undefined;
   if (!permissions) return false;
   return permissions.includes(permission);
 }
 
+/** @deprecated Use hasPermissionForRoleCode */
+export const hasPermission = hasPermissionForRoleCode;
+
 /**
- * Check if a role has a specific permission (DYNAMIC - uses database)
- * This is the preferred method for production use
+ * Check if a role code has a specific permission (DYNAMIC - uses database)
  */
 export async function hasPermissionAsync(
-  role: UserRole,
+  roleCode: string,
   permission: Permission,
 ): Promise<boolean> {
   try {
-    // Import Role model dynamically to avoid circular dependencies
     const { default: Role } = await import("../models/Role.js");
 
-    // Map UserRole enum to role code (e.g., "Organisation Admin" -> "organization_admin")
-    // Use BOTH name (exact match) and code (with underscores) for maximum compatibility
-    const roleCode = role.toLowerCase().replace(/ /g, "_");
-
+    const normalized = roleCode.trim().toLowerCase();
     const roleDoc = await Role.findOne({
-      $or: [{ name: role }, { code: roleCode }, { code: role.toLowerCase() }],
+      code: normalized,
       isActive: true,
     });
 
     if (!roleDoc) {
-      // Fallback to static permissions if role not found in database
       console.warn(
-        `Role "${role}" (code: ${roleCode}) not found in database, using static permissions`,
+        `Role code "${roleCode}" not found in database, using static permissions`,
       );
-      return hasPermission(role, permission);
+      return hasPermissionForRoleCode(normalized, permission);
     }
 
     return roleDoc.permissions.includes(permission);
   } catch (error) {
     console.error("Error checking permission from database:", error);
-    // Fallback to static permissions on error
-    return hasPermission(role, permission);
+    return hasPermissionForRoleCode(roleCode, permission);
   }
 }
 
 /**
- * Check if any of the roles have a specific permission (DYNAMIC - uses database)
+ * Check if any of the role codes have a specific permission (DYNAMIC - uses database)
  */
 export async function hasPermissionMultiAsync(
-  roles: UserRole[],
+  roleCodes: string[],
   permission: Permission,
 ): Promise<boolean> {
-  for (const role of roles) {
-    if (await hasPermissionAsync(role, permission)) {
+  for (const code of roleCodes) {
+    if (await hasPermissionAsync(code, permission)) {
       return true;
     }
   }
   return false;
 }
 
-/**
- * Check if a role has ALL of the specified permissions
- */
-export function hasAllPermissions(
-  role: UserRole,
+export function hasAllPermissionsForRoleCode(
+  roleCode: string,
   permissions: Permission[],
 ): boolean {
-  return permissions.every((p) => hasPermission(role, p));
+  return permissions.every((p) => hasPermissionForRoleCode(roleCode, p));
 }
 
-/**
- * Check if a role has ANY of the specified permissions
- */
-export function hasAnyPermission(
-  role: UserRole,
+export function hasAnyPermissionForRoleCode(
+  roleCode: string,
   permissions: Permission[],
 ): boolean {
-  return permissions.some((p) => hasPermission(role, p));
+  return permissions.some((p) => hasPermissionForRoleCode(roleCode, p));
 }
 
-/**
- * Check if a role has ANY of the specified permissions (DYNAMIC - uses database)
- */
 export async function hasAnyPermissionAsync(
-  role: UserRole,
+  roleCode: string,
   permissions: Permission[],
 ): Promise<boolean> {
   for (const permission of permissions) {
-    if (await hasPermissionAsync(role, permission)) {
+    if (await hasPermissionAsync(roleCode, permission)) {
       return true;
     }
   }
   return false;
 }
 
-/**
- * Check if any of the roles have any of the specified permissions (DYNAMIC - uses database)
- */
 export async function hasAnyPermissionMultiAsync(
-  roles: UserRole[],
+  roleCodes: string[],
   permissions: Permission[],
 ): Promise<boolean> {
-  for (const role of roles) {
-    if (await hasAnyPermissionAsync(role, permissions)) {
+  for (const code of roleCodes) {
+    if (await hasAnyPermissionAsync(code, permissions)) {
       return true;
     }
   }
   return false;
 }
 
-/**
- * Get all permissions for a role
- */
-export function getPermissionsForRole(role: UserRole): Permission[] {
-  return RolePermissions[role] || [];
+export function getPermissionsForRoleCode(roleCode: DefaultRoleCodeType): Permission[] {
+  return RolePermissions[roleCode] || [];
 }
 
 // ============================================================================
@@ -301,12 +290,11 @@ export interface PermissionContext {
  * @deprecated Use canWithContextAsync for database-driven permissions
  */
 export function canWithContext(
-  role: UserRole,
+  roleCode: string,
   permission: Permission,
   context: PermissionContext,
 ): boolean {
-  // First check static permission
-  if (hasPermission(role, permission)) {
+  if (hasPermissionForRoleCode(roleCode, permission)) {
     // For org-scoped permissions, verify same organization
     if (context.organizationId && context.userOrganizationId) {
       if (context.organizationId !== context.userOrganizationId) {
@@ -318,7 +306,7 @@ export function canWithContext(
   }
 
   // Special case: Advertiser users can manage their own task's applications
-  if (role === UserRole.TASK_ADVERTISER) {
+  if (roleCode === DefaultRoleCode.TASK_ADVERTISER) {
     const applicationPermissions = [
       Permission.APPLICATION_READ,
       Permission.APPLICATION_SHORTLIST,
@@ -327,7 +315,6 @@ export function canWithContext(
     ];
 
     if ((applicationPermissions as Permission[]).includes(permission)) {
-      // Check if user owns the task
       if (context.taskCreatorId && context.userId === context.taskCreatorId) {
         return true;
       }
@@ -337,21 +324,12 @@ export function canWithContext(
   return false;
 }
 
-/**
- * Check permission with context (DYNAMIC - uses database)
- * This allows users to manage their own tasks' applications
- */
-/**
- * Check permission with context (DYNAMIC - uses database)
- * This allows users to manage their own tasks' applications
- */
 export async function canWithContextAsync(
-  role: UserRole,
+  roleCode: string,
   permission: Permission,
   context: PermissionContext,
 ): Promise<boolean> {
-  // First check database permission
-  if (await hasPermissionAsync(role, permission)) {
+  if (await hasPermissionAsync(roleCode, permission)) {
     // For org-scoped permissions, verify same organization
     if (context.organizationId && context.userOrganizationId) {
       if (context.organizationId !== context.userOrganizationId) {
@@ -363,7 +341,7 @@ export async function canWithContextAsync(
   }
 
   // Special case: Advertiser users can manage their own task's applications
-  if (role === UserRole.TASK_ADVERTISER) {
+  if (roleCode === DefaultRoleCode.TASK_ADVERTISER) {
     const applicationPermissions = [
       Permission.APPLICATION_READ,
       Permission.APPLICATION_SHORTLIST,
@@ -372,7 +350,6 @@ export async function canWithContextAsync(
     ];
 
     if ((applicationPermissions as Permission[]).includes(permission)) {
-      // Check if user owns the task
       if (context.taskCreatorId && context.userId === context.taskCreatorId) {
         return true;
       }
@@ -382,53 +359,39 @@ export async function canWithContextAsync(
   return false;
 }
 
-/**
- * Check permission with context across multiple roles (DYNAMIC - uses database)
- */
 export async function canWithContextMultiAsync(
-  roles: UserRole[],
+  roleCodes: string[],
   permission: Permission,
   context: PermissionContext,
 ): Promise<boolean> {
-  for (const role of roles) {
-    if (await canWithContextAsync(role, permission, context)) {
+  for (const code of roleCodes) {
+    if (await canWithContextAsync(code, permission, context)) {
       return true;
     }
   }
   return false;
 }
 
-/**
- * Determines if a role's tasks are auto-published (STATIC)
- * @deprecated Use canAutoPublishAsync for database-driven check
- */
-export function canAutoPublish(role: UserRole): boolean {
-  const autoPublishRoles = [
-    UserRole.ORGANIZATION_ADMIN,
-    UserRole.TASK_MANAGER,
-  ];
-  return (autoPublishRoles as UserRole[]).includes(role);
+export function canAutoPublish(roleCode: string): boolean {
+  return hasPermissionForRoleCode(roleCode, Permission.TASK_AUTO_PUBLISH);
 }
 
-/**
- * Determines if a role's tasks are auto-published (DYNAMIC)
- */
-export async function canAutoPublishAsync(role: UserRole): Promise<boolean> {
-  return hasPermissionAsync(role, Permission.TASK_AUTO_PUBLISH);
+export async function canAutoPublishAsync(roleCode: string): Promise<boolean> {
+  return hasPermissionAsync(roleCode, Permission.TASK_AUTO_PUBLISH);
 }
 
 // ============================================================================
 // VISIBILITY HELPERS
 // ============================================================================
 
-export function canViewDashboard(role: UserRole): boolean {
-  return hasPermission(role, Permission.DASHBOARD_VIEW);
+export function canViewDashboard(roleCode: string): boolean {
+  return hasPermissionForRoleCode(roleCode, Permission.DASHBOARD_VIEW);
 }
 
-export function canViewApplicants(role: UserRole): boolean {
-  return hasPermission(role, Permission.APPLICATION_READ);
+export function canViewApplicants(roleCode: string): boolean {
+  return hasPermissionForRoleCode(roleCode, Permission.APPLICATION_READ);
 }
 
-export function canApplyForTasks(role: UserRole): boolean {
-  return hasPermission(role, Permission.APPLICATION_CREATE);
+export function canApplyForTasks(roleCode: string): boolean {
+  return hasPermissionForRoleCode(roleCode, Permission.APPLICATION_CREATE);
 }

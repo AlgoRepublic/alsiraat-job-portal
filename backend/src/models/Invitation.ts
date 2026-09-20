@@ -3,7 +3,9 @@ import mongoose, { Schema, Document } from "mongoose";
 export interface IInvitation extends Document {
   email: string;
   organisation: mongoose.Types.ObjectId;
-  role: string;
+  /** Legacy display string; cleared after migrateMemberRolesToRoleIds. */
+  role?: string;
+  roleId?: mongoose.Types.ObjectId;
   /** When the invite is accepted, the user is linked with this org member kind. */
   memberKind?: "Internal" | "External";
   token: string;
@@ -22,7 +24,14 @@ const InvitationSchema: Schema = new Schema(
       ref: "Organization",
       required: true,
     },
-    role: { type: String, default: "Applicant" },
+    role: { type: String },
+    roleId: {
+      type: Schema.Types.ObjectId,
+      ref: "Role",
+      required: function requiredRoleIdWithoutLegacy(this: IInvitation) {
+        return !this.role;
+      },
+    },
     memberKind: {
       type: String,
       enum: ["Internal", "External"],

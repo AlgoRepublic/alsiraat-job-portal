@@ -9,12 +9,12 @@ import {
   UserCheck,
 } from "lucide-react";
 import { db } from "../services/database";
-import { Job, JobStatus, User, UserRole } from "../types";
+import { Job, JobStatus, User } from "../types";
 import { Loading } from "../components/Loading";
 import { AssignTaskModal } from "../components/AssignTaskModal";
-import { hasAnyPermission, Permission } from "../services/permissions";
+import { hasAnyPermissionForRoleCodes, Permission } from "../services/permissions";
 import { Pagination } from "../components/Pagination";
-import { getActiveOrgIdFromStorage, getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
+import { getActiveOrgIdFromStorage, getUserRoleCodesForActiveOrg } from "../utils/orgScopedRoles";
 import { organisationIdToString } from "../utils/organisationId";
 import { canEditTask } from "../utils/taskDetailPresentation";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
@@ -89,15 +89,13 @@ export const MyAds: React.FC = () => {
   };
 
   // ── Permission check ──────────────────────────────────────────────────────
-  const activeRoles = getUserRolesForActiveOrg(currentUser);
+  const activeRoleCodes = getUserRoleCodesForActiveOrg(currentUser);
   const canAssign =
     !!currentUser?.isSuperAdmin ||
-    activeRoles.some((r: string) =>
-      hasAnyPermission(
-        r as UserRole,
-        [Permission.APPLICATION_ASSIGN_DIRECT, Permission.TASK_ASSIGN],
-        { isSuperAdmin: currentUser?.isSuperAdmin },
-      ),
+    hasAnyPermissionForRoleCodes(
+      activeRoleCodes,
+      [Permission.APPLICATION_ASSIGN_DIRECT, Permission.TASK_ASSIGN],
+      { isSuperAdmin: currentUser?.isSuperAdmin },
     );
 
   // ── Helpers ───────────────────────────────────────────────────────────────

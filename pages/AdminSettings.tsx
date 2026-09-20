@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 import { Loading } from "../components/Loading";
 import { useNavigate } from "react-router-dom";
-import { UserRole } from "../types";
 import { useToast } from "../components/Toast";
 import { API_BASE_URL } from "../services/api";
 import { GroupManagement } from "./GroupManagement";

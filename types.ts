@@ -1,10 +1,11 @@
-export const UserRole = {
-  ORGANIZATION_ADMIN: "Organisation Admin",
-  TASK_MANAGER: "Task Manager",
-  TASK_ADVERTISER: "Task Advertiser",
-  APPLICANT: "Applicant",
-} as const;
-export type UserRole = (typeof UserRole)[keyof typeof UserRole];
+import type { MemberRoleView } from "@/shared/memberRoleView";
+import type { DefaultRoleCode as DefaultRoleCodeType } from "@/shared/defaultRoleCodes";
+
+export type { MemberRoleView } from "@/shared/memberRoleView";
+export {
+  DefaultRoleCode,
+  type DefaultRoleCode as DefaultRoleCodeType,
+} from "@/shared/defaultRoleCodes";
 
 export const JobStatus = {
   DRAFT: "Draft",
@@ -143,12 +144,24 @@ export interface OrgContext {
   isAlSiraatOrg?: boolean;
 }
 
+/** Per-organisation membership row (API/session). */
+export interface OrganisationRoleEntry {
+  organisation: OrgContext | string;
+  /** Stored on write (admin APIs); not hydrated on read payloads. */
+  roleIds?: string[];
+  /** Hydrated member roles for the organisation (id, code, name). */
+  roles?: MemberRoleView[];
+  memberKind?: OrgMemberKind;
+}
+
 export interface User {
   id: string;
   name: string;
   firstName?: string;
   lastName?: string;
-  roles: UserRole[];
+  /** Role codes for the active organisation (from auth/session), including custom roles. */
+  roles: string[];
+  organisationRoles?: OrganisationRoleEntry[];
   /** Platform super-admin; when true, organisations / organisationRoles from API may be virtual. */
   isSuperAdmin?: boolean;
   avatar: string;

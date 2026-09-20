@@ -3,12 +3,10 @@ import dotenv from "dotenv";
 
 import Organization from "../models/Organization.js";
 import User, { OrgMemberKind } from "../models/User.js";
-import { UserRole } from "../models/UserRole.js";
 
 dotenv.config();
 
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/tasker";
-const ALL_ROLES = Object.values(UserRole);
 
 async function main() {
   await mongoose.connect(MONGODB_URI);
@@ -46,7 +44,7 @@ async function main() {
       const existing = existingOrgRoleMap.get(orgId);
       return {
         organisation: new mongoose.Types.ObjectId(orgId),
-        roles: [...ALL_ROLES],
+        roleIds: [],
         memberKind: existing?.memberKind ?? OrgMemberKind.INTERNAL,
       };
     });
@@ -62,20 +60,23 @@ async function main() {
     const hadDifferentRoleCount =
       (user.organisationRoles?.length ?? 0) !== nextOrganisationRoles.length;
 
-    let rolesDiffer = hadDifferentRoleCount;
-    if (!rolesDiffer) {
-      rolesDiffer = nextOrganisationRoles.some((nextEntry, idx) => {
+    let membershipDiffer = hadDifferentRoleCount;
+    if (!membershipDiffer) {
+      membershipDiffer = nextOrganisationRoles.some((nextEntry, idx) => {
         const current = user.organisationRoles?.[idx];
         if (!current) return true;
-        if (String(current.organisation) !== String(nextEntry.organisation)) return true;
-        const currentRoles = (current.roles ?? []).map(String).sort();
-        const targetRoles = [...ALL_ROLES].map(String).sort();
-        if (currentRoles.length !== targetRoles.length) return true;
-        return currentRoles.some((r, i) => r !== targetRoles[i]);
+        if (String(current.organisation) !== String(nextEntry.organisation)) {
+          return true;
+        }
+        if ((current.roles?.length ?? 0) > 0) return true;
+        const currentIds = (current.roleIds ?? []).map(String).sort();
+        const targetIds = (nextEntry.roleIds ?? []).map(String).sort();
+        if (currentIds.length !== targetIds.length) return true;
+        return currentIds.some((r, i) => r !== targetIds[i]);
       });
     }
 
-    if (!hadDifferentOrganisations && !rolesDiffer) {
+    if (!hadDifferentOrganisations && !membershipDiffer) {
       continue;
     }
 

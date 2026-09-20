@@ -11,8 +11,17 @@ import {
   User,
 } from "lucide-react";
 import { api } from "../services/api";
+import { db } from "../services/database";
 import { useToast } from "./Toast";
-import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
+import {
+  getActiveOrgIdFromStorage,
+  getMemberRolesForActiveOrg,
+  getUserRoleIdsForActiveOrg,
+} from "../utils/orgScopedRoles";
+import {
+  memberMatchesTaskRoleAudience,
+  normalizeTaskAllowedRoleIds,
+} from "../utils/taskAllowedRoles";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Types
@@ -171,6 +180,59 @@ export const AssignTaskModal: React.FC<AssignTaskModalProps> = ({
   const [users, setUsers] = useState<any[]>([]);
   const [userSearch, setUserSearch] = useState("");
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [orgRoles, setOrgRoles] = useState<
+    { _id: string; code?: string; name: string; isActive?: boolean }[]
+  >([]);
+  const activeOrgId = getActiveOrgIdFromStorage();
+
+  useEffect(() => {
+    db.getRoles()
+      .then((roles) =>
+        setOrgRoles(
+          (roles ?? []).map(
+            (r: {
+              _id: string;
+              code?: string;
+              name: string;
+              isActive?: boolean;
+            }) => ({
+              _id: String(r._id),
+              code: r.code,
+              name: r.name,
+              isActive: r.isActive,
+            }),
+          ),
+        ),
+      )
+      .catch(() => setOrgRoles([]));
+  }, []);
+
+  useEffect(() => {
+    if (!preselectedTask?._id) return;
+    let cancelled = false;
+    db.getJob(preselectedTask._id)
+      .then((job) => {
+        if (!cancelled && job) {
+          setSelectedTask((prev: any) => ({
+            ...(prev ?? preselectedTask),
+            allowedRoles: job.allowedRoles ?? [],
+          }));
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [preselectedTask?._id]);
+
+  const selectedTaskAllowedRoleIds = normalizeTaskAllowedRoleIds(selectedTask);
+  const selectedTaskAllowedRoleLabels =
+    selectedTaskAllowedRoleIds.length > 0
+      ? selectedTaskAllowedRoleIds.map((id) => {
+          const match = orgRoles.find((r) => r._id === id);
+          return match?.name?.trim() || "Unknown role";
+        })
+      : [];
 
   // ── Fetch tasks (created by me) ───────────────────────────────────────────
   const fetchTasks = useCallback(async (search: string) => {
@@ -241,11 +303,17 @@ export const AssignTaskModal: React.FC<AssignTaskModalProps> = ({
       t.title?.toLowerCase().includes(taskSearch.toLowerCase()) ||
       t.status?.toLowerCase().includes(taskSearch.toLowerCase()),
   );
-  const filteredUsers = users.filter(
-    (u) =>
+  const filteredUsers = users.filter((u) => {
+    const matchesSearch =
       u.name?.toLowerCase().includes(userSearch.toLowerCase()) ||
-      u.email?.toLowerCase().includes(userSearch.toLowerCase()),
-  );
+      u.email?.toLowerCase().includes(userSearch.toLowerCase());
+    if (!matchesSearch) return false;
+    if (selectedTaskAllowedRoleIds.length === 0) return true;
+    return memberMatchesTaskRoleAudience(
+      getUserRoleIdsForActiveOrg(u),
+      selectedTaskAllowedRoleIds,
+    );
+  });
 
   const canSubmit = !!selectedTask && !!selectedUser && !submitting;
 
@@ -316,7 +384,10 @@ export const AssignTaskModal: React.FC<AssignTaskModalProps> = ({
                   items={filteredTasks}
                   loading={loadingTasks}
                   selected={selectedTask}
-                  onSelect={setSelectedTask}
+                  onSelect={(task) => {
+                    setSelectedTask(task);
+                    setSelectedUser(null);
+                  }}
                   searchValue={taskSearch}
                   onSearchChange={setTaskSearch}
                   disabled={!!preselectedTask}
@@ -340,6 +411,17 @@ export const AssignTaskModal: React.FC<AssignTaskModalProps> = ({
                 />
               </div>
 
+              {selectedTaskAllowedRoleLabels.length > 0 && (
+                <div className="flex items-start gap-3 p-4 rounded-xl bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800">
+                  <AlertCircle className="w-4 h-4 text-violet-600 shrink-0 mt-0.5" />
+                  <p className="text-xs text-violet-800 dark:text-violet-200 leading-relaxed">
+                    This task is restricted to members with{" "}
+                    <strong>{selectedTaskAllowedRoleLabels.join(", ")}</strong>.
+                    Only matching users are shown below.
+                  </p>
+                </div>
+              )}
+
               {/* User picker */}
               <div className="relative">
                 <SearchDropdown
@@ -353,7 +435,13 @@ export const AssignTaskModal: React.FC<AssignTaskModalProps> = ({
                   onSearchChange={setUserSearch}
                   disabled={!!preselectedUser}
                   renderSelected={(u) => `${u.name || u.email}`}
-                  renderItem={(u) => (
+                  renderItem={(u) => {
+                    const memberRoles = getMemberRolesForActiveOrg(
+                      u,
+                      activeOrgId,
+                      orgRoles,
+                    );
+                    return (
                     <>
                       {u.avatar ? (
                         <img src={u.avatar} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
@@ -366,13 +454,14 @@ export const AssignTaskModal: React.FC<AssignTaskModalProps> = ({
                         <p className="text-sm font-bold text-zinc-800 dark:text-zinc-100 truncate">{u.name}</p>
                         <p className="text-xs text-zinc-400 truncate">{u.email}</p>
                       </div>
-                      {getUserRolesForActiveOrg(u).length > 0 && (
+                      {memberRoles.length > 0 && (
                         <span className="text-[10px] text-zinc-400 font-semibold truncate max-w-[80px]">
-                          {getUserRolesForActiveOrg(u)[0]}
+                          {memberRoles[0]?.name}
                         </span>
                       )}
                     </>
-                  )}
+                    );
+                  }}
                 />
               </div>
 

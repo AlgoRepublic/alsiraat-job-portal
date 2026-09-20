@@ -3,7 +3,7 @@ import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { Mail, Lock, Shield, AlertCircle, Layers } from "lucide-react";
 import { db } from "../services/database";
 import { API_BASE_URL } from "../services/api";
-import { UserRole, Permission } from "../types";
+import { Permission } from "../types";
 
 import { LoadingOverlay } from "../components/Loading";
 

@@ -23,14 +23,14 @@ import {
   Send,
   XCircle,
 } from "lucide-react";
-import { UserRole, JobStatus, Permission } from "../types";
+import { DefaultRoleCode, JobStatus, Permission } from "../types";
 import { db } from "../services/database";
 import { useNavigate } from "react-router-dom";
 import { Loading } from "../components/Loading";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 
 interface DashboardProps {
-  roles?: UserRole[];
+  roles?: DefaultRoleCode[];
 }
 
 export const getStatusColor = (status: JobStatus) => {
@@ -140,7 +140,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
 
   const isAdmin =
     currentUser?.isSuperAdmin ||
-    roles?.includes(UserRole.ORGANIZATION_ADMIN);
+    roles?.includes(DefaultRoleCode.ORGANIZATION_ADMIN);
 
   const canSeeOrgStats =
     stats?.capabilities?.canViewPending && stats?.capabilities?.canViewApps;

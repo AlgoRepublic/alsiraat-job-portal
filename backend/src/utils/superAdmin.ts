@@ -5,7 +5,7 @@
 
 import mongoose from "mongoose";
 import Organization from "../models/Organization.js";
-import { UserRole } from "../models/UserRole.js";
+import type { MemberRoleView } from "@taskunity/shared/memberRoleView.js";
 import { OrgMemberKind } from "../models/User.js";
 
 export function isSuperAdminUser(
@@ -13,9 +13,6 @@ export function isSuperAdminUser(
 ): boolean {
   return user?.isSuperAdmin === true;
 }
-
-/** Synthetic roles shown per org for super admins (tenant-capable; real auth uses isSuperAdmin bypass). */
-const VIRTUAL_ORG_ROLES: UserRole[] = [UserRole.ORGANIZATION_ADMIN];
 
 export async function loadAllOrganisationsLean() {
   return Organization.find({})
@@ -28,12 +25,12 @@ export function buildVirtualOrganisationRoles(
   orgDocs: Array<{ _id: unknown }>,
 ): {
   organisation: mongoose.Types.ObjectId;
-  roles: UserRole[];
+  roles: MemberRoleView[];
   memberKind: typeof OrgMemberKind.INTERNAL;
 }[] {
   return orgDocs.map((o) => ({
     organisation: o._id as mongoose.Types.ObjectId,
-    roles: [...VIRTUAL_ORG_ROLES],
+    roles: [],
     memberKind: OrgMemberKind.INTERNAL,
   }));
 }
@@ -56,7 +53,7 @@ export type VirtualOrgPayload = {
   }>;
   organisationRoles: {
     organisation: mongoose.Types.ObjectId;
-    roles: UserRole[];
+    roles: MemberRoleView[];
     memberKind: typeof OrgMemberKind.INTERNAL;
   }[];
 };

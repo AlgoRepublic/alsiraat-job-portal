@@ -23,7 +23,7 @@ import {
   Edit2,
 } from "lucide-react";
 import { api, API_BASE_URL } from "../services/api";
-import { getUserRolesForActiveOrg } from "../utils/orgScopedRoles";
+import { getMemberRolesForActiveOrg } from "../utils/orgScopedRoles";
 import { TaskLifecycleActions } from "./TaskLifecycleActions";
 
 /* ─── Types ──────────────────────────────────────────────────────────────────── */
@@ -33,6 +33,13 @@ interface UserProfileDrawerProps {
   onEdit?: (user: any) => void;
   /** Signed-in admin viewing this profile — used for task lifecycle actions on listed tasks. */
   viewerUser?: any;
+  activeOrgId?: string | null;
+  roleCatalogue?: {
+    _id: string;
+    code?: string;
+    name: string;
+    isActive?: boolean;
+  }[];
 }
 
 type Tab = "profile" | "tasks" | "applications" | "activity";
@@ -68,8 +75,8 @@ const ROLE_COLOUR: Record<string, string> = {
     "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
   Applicant: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
 };
-const roleColour = (r: string) =>
-  ROLE_COLOUR[r] ?? "bg-primary/10 text-primary dark:bg-primary/20";
+const roleColour = (name: string) =>
+  ROLE_COLOUR[name] ?? "bg-primary/10 text-primary dark:bg-primary/20";
 
 const taskStatusStyle = (s: string) => {
   switch (s?.toLowerCase()) {
@@ -161,8 +168,14 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
   onClose,
   onEdit,
   viewerUser,
+  activeOrgId,
+  roleCatalogue,
 }) => {
-  const displayRoles = getUserRolesForActiveOrg(user);
+  const displayMemberRoles = getMemberRolesForActiveOrg(
+    user,
+    activeOrgId,
+    roleCatalogue,
+  );
   const [activeTab, setActiveTab] = useState<Tab>("profile");
   const [tasks, setTasks] = useState<any[]>([]);
   const [applications, setApplications] = useState<any[]>([]);
@@ -285,12 +298,24 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
                 {user.name}
               </h2>
               <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                {displayRoles.map((r: string) => (
+                {displayMemberRoles.map((role) => (
                   <span
-                    key={r}
-                    className={`px-2.5 py-0.5 rounded-lg text-xs font-black uppercase tracking-wider ${roleColour(r)}`}
+                    key={role.id}
+                    className={`px-2.5 py-0.5 rounded-lg text-xs font-black uppercase tracking-wider ${roleColour(role.name)} ${
+                      role.isActive === false ? "opacity-60 line-through" : ""
+                    }`}
+                    title={
+                      role.isActive === false
+                        ? `${role.name} (inactive)`
+                        : role.name
+                    }
                   >
-                    {r}
+                    {role.name}
+                    {role.isActive === false ? (
+                      <span className="ml-1 normal-case tracking-normal font-semibold opacity-80">
+                        · inactive
+                      </span>
+                    ) : null}
                   </span>
                 ))}
                 {user.organisation?.name && (

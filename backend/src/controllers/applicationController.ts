@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import User, { UserRole } from "../models/User.js";
+import User from "../models/User.js";
 import Application, { ApplicationStatus } from "../models/Application.js";
 import Task from "../models/Task.js";
 import { notify } from "../services/notificationService.js";
@@ -18,6 +18,12 @@ import {
 import { checkPermissionAsync, Permission } from "../middleware/rbac.js";
 import { buildApplicationQuery } from "./applicationQueryBuilder.js";
 import { formatTaskRewardDisplay } from "../utils/rewardTypeRules.js";
+import {
+  memberSatisfiesTaskRoleRestriction,
+  normalizeTaskAllowedRoleIds,
+  resolveApplicantFallbackRoleIdForOrg,
+} from "../services/taskAudienceByRoleId.js";
+import { getOrganisationMembershipSlice } from "../services/authOrgMemberContext.js";
 
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -112,10 +118,13 @@ export const assignTask = async (req: any, res: Response) => {
 
     // Permission scope check
     const isSuperAdmin = !!req.user?.isSuperAdmin;
-    const isAdvertiser = req.orgRoles?.some(
-      (r: string) =>
-        r.toLowerCase() === UserRole.TASK_ADVERTISER.toLowerCase(),
+    const { DefaultRoleCode } = await import(
+      "@taskunity/shared/defaultRoleCodes.js"
     );
+    const isAdvertiser =
+      typeof req.hasOrgRoleCode === "function"
+        ? req.hasOrgRoleCode(DefaultRoleCode.TASK_ADVERTISER)
+        : req.orgRoleCodes?.includes(DefaultRoleCode.TASK_ADVERTISER);
 
     if (!isSuperAdmin && isAdvertiser) {
       // Advertisers can only assign tasks they created
@@ -222,6 +231,31 @@ export const applyForTask = async (req: any, res: Response) => {
         return res.status(403).json({
           message:
             "This task is restricted to specific groups. You are not a member of any of the allowed groups.",
+        });
+      }
+    }
+
+    const taskOrgId = task.organisation ? String(task.organisation) : "";
+    const taskAllowedRoleIds = normalizeTaskAllowedRoleIds(
+      (task as any).allowedRoles,
+    );
+    if (taskAllowedRoleIds.length > 0 && taskOrgId) {
+      const membership = getOrganisationMembershipSlice(req.user, taskOrgId);
+      const applicantFallback = await resolveApplicantFallbackRoleIdForOrg(
+        taskOrgId,
+      );
+      const memberRoleIds = (membership.roleIds ?? []).map((id) =>
+        id.toString(),
+      );
+      const roleAllowed = memberSatisfiesTaskRoleRestriction(
+        memberRoleIds,
+        applicantFallback,
+        taskAllowedRoleIds,
+      );
+      if (!roleAllowed) {
+        return res.status(403).json({
+          message:
+            "This task is restricted to specific Member roles. Your roles do not match the allowed audience.",
         });
       }
     }

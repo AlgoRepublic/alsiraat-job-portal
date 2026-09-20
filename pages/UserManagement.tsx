@@ -40,22 +40,65 @@ import {
 import { Loading } from "../components/Loading";
 import { CustomDropdown } from "../components/CustomUI";
 import { UserProfileDrawer } from "../components/UserProfileDrawer";
-import { OrgMemberKind, Permission, UserRole } from "../types";
+import { DefaultRoleCode } from "@/shared/defaultRoleCodes";
+import { OrgMemberKind, Permission } from "../types";
 import {
   getActiveOrgIdFromStorage,
+  getMemberRolesForActiveOrg,
   getOrgId,
-  getUserRolesForActiveOrg,
+  getUserRoleIdsForActiveOrg,
 } from "../utils/orgScopedRoles";
 
 interface EditForm {
   name: string;
   email: string;
   password?: string;
-  roles: string[];
-  /** Parallel to organisationIds: Internal vs External for each org membership. */
-  memberKinds: OrgMemberKind[];
+  roleId: string;
+  memberKind: OrgMemberKind;
   organisationIds: string[]; // multi-org: array of selected org IDs
 }
+
+const resolveDefaultApplicantRoleId = (catalogue: { _id: string; code?: string }[]) =>
+  catalogue.find((r) => r.code === DefaultRoleCode.APPLICANT)?._id ??
+  catalogue[0]?._id ??
+  "";
+
+const ROLE_KIND_FILTER_PREFIX = "code:";
+
+const ROLE_KIND_FILTER_OPTIONS: { label: string; code: string }[] = [
+  { label: "All applicants", code: DefaultRoleCode.APPLICANT },
+  {
+    label: "Organisation admins",
+    code: DefaultRoleCode.ORGANIZATION_ADMIN,
+  },
+  { label: "Task managers", code: DefaultRoleCode.TASK_MANAGER },
+  { label: "Task advertisers", code: DefaultRoleCode.TASK_ADVERTISER },
+];
+
+const parseRoleListFilter = (
+  roleFilter: string,
+): { roleId?: string; roleCode?: string } | undefined => {
+  if (!roleFilter) return undefined;
+  if (roleFilter.startsWith(ROLE_KIND_FILTER_PREFIX)) {
+    return { roleCode: roleFilter.slice(ROLE_KIND_FILTER_PREFIX.length) };
+  }
+  return { roleId: roleFilter };
+};
+
+const roleFilterDisplayLabel = (
+  roleFilter: string,
+  catalogue: { _id: string; name: string; code?: string }[],
+): string => {
+  if (!roleFilter) return "All Roles";
+  if (roleFilter.startsWith(ROLE_KIND_FILTER_PREFIX)) {
+    const code = roleFilter.slice(ROLE_KIND_FILTER_PREFIX.length);
+    return (
+      ROLE_KIND_FILTER_OPTIONS.find((o) => o.code === code)?.label ??
+      `Role kind: ${code}`
+    );
+  }
+  return catalogue.find((r) => r._id === roleFilter)?.name ?? "All Roles";
+};
 
 // Skill level badge colours
 const SKILL_LEVEL_STYLES: Record<string, string> = {
@@ -97,16 +140,24 @@ const formatDate = (d?: string | Date) => {
 /* ─────────────────────────────── User Detail Modal ─────────────────────────── */
 interface UserDetailModalProps {
   user: any;
+  activeOrgId: string | null;
+  roleCatalogue: { _id: string; code?: string; name: string; isActive?: boolean }[];
   onClose: () => void;
   onEdit: (user: any) => void;
 }
 
 const UserDetailModal: React.FC<UserDetailModalProps> = ({
   user,
+  activeOrgId,
+  roleCatalogue,
   onClose,
   onEdit,
 }) => {
-  const displayRoles = getUserRolesForActiveOrg(user);
+  const displayRoles = getMemberRolesForActiveOrg(
+    user,
+    activeOrgId,
+    roleCatalogue,
+  );
   const resumeFullUrl = user.resumeUrl
     ? user.resumeUrl.startsWith("http")
       ? user.resumeUrl
@@ -146,12 +197,13 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
               </h2>
               <div className="flex flex-wrap items-center gap-2 mt-1.5">
                 <div className="flex flex-wrap gap-2">
-                  {displayRoles.map((r: string) => (
+                  {displayRoles.map((r) => (
                     <span
-                      key={r}
-                      className={`px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider ${getRoleColour(r)}`}
+                      key={r.id}
+                      className={`px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider ${getRoleColour(r.name)}`}
                     >
-                      {r}
+                      {r.name}
+                      {r.isActive === false ? " (inactive)" : ""}
                     </span>
                   ))}
                   {displayRoles.length === 0 && (
@@ -395,8 +447,8 @@ export const UserManagement: React.FC = () => {
     name: "",
     email: "",
     password: "",
-    roles: [],
-    memberKinds: [],
+    roleId: "",
+    memberKind: "Internal",
     organisationIds: [],
   });
   const [isCreating, setIsCreating] = useState(false);
@@ -441,7 +493,12 @@ export const UserManagement: React.FC = () => {
     try {
       setLoading(true);
       const [pagedResult, rolesData] = await Promise.all([
-        db.getUsersPaged(searchTerm, roleFilter, currentPage, PAGE_SIZE),
+        db.getUsersPaged(
+          searchTerm,
+          parseRoleListFilter(roleFilter),
+          currentPage,
+          PAGE_SIZE,
+        ),
         db.getRoles(),
       ]);
       setUsers(pagedResult.users);
@@ -474,13 +531,14 @@ export const UserManagement: React.FC = () => {
       (entry: any) =>
         (entry.organisation?._id ?? entry.organisation)?.toString() === oid,
     );
+    const existingRoleId =
+      getUserRoleIdsForActiveOrg(user, oid)[0] ??
+      resolveDefaultApplicantRoleId(roles);
     setEditForm({
       name: user.name || "",
       email: user.email || "",
-      roles: [orEntry?.roles?.[0] ?? "Applicant"],
-      memberKinds: [
-        orEntry?.memberKind === "External" ? "External" : "Internal",
-      ],
+      roleId: existingRoleId,
+      memberKind: orEntry?.memberKind === "External" ? "External" : "Internal",
       organisationIds: [oid],
     });
   };
@@ -497,8 +555,8 @@ export const UserManagement: React.FC = () => {
       name: "",
       email: "",
       password: "",
-      roles: ["Applicant"],
-      memberKinds: ["Internal"],
+      roleId: resolveDefaultApplicantRoleId(roles),
+      memberKind: "Internal",
       organisationIds: [oid],
     });
   };
@@ -520,14 +578,13 @@ export const UserManagement: React.FC = () => {
       const names = editForm.name.trim().split(" ");
       const firstName = names[0] || "New";
       const lastName = names.slice(1).join(" ") || "User";
-      const flatRoles = [editForm.roles[0] ?? "Applicant"]
-        .filter((r): r is string => typeof r === "string" && r.trim().length > 0)
-        .filter((r, idx, arr) => arr.indexOf(r) === idx);
+      const roleId =
+        editForm.roleId || resolveDefaultApplicantRoleId(roles);
       const organisationRoles = [
         {
           organisation: orgId,
-          roles: [editForm.roles[0] ?? "Applicant"],
-          memberKind: editForm.memberKinds[0] ?? "Internal",
+          roleIds: [roleId],
+          memberKind: editForm.memberKind,
         },
       ];
       const created = await db.adminCreateUser({
@@ -535,13 +592,11 @@ export const UserManagement: React.FC = () => {
         lastName,
         email: editForm.email,
         password: editForm.password,
-        roles: flatRoles.length > 0 ? flatRoles : ["Applicant"],
       });
 
       const createdUserId = created?.user?._id || created?.user?.id;
       if (createdUserId) {
         await db.updateUser(createdUserId, {
-          roles: flatRoles.length > 0 ? flatRoles : ["Applicant"],
           organisationRoles,
         });
       }
@@ -565,20 +620,18 @@ export const UserManagement: React.FC = () => {
         showError("Select an organisation in the sidebar first");
         return;
       }
+      const roleId =
+        editForm.roleId || resolveDefaultApplicantRoleId(roles);
       const organisationRoles = [
         {
           organisation: orgId,
-          roles: [editForm.roles[0] ?? "Applicant"],
-          memberKind: editForm.memberKinds[0] ?? "Internal",
+          roleIds: [roleId],
+          memberKind: editForm.memberKind,
         },
       ];
-      const flatRoles = [editForm.roles[0] ?? "Applicant"]
-        .filter((r): r is string => typeof r === "string" && r.trim().length > 0)
-        .filter((r, idx, arr) => arr.indexOf(r) === idx);
       await db.updateUser(editingUser._id, {
         name: editForm.name,
         email: editForm.email,
-        roles: flatRoles,
         organisationRoles,
       });
       showSuccess("User updated successfully");
@@ -653,14 +706,14 @@ export const UserManagement: React.FC = () => {
   const sortedUsers = [...users].sort((a, b) => {
     let av = "";
     let bv = "";
-      const aRoles = getUserRolesForActiveOrg(a, activeOrgId);
-      const bRoles = getUserRolesForActiveOrg(b, activeOrgId);
+      const aRoles = getMemberRolesForActiveOrg(a, activeOrgId, roles);
+      const bRoles = getMemberRolesForActiveOrg(b, activeOrgId, roles);
     if (sortBy === "name") {
       av = a.name?.toLowerCase() ?? "";
       bv = b.name?.toLowerCase() ?? "";
     } else if (sortBy === "role") {
-      av = (aRoles[0] || "").toLowerCase();
-      bv = (bRoles[0] || "").toLowerCase();
+      av = (aRoles[0]?.name || "").toLowerCase();
+      bv = (bRoles[0]?.name || "").toLowerCase();
     } else {
       av = a.createdAt ?? "";
       bv = b.createdAt ?? "";
@@ -670,10 +723,14 @@ export const UserManagement: React.FC = () => {
   const canEditUser = (user: any) => !user?.isSuperAdmin;
   const canDeleteUser = (user: any) => !user?.isSuperAdmin;
 
-  const handleInviteUser = async (email: string) => {
+  const handleInviteUser = async (
+    email: string,
+    roleId: string,
+    memberKind: OrgMemberKind,
+  ) => {
     setIsInviting(true);
     try {
-      const response = await db.inviteUser(email);
+      const response = await db.inviteUser(email, { roleId, memberKind });
       showSuccess(response.message);
       setIsInviteModalOpen(false);
     } catch (err: any) {
@@ -808,9 +865,31 @@ export const UserManagement: React.FC = () => {
         </div>
         <div className="min-w-[200px]">
           <CustomDropdown
-            options={[{ name: "All Roles" }, ...roles]}
-            value={roleFilter || "All Roles"}
-            onChange={(val) => setRoleFilter(val === "All Roles" ? "" : val)}
+            options={[
+              { name: "All Roles" },
+              ...ROLE_KIND_FILTER_OPTIONS.map((o) => ({ name: o.label })),
+              ...roles.map((r: { _id: string; name: string }) => ({
+                name: r.name,
+              })),
+            ]}
+            value={roleFilterDisplayLabel(roleFilter, roles)}
+            onChange={(val) => {
+              if (val === "All Roles") {
+                setRoleFilter("");
+                return;
+              }
+              const kind = ROLE_KIND_FILTER_OPTIONS.find(
+                (o) => o.label === val,
+              );
+              if (kind) {
+                setRoleFilter(`${ROLE_KIND_FILTER_PREFIX}${kind.code}`);
+                return;
+              }
+              const match = roles.find(
+                (r: { name: string }) => r.name === val,
+              );
+              setRoleFilter(match?._id ?? "");
+            }}
             placeholder="All Roles"
             variant="outline"
             icon={<Filter className="w-4 h-4 text-zinc-400" />}
@@ -888,18 +967,19 @@ export const UserManagement: React.FC = () => {
                       {/* Role */}
                       <td className="px-6 py-5">
                         {(() => {
-                          const displayRoles = getUserRolesForActiveOrg(
+                          const displayRoles = getMemberRolesForActiveOrg(
                             user,
                             activeOrgId,
+                            roles,
                           );
                           return (
                             <div className="flex flex-wrap gap-1">
-                              {displayRoles.map((r: string) => (
+                              {displayRoles.map((r) => (
                                 <span
-                                  key={r}
-                                  className={`px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-wider ${getRoleColour(r)}`}
+                                  key={r.id}
+                                  className={`px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-wider ${getRoleColour(r.name)}`}
                                 >
-                                  {r}
+                                  {r.name}
                                 </span>
                               ))}
                               {displayRoles.length === 0 && (
@@ -1160,6 +1240,8 @@ export const UserManagement: React.FC = () => {
         <UserProfileDrawer
           user={viewingUser}
           viewerUser={currentUser}
+          activeOrgId={activeOrgId}
+          roleCatalogue={roles}
           onClose={() => setViewingUser(null)}
           onEdit={(u) => {
             setViewingUser(null);
@@ -1272,27 +1354,30 @@ export const UserManagement: React.FC = () => {
                 </label>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 p-3 bg-zinc-50 dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700">
                   <select
-                    value={editForm.roles[0] ?? "Applicant"}
+                    value={
+                      editForm.roleId || resolveDefaultApplicantRoleId(roles)
+                    }
                     onChange={(e) =>
                       setEditForm({
                         ...editForm,
-                        roles: [e.target.value],
+                        roleId: e.target.value,
                       })
                     }
                     className="flex-1 text-sm font-semibold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-2 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-primary outline-none transition-all"
                   >
                     {roles.map((r) => (
-                      <option key={r._id} value={r.name}>
+                      <option key={r._id} value={r._id}>
                         {r.name}
+                        {r.isActive === false ? " (inactive)" : ""}
                       </option>
                     ))}
                   </select>
                   <select
-                    value={editForm.memberKinds[0] ?? "Internal"}
+                    value={editForm.memberKind}
                     onChange={(e) =>
                       setEditForm({
                         ...editForm,
-                        memberKinds: [e.target.value as OrgMemberKind],
+                        memberKind: e.target.value as OrgMemberKind,
                       })
                     }
                     className="flex-1 text-sm font-semibold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-2 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-primary outline-none transition-all"
@@ -1324,7 +1409,7 @@ export const UserManagement: React.FC = () => {
                   !editForm.name ||
                   !editForm.email ||
                   (isCreating && !editForm.password) ||
-                  editForm.roles.length === 0
+                  !(editForm.roleId || resolveDefaultApplicantRoleId(roles))
                 }
                 className="flex items-center px-5 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primaryHover shadow-lg shadow-primary/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -1346,6 +1431,8 @@ export const UserManagement: React.FC = () => {
           onClose={() => setIsInviteModalOpen(false)}
           onInvite={handleInviteUser}
           isInviting={isInviting}
+          roles={roles}
+          defaultRoleId={resolveDefaultApplicantRoleId(roles)}
         />
       )}
     </div>
@@ -1356,16 +1443,31 @@ export const UserManagement: React.FC = () => {
 const InviteUserModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
-  onInvite: (email: string) => Promise<void>;
+  onInvite: (
+    email: string,
+    roleId: string,
+    memberKind: OrgMemberKind,
+  ) => Promise<void>;
   isInviting: boolean;
-}> = ({ isOpen, onClose, onInvite, isInviting }) => {
+  roles: { _id: string; name: string; isActive?: boolean }[];
+  defaultRoleId: string;
+}> = ({
+  isOpen,
+  onClose,
+  onInvite,
+  isInviting,
+  roles,
+  defaultRoleId,
+}) => {
   const [email, setEmail] = useState("");
+  const [roleId, setRoleId] = useState(defaultRoleId);
+  const [memberKind, setMemberKind] = useState<OrgMemberKind>("Internal");
 
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onInvite(email);
+    onInvite(email, roleId || defaultRoleId, memberKind);
   };
 
   return (
@@ -1403,10 +1505,43 @@ const InviteUserModal: React.FC<{
                 className="w-full pl-12 pr-4 py-4 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-sm font-bold dark:text-white transition-all shadow-sm"
               />
             </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2">
+                  Role
+                </label>
+                <select
+                  value={roleId || defaultRoleId}
+                  onChange={(e) => setRoleId(e.target.value)}
+                  className="w-full px-3 py-3 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-bold dark:text-white"
+                >
+                  {roles.map((r) => (
+                    <option key={r._id} value={r._id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2">
+                  Member type
+                </label>
+                <select
+                  value={memberKind}
+                  onChange={(e) =>
+                    setMemberKind(e.target.value as OrgMemberKind)
+                  }
+                  className="w-full px-3 py-3 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-bold dark:text-white"
+                >
+                  <option value="Internal">Internal</option>
+                  <option value="External">External</option>
+                </select>
+              </div>
+            </div>
           </div>
 
           <button
-            disabled={isInviting || !email}
+            disabled={isInviting || !email || !(roleId || defaultRoleId)}
             className="w-full py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primaryHover shadow-xl shadow-primary/30 transition-all hover:-translate-y-1 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
           >
             {isInviting ? (

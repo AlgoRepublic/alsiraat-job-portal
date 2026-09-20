@@ -249,6 +249,9 @@ export const JobWizard: React.FC = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
+  const [orgRoles, setOrgRoles] = useState<
+    { _id: string; name: string; code?: string; isActive?: boolean }[]
+  >([]);
   const [activeOrgName, setActiveOrgName] = useState<string | null>(() =>
     readActiveOrganisationNameFromStorage(),
   );
@@ -300,13 +303,23 @@ export const JobWizard: React.FC = () => {
     }
 
     const fetchData = async () => {
-      const [types, cats, , groupsData] = await Promise.all([
+      const [types, cats, rolesData, groupsData] = await Promise.all([
         db.getRewardTypesCatalog(activeOrgId ?? undefined),
         db.getTaskCategories(),
         db.getRoles(),
         db.getGroupsPublic(),
       ]);
       if (cancelled) return;
+      setOrgRoles(
+        (rolesData ?? []).map(
+          (r: { _id: string; name: string; code?: string; isActive?: boolean }) => ({
+            _id: String(r._id),
+            name: r.name,
+            code: r.code,
+            isActive: r.isActive,
+          }),
+        ),
+      );
       const orgScopedTypes = types.filter((rt: any) => {
         const orgId = getRewardTypeOrgId(rt);
         return activeOrgId ? orgId === activeOrgId : orgId === null;
@@ -655,6 +668,11 @@ export const JobWizard: React.FC = () => {
           selectedPrivateAudiences.includes(Visibility.INTERNAL)
             ? formData.allowedGroups ?? []
             : [],
+        allowedRoles:
+          formData.visibility === Visibility.PRIVATE
+            ? formData.allowedRoles ?? []
+            : [],
+        eligibility: [],
       };
 
       const taskForReview = {
@@ -1488,6 +1506,55 @@ export const JobWizard: React.FC = () => {
                     </div>
                   </div>
                 )}
+
+              {formData.visibility === Visibility.PRIVATE && orgRoles.length > 0 && (
+                <div className="space-y-3 animate-fade-in bg-zinc-50 dark:bg-zinc-800/30 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+                  <div>
+                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                      Allowed Member Roles
+                    </label>
+                    <p className="text-xs text-zinc-500 mt-0.5">
+                      Optional. Leave empty to allow any member who matches the
+                      audience above. Select roles to restrict who can browse and
+                      apply.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {orgRoles.map((role) => {
+                      const isSelected = (formData.allowedRoles || []).includes(
+                        role._id,
+                      );
+                      return (
+                        <button
+                          key={role._id}
+                          type="button"
+                          onClick={() => {
+                            const current = formData.allowedRoles || [];
+                            updateField(
+                              "allowedRoles",
+                              isSelected
+                                ? current.filter((id) => id !== role._id)
+                                : [...current, role._id],
+                            );
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border-2 flex items-center gap-1.5 ${
+                            isSelected
+                              ? "border-primary bg-primary text-white shadow-md"
+                              : "bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-primary/50"
+                          }`}
+                        >
+                          {role.name}
+                          {role.isActive === false && (
+                            <span className="text-[9px] font-black uppercase opacity-70">
+                              inactive
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </AccordionSection>
 

@@ -12,7 +12,15 @@ dotenv.config();
 
 import Role from "../models/Role.js";
 import { RolePermissions, Permission } from "../config/permissions.js";
+import { DefaultRoleCode } from "@taskunity/shared/defaultRoleCodes.js";
 import { UserRole } from "../models/UserRole.js";
+
+const ROLE_CODE_TO_DISPLAY_NAME: Record<DefaultRoleCode, string> = {
+  [DefaultRoleCode.ORGANIZATION_ADMIN]: UserRole.ORGANIZATION_ADMIN,
+  [DefaultRoleCode.TASK_MANAGER]: UserRole.TASK_MANAGER,
+  [DefaultRoleCode.TASK_ADVERTISER]: UserRole.TASK_ADVERTISER,
+  [DefaultRoleCode.APPLICANT]: UserRole.APPLICANT,
+};
 
 const MONGO = process.env.MONGODB_URI || "mongodb://localhost:27017/tasker";
 
@@ -20,14 +28,15 @@ async function syncRoles() {
   await mongoose.connect(MONGO);
   console.log("✅ Connected to MongoDB");
 
-  for (const [roleName, expectedPerms] of Object.entries(RolePermissions)) {
-    const roleCode = roleName.toLowerCase().replace(/ /g, "_");
+  for (const [roleCode, expectedPerms] of Object.entries(RolePermissions)) {
+    const roleName =
+      ROLE_CODE_TO_DISPLAY_NAME[roleCode as DefaultRoleCode] ?? roleCode;
     const roleDoc = await Role.findOne({
-      $or: [{ name: roleName }, { code: roleCode }],
+      $or: [{ code: roleCode }, { name: roleName }],
     });
 
     if (!roleDoc) {
-      console.log(`⚠️  Role "${roleName}" not found in DB — skipping`);
+      console.log(`⚠️  Role "${roleCode}" not found in DB — skipping`);
       continue;
     }
 
@@ -35,12 +44,12 @@ async function syncRoles() {
     const missing = expectedPerms.filter((p) => !currentPerms.has(p));
 
     if (missing.length === 0) {
-      console.log(`✅ ${roleName}: already up to date (${currentPerms.size} perms)`);
+      console.log(`✅ ${roleCode}: already up to date (${currentPerms.size} perms)`);
     } else {
       roleDoc.permissions = [...new Set([...roleDoc.permissions, ...expectedPerms])];
       await roleDoc.save();
       console.log(
-        `🔄 ${roleName}: added ${missing.length} missing permissions → ${missing.join(", ")}`,
+        `🔄 ${roleCode}: added ${missing.length} missing permissions → ${missing.join(", ")}`,
       );
     }
   }

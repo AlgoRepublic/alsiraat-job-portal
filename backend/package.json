@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "tsc -p ../shared/tsconfig.json && tsc",
     "start": "node dist/server.js",
     "worker:email": "tsx src/workers/runEmailWorker.ts",
     "worker:email:prod": "node dist/workers/runEmailWorker.js",
@@ -16,6 +16,7 @@
     "migrate:legacy-central": "tsx src/scripts/fixLegacyCentralRecords.ts",
     "migrate:al-siraat-org-flag": "tsx src/scripts/migrateAlSiraatOrgFlag.ts",
     "migrate:is-super-admin": "tsx src/scripts/migrateToIsSuperAdmin.ts",
+    "migrate:member-roles-to-ids": "tsx src/scripts/migrateMemberRolesToRoleIds.ts",
     "sync:super-admin-profiles": "tsx src/scripts/syncSuperAdminProfiles.ts",
     "migrate:task-visibility-central": "tsx src/scripts/migrateTaskVisibilityGlobalToCentral.ts",
     "migrate:task-remove-archived-status": "tsx src/scripts/migrateTaskRemoveArchivedStatus.ts",
@@ -25,6 +26,7 @@
     "test": "node --experimental-strip-types --import ./test/test-runner.js --test \"src/**/*.test.ts\""
   },
   "dependencies": {
+    "@taskunity/shared": "file:../shared",
     "@anthropic-ai/sdk": "^0.78.0",
     "@azure/communication-email": "^1.0.0",
     "@google/genai": "^1.45.0",
