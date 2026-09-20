@@ -1422,11 +1422,6 @@ export const JobWizard: React.FC = () => {
                               }}
                             />
                             {group.name}
-                            <span
-                              className={`text-[10px] font-black ${isSelected ? "text-white/70" : "text-zinc-400"}`}
-                            >
-                              {group.members?.length ?? 0}
-                            </span>
                           </button>
                         );
                       })}
