@@ -18,6 +18,7 @@ import { getActiveOrgIdFromStorage, getUserRoleCodesForActiveOrg } from "../util
 import { organisationIdToString } from "../utils/organisationId";
 import { canEditTask } from "../utils/taskDetailPresentation";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
+import { formatOptionalTaskDuration } from "../utils/formatOptionalTaskField";
 
 const PAGE_SIZE = 10;
 
@@ -254,7 +255,7 @@ export const MyAds: React.FC = () => {
                           </p>
                           <p className="text-xs text-zinc-500 font-medium uppercase tracking-widest mt-1">
                             {task.visibility} •{" "}
-                            {task.hoursRequired}h
+                            {formatOptionalTaskDuration(task.hoursRequired, "h")}
                           </p>
                           {task.status === JobStatus.CHANGES_REQUESTED &&
                             task.rejectionReason && (

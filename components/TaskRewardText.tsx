@@ -26,10 +26,6 @@ const TaskRewardTextContent: React.FC<TaskRewardTextContentProps> = ({
   catalog,
   className,
 }) => {
-  if (!task.rewardType?.trim()) {
-    return <span className={className}>—</span>;
-  }
-
   return (
     <span className={className}>
       {formatTaskRewardDisplay(task, catalog)}
@@ -43,7 +39,11 @@ const TaskRewardTextWithCatalog: React.FC<
   const { catalog, loading } = useRewardTypes(organisationId);
 
   if (!task.rewardType?.trim()) {
-    return <span className={className}>—</span>;
+    return (
+      <span className={className}>
+        {formatTaskRewardDisplay(task, catalog)}
+      </span>
+    );
   }
 
   if (loading && catalog.length === 0) {

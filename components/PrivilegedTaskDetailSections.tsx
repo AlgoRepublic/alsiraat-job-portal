@@ -12,6 +12,10 @@ import { Job } from "../types";
 import { TaskRewardText } from "./TaskRewardText";
 import { formatTaskDateOrNA } from "../utils/formatTaskDate";
 import {
+  formatOptionalTaskDuration,
+  formatOptionalTaskLocation,
+} from "../utils/formatOptionalTaskField";
+import {
   TaskProvenanceHeader,
   AudienceTargetingPresentation,
 } from "../utils/taskDetailPresentation";
@@ -67,10 +71,7 @@ function DetailField({
 export const PrivilegedTaskDetailSections: React.FC<
   PrivilegedTaskDetailSectionsProps
 > = ({ job, provenance, audience, rewardOrganisationId }) => {
-  const hoursLabel =
-    job.hoursRequired != null && job.hoursRequired > 0
-      ? `${job.hoursRequired} Hours`
-      : "N/A";
+  const hoursLabel = formatOptionalTaskDuration(job.hoursRequired, "hours");
 
   return (
     <div className="lg:col-span-2 space-y-6">
@@ -98,7 +99,10 @@ export const PrivilegedTaskDetailSections: React.FC<
         icon={<Calendar className="w-4 h-4 text-primary" />}
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <DetailField label="Location" value={job.location || "N/A"} />
+          <DetailField
+            label="Location"
+            value={formatOptionalTaskLocation(job.location)}
+          />
           <DetailField label="Duration" value={hoursLabel} />
           <DetailField
             label="Applications Open"

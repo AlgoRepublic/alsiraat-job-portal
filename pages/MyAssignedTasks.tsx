@@ -18,6 +18,7 @@ import { useToast } from "../components/Toast";
 import { Pagination } from "../components/Pagination";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 import { Application, Job, User } from "../types";
+import { formatOptionalTaskDuration } from "../utils/formatOptionalTaskField";
 
 const PAGE_SIZE = 10;
 
@@ -191,7 +192,7 @@ export const MyAssignedTasks: React.FC = () => {
               </p>
               <p className="text-xs text-zinc-500 font-medium uppercase tracking-widest mt-1">
                 {task?.category || "—"}
-                {task?.hoursRequired ? ` • ${task.hoursRequired}h` : ""}
+                {` • ${formatOptionalTaskDuration(task?.hoursRequired, "h")}`}
               </p>
             </div>
           </div>

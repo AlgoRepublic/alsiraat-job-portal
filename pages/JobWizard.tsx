@@ -24,13 +24,7 @@ import { Loading, LoadingOverlay } from "../components/Loading";
 import { CustomDropdown, CustomDatePicker } from "../components/CustomUI";
 import { useToast } from "../components/Toast";
 
-import {
-  Job,
-  JobStatus,
-  RewardType,
-  Visibility,
-  Attachment,
-} from "../types";
+import { Job, JobStatus, Visibility, Attachment } from "../types";
 import { generateJobDescription } from "../services/geminiService";
 import { db } from "../services/database";
 import { api } from "../services/api";
@@ -45,9 +39,21 @@ import {
   resolveRewardTypeConfig,
 } from "../utils/rewardType";
 import {
+  formatOptionalTaskDuration,
+  formatOptionalTaskLocation,
+} from "../utils/formatOptionalTaskField";
+import { formatTaskDateOrNA } from "../utils/formatTaskDate";
+import {
   normalizePrivateAudiences,
   normalizeVisibilityMode,
 } from "../utils/taskVisibility";
+import {
+  REWARD_TYPE_NONE_CHOICE,
+  applyOptionalFieldsToTaskPayload,
+  isRewardTypeUnset,
+  validateWizardStep1,
+  validateWizardStep2,
+} from "../utils/taskFormValidation";
 import {
   canEditTask,
   canShowReviewerEditActions,
@@ -105,14 +111,14 @@ const getInitialFormData = (): Partial<Job> => ({
   category: "",
   description: "",
   location: "",
-  hoursRequired: 0,
+  hoursRequired: undefined,
   applicationOpenDate: "",
   applicationCloseDate: "",
   startDate: "",
   selectionCriteria: "",
   requiredSkills: [],
-  rewardType: RewardType.VOLUNTEER,
-  rewardValue: 0,
+  rewardType: REWARD_TYPE_NONE_CHOICE,
+  rewardValue: undefined,
   rewardText: "",
   eligibility: [],
   visibility: Visibility.PRIVATE,
@@ -390,14 +396,14 @@ export const JobWizard: React.FC = () => {
               title: job.title,
               category: job.category as any,
               description: job.description,
-              location: job.location,
+              location: job.location ?? "",
               hoursRequired: job.hoursRequired,
-              applicationOpenDate: job.applicationOpenDate,
-              applicationCloseDate: job.applicationCloseDate,
-              startDate: job.startDate,
+              applicationOpenDate: job.applicationOpenDate ?? "",
+              applicationCloseDate: job.applicationCloseDate ?? "",
+              startDate: job.startDate ?? "",
               selectionCriteria: job.selectionCriteria,
               requiredSkills: job.requiredSkills,
-              rewardType: job.rewardType,
+              rewardType: job.rewardType ?? REWARD_TYPE_NONE_CHOICE,
               rewardValue: job.rewardValue,
               rewardText: job.rewardText ?? "",
               eligibility: job.eligibility,
@@ -418,7 +424,6 @@ export const JobWizard: React.FC = () => {
         setRewardTypes(activeTypes);
         const initialData = getInitialFormData();
         if (cats.length > 0) initialData.category = cats[0].name;
-        if (activeTypes.length > 0) initialData.rewardType = activeTypes[0].name;
         const allMembersGroup = groupsData.find(
           (g: any) => g.name?.toLowerCase() === "all members",
         );
@@ -511,66 +516,8 @@ export const JobWizard: React.FC = () => {
     setUploadedFiles(uploadedFiles.filter((_, i) => i !== index));
   };
 
-  // ── Step 1 Validation ──
-  const validateStep1 = () => {
-    const newErrors: Record<string, string> = {};
-    if (!formData.title?.trim()) newErrors.title = "Task Title is required";
-    if (!formData.category) newErrors.category = "Category is required";
-    if (!formData.description?.trim())
-      newErrors.description = "Task Description is required";
-    if (!formData.location?.trim())
-      newErrors.location = "Location / Room is required";
-    if (!formData.hoursRequired || formData.hoursRequired <= 0)
-      newErrors.hoursRequired = "Estimated Duration must be greater than 0";
-    if (!formData.startDate?.trim()) {
-      newErrors.startDate = "Task Start Date is required";
-    } else if (formData.applicationCloseDate) {
-      if (new Date(formData.startDate) < new Date(formData.applicationCloseDate))
-        newErrors.startDate =
-          "Task Start Date cannot be before Applications Close";
-    }
-    return newErrors;
-  };
-
-  // ── Step 2 Validation ──
-  const validateStep2 = () => {
-    const newErrors: Record<string, string> = {};
-    if (!formData.rewardType) newErrors.rewardType = "Reward Type is required";
-    const selectedType = rewardTypes.find(
-      (rt) => rt.name === formData.rewardType,
-    );
-    const selectedCfg = selectedType
-      ? resolveRewardTypeConfig(selectedType)
-      : null;
-    if (selectedCfg?.requiresValue) {
-      if (selectedCfg.valueKind === "text") {
-        if (!formData.rewardText?.trim()) {
-          newErrors.rewardText = "Reward detail is required";
-        }
-      } else if (!formData.rewardValue || formData.rewardValue <= 0) {
-        newErrors.rewardValue = "Reward value must be greater than 0";
-      }
-    }
-    if (!formData.visibility)
-      newErrors.visibility = "Task Visibility is required";
-    if (
-      formData.visibility === Visibility.PRIVATE &&
-      normalizePrivateAudiences(formData.privateAudiences).length === 0
-    ) {
-      newErrors.visibility =
-        "Select Internal, External, or both for Private tasks";
-    }
-    if (formData.applicationOpenDate && formData.applicationCloseDate) {
-      if (
-        new Date(formData.applicationCloseDate) <
-        new Date(formData.applicationOpenDate)
-      ) {
-        newErrors.applicationCloseDate =
-          "Applications Close Date must be on or after Applications Open Date.";
-      }
-    }
-    return newErrors;
-  };
+  const validateStep1 = () => validateWizardStep1(formData);
+  const validateStep2 = () => validateWizardStep2(formData);
 
   const goToStep = (s: number) => {
     setStep(s);
@@ -583,11 +530,7 @@ export const JobWizard: React.FC = () => {
       setErrors(step1Errors);
       if (step1Errors.title || step1Errors.category)
         setOpenS1((p) => ({ ...p, basic: true }));
-      else if (
-        step1Errors.location ||
-        step1Errors.hoursRequired ||
-        step1Errors.startDate
-      )
+      else if (step1Errors.hoursRequired || step1Errors.startDate)
         setOpenS1((p) => ({ ...p, schedule: true }));
       return;
     }
@@ -600,9 +543,6 @@ export const JobWizard: React.FC = () => {
     if (Object.keys(step2Errors).length > 0) {
       setErrors(step2Errors);
       if (
-        step2Errors.rewardType ||
-        step2Errors.rewardValue ||
-        step2Errors.rewardText ||
         step2Errors.visibility ||
         step2Errors.applicationOpenDate ||
         step2Errors.applicationCloseDate
@@ -623,11 +563,7 @@ export const JobWizard: React.FC = () => {
       goToStep(1);
       if (step1Errors.title || step1Errors.category || step1Errors.description)
         setOpenS1((p) => ({ ...p, basic: true }));
-      else if (
-        step1Errors.location ||
-        step1Errors.hoursRequired ||
-        step1Errors.startDate
-      )
+      else if (step1Errors.hoursRequired || step1Errors.startDate)
         setOpenS1((p) => ({ ...p, schedule: true }));
       return;
     }
@@ -636,9 +572,6 @@ export const JobWizard: React.FC = () => {
       setErrors(step2Errors);
       goToStep(2);
       if (
-        step2Errors.rewardType ||
-        step2Errors.rewardValue ||
-        step2Errors.rewardText ||
         step2Errors.visibility ||
         step2Errors.applicationOpenDate ||
         step2Errors.applicationCloseDate
@@ -701,21 +634,22 @@ export const JobWizard: React.FC = () => {
         submissionData.status = "Published";
       }
 
-      const selectedRt = rewardTypes.find(
-        (rt) => rt.name === formData.rewardType,
-      );
+      const selectedRt = isRewardTypeUnset(formData.rewardType)
+        ? null
+        : rewardTypes.find((rt) => rt.name === formData.rewardType);
       const submitCfg = selectedRt
         ? resolveRewardTypeConfig(selectedRt)
         : null;
-      if (submitCfg?.valueKind === "text") {
-        submissionData.rewardText = (formData.rewardText || "").trim();
-        submissionData.rewardValue = undefined;
-      } else {
-        submissionData.rewardText = undefined;
-      }
-      if (!submitCfg?.requiresValue) {
-        submissionData.rewardValue = undefined;
-      }
+      applyOptionalFieldsToTaskPayload(
+        submissionData,
+        id ? "update" : "create",
+        submitCfg
+          ? {
+              valueKind: submitCfg.valueKind,
+              requiresValue: submitCfg.requiresValue,
+            }
+          : null,
+      );
 
       if (id) {
         if (uploadedFiles.length > 0) {
@@ -755,15 +689,21 @@ export const JobWizard: React.FC = () => {
 
   const handleSubmit = () => submitTask(id ? "resubmit" : "create");
 
-  const selectedRewardType = rewardTypes.find(
-    (rt) => rt.name === formData.rewardType,
+  const rewardTypeDropdownOptions = React.useMemo(
+    () => [{ name: REWARD_TYPE_NONE_CHOICE }, ...rewardTypes],
+    [rewardTypes],
   );
+  const rewardTypeUnset = isRewardTypeUnset(formData.rewardType);
+  const selectedRewardType = rewardTypeUnset
+    ? null
+    : rewardTypes.find((rt) => rt.name === formData.rewardType);
   const selectedRewardConfig = selectedRewardType
     ? resolveRewardTypeConfig(selectedRewardType)
     : null;
-  const rewardFormFields = selectedRewardConfig
-    ? getRewardFormFieldConfig(selectedRewardConfig)
-    : null;
+  const rewardFormFields =
+    !rewardTypeUnset && selectedRewardConfig
+      ? getRewardFormFieldConfig(selectedRewardConfig)
+      : null;
 
   const viewerOrgIdForReview = resolveViewerOrgIdForTaskReview(
     currentUser,
@@ -955,18 +895,12 @@ export const JobWizard: React.FC = () => {
             icon={<CalendarDays className="w-4 h-4" />}
             isOpen={openS1.schedule}
             onToggle={() => toggleS1("schedule")}
-            hasError={
-              !!(
-                errors.location ||
-                errors.hoursRequired ||
-                errors.startDate
-              )
-            }
+            hasError={!!(errors.hoursRequired || errors.startDate)}
           >
             <div className="grid md:grid-cols-2 gap-5">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                  Location / Room *
+                  Location / Room
                 </label>
                 <input
                   type="text"
@@ -988,15 +922,20 @@ export const JobWizard: React.FC = () => {
 
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                  Estimated Duration (Hrs) *
+                  Estimated Duration (Hrs)
                 </label>
                 <input
                   type="number"
                   className={`w-full p-3.5 glass rounded-xl font-bold dark:text-white ${errors.hoursRequired ? "border-2 border-red-500" : ""}`}
-                  value={formData.hoursRequired}
+                  value={formData.hoursRequired ?? ""}
                   min={1}
+                  placeholder="Optional"
                   onChange={(e) => {
-                    updateField("hoursRequired", Number(e.target.value));
+                    const raw = e.target.value;
+                    updateField(
+                      "hoursRequired",
+                      raw === "" ? undefined : Number(raw),
+                    );
                     if (errors.hoursRequired)
                       setErrors((p) => ({ ...p, hoursRequired: "" }));
                   }}
@@ -1017,7 +956,6 @@ export const JobWizard: React.FC = () => {
                     if (errors.startDate)
                       setErrors((p) => ({ ...p, startDate: "" }));
                   }}
-                  min={formData.applicationCloseDate}
                   error={!!errors.startDate}
                 />
                 {errors.startDate && (
@@ -1117,9 +1055,6 @@ export const JobWizard: React.FC = () => {
             onToggle={() => toggleS2("reward")}
             hasError={
               !!(
-                errors.rewardType ||
-                errors.rewardValue ||
-                errors.rewardText ||
                 errors.visibility ||
                 errors.applicationOpenDate ||
                 errors.applicationCloseDate
@@ -1130,34 +1065,22 @@ export const JobWizard: React.FC = () => {
               <div className="grid md:grid-cols-2 gap-5">
                 <div className="space-y-1.5">
                   <CustomDropdown
-                    label="Reward Type *"
-                    options={rewardTypes}
-                    value={formData.rewardType || ""}
+                    label="Reward Type"
+                    options={rewardTypeDropdownOptions}
+                    value={formData.rewardType || REWARD_TYPE_NONE_CHOICE}
                     onChange={(val) => {
                       updateField("rewardType", val);
                       updateField("rewardText", "");
-                      updateField("rewardValue", 0);
-                      if (errors.rewardType)
-                        setErrors((p) => ({ ...p, rewardType: "" }));
-                      if (errors.rewardValue)
-                        setErrors((p) => ({ ...p, rewardValue: "" }));
-                      if (errors.rewardText)
-                        setErrors((p) => ({ ...p, rewardText: "" }));
+                      updateField("rewardValue", undefined);
                     }}
                     placeholder="Select Reward"
-                    error={!!errors.rewardType}
                   />
-                  {errors.rewardType && (
-                    <p className="text-red-500 text-xs font-bold">
-                      {errors.rewardType}
-                    </p>
-                  )}
                 </div>
 
                 {rewardFormFields?.showValueField && (
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                      {rewardFormFields.inputLabel} *
+                      {rewardFormFields.inputLabel}
                     </label>
                     {rewardFormFields.inputType === "text" ? (
                       <>
@@ -1193,9 +1116,13 @@ export const JobWizard: React.FC = () => {
                             className={`w-full p-3.5 glass rounded-xl font-bold dark:text-white ${
                               rewardFormFields.prefix ? "pl-8" : ""
                             } ${errors.rewardValue ? "border-2 border-red-500" : ""}`}
-                            value={formData.rewardValue}
+                            value={formData.rewardValue ?? ""}
                             onChange={(e) => {
-                              updateField("rewardValue", Number(e.target.value));
+                              const raw = e.target.value;
+                              updateField(
+                                "rewardValue",
+                                raw === "" ? undefined : Number(raw),
+                              );
                               if (errors.rewardValue)
                                 setErrors((p) => ({ ...p, rewardValue: "" }));
                             }}
@@ -1691,19 +1618,30 @@ export const JobWizard: React.FC = () => {
                 {[
                   { label: "Title", value: formData.title || "-" },
                   { label: "Category", value: formData.category || "-" },
-                  { label: "Location", value: formData.location || "-" },
+                  {
+                    label: "Location",
+                    value: formatOptionalTaskLocation(formData.location),
+                  },
                   {
                     label: "Duration",
-                    value: formData.hoursRequired ? `${formData.hoursRequired}h` : "-",
+                    value: formatOptionalTaskDuration(formData.hoursRequired, "h"),
                   },
-                  { label: "Applications Open", value: formData.applicationOpenDate || "N/A" },
-                  { label: "Applications Close", value: formData.applicationCloseDate || "N/A" },
+                  {
+                    label: "Applications Open",
+                    value: formatTaskDateOrNA(formData.applicationOpenDate),
+                  },
+                  {
+                    label: "Applications Close",
+                    value: formatTaskDateOrNA(formData.applicationCloseDate),
+                  },
                   { label: "Task Start Date", value: formData.startDate || "-" },
                   {
                     label: "Reward",
                     value: formatTaskRewardDisplay(
                       {
-                        rewardType: formData.rewardType || "",
+                        rewardType: isRewardTypeUnset(formData.rewardType)
+                          ? ""
+                          : formData.rewardType || "",
                         rewardValue: formData.rewardValue,
                         rewardText: formData.rewardText,
                       },

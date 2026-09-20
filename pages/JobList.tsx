@@ -31,6 +31,10 @@ import { Pagination } from "../components/Pagination";
 import { useToast } from "../components/Toast";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 import {
+  formatOptionalTaskDuration,
+  formatOptionalTaskLocation,
+} from "../utils/formatOptionalTaskField";
+import {
   formatTaskApplicationWindow,
   formatTaskDate,
 } from "../utils/formatTaskDate";
@@ -584,19 +588,17 @@ export const JobList: React.FC = () => {
                       <span className="truncate">{orgLabel}</span>
                     </span>
                   )}
-                  {job.rewardType && (
-                    <span className="px-3 py-1.5 bg-primary text-white text-[10px] font-black rounded-xl uppercase tracking-widest shadow-lg shadow-primary/20">
-                      <TaskRewardText
-                        task={{
-                          rewardType: job.rewardType,
-                          rewardValue: job.rewardValue,
-                          rewardText: job.rewardText,
-                        }}
-                        organisationId={organisationIdToString(job.organisation)}
-                        catalog={rewardCatalog}
-                      />
-                    </span>
-                  )}
+                  <span className="px-3 py-1.5 bg-primary text-white text-[10px] font-black rounded-xl uppercase tracking-widest shadow-lg shadow-primary/20">
+                    <TaskRewardText
+                      task={{
+                        rewardType: job.rewardType,
+                        rewardValue: job.rewardValue,
+                        rewardText: job.rewardText,
+                      }}
+                      organisationId={organisationIdToString(job.organisation)}
+                      catalog={rewardCatalog}
+                    />
+                  </span>
                 </div>
                 <h3 className="text-3xl font-black text-zinc-900 dark:text-white group-hover:text-primary transition-colors mb-3 tracking-tighter">
                   {job.title}
@@ -608,11 +610,11 @@ export const JobList: React.FC = () => {
                 <div className="flex flex-wrap items-center gap-4 mt-8">
                   <div className="flex items-center px-4 py-2 glass rounded-2xl text-xs font-bold text-zinc-500">
                     <MapPin className="w-4 h-4 mr-2 text-primary" />{" "}
-                    {job.location}
+                    {formatOptionalTaskLocation(job.location)}
                   </div>
                   <div className="flex items-center px-4 py-2 glass rounded-2xl text-xs font-bold text-zinc-500">
                     <Clock className="w-4 h-4 mr-2 text-primary" />{" "}
-                    {job.hoursRequired} Total Hrs
+                    {formatOptionalTaskDuration(job.hoursRequired, "totalHrs")}
                   </div>
                   <div className="flex items-center px-4 py-2 glass rounded-2xl text-xs font-bold text-zinc-500">
                     <Calendar className="w-4 h-4 mr-2 text-zinc-400" />

@@ -15,6 +15,10 @@ import { db } from "../services/database";
 import { resolveCatalogOrganisationId } from "../services/platformOrganisations";
 import { Job, JobStatus, User } from "../types";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
+import {
+  formatOptionalTaskDuration,
+  formatOptionalTaskLocation,
+} from "../utils/formatOptionalTaskField";
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -297,11 +301,11 @@ export const Home: React.FC = () => {
               <div className="flex items-center gap-4 text-xs font-bold text-zinc-400 dark:text-zinc-500 border-t border-zinc-100 dark:border-zinc-800 pt-4">
                 <div className="flex items-center">
                   <MapPin className="w-4 h-4 mr-1.5" />
-                  {job.location}
+                  {formatOptionalTaskLocation(job.location)}
                 </div>
                 <div className="flex items-center">
                   <Clock className="w-4 h-4 mr-1.5" />
-                  {job.hoursRequired} Hrs
+                  {formatOptionalTaskDuration(job.hoursRequired, "h")}
                 </div>
               </div>
               <div

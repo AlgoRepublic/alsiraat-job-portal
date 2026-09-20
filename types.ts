@@ -90,7 +90,7 @@ export interface Job {
   title: string;
   category: string;
   description: string;
-  location: string;
+  location?: string;
   hoursRequired?: number;
   applicationOpenDate?: string;
   applicationCloseDate?: string;
@@ -99,7 +99,7 @@ export interface Job {
   selectionCriteria?: string;
 
   requiredSkills?: string[];
-  rewardType: string;
+  rewardType?: string;
   rewardValue?: number;
   /** When the organisation uses a text-valued reward type (e.g. coupon code). */
   rewardText?: string;

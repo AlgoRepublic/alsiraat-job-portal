@@ -33,7 +33,14 @@ import { getUserRoleCodesForActiveOrg } from "../utils/orgScopedRoles";
 import { organisationIdToString } from "../utils/organisationId";
 import { TaskRewardText } from "../components/TaskRewardText";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
-import { formatTaskDate } from "../utils/formatTaskDate";
+import {
+  formatTaskDate,
+  formatTaskDateOrNA,
+} from "../utils/formatTaskDate";
+import {
+  formatOptionalTaskDuration,
+  formatOptionalTaskLocation,
+} from "../utils/formatOptionalTaskField";
 import {
   canViewPrivilegedTaskDetail,
   canEditTask,
@@ -48,6 +55,7 @@ import {
   isApplicationWindowOpen,
 } from "../utils/applicationWindow";
 import { CustomDatePicker } from "../components/CustomUI";
+import { validateRepostDates } from "../utils/taskFormValidation";
 
 function localTodayIsoDate(): string {
   const today = new Date();
@@ -60,30 +68,6 @@ type RepostDates = {
   applicationCloseDate: string;
   startDate: string;
 };
-
-function validateRepostDates(dates: RepostDates): Record<string, string> {
-  const errors: Record<string, string> = {};
-  if (!dates.applicationCloseDate?.trim()) {
-    errors.applicationCloseDate = "Applications Close Date is required";
-  }
-  if (!dates.startDate?.trim()) {
-    errors.startDate = "Task Start Date is required";
-  } else if (dates.applicationCloseDate) {
-    if (new Date(dates.startDate) < new Date(dates.applicationCloseDate)) {
-      errors.startDate = "Task Start Date cannot be before Applications Close";
-    }
-  }
-  if (dates.applicationOpenDate && dates.applicationCloseDate) {
-    if (
-      new Date(dates.applicationCloseDate) <
-      new Date(dates.applicationOpenDate)
-    ) {
-      errors.applicationCloseDate =
-        "Applications Close Date must be on or after Applications Open Date.";
-    }
-  }
-  return errors;
-}
 
 type JobDetailsLocationState = {
   toastMessage?: string;
@@ -392,8 +376,12 @@ export const JobDetails: React.FC = () => {
     setReposting(true);
     try {
       await db.repostJob(job.id, {
-        applicationOpenDate: repostDates.applicationOpenDate || undefined,
-        applicationCloseDate: repostDates.applicationCloseDate,
+        applicationOpenDate: repostDates.applicationOpenDate?.trim()
+          ? repostDates.applicationOpenDate
+          : undefined,
+        applicationCloseDate: repostDates.applicationCloseDate?.trim()
+          ? repostDates.applicationCloseDate
+          : undefined,
         startDate: repostDates.startDate,
       });
       setShowRepostModal(false);
@@ -407,7 +395,6 @@ export const JobDetails: React.FC = () => {
   };
 
   const repostFormValid =
-    !!repostDates.applicationCloseDate?.trim() &&
     !!repostDates.startDate?.trim() &&
     Object.keys(validateRepostDates(repostDates)).length === 0;
 
@@ -772,7 +759,7 @@ export const JobDetails: React.FC = () => {
                   Location
                 </p>
                 <p className="text-sm font-semibold text-zinc-900 dark:text-white">
-                  {job.location}
+                  {formatOptionalTaskLocation(job.location)}
                 </p>
               </div>
             </div>
@@ -785,7 +772,7 @@ export const JobDetails: React.FC = () => {
                   Duration
                 </p>
                 <p className="text-sm font-semibold text-zinc-900 dark:text-white">
-                  {job.hoursRequired} Hours
+                  {formatOptionalTaskDuration(job.hoursRequired, "hours")}
                 </p>
               </div>
             </div>
@@ -798,7 +785,7 @@ export const JobDetails: React.FC = () => {
                     Applications Open
                   </p>
                 <p className="text-sm font-semibold text-zinc-900 dark:text-white">
-                  {formatTaskDate(job.applicationOpenDate) || "N/A"}
+                  {formatTaskDateOrNA(job.applicationOpenDate)}
                 </p>
               </div>
             </div>
@@ -811,7 +798,7 @@ export const JobDetails: React.FC = () => {
                     Applications Close
                   </p>
                 <p className="text-sm font-semibold text-zinc-900 dark:text-white">
-                  {formatTaskDate(job.applicationCloseDate) || "N/A"}
+                  {formatTaskDateOrNA(job.applicationCloseDate)}
                 </p>
               </div>
             </div>
@@ -1320,7 +1307,7 @@ export const JobDetails: React.FC = () => {
               </div>
               <div className="space-y-1.5">
                 <CustomDatePicker
-                  label="Applications Close *"
+                  label="Applications Close"
                   value={repostDates.applicationCloseDate}
                   onChange={(val) => {
                     setRepostDates((p) => ({
@@ -1333,12 +1320,10 @@ export const JobDetails: React.FC = () => {
                         applicationCloseDate: "",
                       }));
                     }
-                    if (repostErrors.startDate) {
-                      setRepostErrors((p) => ({ ...p, startDate: "" }));
-                    }
                   }}
                   min={repostDates.applicationOpenDate}
                   error={!!repostErrors.applicationCloseDate}
+                  clearable
                 />
                 {repostErrors.applicationCloseDate && (
                   <p className="text-red-500 text-xs font-bold">
@@ -1356,7 +1341,6 @@ export const JobDetails: React.FC = () => {
                       setRepostErrors((p) => ({ ...p, startDate: "" }));
                     }
                   }}
-                  min={repostDates.applicationCloseDate}
                   error={!!repostErrors.startDate}
                 />
                 {repostErrors.startDate && (

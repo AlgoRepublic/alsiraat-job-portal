@@ -1,3 +1,5 @@
+import { OPTIONAL_TASK_FIELD_PLACEHOLDER } from "./formatOptionalTaskField.ts";
+
 /** Display format used across task listings and detail views (e.g. 01 Jul 2026). */
 export function formatTaskDate(value?: string | null): string | null {
   if (!value) return null;
@@ -10,18 +12,16 @@ export function formatTaskDate(value?: string | null): string | null {
   });
 }
 
-const TASK_DATE_NA = "N/A";
-
 export function formatTaskDateOrNA(value?: string | null): string {
-  return formatTaskDate(value) ?? TASK_DATE_NA;
+  return formatTaskDate(value) ?? OPTIONAL_TASK_FIELD_PLACEHOLDER;
 }
 
 export function formatTaskApplicationWindow(
   open?: string | null,
   close?: string | null,
 ): string {
-  const openLabel = formatTaskDate(open) ?? TASK_DATE_NA;
-  const closeLabel = formatTaskDate(close) ?? TASK_DATE_NA;
-  if (!open && !close) return TASK_DATE_NA;
+  const openLabel = formatTaskDate(open) ?? OPTIONAL_TASK_FIELD_PLACEHOLDER;
+  const closeLabel = formatTaskDate(close) ?? OPTIONAL_TASK_FIELD_PLACEHOLDER;
+  if (!open && !close) return OPTIONAL_TASK_FIELD_PLACEHOLDER;
   return `${openLabel} - ${closeLabel}`;
 }

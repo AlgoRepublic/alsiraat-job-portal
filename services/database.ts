@@ -563,7 +563,7 @@ class DatabaseService {
     id: string,
     dates: {
       applicationOpenDate?: string;
-      applicationCloseDate: string;
+      applicationCloseDate?: string;
       startDate: string;
     },
   ): Promise<any> {

@@ -46,7 +46,7 @@ export function parseApplicationCloseDateForUpdate(
   return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
-/** Task start date (when the task itself begins, after applications close). */
+/** Task start date (when the task itself begins; independent of the application window). */
 export function parseTaskStartDate(
   body: Record<string, unknown>,
 ): Date | undefined | null {
@@ -169,9 +169,6 @@ export function validateTaskDateOrder(
     applicationCloseDate < applicationOpenDate
   ) {
     return "Applications Close Date must be on or after Applications Open Date.";
-  }
-  if (startDate && applicationCloseDate && startDate < applicationCloseDate) {
-    return "Task start date must be on or after application close date";
   }
   return null;
 }

@@ -1,3 +1,6 @@
+/** Keep in sync with `utils/formatOptionalTaskField.ts` in the frontend app. */
+export const OPTIONAL_TASK_FIELD_PLACEHOLDER = "N/A";
+
 /** What the reward represents (storage / display semantics). */
 export const REWARD_VALUE_KINDS = [
   "none",
@@ -378,7 +381,7 @@ export function formatTaskRewardDisplay(
   catalog?: RewardTypeRecord[],
 ): string {
   const rewardType = task.rewardType?.trim() || "";
-  if (!rewardType) return "—";
+  if (!rewardType) return OPTIONAL_TASK_FIELD_PLACEHOLDER;
 
   const catalogRow = findRewardTypeInCatalog(catalog, rewardType);
   const config = resolveRewardTypeConfig(

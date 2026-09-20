@@ -3,6 +3,8 @@
  * Keep in sync with backend/src/utils/rewardTypeRules.ts
  */
 
+import { OPTIONAL_TASK_FIELD_PLACEHOLDER } from "./formatOptionalTaskField.ts";
+
 export const REWARD_VALUE_KINDS = [
   "none",
   "currency",
@@ -330,7 +332,7 @@ export function formatTaskRewardDisplay(
   catalog?: RewardTypeRecord[],
 ): string {
   const rewardType = task.rewardType?.trim() || "";
-  if (!rewardType) return "—";
+  if (!rewardType) return OPTIONAL_TASK_FIELD_PLACEHOLDER;
 
   const catalogRow = findRewardTypeInCatalog(catalog, rewardType);
   const config = resolveRewardTypeConfig(

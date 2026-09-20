@@ -53,6 +53,15 @@ import {
   applicationWindowNotExpiredFilter,
   buildApplicationWindowStatusFilters,
 } from "../utils/taskApplicationDates.js";
+import {
+  isRewardTypeUnset,
+  normalizeOptionalString,
+  parseHoursRequiredForCreate,
+  parseHoursRequiredForUpdate,
+  parseOptionalStringForUpdate,
+  parseRewardValueForCreate,
+  parseRewardValueForUpdate,
+} from "../utils/taskOptionalFields.js";
 
 /** Signed-in applicants browse the active application window; managers see the full shelf. */
 async function shouldApplyActiveApplicationWindowFilter(
@@ -267,16 +276,20 @@ export const createTask = async (req: any, res: Response) => {
       }
     }
 
+    const normalizedLocation = normalizeOptionalString(location);
+    const parsedHours = parseHoursRequiredForCreate(hoursRequired);
+    if (parsedHours === "invalid") {
+      return res.status(400).json({
+        message: "Estimated duration must be a positive number when provided.",
+      });
+    }
+
     const taskData: any = {
       title,
       description,
       category,
-      location,
-      hoursRequired,
       selectionCriteria,
       requiredSkills: parseArrayField(requiredSkills),
-      rewardType,
-      rewardValue,
       eligibility: parseArrayField(eligibility),
       visibility: normalizeIncomingTaskVisibility(visibility),
       privateAudiences:
@@ -292,8 +305,17 @@ export const createTask = async (req: any, res: Response) => {
       attachments,
     };
 
-    if (rewardText !== undefined && rewardText !== null && String(rewardText).trim() !== "") {
-      taskData.rewardText = String(rewardText).trim();
+    if (normalizedLocation) taskData.location = normalizedLocation;
+    if (parsedHours !== undefined) taskData.hoursRequired = parsedHours;
+
+    if (!isRewardTypeUnset(rewardType)) {
+      taskData.rewardType = String(rewardType).trim();
+      const parsedRewardValue = parseRewardValueForCreate(rewardValue, rewardType);
+      if (parsedRewardValue !== undefined) {
+        taskData.rewardValue = parsedRewardValue;
+      }
+      const rewardTextNormalized = normalizeOptionalString(rewardText);
+      if (rewardTextNormalized) taskData.rewardText = rewardTextNormalized;
     }
 
     // Log user data for debugging
@@ -483,8 +505,21 @@ export const updateTask = async (req: any, res: Response) => {
     if (title) task.title = title;
     if (description) task.description = description;
     if (category) task.category = category;
-    if (location) task.location = location;
-    if (hoursRequired) task.hoursRequired = hoursRequired;
+    const locationUpdate = parseOptionalStringForUpdate(req.body, "location");
+    if (locationUpdate !== undefined) {
+      (task as any).location =
+        locationUpdate === null ? undefined : locationUpdate;
+    }
+    const hoursUpdate = parseHoursRequiredForUpdate(req.body);
+    if (hoursUpdate === "invalid") {
+      return res.status(400).json({
+        message: "Estimated duration must be a positive number when provided.",
+      });
+    }
+    if (hoursUpdate !== undefined) {
+      (task as any).hoursRequired =
+        hoursUpdate === null ? undefined : hoursUpdate;
+    }
     const applicationOpenDate = parseApplicationOpenDateForUpdate(req.body);
     const applicationCloseDate = parseApplicationCloseDateForUpdate(req.body);
     const parsedStartDate = parseTaskStartDate(req.body);
@@ -524,14 +559,32 @@ export const updateTask = async (req: any, res: Response) => {
     }
     if (selectionCriteria) task.selectionCriteria = selectionCriteria;
     if (requiredSkills) task.requiredSkills = parseArrayField(requiredSkills);
-    if (rewardType) task.rewardType = rewardType;
-    if (rewardValue !== undefined) task.rewardValue = rewardValue;
-    if (rewardText !== undefined) {
-      const t = String(rewardText).trim();
-      if (t === "") {
+    if ("rewardType" in req.body) {
+      if (isRewardTypeUnset(rewardType)) {
+        (task as any).rewardType = undefined;
+        (task as any).rewardValue = undefined;
         (task as any).rewardText = undefined;
       } else {
-        (task as any).rewardText = t;
+        (task as any).rewardType = String(rewardType).trim();
+        const rewardValueUpdate = parseRewardValueForUpdate(req.body);
+        if (rewardValueUpdate !== undefined) {
+          (task as any).rewardValue =
+            rewardValueUpdate === null ? undefined : rewardValueUpdate;
+        }
+        if ("rewardText" in req.body) {
+          const t = normalizeOptionalString(rewardText);
+          (task as any).rewardText = t === undefined ? undefined : t;
+        }
+      }
+    } else {
+      const rewardValueUpdate = parseRewardValueForUpdate(req.body);
+      if (rewardValueUpdate !== undefined) {
+        (task as any).rewardValue =
+          rewardValueUpdate === null ? undefined : rewardValueUpdate;
+      }
+      if ("rewardText" in req.body) {
+        const t = normalizeOptionalString(rewardText);
+        (task as any).rewardText = t === undefined ? undefined : t;
       }
     }
     if (eligibility) task.eligibility = parseArrayField(eligibility);
@@ -1751,12 +1804,6 @@ export const repostTask = async (req: any, res: Response) => {
     const applicationCloseDate = parseApplicationCloseDate(req.body);
     const startDateResult = requireTaskStartDateFromBody(req.body);
 
-    if (!applicationCloseDate) {
-      return res.status(400).json({
-        message:
-          "applicationCloseDate is required to repost a task (legacy endDate also accepted during transition)",
-      });
-    }
     if (!startDateResult.ok) {
       return res.status(400).json({ message: startDateResult.message });
     }
@@ -1779,10 +1826,13 @@ export const repostTask = async (req: any, res: Response) => {
     delete clonedTaskData.deletedAt;
 
     delete clonedTaskData.applicationOpenDate;
+    delete clonedTaskData.applicationCloseDate;
     if (applicationOpenDate) {
       clonedTaskData.applicationOpenDate = applicationOpenDate;
     }
-    clonedTaskData.applicationCloseDate = applicationCloseDate;
+    if (applicationCloseDate) {
+      clonedTaskData.applicationCloseDate = applicationCloseDate;
+    }
     clonedTaskData.startDate = startDateResult.date;
     delete clonedTaskData.endDate;
 

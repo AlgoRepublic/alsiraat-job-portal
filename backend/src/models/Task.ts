@@ -24,15 +24,15 @@ export interface ITask extends Document {
   title: string;
   description: string;
   category: string;
-  location: string;
-  hoursRequired: number;
+  location?: string | undefined;
+  hoursRequired?: number | undefined;
   applicationOpenDate?: Date | undefined;
   applicationCloseDate?: Date | undefined;
   /** Actual start date of the task (separate from the application window). */
   startDate?: Date | undefined;
   selectionCriteria?: string | undefined;
   requiredSkills?: string[] | undefined;
-  rewardType: string;
+  rewardType?: string | undefined;
   rewardValue?: number | undefined;
   /** Free-form reward detail when reward type value kind is `text`. */
   rewardText?: string | undefined;
@@ -66,14 +66,14 @@ const TaskSchema: Schema = new Schema(
     title: { type: String, required: true },
     description: { type: String, required: true },
     category: { type: String, required: true },
-    location: { type: String, required: true },
+    location: { type: String },
     hoursRequired: { type: Number },
     applicationOpenDate: { type: Date },
     applicationCloseDate: { type: Date },
     startDate: { type: Date },
     selectionCriteria: { type: String },
     requiredSkills: [{ type: String }],
-    rewardType: { type: String, required: true },
+    rewardType: { type: String },
     rewardValue: { type: Number },
     rewardText: { type: String, trim: true },
     eligibility: [{ type: String }],
