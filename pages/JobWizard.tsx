@@ -935,7 +935,7 @@ export const JobWizard: React.FC = () => {
                 <input
                   type="text"
                   className={`w-full p-3.5 glass rounded-xl font-bold dark:text-white ${errors.location ? "border-2 border-red-500" : ""}`}
-                  placeholder="e.g. Room 301, Building C"
+                  placeholder="Optional"
                   value={formData.location}
                   onChange={(e) => {
                     updateField("location", e.target.value);
