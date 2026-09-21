@@ -141,6 +141,58 @@ export const MyAds: React.FC = () => {
     !!currentUser?.isSuperAdmin ||
     !!currentUser?.permissions?.includes(Permission.TASK_DELETE);
 
+  const renderAdActions = (task: Job) => (
+    <div className="flex flex-wrap items-center gap-2 justify-start md:justify-end">
+      {canAssign && isAssignable(task) && (
+        <button
+          onClick={() => {
+            setAssignTask(task);
+            setAssignModalOpen(true);
+          }}
+          title="Assign task directly to a user"
+          className="px-4 py-2.5 bg-violet-100 dark:bg-violet-900/30 text-violet-800 dark:text-violet-300 border border-violet-200 dark:border-violet-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-all"
+        >
+          <UserCheck className="w-3.5 h-3.5 inline mr-1.5" />
+          Assign
+        </button>
+      )}
+      {canEditTask(
+        currentUser,
+        {
+          status: task.status,
+          createdBy: task.createdBy,
+          createdById: task.createdById,
+          organisation:
+            task.organisation ?? (task as { organization?: unknown }).organization,
+          archivedAt: task.archivedAt,
+          deletedAt: task.deletedAt,
+        },
+        activeOrgId,
+      ) && (
+        <button
+          onClick={() => navigate(`/edit-job/${task._id}`)}
+          className="px-4 py-2.5 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-all"
+        >
+          <Edit2 className="w-3.5 h-3.5 inline mr-1.5" />
+          Edit
+        </button>
+      )}
+      <button
+        onClick={() => navigate(`/jobs/${task._id}`)}
+        className="px-4 py-2.5 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primaryHover transition-all shadow-lg shadow-primary/10 group-hover:scale-105"
+      >
+        <Eye className="w-3.5 h-3.5 inline mr-1.5" />
+        View
+      </button>
+      <TaskLifecycleActions
+        job={task}
+        currentUser={currentUser}
+        layout="compact"
+        onAfterMutation={() => fetchMyTasks(currentPage, adsLifecycle)}
+      />
+    </div>
+  );
+
   if (loading) {
     return <Loading message="Loading..." />;
   }
@@ -149,7 +201,7 @@ export const MyAds: React.FC = () => {
     <>
       <div className="max-w-5xl mx-auto space-y-8 animate-fade-in">
         {/* Header */}
-        <div className="glass-card p-10 rounded-[2.5rem] flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+        <div className="glass-card p-6 sm:p-10 rounded-[2rem] sm:rounded-[2.5rem] flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
               My Ads
@@ -207,7 +259,98 @@ export const MyAds: React.FC = () => {
         )}
 
         <div className="glass-card rounded-[2.5rem] overflow-hidden shadow-2xl">
-          <div className="overflow-x-auto">
+          <div className="md:hidden divide-y divide-white/20 dark:divide-white/5">
+            {tasks.map((task) => (
+              <div
+                key={task._id}
+                className="p-5 space-y-4 hover:bg-white/40 dark:hover:bg-white/5 transition-all"
+              >
+                <div className="flex items-start gap-4">
+                  <div
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                      task.status === JobStatus.CHANGES_REQUESTED
+                        ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
+                        : "bg-primary/10 text-primary"
+                    }`}
+                  >
+                    {task.status === JobStatus.CHANGES_REQUESTED ? (
+                      <AlertTriangle className="w-6 h-6" />
+                    ) : (
+                      <Briefcase className="w-6 h-6" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-lg font-black text-zinc-900 dark:text-white">
+                      {task.title}
+                    </p>
+                    <p className="text-xs text-zinc-500 font-medium uppercase tracking-widest mt-1">
+                      {task.visibility} •{" "}
+                      {formatOptionalTaskDuration(task.hoursRequired, "h")}
+                    </p>
+                    {task.status === JobStatus.CHANGES_REQUESTED &&
+                      task.rejectionReason && (
+                        <p className="text-xs text-red-600 dark:text-red-400 font-semibold mt-1.5 flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3 shrink-0" />
+                          {task.rejectionReason}
+                        </p>
+                      )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                      Created Date
+                    </p>
+                    <p className="font-semibold text-zinc-500 dark:text-zinc-400 mt-1">
+                      {task.createdAt && !isNaN(new Date(task.createdAt).getTime())
+                        ? new Date(task.createdAt).toLocaleDateString("en-GB", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })
+                        : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                      Status
+                    </p>
+                    <span
+                      className={`inline-block mt-1 px-4 py-2 text-[10px] font-black rounded-xl uppercase tracking-widest border ${getTaskStatusStyle(task.status)}`}
+                    >
+                      {task.status}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                      Applicants
+                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Users className="w-4 h-4 text-zinc-400" />
+                      <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300">
+                        {(task as any).applicantsCount ??
+                          (task as any).applicantCount ??
+                          0}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                {renderAdActions(task)}
+              </div>
+            ))}
+            {tasks.length === 0 && (
+              <div className="px-5 py-16 text-center text-zinc-500 italic">
+                You haven't posted any ads yet.{" "}
+                <button
+                  onClick={() => navigate("/post-job")}
+                  className="text-primary font-black hover:underline ml-2"
+                >
+                  Create Your First Ad
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-white/50 dark:bg-zinc-800/50 border-b border-white/20 dark:border-white/5">
                 <tr>
@@ -292,59 +435,7 @@ export const MyAds: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-10 py-8 whitespace-nowrap text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {/* Assign directly — only for published tasks & eligible users */}
-                        {canAssign && isAssignable(task) && (
-                          <button
-                            onClick={() => {
-                              setAssignTask(task);
-                              setAssignModalOpen(true);
-                            }}
-                            title="Assign task directly to a user"
-                            className="px-4 py-2.5 bg-violet-100 dark:bg-violet-900/30 text-violet-800 dark:text-violet-300 border border-violet-200 dark:border-violet-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-all"
-                          >
-                            <UserCheck className="w-3.5 h-3.5 inline mr-1.5" />
-                            Assign
-                          </button>
-                        )}
-                        {canEditTask(
-                          currentUser,
-                          {
-                            status: task.status,
-                            createdBy: task.createdBy,
-                            createdById: task.createdById,
-                            organisation:
-                              task.organisation ??
-                              (task as { organization?: unknown }).organization,
-                            archivedAt: task.archivedAt,
-                            deletedAt: task.deletedAt,
-                          },
-                          activeOrgId,
-                        ) && (
-                          <button
-                            onClick={() => navigate(`/edit-job/${task._id}`)}
-                            className="px-4 py-2.5 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-all"
-                          >
-                            <Edit2 className="w-3.5 h-3.5 inline mr-1.5" />
-                            Edit
-                          </button>
-                        )}
-                        <button
-                          onClick={() => navigate(`/jobs/${task._id}`)}
-                          className="px-4 py-2.5 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primaryHover transition-all shadow-lg shadow-primary/10 group-hover:scale-105"
-                        >
-                          <Eye className="w-3.5 h-3.5 inline mr-1.5" />
-                          View
-                        </button>
-                        <TaskLifecycleActions
-                          job={task}
-                          currentUser={currentUser}
-                          layout="compact"
-                          onAfterMutation={() =>
-                            fetchMyTasks(currentPage, adsLifecycle)
-                          }
-                        />
-                      </div>
+                      {renderAdActions(task)}
                     </td>
                   </tr>
                 ))}

@@ -169,10 +169,119 @@ export const MyAssignedTasks: React.FC = () => {
 
   const toggleSort = () => setSortDir((d) => (d === "desc" ? "asc" : "desc"));
 
+  const renderActions = (app: Application) => {
+    const task = (app as any).task;
+    const taskId = task?.id || task?._id;
+    const appId = app.id;
+
+    return (
+      <div className="flex flex-wrap items-center gap-2 justify-start md:justify-end">
+        {app.status === "Offered" && (
+          <>
+            <button
+              onClick={() => handleConfirmOffer(appId)}
+              className="px-4 py-2.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-all"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 inline mr-1.5" />
+              Accept
+            </button>
+            <button
+              onClick={() => handleDeclineOffer(appId)}
+              className="px-4 py-2.5 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-200 dark:hover:bg-red-900/50 transition-all"
+            >
+              Decline
+            </button>
+          </>
+        )}
+        {app.status === "Accepted" && (
+          <button
+            onClick={() => handleRequestCompletion(appId)}
+            className="px-4 py-2.5 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-all"
+          >
+            <ClipboardCheck className="w-3.5 h-3.5 inline mr-1.5" />
+            Mark Done
+          </button>
+        )}
+        {taskId && (
+          <button
+            onClick={() => navigate(`/jobs/${taskId}`)}
+            className="px-4 py-2.5 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primaryHover transition-all shadow-lg shadow-primary/10 group-hover:scale-105"
+          >
+            <ArrowRight className="w-3.5 h-3.5 inline mr-1.5" />
+            View
+          </button>
+        )}
+        {task && typeof task === "object" && (
+          <TaskLifecycleActions
+            job={task as Job}
+            currentUser={currentUser}
+            layout="compact"
+            onAfterMutation={() => fetchAssignedTasks(currentPage)}
+          />
+        )}
+      </div>
+    );
+  };
+
+  const renderMobileCard = (app: Application) => {
+    const { style, icon, label } = getStatusConfig(app.status);
+    const task = (app as any).task;
+    const appId = app.id;
+
+    return (
+      <div
+        key={appId}
+        className="p-5 space-y-4 hover:bg-white/40 dark:hover:bg-white/5 transition-all"
+      >
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+            <Briefcase className="w-6 h-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-lg font-black text-zinc-900 dark:text-white">
+              {task?.title || "Task Deleted"}
+            </p>
+            <p className="text-xs text-zinc-500 font-medium uppercase tracking-widest mt-1">
+              {task?.category || "—"}
+              {` • ${formatOptionalTaskDuration(task?.hoursRequired, "h")}`}
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+              Date
+            </p>
+            <p className="font-semibold text-zinc-500 dark:text-zinc-400 mt-1">
+              {app.appliedAt && !isNaN(new Date(app.appliedAt).getTime())
+                ? new Date(app.appliedAt).toLocaleDateString("en-GB", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })
+                : "—"}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+              Status
+            </p>
+            <span
+              className={`inline-flex items-center gap-1.5 mt-1 px-4 py-2 text-[10px] font-black rounded-xl uppercase tracking-widest border ${style}`}
+            >
+              {icon}
+              {label}
+            </span>
+          </div>
+        </div>
+        {renderActions(app)}
+      </div>
+    );
+  };
+
   const renderRow = (app: Application) => {
     const { style, icon, label } = getStatusConfig(app.status);
     const task = (app as any).task;
-    const taskId = task?.id || task?._id;
     const appId = app.id;
 
     return (
@@ -233,56 +342,7 @@ export const MyAssignedTasks: React.FC = () => {
 
         {/* Actions */}
         <td className="px-10 py-8 whitespace-nowrap text-right">
-          <div className="flex items-center justify-end gap-2">
-            {/* Offer pending — confirm or decline */}
-            {app.status === "Offered" && (
-              <>
-                <button
-                  onClick={() => handleConfirmOffer(appId)}
-                  className="px-4 py-2.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-all"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5 inline mr-1.5" />
-                  Accept
-                </button>
-                <button
-                  onClick={() => handleDeclineOffer(appId)}
-                  className="px-4 py-2.5 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-200 dark:hover:bg-red-900/50 transition-all"
-                >
-                  Decline
-                </button>
-              </>
-            )}
-
-            {/* Accepted — can request completion */}
-            {app.status === "Accepted" && (
-              <button
-                onClick={() => handleRequestCompletion(appId)}
-                className="px-4 py-2.5 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-all"
-              >
-                <ClipboardCheck className="w-3.5 h-3.5 inline mr-1.5" />
-                Mark Done
-              </button>
-            )}
-
-            {/* View task */}
-            {taskId && (
-              <button
-                onClick={() => navigate(`/jobs/${taskId}`)}
-                className="px-4 py-2.5 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primaryHover transition-all shadow-lg shadow-primary/10 group-hover:scale-105"
-              >
-                <ArrowRight className="w-3.5 h-3.5 inline mr-1.5" />
-                View
-              </button>
-            )}
-            {task && typeof task === "object" && (
-              <TaskLifecycleActions
-                job={task as Job}
-                currentUser={currentUser}
-                layout="compact"
-                onAfterMutation={() => fetchAssignedTasks(currentPage)}
-              />
-            )}
-          </div>
+          {renderActions(app)}
         </td>
       </tr>
     );
@@ -291,7 +351,7 @@ export const MyAssignedTasks: React.FC = () => {
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-fade-in">
       {/* Header */}
-      <div className="glass-card p-10 rounded-[2.5rem]">
+      <div className="glass-card p-6 sm:p-10 rounded-[2rem] sm:rounded-[2.5rem]">
         <h1 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
           My Tasks
         </h1>
@@ -308,7 +368,7 @@ export const MyAssignedTasks: React.FC = () => {
       )}
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-2xl w-fit">
+      <div className="flex flex-wrap items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-2xl w-full sm:w-fit">
         {(["active", "completed"] as const).map((tab) => {
           const count = tab === "active" ? activeTasks.length : completedTasks.length;
           return (
@@ -342,7 +402,24 @@ export const MyAssignedTasks: React.FC = () => {
       {/* Task table */}
       {displayedTasks.length > 0 ? (
         <div className="glass-card rounded-[2.5rem] overflow-hidden shadow-2xl">
-          <div className="overflow-x-auto">
+          <div className="md:hidden border-b border-white/20 dark:border-white/5 px-4 py-3">
+            <button
+              type="button"
+              onClick={toggleSort}
+              className="inline-flex items-center gap-1 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] hover:text-primary transition-colors"
+            >
+              Date
+              {sortDir === "desc" ? (
+                <ChevronDown className="w-3.5 h-3.5" />
+              ) : (
+                <ChevronUp className="w-3.5 h-3.5" />
+              )}
+            </button>
+          </div>
+          <div className="md:hidden divide-y divide-white/20 dark:divide-white/5">
+            {displayedTasks.map(renderMobileCard)}
+          </div>
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-white/50 dark:bg-zinc-800/50 border-b border-white/20 dark:border-white/5">
                 <tr>

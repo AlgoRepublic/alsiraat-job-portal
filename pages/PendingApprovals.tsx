@@ -52,7 +52,7 @@ export const PendingApprovals: React.FC = () => {
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-fade-in">
-      <div className="glass-card p-10 rounded-[2.5rem]">
+      <div className="glass-card p-6 sm:p-10 rounded-[2rem] sm:rounded-[2.5rem]">
         <h1 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
           Pending Approvals
         </h1>
@@ -68,7 +68,77 @@ export const PendingApprovals: React.FC = () => {
       )}
 
       <div className="glass-card rounded-[2.5rem] overflow-hidden shadow-2xl">
-        <div className="overflow-x-auto">
+        <div className="md:hidden divide-y divide-white/20 dark:divide-white/5">
+          {tasks.map((task) => (
+            <div
+              key={task._id}
+              className="p-5 space-y-4 hover:bg-white/40 dark:hover:bg-white/5 transition-all"
+            >
+              <div>
+                <p className="text-lg font-black text-zinc-900 dark:text-white">
+                  {task.title}
+                </p>
+                <p className="text-xs text-zinc-500 font-medium uppercase tracking-widest mt-1">
+                  {task.category} • {task.visibility}
+                </p>
+              </div>
+              <div className="space-y-3 text-sm">
+                <div>
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                    Created By
+                  </p>
+                  <p className="font-semibold text-zinc-500 dark:text-zinc-400 mt-1">
+                    {task.createdBy || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                    Created Date
+                  </p>
+                  <p className="font-semibold text-zinc-500 dark:text-zinc-400 mt-1">
+                    {task.createdAt && !isNaN(new Date(task.createdAt).getTime())
+                      ? new Date(task.createdAt).toLocaleDateString("en-GB", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })
+                      : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                    Status
+                  </p>
+                  <span className="inline-flex items-center gap-1.5 mt-1 px-4 py-2 text-[10px] font-black rounded-xl uppercase tracking-widest border bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800">
+                    <Clock className="w-3.5 h-3.5" />
+                    Pending
+                  </span>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <TaskLifecycleActions
+                  job={task}
+                  currentUser={currentUser}
+                  layout="compact"
+                  onAfterMutation={() => setListVersion((v) => v + 1)}
+                />
+                <button
+                  onClick={() => navigate(`/jobs/${task._id}`)}
+                  className="px-4 py-2.5 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primaryHover transition-all shadow-lg shadow-primary/10"
+                >
+                  <Eye className="w-3.5 h-3.5 inline mr-1.5" />
+                  Review
+                </button>
+              </div>
+            </div>
+          ))}
+          {tasks.length === 0 && (
+            <div className="px-5 py-16 text-center text-zinc-500 italic">
+              No pending tasks right now.
+            </div>
+          )}
+        </div>
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-white/50 dark:bg-zinc-800/50 border-b border-white/20 dark:border-white/5">
               <tr>

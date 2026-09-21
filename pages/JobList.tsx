@@ -327,13 +327,13 @@ export const JobList: React.FC = () => {
   }
 
   return (
-    <div className={`space-y-10 animate-fade-in pb-20 relative ${listRefreshing ? "opacity-70 pointer-events-none" : ""}`}>
-      <div className="relative overflow-hidden rounded-[3rem] p-12 md:p-16 shadow-2xl transition-all duration-300 bg-primary dark:bg-zinc-900 border border-white/10">
+    <div className={`space-y-10 animate-fade-in pb-20 relative min-w-0 ${listRefreshing ? "opacity-70 pointer-events-none" : ""}`}>
+      <div className="relative overflow-hidden rounded-[2rem] md:rounded-[3rem] p-6 sm:p-10 md:p-16 shadow-2xl transition-all duration-300 bg-primary dark:bg-zinc-900 border border-white/10">
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-white/10 rounded-full -mr-40 -mt-40 blur-[120px] pointer-events-none"></div>
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-white/5 rounded-full -ml-20 -mb-20 blur-[100px] pointer-events-none"></div>
 
         <div className="relative z-10 max-w-4xl mx-auto">
-          <h2 className="text-5xl md:text-6xl font-black mb-6 text-center md:text-left text-white tracking-tighter">
+          <h2 className="text-3xl sm:text-5xl md:text-6xl font-black mb-6 text-center md:text-left text-white tracking-tighter">
             Search Tasks
           </h2>
           <p className="text-white/80 dark:text-zinc-400 text-lg md:text-xl mb-12 text-center md:text-left font-medium leading-relaxed">
@@ -505,7 +505,7 @@ export const JobList: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex items-center justify-between px-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-2 min-w-0">
         <p className="text-sm font-bold text-zinc-400">
           Active Board:{" "}
           <span className="text-zinc-900 dark:text-white">
@@ -513,7 +513,7 @@ export const JobList: React.FC = () => {
           </span>
         </p>
         {hasActiveFilters && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {filterCategory !== "All" && (
               <span className="px-3 py-1.5 glass-card rounded-xl text-[10px] font-black uppercase text-zinc-600 dark:text-zinc-400 flex items-center">
                 {filterCategory}{" "}
@@ -556,7 +556,7 @@ export const JobList: React.FC = () => {
           <div
             key={job.id}
             onClick={() => navigate(`/jobs/${job.id}`)}
-            className="glass-card rounded-[2rem] p-8 md:p-10 group cursor-pointer relative top-0 hover:-top-2 hover:shadow-2xl transition-all duration-500"
+            className="glass-card rounded-[2rem] p-5 sm:p-8 md:p-10 group cursor-pointer relative top-0 hover:-top-2 hover:shadow-2xl transition-all duration-500"
           >
             <div className="flex flex-col md:flex-row justify-between items-start gap-8">
               <div className="flex-1">

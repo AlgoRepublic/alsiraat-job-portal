@@ -1207,8 +1207,8 @@ export const Layout: React.FC<LayoutProps> = ({
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-8">
-          <div className="max-w-7xl mx-auto animate-slide-up">{children}</div>
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 md:p-8">
+          <div className="max-w-7xl mx-auto min-w-0 animate-slide-up">{children}</div>
         </main>
       </div>
     </div>
