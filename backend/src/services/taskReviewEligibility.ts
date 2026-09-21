@@ -190,6 +190,7 @@ export function taskReviewEligibilityTaskFromDocument(task: {
   visibility?: string;
   privateAudiences?: string[] | undefined;
   allowedGroups?: unknown[] | undefined;
+  status?: string;
 }): TaskReviewEligibilityTask {
   const organisation = resolveTaskOrganisationId(task.organisation);
   return {
@@ -285,9 +286,11 @@ export async function resolveCanReviewForHttpRequest(
     viewerOrgId: req.orgId ? String(req.orgId) : null,
     hasTaskApprove,
     task: eligibilityTask,
-    approvalMemberGroupIds: Array.isArray(req.approvalMemberGroupIds)
-      ? req.approvalMemberGroupIds.map(String)
-      : undefined,
+    ...(Array.isArray(req.approvalMemberGroupIds)
+      ? {
+          approvalMemberGroupIds: req.approvalMemberGroupIds.map(String),
+        }
+      : {}),
   });
 }
 

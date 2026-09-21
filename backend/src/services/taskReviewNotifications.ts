@@ -129,7 +129,9 @@ export async function resolveTaskReviewNotificationRecipientIds(
     task: taskReviewEligibilityTaskFromDocument(task),
     catalogue,
     candidates,
-    excludeUserIds: options?.excludeUserIds,
+    ...(options?.excludeUserIds
+      ? { excludeUserIds: options.excludeUserIds }
+      : {}),
   });
 }
 

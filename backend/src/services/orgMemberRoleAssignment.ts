@@ -168,7 +168,11 @@ export function setOrgEntryRoleIds(
 
 export function upsertOrgMembershipRoleIds(
   user: {
-    organisationRoles?: IOrganisationRole[];
+    organisationRoles?: Array<{
+      organisation?: IOrganisationRole["organisation"];
+      roleIds?: IOrganisationRole["roleIds"];
+      memberKind?: IOrganisationRole["memberKind"];
+    }>;
   },
   organisationId: string | Types.ObjectId,
   roleIds: string[],
@@ -182,7 +186,7 @@ export function upsertOrgMembershipRoleIds(
   );
 
   if (index > -1) {
-    const entry = roles[index]!;
+    const entry = roles[index]! as IOrganisationRole;
     if (mode === "append") {
       appendRoleIdsToOrgEntry(entry, roleIds);
     } else {

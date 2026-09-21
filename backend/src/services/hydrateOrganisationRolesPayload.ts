@@ -1,4 +1,4 @@
-import { normalizeOrgMemberKind } from "../models/User.js";
+import { normalizeOrgMemberKind, type IUser } from "../models/User.js";
 import {
   listMemberGroupIdsForOrgKind,
   resolveMemberKindForOrg,
@@ -13,11 +13,19 @@ export type HydratedOrganisationRoleEntry = {
   memberKind: ReturnType<typeof normalizeOrgMemberKind>;
 };
 
+type OrganisationRolesSource = {
+  organisationRoles?: ReadonlyArray<{
+    organisation?: unknown;
+    roleIds?: unknown;
+    memberKind?: unknown;
+  }>;
+};
+
 /**
  * Resolve stored roleIds into display-ready MemberRoleView[] for API read payloads.
  */
 export async function hydrateOrganisationRolesForPayload(
-  user: { organisationRoles?: Array<Record<string, unknown>> },
+  user: OrganisationRolesSource,
 ): Promise<HydratedOrganisationRoleEntry[]> {
   const entries = user.organisationRoles ?? [];
   return Promise.all(
@@ -59,11 +67,10 @@ export type UserDocumentToClientJsonOptions = {
 };
 
 export async function userDocumentToClientJson(
-  user: {
-    _id?: unknown;
-    toObject: () => Record<string, unknown>;
-    organisationRoles?: Array<Record<string, unknown>>;
-  },
+  user: OrganisationRolesSource &
+    Pick<IUser, "_id"> & {
+      toObject: () => Record<string, unknown>;
+    },
   options?: UserDocumentToClientJsonOptions,
 ): Promise<Record<string, unknown>> {
   const obj = user.toObject();

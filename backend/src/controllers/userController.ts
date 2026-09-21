@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
-import User, { normalizeOrgMemberKind } from "../models/User.js";
+import User, { normalizeOrgMemberKind, type IUser } from "../models/User.js";
 import Organization from "../models/Organization.js";
 import Role from "../models/Role.js";
 import fs from "fs";
@@ -363,8 +363,8 @@ export const updateUser = async (req: Request, res: Response) => {
         );
         user.organisationRoles = [
           ...other,
-          ...(normalized as mongoose.Types.ArraySubdocument[]),
-        ] as any;
+          ...normalized,
+        ] as IUser["organisationRoles"];
         const hasOrg = (user.organisations ?? []).some(
           (o: any) => o.toString() === reqOrgId,
         );

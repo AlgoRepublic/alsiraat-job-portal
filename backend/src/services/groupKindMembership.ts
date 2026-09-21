@@ -62,7 +62,7 @@ export function assertCustomGroupNameAllowed(
 
 export function resolveMemberKindForOrg(
   user: {
-    organisationRoles?: Array<{
+    organisationRoles?: ReadonlyArray<{
       organisation?: unknown;
       memberKind?: unknown;
     }>;
