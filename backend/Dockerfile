@@ -17,7 +17,8 @@ RUN pnpm install --frozen-lockfile
 COPY backend/ .
 COPY shared/ ../shared/
 
-RUN pnpm run build
+# pnpm snapshots file:../shared at install time (before dist exists); refresh after compile.
+RUN pnpm run build && pnpm install --frozen-lockfile
 
 # ===== PRODUCTION STAGE =====
 FROM node:20-alpine AS production
