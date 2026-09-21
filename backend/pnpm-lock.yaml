@@ -17,6 +17,9 @@ importers:
       '@google/genai':
         specifier: ^1.45.0
         version: 1.49.0
+      '@taskunity/shared':
+        specifier: file:../shared
+        version: file:../shared
       '@types/multer':
         specifier: ^2.0.0
         version: 2.0.0
@@ -421,6 +424,9 @@ packages:
 
   '@protobufjs/utf8@1.1.0':
     resolution: {integrity: sha512-Vvn3zZrhQZkkBE8LSuW3em98c0FwgO4nxzv6OdSxPKJIEKY2bGbHn+mhGIPerzI4twdxaP8/0+06HBpwf345Lw==}
+
+  '@taskunity/shared@file:../shared':
+    resolution: {directory: ../shared, type: directory}
 
   '@tsconfig/node10@1.0.12':
     resolution: {integrity: sha512-UCYBaeFvM11aU2y3YPZ//O5Rhj+xKyzy7mvcIoAjASbigy8mHMryP5cK7dgjlz2hWxh1g5pLw084E0a/wlUSFQ==}
@@ -1697,6 +1703,8 @@ snapshots:
   '@protobufjs/pool@1.1.0': {}
 
   '@protobufjs/utf8@1.1.0': {}
+
+  '@taskunity/shared@file:../shared': {}
 
   '@tsconfig/node10@1.0.12': {}
 
