@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { DefaultRoleCode, JobStatus, Permission } from "../types";
 import { db } from "../services/database";
+import { resolveTaskCategoryLabel } from "../utils/taskCategoryDisplay";
 import { useNavigate } from "react-router-dom";
 import { Loading } from "../components/Loading";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
@@ -167,7 +168,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
       id: `task-${t.id}`,
       type: "pending_task" as const,
       title: t.title,
-      subtitle: `Awaiting approval • ${t.category ?? ""}`,
+      subtitle: `Awaiting approval • ${resolveTaskCategoryLabel(t, "")}`,
       time: getRelativeTime(t.createdAt),
       link: `/jobs/${t.id}`,
       priority: "high" as const,

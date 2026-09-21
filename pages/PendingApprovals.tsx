@@ -6,6 +6,7 @@ import { Job, User } from "../types";
 import { Loading } from "../components/Loading";
 import { Pagination } from "../components/Pagination";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
+import { resolveTaskCategoryLabel } from "../utils/taskCategoryDisplay";
 
 const PAGE_SIZE = 10;
 
@@ -79,7 +80,7 @@ export const PendingApprovals: React.FC = () => {
                   {task.title}
                 </p>
                 <p className="text-xs text-zinc-500 font-medium uppercase tracking-widest mt-1">
-                  {task.category} • {task.visibility}
+                  {resolveTaskCategoryLabel(task)} • {task.visibility}
                 </p>
               </div>
               <div className="space-y-3 text-sm">
@@ -167,7 +168,7 @@ export const PendingApprovals: React.FC = () => {
                       {task.title}
                     </p>
                     <p className="text-xs text-zinc-500 font-medium uppercase tracking-widest mt-1">
-                      {task.category} • {task.visibility}
+                      {resolveTaskCategoryLabel(task)} • {task.visibility}
                     </p>
                   </td>
                   <td className="px-8 py-8 whitespace-nowrap text-sm font-semibold text-zinc-500 dark:text-zinc-400">

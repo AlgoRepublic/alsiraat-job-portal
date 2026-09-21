@@ -23,6 +23,7 @@ import {
   Edit2,
 } from "lucide-react";
 import { api, API_BASE_URL } from "../services/api";
+import { resolveTaskCategoryLabel } from "../utils/taskCategoryDisplay";
 import { getMemberRolesForActiveOrg } from "../utils/orgScopedRoles";
 import { TaskLifecycleActions } from "./TaskLifecycleActions";
 
@@ -848,7 +849,7 @@ const TaskRow: React.FC<{
         {task.title}
       </p>
       <p className="text-xs text-zinc-400 mt-0.5">
-        {task.category?.name || task.category || "General"} ·{" "}
+        {resolveTaskCategoryLabel(task, "General")} ·{" "}
         {task.createdAt && !isNaN(new Date(task.createdAt).getTime()) ? new Date(task.createdAt).toLocaleDateString("en-AU", {
           day: "numeric",
           month: "short",

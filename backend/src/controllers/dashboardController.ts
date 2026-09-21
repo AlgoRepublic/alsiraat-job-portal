@@ -15,6 +15,10 @@ import {
   loadBrowseReviewGatesSession,
 } from "../services/taskBrowseReviewGates.js";
 import { taskReviewEligibilityTaskFromDocument } from "../services/taskReviewEligibility.js";
+import {
+  presentTaskRecord,
+  taskCategoryIdPopulate,
+} from "../services/taskCategoryReference.js";
 
 /** Combine Mongo filters without clobbering nested `$and` via object spread. */
 function mergeMongoFilters(
@@ -209,7 +213,10 @@ export const getDashboardStats = async (req: any, res: Response) => {
       let pendingDocs = await Task.find(pendingFilter)
         .sort({ createdAt: -1 })
         .populate("createdBy", "name")
-        .select("_id title category createdAt createdBy organisation visibility privateAudiences allowedGroups status");
+        .populate(taskCategoryIdPopulate)
+        .select(
+          "_id title category categoryId createdAt createdBy organisation visibility privateAudiences allowedGroups status",
+        );
 
       const usesOrgWideManagerBrowse =
         canManageTasks && canViewPending && canViewInternal && !!orgId;
@@ -229,13 +236,17 @@ export const getDashboardStats = async (req: any, res: Response) => {
         );
       }
 
-      recentPendingTasks = pendingDocs.slice(0, 5).map((task) => ({
-        _id: task._id,
-        title: task.title,
-        category: task.category,
-        createdAt: task.createdAt,
-        createdBy: task.createdBy,
-      }));
+      recentPendingTasks = pendingDocs.slice(0, 5).map((task) => {
+        const presented = presentTaskRecord(task);
+        return {
+          _id: task._id,
+          title: task.title,
+          category: presented.category,
+          categoryId: presented.categoryId,
+          createdAt: task.createdAt,
+          createdBy: task.createdBy,
+        };
+      });
     }
 
     // ── Recent pending applications needing review (for managers) ──
@@ -261,16 +272,24 @@ export const getDashboardStats = async (req: any, res: Response) => {
     const myAppsRaw = await Application.find({ applicant: userId })
       .sort({ createdAt: -1 })
       .limit(5)
-      .populate("task", "title _id category");
+      .populate({
+        path: "task",
+        select: "title _id category categoryId",
+        populate: taskCategoryIdPopulate,
+      });
 
-    myRecentApplications = myAppsRaw.map((app: any) => ({
-      id: app._id,
-      taskId: app.task?._id,
-      taskTitle: app.task?.title || "Unknown Task",
-      taskCategory: app.task?.category,
-      status: app.status,
-      createdAt: app.createdAt,
-    }));
+    myRecentApplications = myAppsRaw.map((app: any) => {
+      const taskPresented =
+        app.task != null ? presentTaskRecord(app.task) : null;
+      return {
+        id: app._id,
+        taskId: app.task?._id,
+        taskTitle: app.task?.title || "Unknown Task",
+        taskCategory: taskPresented?.category ?? "",
+        status: app.status,
+        createdAt: app.createdAt,
+      };
+    });
 
     // ── Recent tasks posted by me ──
     const myRecentTasks = await Task.find(
@@ -278,7 +297,8 @@ export const getDashboardStats = async (req: any, res: Response) => {
     )
       .sort({ createdAt: -1 })
       .limit(5)
-      .select("_id title category status createdAt applicantsCount");
+      .populate(taskCategoryIdPopulate)
+      .select("_id title category categoryId status createdAt applicantsCount");
 
     res.json({
       // Capabilities the frontend can use to show/hide sections
@@ -316,8 +336,7 @@ export const getDashboardStats = async (req: any, res: Response) => {
         pendingTasks: recentPendingTasks.map((t: any) => ({
           id: t._id,
           title: t.title,
-          category:
-            typeof t.category === "object" ? t.category.name : t.category,
+          category: t.category ?? "",
           createdBy: t.createdBy?.name || "Unknown",
           createdAt: t.createdAt,
         })),
@@ -332,14 +351,17 @@ export const getDashboardStats = async (req: any, res: Response) => {
       },
       // Personal data
       myRecentApplications,
-      myRecentTasks: myRecentTasks.map((t: any) => ({
-        id: t._id,
-        title: t.title,
-        category: typeof t.category === "object" ? t.category.name : t.category,
-        status: t.status,
-        applicantsCount: t.applicantsCount || 0,
-        createdAt: t.createdAt,
-      })),
+      myRecentTasks: myRecentTasks.map((t: any) => {
+        const presented = presentTaskRecord(t);
+        return {
+          id: t._id,
+          title: t.title,
+          category: presented.category ?? "",
+          status: t.status,
+          applicantsCount: t.applicantsCount || 0,
+          createdAt: t.createdAt,
+        };
+      }),
     });
   } catch (err: any) {
     console.error("Dashboard stats error:", err);

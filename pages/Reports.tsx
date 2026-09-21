@@ -21,6 +21,7 @@ import { Loading, LoadingOverlay } from "../components/Loading";
 import { useToast } from "../components/Toast";
 import { API_BASE_URL } from "../services/api";
 import { db } from "../services/database";
+import { resolveTaskCategoryLabel } from "../utils/taskCategoryDisplay";
 import { User } from "../types";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 
@@ -162,7 +163,7 @@ export const Reports: React.FC = () => {
     csv += "Title,Status,Applications,Category,Created\n";
     recentTasks.forEach((task) => {
       const dateStr = task.createdAt && !isNaN(new Date(task.createdAt).getTime()) ? new Date(task.createdAt).toLocaleDateString() : "—";
-      csv += `"${task.title}",${task.status},${task.applicationsCount || 0},${task.category},${dateStr}\n`;
+      csv += `"${task.title}",${task.status},${task.applicationsCount || 0},${resolveTaskCategoryLabel(task)},${dateStr}\n`;
     });
 
     return csv;
@@ -483,7 +484,7 @@ export const Reports: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-sm text-zinc-600 dark:text-zinc-400">
-                        {task.category}
+                        {resolveTaskCategoryLabel(task)}
                       </span>
                     </td>
                     <td className="px-6 py-4">

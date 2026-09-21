@@ -18,9 +18,11 @@ import {
   CheckCircle2,
   X,
 } from "lucide-react";
+import { api } from "../services/api";
 import { UserAvatar } from "../components/UserAvatar";
 import { Loading, LoadingOverlay } from "../components/Loading";
 import { db } from "../services/database";
+import { resolveTaskCategoryLabel } from "../utils/taskCategoryDisplay";
 import {
   Job,
   Application,
@@ -51,6 +53,8 @@ import {
   canEditTask,
   buildTaskProvenanceHeader,
   buildAudienceTargetingPresentation,
+  isStoredContactOutsidePickerPool,
+  resolveTaskContactPersonDisplayName,
   type GroupCatalogueEntry,
 } from "../utils/taskDetailPresentation";
 import { PrivilegedTaskDetailSections } from "../components/PrivilegedTaskDetailSections";
@@ -116,6 +120,9 @@ export const JobDetails: React.FC = () => {
     null,
   );
   const [groupsLoadFailed, setGroupsLoadFailed] = useState(false);
+  const [contactPickerMemberIds, setContactPickerMemberIds] = useState<
+    string[] | null
+  >(null);
   useEffect(() => {
     const toastMessage = (location.state as JobDetailsLocationState | null)
       ?.toastMessage;
@@ -195,6 +202,57 @@ export const JobDetails: React.FC = () => {
     };
     loadJob();
   }, [id]);
+
+  useEffect(() => {
+    if (!job || !currentUser) {
+      setContactPickerMemberIds(null);
+      return;
+    }
+
+    const editorOrgId =
+      organisationIdToString(
+        currentUser?.organisation ??
+          (currentUser as { organization?: unknown })?.organization,
+      ) ?? organisationIdToString(currentUser?.activeOrganisation);
+
+    const canEdit = canEditTask(
+      currentUser,
+      {
+        status: job.status,
+        createdBy: job.createdBy,
+        createdById: job.createdById,
+        organisation:
+          job.organisation ?? (job as { organization?: unknown }).organization,
+        archivedAt: job.archivedAt,
+        deletedAt: job.deletedAt,
+        canReview: job.canReview,
+      },
+      editorOrgId,
+    );
+
+    const storedContactId =
+      job.contactPersonId?.trim() || job.contactPerson?._id?.trim();
+    if (!canEdit || !storedContactId) {
+      setContactPickerMemberIds(null);
+      return;
+    }
+
+    let cancelled = false;
+    const loadPicker = async () => {
+      try {
+        const rows = await api.getTaskContactPersonPicker(job.categoryId);
+        if (!cancelled) {
+          setContactPickerMemberIds(rows.map((row) => String(row._id)));
+        }
+      } catch {
+        if (!cancelled) setContactPickerMemberIds(null);
+      }
+    };
+    void loadPicker();
+    return () => {
+      cancelled = true;
+    };
+  }, [job, currentUser]);
 
   useEffect(() => {
     if (!job || !currentUser) return;
@@ -499,6 +557,7 @@ export const JobDetails: React.FC = () => {
       organisation: job.organisation ?? (job as { organization?: unknown }).organization,
       archivedAt: job.archivedAt,
       deletedAt: job.deletedAt,
+      canReview: job.canReview,
     },
     activeOrgId,
   );
@@ -516,6 +575,20 @@ export const JobDetails: React.FC = () => {
         organisationName: job.organisationName,
       })
     : null;
+  const contactPersonLabel = resolveTaskContactPersonDisplayName(
+    job.contactPerson,
+    job.contactPersonId,
+  );
+  const showContactPerson = !!contactPersonLabel;
+  const contactOutsidePickerPool =
+    showEditTask &&
+    !!job.contactPersonId?.trim() &&
+    contactPickerMemberIds != null &&
+    isStoredContactOutsidePickerPool(
+      job.contactPersonId,
+      contactPickerMemberIds,
+    );
+
   const audiencePresentation = showPrivilegedDetail
     ? buildAudienceTargetingPresentation(
         {
@@ -574,7 +647,7 @@ export const JobDetails: React.FC = () => {
           <div>
             <div className="flex items-center gap-3 mb-3">
               <span className="px-2.5 py-1 bg-primary text-white text-xs font-bold rounded-md uppercase tracking-wide">
-                {job.category}
+                {resolveTaskCategoryLabel(job)}
               </span>
               <span
                 className={`px-2.5 py-1 text-xs font-bold rounded-md uppercase tracking-wide border ${
@@ -774,6 +847,29 @@ export const JobDetails: React.FC = () => {
                 </p>
               </div>
             </div>
+            {showContactPerson && (
+              <div className="flex items-start min-w-[12rem]">
+                <UserAvatar
+                  src={job.contactPerson?.avatar}
+                  name={contactPersonLabel ?? ""}
+                  className="w-10 h-10 mr-3 flex-shrink-0"
+                />
+                <div>
+                  <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase font-bold">
+                    Contact person
+                  </p>
+                  <p className="text-sm font-semibold text-zinc-900 dark:text-white">
+                    {contactPersonLabel}
+                  </p>
+                  {contactOutsidePickerPool && (
+                    <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 max-w-xs">
+                      This saved contact is outside the current picker list.
+                      Edit the task to choose someone from the list.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Description */}

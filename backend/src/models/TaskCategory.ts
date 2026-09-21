@@ -10,6 +10,8 @@ export interface ITaskCategory extends Document {
   icon: string; // Icon name for UI
   /** null = platform-wide defaults; set for organisation-specific categories */
   organisation?: mongoose.Types.ObjectId | null;
+  /** Org-scoped only: optional pool for task contact picker (issue 01). */
+  contactMembers: mongoose.Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -51,6 +53,10 @@ const TaskCategorySchema: Schema = new Schema(
     icon: {
       type: String,
       default: "📋", // Default icon
+    },
+    contactMembers: {
+      type: [{ type: Schema.Types.ObjectId, ref: "User" }],
+      default: [],
     },
   },
   { timestamps: true },

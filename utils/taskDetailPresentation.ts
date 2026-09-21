@@ -411,3 +411,33 @@ export function includesLegacyTargetingFields(task: TaskAudienceInput): boolean 
     (task.eligibility?.length ?? 0) > 0 || (task.allowedRoles?.length ?? 0) > 0
   );
 }
+
+export interface TaskContactPersonDisplayInput {
+  _id?: string;
+  name?: string;
+  email?: string;
+  avatar?: string;
+}
+
+/** Label for task detail contact person (grandfathered contacts use stored name). */
+export function resolveTaskContactPersonDisplayName(
+  contact?: TaskContactPersonDisplayInput | null,
+  contactPersonId?: string | null,
+): string | null {
+  const name = contact?.name?.trim();
+  if (name) return name;
+  const email = contact?.email?.trim();
+  if (email) return email;
+  const id = contact?._id?.trim() || contactPersonId?.trim();
+  return id || null;
+}
+
+/** True when a stored contact id is not in the current editor picker pool. */
+export function isStoredContactOutsidePickerPool(
+  contactPersonId: string | undefined | null,
+  pickerMemberIds: readonly string[],
+): boolean {
+  const id = contactPersonId?.trim();
+  if (!id) return false;
+  return !new Set(pickerMemberIds.map(String)).has(id);
+}

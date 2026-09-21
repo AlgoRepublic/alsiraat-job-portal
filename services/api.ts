@@ -442,6 +442,16 @@ class ApiService {
     return this.request<any>(`/tasks/tab/pending-approvals?${query}`);
   }
 
+  async getTaskContactPersonPicker(
+    categoryId?: string,
+  ): Promise<Array<{ _id: string; name: string; email: string; avatar?: string }>> {
+    const query =
+      categoryId && categoryId.trim()
+        ? `?categoryId=${encodeURIComponent(categoryId.trim())}`
+        : "";
+    return this.request(`/tasks/contact-person-picker${query}`);
+  }
+
   async getTask(id: string): Promise<any> {
     return this.request<any>(`/tasks/${id}`);
   }

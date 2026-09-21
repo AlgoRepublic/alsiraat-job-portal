@@ -22,6 +22,7 @@ export const Permission = {
   TASK_DELETE: "task:delete",
   TASK_APPROVE: "task:approve",
   TASK_PUBLISH: "task:publish",
+  TASK_AUTO_PUBLISH: "task:auto_publish",
   TASK_ARCHIVE: "task:archive",
 
   // Application Permissions
@@ -77,6 +78,7 @@ export const RolePermissions: Record<DefaultRoleCodeType, Permission[]> = {
     Permission.TASK_DELETE,
     Permission.TASK_APPROVE,
     Permission.TASK_PUBLISH,
+    Permission.TASK_AUTO_PUBLISH,
     Permission.TASK_ARCHIVE,
     Permission.APPLICATION_READ,
     Permission.APPLICATION_SHORTLIST,
@@ -97,6 +99,7 @@ export const RolePermissions: Record<DefaultRoleCodeType, Permission[]> = {
     Permission.TASK_READ,
     Permission.TASK_APPROVE,
     Permission.TASK_PUBLISH,
+    Permission.TASK_AUTO_PUBLISH,
     Permission.APPLICATION_READ,
     Permission.APPLICATION_SHORTLIST,
     Permission.APPLICATION_ASSIGN_DIRECT,

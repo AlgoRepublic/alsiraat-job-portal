@@ -13,6 +13,7 @@ interface Option {
   name: string;
   code?: string;
   icon?: string;
+  id?: string;
 }
 
 interface CustomDropdownProps {
@@ -24,6 +25,8 @@ interface CustomDropdownProps {
   variant?: "default" | "outline" | "ghost" | "compact";
   icon?: React.ReactNode;
   error?: boolean;
+  /** When `"id"`, value/onChange use `option.id` (falls back to name). */
+  valueKey?: "name" | "id";
 }
 
 export const CustomDropdown: React.FC<CustomDropdownProps> = ({
@@ -35,7 +38,10 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
   variant = "default",
   icon,
   error,
+  valueKey = "name",
 }) => {
+  const optionValue = (opt: Option) =>
+    valueKey === "id" && opt.id !== undefined ? opt.id : opt.name;
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [showAbove, setShowAbove] = useState(false);
@@ -72,7 +78,7 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
     }
   }, [isOpen]);
 
-  const selectedOption = options.find((opt) => opt.name === value);
+  const selectedOption = options.find((opt) => optionValue(opt) === value);
   const filteredOptions = options.filter((opt) =>
     opt.name.toLowerCase().includes(searchTerm.toLowerCase()),
   );
@@ -148,12 +154,12 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
                   key={opt.code || opt.name}
                   type="button"
                   onClick={() => {
-                    onChange(opt.name);
+                    onChange(optionValue(opt));
                     setIsOpen(false);
                     setSearchTerm("");
                   }}
                   className={`w-full p-2.5 rounded-xl flex items-center justify-between text-xs font-bold transition-all ${
-                    value === opt.name
+                    value === optionValue(opt)
                       ? "bg-primary text-white"
                       : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200"
                   }`}
@@ -162,7 +168,9 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
                     {opt.icon && <span>{opt.icon}</span>}
                     {opt.name}
                   </span>
-                  {value === opt.name && <Check className="w-3.5 h-3.5" />}
+                  {value === optionValue(opt) && (
+                    <Check className="w-3.5 h-3.5" />
+                  )}
                 </button>
               ))
             ) : (

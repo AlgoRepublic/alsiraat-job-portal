@@ -87,6 +87,42 @@ import {
   parseRewardValueForCreate,
   parseRewardValueForUpdate,
 } from "../utils/taskOptionalFields.js";
+import {
+  TASK_CATEGORY_ID_POPULATE_SELECT,
+  TaskCategoryReferenceError,
+  assertLegacyCategoryNameNotWritable,
+  buildTaskCategoryBrowseFilter,
+  presentTaskCategoryFields,
+  resolveTaskCategoryIdForCreate,
+  resolveTaskCategoryIdForUpdate,
+} from "../services/taskCategoryReference.js";
+import {
+  TaskContactPersonError,
+  TASK_CONTACT_PERSON_POPULATE_SELECT,
+  loadContactPickerUsers,
+  presentTaskContactPersonFields,
+  applyTaskContactAndCategoryFieldsForRepost,
+  resolveContactPersonForCreate,
+  resolveContactPersonForUpdate,
+} from "../services/taskContactPerson.js";
+
+function withTaskCategoryPopulate(query: any): any {
+  return query
+    .populate("categoryId", TASK_CATEGORY_ID_POPULATE_SELECT)
+    .populate("contactPerson", TASK_CONTACT_PERSON_POPULATE_SELECT);
+}
+
+function presentTaskForClient(task: Record<string, unknown>) {
+  return presentTaskContactPersonFields(presentTaskCategoryFields(task));
+}
+
+function pushTaskCategoryBrowseFilter(
+  additionalFilters: Record<string, unknown>[],
+  categoryParam: unknown,
+): void {
+  const filter = buildTaskCategoryBrowseFilter(categoryParam);
+  if (filter) additionalFilters.push(filter);
+}
 
 /** Signed-in applicants browse the active application window; managers see the full shelf. */
 async function shouldApplyActiveApplicationWindowFilter(
@@ -168,7 +204,7 @@ async function attachCanReviewToTaskObject(
     task,
     hasTaskApprove,
   );
-  return { ...task, canReview };
+  return { ...presentTaskForClient(task), canReview };
 }
 
 async function attachCanReviewToTaskObjects(
@@ -180,7 +216,10 @@ async function attachCanReviewToTaskObjects(
     tasks,
     (task) => memberHasTaskApproveForTask(req, task),
   );
-  return tasks.map((task, index) => ({ ...task, canReview: flags[index] }));
+  return tasks.map((task, index) => ({
+    ...presentTaskForClient(task),
+    canReview: flags[index],
+  }));
 }
 
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -279,10 +318,11 @@ const normalizeIncomingTaskVisibility = (value: unknown): TaskVisibility => {
 
 export const createTask = async (req: any, res: Response) => {
   try {
+    assertLegacyCategoryNameNotWritable(req.body);
+
     const {
       title,
       description,
-      category,
       location,
       hoursRequired,
       selectionCriteria,
@@ -332,7 +372,6 @@ export const createTask = async (req: any, res: Response) => {
     const taskData: any = {
       title,
       description,
-      category,
       selectionCriteria,
       requiredSkills: parseArrayField(requiredSkills),
       eligibility: parseArrayField(eligibility),
@@ -380,6 +419,23 @@ export const createTask = async (req: any, res: Response) => {
       });
     }
     taskData.organisation = req.orgId;
+
+    const categoryId = await resolveTaskCategoryIdForCreate(
+      String(req.orgId),
+      req.body.categoryId,
+    );
+    if (categoryId) {
+      taskData.categoryId = categoryId;
+    }
+
+    const contactPerson = await resolveContactPersonForCreate(
+      String(req.orgId),
+      categoryId ? String(categoryId) : null,
+      req.body.contactPerson,
+    );
+    if (contactPerson) {
+      taskData.contactPerson = contactPerson;
+    }
 
     taskData.allowedRoles = await resolveAndValidateTaskAllowedRoles(
       String(req.orgId),
@@ -438,7 +494,14 @@ export const createTask = async (req: any, res: Response) => {
       await notifyEligibleTaskReviewers(task);
     }
 
-    res.status(201).json(task);
+    const created = await withTaskCategoryPopulate(Task.findById(task._id));
+    const presented = presentTaskForClient(
+      (created?.toObject() ?? task.toObject()) as unknown as Record<
+        string,
+        unknown
+      >,
+    );
+    res.status(201).json(presented);
   } catch (err: any) {
     if (err instanceof TaskAudienceError) {
       return res.status(err.status).json({ message: err.message });
@@ -446,17 +509,53 @@ export const createTask = async (req: any, res: Response) => {
     if (err instanceof TaskPrivateAudienceError) {
       return res.status(err.status).json({ message: err.message });
     }
+    if (err instanceof TaskCategoryReferenceError) {
+      return res.status(err.status).json({ message: err.message });
+    }
+    if (err instanceof TaskContactPersonError) {
+      return res.status(err.status).json({ message: err.message });
+    }
     res.status(500).json({ message: err.message });
+  }
+};
+
+export const getTaskContactPersonPicker = async (req: any, res: Response) => {
+  try {
+    if (!req.orgId) {
+      return res.status(400).json({
+        message: "Active organisation is required to load contact picker",
+      });
+    }
+    const rawCategoryId = req.query.categoryId;
+    const categoryId =
+      rawCategoryId == null || rawCategoryId === ""
+        ? null
+        : String(rawCategoryId);
+    const candidates = await loadContactPickerUsers(
+      String(req.orgId),
+      categoryId,
+    );
+    return res.json(
+      candidates.map((user) => ({
+        _id: String(user._id),
+        name: user.name ?? "",
+        email: user.email ?? "",
+        avatar: user.avatar,
+      })),
+    );
+  } catch (err: any) {
+    return res.status(500).json({ message: err.message });
   }
 };
 
 export const updateTask = async (req: any, res: Response) => {
   try {
     const { id } = req.params;
+    assertLegacyCategoryNameNotWritable(req.body);
+
     const {
       title,
       description,
-      category,
       location,
       hoursRequired,
       selectionCriteria,
@@ -567,7 +666,59 @@ export const updateTask = async (req: any, res: Response) => {
     // Update fields
     if (title) task.title = title;
     if (description) task.description = description;
-    if (category) task.category = category;
+
+    if (Object.prototype.hasOwnProperty.call(req.body, "categoryId")) {
+      const postingOrgId = task.organisation
+        ? String(task.organisation)
+        : req.orgId
+          ? String(req.orgId)
+          : null;
+      if (!postingOrgId) {
+        return res.status(400).json({
+          message: "Task organisation is required to set category",
+        });
+      }
+      const previousCategoryId = (task as any).categoryId
+        ? String((task as any).categoryId)
+        : null;
+      const resolvedCategoryId = await resolveTaskCategoryIdForUpdate(
+        postingOrgId,
+        req.body.categoryId,
+        previousCategoryId,
+      );
+      if (resolvedCategoryId !== undefined) {
+        (task as any).categoryId = resolvedCategoryId;
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, "contactPerson")) {
+      const postingOrgId = task.organisation
+        ? String(task.organisation)
+        : req.orgId
+          ? String(req.orgId)
+          : null;
+      if (!postingOrgId) {
+        return res.status(400).json({
+          message: "Task organisation is required to set contact person",
+        });
+      }
+      const effectiveCategoryId = (task as any).categoryId
+        ? String((task as any).categoryId)
+        : null;
+      const previousContactId = (task as any).contactPerson
+        ? String((task as any).contactPerson)
+        : null;
+      const resolvedContact = await resolveContactPersonForUpdate(
+        postingOrgId,
+        effectiveCategoryId,
+        req.body.contactPerson,
+        previousContactId,
+      );
+      if (resolvedContact !== undefined) {
+        (task as any).contactPerson = resolvedContact;
+      }
+    }
+
     const locationUpdate = parseOptionalStringForUpdate(req.body, "location");
     if (locationUpdate !== undefined) {
       (task as any).location =
@@ -737,12 +888,25 @@ export const updateTask = async (req: any, res: Response) => {
       await notifyEligibleTaskReviewers(task);
     }
 
-    res.json(task);
+    const saved = await withTaskCategoryPopulate(Task.findById(task._id));
+    const presented = presentTaskForClient(
+      (saved?.toObject() ?? task.toObject()) as unknown as Record<
+        string,
+        unknown
+      >,
+    );
+    res.json(presented);
   } catch (err: any) {
     if (err instanceof TaskAudienceError) {
       return res.status(err.status).json({ message: err.message });
     }
     if (err instanceof TaskPrivateAudienceError) {
+      return res.status(err.status).json({ message: err.message });
+    }
+    if (err instanceof TaskCategoryReferenceError) {
+      return res.status(err.status).json({ message: err.message });
+    }
+    if (err instanceof TaskContactPersonError) {
       return res.status(err.status).json({ message: err.message });
     }
     res.status(500).json({ message: err.message });
@@ -802,7 +966,7 @@ export const getTasks = async (req: any, res: Response) => {
       const skip = (page - 1) * limit;
 
       const tasks = await Task.find(query)
-        .populate("category", "name code icon")
+        .populate("categoryId", TASK_CATEGORY_ID_POPULATE_SELECT)
         .populate("rewardType", "name code")
         .populate("organisation", "name slug")
         .populate("createdBy", "name email")
@@ -997,8 +1161,7 @@ export const getTasks = async (req: any, res: Response) => {
     }
 
     // Specific field filters
-    if (req.query.category)
-      additionalFilters.push({ category: req.query.category });
+    pushTaskCategoryBrowseFilter(additionalFilters, req.query.category);
     additionalFilters.push(...applicationWindowStatusFilters);
     if (req.query.reward)
       additionalFilters.push({ rewardType: req.query.reward });
@@ -1062,7 +1225,7 @@ export const getTasks = async (req: any, res: Response) => {
       page,
       limit,
       (findQuery) =>
-        findQuery
+        withTaskCategoryPopulate(findQuery)
           .populate("organisation", "name")
           .populate("createdBy", "name"),
     );
@@ -1319,7 +1482,7 @@ export const getSearchTasks = async (req: any, res: Response) => {
         $or: [{ title: searchRegex }, { description: searchRegex }],
       });
     }
-    if (req.query.category) additionalFilters.push({ category: req.query.category });
+    pushTaskCategoryBrowseFilter(additionalFilters, req.query.category);
     additionalFilters.push(...applicationWindowStatusFilters);
     if (req.query.reward) additionalFilters.push({ rewardType: req.query.reward });
 
@@ -1376,8 +1539,7 @@ export const getSearchTasks = async (req: any, res: Response) => {
       page,
       limit,
       (findQuery) =>
-        findQuery
-          .populate("category", "name code icon")
+        withTaskCategoryPopulate(findQuery)
           .populate("rewardType", "name code")
           .populate("organisation", "name")
           .populate("createdBy", "name"),
@@ -1461,8 +1623,9 @@ export const getMyAdsTasks = async (req: any, res: Response) => {
       };
     }
 
-    if (req.query.category) {
-      query = { $and: [query, { category: req.query.category }] };
+    const categoryFilter = buildTaskCategoryBrowseFilter(req.query.category);
+    if (categoryFilter) {
+      query = { $and: [query, categoryFilter] };
     }
     if (req.query.status) {
       query = { $and: [query, { status: req.query.status }] };
@@ -1496,7 +1659,7 @@ export const getMyAdsTasks = async (req: any, res: Response) => {
 
     const total = await Task.countDocuments(query);
     const tasks = await Task.find(query)
-      .populate("category", "name code icon")
+      .populate("categoryId", TASK_CATEGORY_ID_POPULATE_SELECT)
       .populate("rewardType", "name code")
       .populate("organisation", "name slug")
       .populate("createdBy", "name email")
@@ -1511,10 +1674,12 @@ export const getMyAdsTasks = async (req: any, res: Response) => {
     ]);
     const countMap = new Map(counts.map((c) => [c._id.toString(), c.count]));
 
-    const tasksMapped = tasks.map((task) => ({
-      ...task.toObject(),
-      applicantsCount: countMap.get(task._id.toString()) || 0,
-    }));
+    const tasksMapped = tasks.map((task) =>
+      presentTaskForClient({
+        ...task.toObject(),
+        applicantsCount: countMap.get(task._id.toString()) || 0,
+      }),
+    );
 
     if (!req.query.page && !req.query.limit) {
       return res.json(tasksMapped);
@@ -1575,8 +1740,9 @@ export const getPendingApprovalTasks = async (req: any, res: Response) => {
       };
     }
 
-    if (req.query.category) {
-      query = { $and: [query, { category: req.query.category }] };
+    const pendingCategoryFilter = buildTaskCategoryBrowseFilter(req.query.category);
+    if (pendingCategoryFilter) {
+      query = { $and: [query, pendingCategoryFilter] };
     }
     if (req.query.reward) {
       query = { $and: [query, { rewardType: req.query.reward }] };
@@ -1610,7 +1776,7 @@ export const getPendingApprovalTasks = async (req: any, res: Response) => {
         : null;
 
     const allMatchingTasks = await Task.find(query)
-      .populate("category", "name code icon")
+      .populate("categoryId", TASK_CATEGORY_ID_POPULATE_SELECT)
       .populate("rewardType", "name code")
       .populate("organisation", "name slug")
       .populate("createdBy", "name email")
@@ -1637,17 +1803,22 @@ export const getPendingApprovalTasks = async (req: any, res: Response) => {
     const tasks = paged.items;
     const { total, page: pageNum, limit: limitNum, pages } = paged;
 
-    const taskIds = tasks.map((t) => t._id);
+    const taskIds = (tasks as Array<{ _id: { toString(): string }; toObject(): Record<string, unknown> }>).map(
+      (t) => t._id,
+    );
     const counts = await Application.aggregate([
       { $match: { task: { $in: taskIds } } },
       { $group: { _id: "$task", count: { $sum: 1 } } },
     ]);
     const countMap = new Map(counts.map((c) => [c._id.toString(), c.count]));
 
-    const tasksMapped = tasks.map((task) => ({
-      ...task.toObject(),
-      applicantsCount: countMap.get(task._id.toString()) || 0,
-    }));
+    const tasksMapped = (tasks as Array<{ _id: { toString(): string }; toObject(): Record<string, unknown> }>).map(
+      (task) =>
+        presentTaskForClient({
+          ...task.toObject(),
+          applicantsCount: countMap.get(task._id.toString()) || 0,
+        }),
+    );
 
     if (!req.query.page && !req.query.limit) {
       return res.json(tasksMapped);
@@ -1672,7 +1843,9 @@ export const getTaskById = async (req: any, res: Response) => {
     const { id } = req.params;
     const task = await Task.findById(id)
       .populate("organisation", "name")
-      .populate("createdBy", "_id name");
+      .populate("createdBy", "_id name")
+      .populate("categoryId", TASK_CATEGORY_ID_POPULATE_SELECT)
+      .populate("contactPerson", TASK_CONTACT_PERSON_POPULATE_SELECT);
 
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
@@ -2013,9 +2186,23 @@ export const repostTask = async (req: any, res: Response) => {
       ? TaskStatus.PUBLISHED
       : TaskStatus.PENDING;
 
+    applyTaskContactAndCategoryFieldsForRepost(
+      {
+        contactPerson: (task as any).contactPerson,
+        categoryId: (task as any).categoryId,
+        category: (task as any).category,
+      },
+      clonedTaskData,
+    );
+
     const newTask = await Task.create(clonedTaskData);
 
-    res.status(201).json(newTask);
+    const created = await withTaskCategoryPopulate(Task.findById(newTask._id));
+    res.status(201).json(
+      presentTaskForClient(
+        (created?.toObject() ?? newTask.toObject()) as Record<string, unknown>,
+      ),
+    );
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }

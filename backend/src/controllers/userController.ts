@@ -20,6 +20,7 @@ import {
   andWithLifecycle,
   assertTaskLifecycleAccess,
 } from "../utils/taskLifecycleQuery.js";
+import { presentTaskRecord } from "../services/taskCategoryReference.js";
 import { DefaultRoleCode } from "@taskunity/shared/defaultRoleCodes.js";
 import {
   GroupKindError,
@@ -543,7 +544,7 @@ export const getUserTasks = async (req: Request, res: Response) => {
     }
     const query = andWithLifecycle(taskFilter, lifecycleMode);
     const tasks = await Task.find(query)
-      .populate("category", "name code icon")
+      .populate("categoryId", "name code icon isActive")
       .populate("rewardType", "name code")
       .populate("organisation", "name slug")
       .populate("createdBy", "name email")
@@ -558,7 +559,7 @@ export const getUserTasks = async (req: Request, res: Response) => {
     const countMap = new Map(counts.map((c) => [c._id.toString(), c.count]));
 
     const result = tasks.map((t) => ({
-      ...t.toObject(),
+      ...presentTaskRecord(t),
       applicantsCount: countMap.get(t._id.toString()) || 0,
     }));
 

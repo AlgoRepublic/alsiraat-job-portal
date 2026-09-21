@@ -17,6 +17,7 @@ import {
   ORG_CONTEXT_REFRESHED_TOKEN_KEY,
 } from "./api";
 import { invalidatePlatformOrganisationCaches } from "./platformOrganisations";
+import { resolveTaskCategoryLabel } from "../utils/taskCategoryDisplay";
 
 const extractOrgId = (value: unknown): string | null => {
   if (!value) return null;
@@ -57,14 +58,76 @@ const mapTaskToJob = (task: any): Job => {
     return Number.isNaN(t) ? undefined : new Date(t).toISOString();
   };
 
+  const categoryIdRaw = task.categoryId;
+  let categoryId: string | undefined;
+  let categoryFromId: string | undefined;
+  if (
+    categoryIdRaw != null &&
+    typeof categoryIdRaw === "object" &&
+    (categoryIdRaw as { _id?: unknown })._id != null
+  ) {
+    categoryId = String((categoryIdRaw as { _id: unknown })._id);
+    const name = (categoryIdRaw as { name?: string }).name;
+    if (typeof name === "string" && name.trim()) {
+      categoryFromId = name.trim();
+    }
+  } else if (categoryIdRaw != null && categoryIdRaw !== "") {
+    categoryId = String(categoryIdRaw);
+  }
+
+  const legacyCategory =
+    typeof task.category === "string" && task.category.trim()
+      ? task.category.trim()
+      : typeof task.category === "object" &&
+          task.category != null &&
+          typeof (task.category as { name?: string }).name === "string"
+        ? (task.category as { name: string }).name
+        : "";
+
+  const displayCategory =
+    categoryId != null
+      ? categoryFromId ?? legacyCategory ?? ""
+      : legacyCategory;
+
+  const contactPersonRaw = task.contactPerson;
+  let contactPersonId: string | undefined;
+  let contactPerson: Job["contactPerson"];
+  if (
+    contactPersonRaw != null &&
+    typeof contactPersonRaw === "object" &&
+    (contactPersonRaw as { _id?: unknown })._id != null
+  ) {
+    contactPersonId = String((contactPersonRaw as { _id: unknown })._id);
+    contactPerson = {
+      _id: contactPersonId,
+      name:
+        typeof (contactPersonRaw as { name?: string }).name === "string"
+          ? (contactPersonRaw as { name: string }).name
+          : "",
+      email:
+        typeof (contactPersonRaw as { email?: string }).email === "string"
+          ? (contactPersonRaw as { email: string }).email
+          : undefined,
+      avatar:
+        typeof (contactPersonRaw as { avatar?: string }).avatar === "string"
+          ? (contactPersonRaw as { avatar: string }).avatar
+          : undefined,
+    };
+  } else if (
+    typeof task.contactPersonId === "string" &&
+    task.contactPersonId.trim()
+  ) {
+    contactPersonId = task.contactPersonId.trim();
+  }
+
   return {
     id: task._id,
     _id: task._id,
     title: task.title,
-    category:
-      typeof task.category === "object"
-        ? task.category.name
-        : task.category || "General",
+    categoryId,
+    category: displayCategory || "",
+    contactPersonId,
+    contactPerson,
     description: task.description,
     location: task.location,
     hoursRequired: task.hoursRequired,
@@ -187,8 +250,13 @@ const mapAppToFrontend = (app: any): Application => {
     rating: app.rating,
     reviewText: app.reviewText,
     jobHoursRequired: app.task?.hoursRequired,
-    // Preserve the full task object so pages can access task.title, task.category, etc.
-    task: typeof app.task === "object" && app.task !== null ? app.task : undefined,
+    task:
+      typeof app.task === "object" && app.task !== null
+        ? {
+            ...app.task,
+            category: resolveTaskCategoryLabel(app.task, ""),
+          }
+        : undefined,
   };
 };
 

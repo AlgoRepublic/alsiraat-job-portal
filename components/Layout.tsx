@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { User, Job, Permission, type OrgContext } from "../types";
 import { api, API_BASE_URL, LOGIN_SOURCE_KEY } from "../services/api";
+import { resolveTaskCategoryLabel } from "../utils/taskCategoryDisplay";
 import {
   getPublicCentralOrganisation,
   type PublicPlatformOrg,
@@ -1058,7 +1059,7 @@ export const Layout: React.FC<LayoutProps> = ({
                               {task.title}
                             </p>
                             <p className="text-xs text-zinc-500 truncate">
-                              {task.category}
+                              {resolveTaskCategoryLabel(task)}
                             </p>
                           </div>
                           <span

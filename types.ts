@@ -88,7 +88,13 @@ export interface Job {
   id: string;
   _id?: string;
   title: string;
+  /** Resolved display name from categoryId or legacy string. */
   category: string;
+  categoryId?: string;
+  /** Selected task contact person (User id); optional on create/edit. */
+  contactPersonId?: string;
+  /** Populated when loading a task for edit. */
+  contactPerson?: { _id: string; name: string; email?: string; avatar?: string };
   description: string;
   location?: string;
   hoursRequired?: number;

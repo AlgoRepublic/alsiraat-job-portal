@@ -166,6 +166,7 @@ export const MyAds: React.FC = () => {
             task.organisation ?? (task as { organization?: unknown }).organization,
           archivedAt: task.archivedAt,
           deletedAt: task.deletedAt,
+          canReview: task.canReview,
         },
         activeOrgId,
       ) && (

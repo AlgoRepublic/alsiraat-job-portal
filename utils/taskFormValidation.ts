@@ -18,7 +18,7 @@ function trimOptionalString(value: unknown): string | undefined {
 
 export type TaskWizardStep1Fields = {
   title?: string;
-  category?: string;
+  categoryId?: string;
   description?: string;
   location?: string;
   hoursRequired?: number | string | null;
@@ -81,7 +81,7 @@ export function validateWizardStep1(
 ): Record<string, string> {
   const errors: Record<string, string> = {};
   if (!fields.title?.trim()) errors.title = "Task Title is required";
-  if (!fields.category) errors.category = "Category is required";
+  if (!fields.categoryId?.trim()) errors.categoryId = "Category is required";
   if (!fields.description?.trim())
     errors.description = "Task Description is required";
   const hoursError = validateEstimatedDuration(fields.hoursRequired);

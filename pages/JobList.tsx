@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { JobStatus, Job, Permission, User } from "../types";
 import { db } from "../services/database";
+import { resolveTaskCategoryLabel } from "../utils/taskCategoryDisplay";
 import { TaskRewardText } from "../components/TaskRewardText";
 import { organisationIdToString } from "../utils/organisationId";
 import { getActiveOrgIdFromStorage, getOrgId } from "../utils/orgScopedRoles";
@@ -383,11 +384,16 @@ export const JobList: React.FC = () => {
                   onChange={(e) => updateParam("category", e.target.value)}
                 >
                   <option value="All">All Categories</option>
-                  {categories.map((category) => (
-                    <option key={category.code || category.name} value={category.name}>
-                      {category.name}
-                    </option>
-                  ))}
+                  {categories
+                    .filter((category) => category?.isActive !== false)
+                    .map((category) => (
+                      <option
+                        key={String(category._id ?? category.code ?? category.name)}
+                        value={String(category._id)}
+                      >
+                        {category.name}
+                      </option>
+                    ))}
                 </select>
               </div>
               <div className="space-y-2">
@@ -577,7 +583,7 @@ export const JobList: React.FC = () => {
                     </span>
                   )}
                   <span className="px-3 py-1.5 glass bg-white/20 text-zinc-600 dark:text-zinc-400 text-[10px] font-black rounded-xl uppercase tracking-widest">
-                    {job.category}
+                    {resolveTaskCategoryLabel(job)}
                   </span>
                   {orgLabel && (
                     <span

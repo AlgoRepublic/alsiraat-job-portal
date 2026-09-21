@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowRight,
@@ -67,6 +67,7 @@ import {
   stripWizardGroupIdsForKind,
   wizardGroupsForKind,
 } from "../utils/taskWizardAllowedGroups";
+import { usePermissions, Permission } from "../hooks/usePermissions";
 
 type WizardGroupRow = GroupCatalogueEntry & {
   color?: string;
@@ -117,9 +118,26 @@ function getRewardTypeOrgId(rt: { organisation?: unknown }): string | null {
   return null;
 }
 
+function taskCategoryToDropdownOption(cat: {
+  _id?: unknown;
+  name?: string;
+  code?: string;
+  icon?: string;
+}) {
+  const id = cat?._id != null ? String(cat._id) : "";
+  return {
+    id,
+    name: typeof cat?.name === "string" ? cat.name : "",
+    code: cat?.code,
+    icon: cat?.icon,
+  };
+}
+
 const getInitialFormData = (): Partial<Job> => ({
   title: "",
+  categoryId: "",
   category: "",
+  contactPersonId: "",
   description: "",
   location: "",
   hoursRequired: undefined,
@@ -242,6 +260,10 @@ export const JobWizard: React.FC = () => {
     "save" | "publish" | "resubmit" | "create" | null
   >(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const { can: canPermission } = usePermissions(currentUser);
+  const isCreateMode = !id;
+  const canSetContactOnCreate = canPermission(Permission.TASK_AUTO_PUBLISH);
+  const showContactPersonField = !isCreateMode || canSetContactOnCreate;
   const [taskOrganisationId, setTaskOrganisationId] = useState<string | null>(
     null,
   );
@@ -275,6 +297,9 @@ export const JobWizard: React.FC = () => {
   const [rewardTypesOrgReady, setRewardTypesOrgReady] = useState(false);
 
   const [formData, setFormData] = useState<Partial<Job>>(getInitialFormData);
+  const [contactPickerOptions, setContactPickerOptions] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
   const [editAccessResolved, setEditAccessResolved] = useState(!id);
 
   const reviewAudiencePresentation = useMemo(() => {
@@ -390,6 +415,7 @@ export const JobWizard: React.FC = () => {
                   job.organisation ?? (job as { organization?: unknown }).organization,
                 archivedAt: job.archivedAt,
                 deletedAt: job.deletedAt,
+                canReview: job.canReview,
               },
               activeOrgId ?? undefined,
             );
@@ -426,7 +452,10 @@ export const JobWizard: React.FC = () => {
                     : [];
             setFormData({
               title: job.title,
-              category: job.category as any,
+              categoryId: job.categoryId ?? "",
+              category: job.category,
+              contactPersonId: job.contactPersonId ?? "",
+              contactPerson: job.contactPerson,
               description: job.description,
               location: job.location ?? "",
               hoursRequired: job.hoursRequired,
@@ -456,7 +485,11 @@ export const JobWizard: React.FC = () => {
       } else {
         setRewardTypes(activeTypes);
         const initialData = getInitialFormData();
-        if (cats.length > 0) initialData.category = cats[0].name;
+        const firstActive = cats.find((c) => c?.isActive !== false);
+        if (firstActive?._id) {
+          initialData.categoryId = String(firstActive._id);
+          initialData.category = firstActive.name;
+        }
         setFormData(initialData);
       }
     };
@@ -478,6 +511,61 @@ export const JobWizard: React.FC = () => {
   const orgScopeLabel = (
     activeOrgName?.trim() || "your active organisation"
   ).replace(/\s+/g, " ");
+
+  const categoryDropdownOptions = React.useMemo(() => {
+    const selectedId = formData.categoryId?.trim();
+    return categories
+      .filter(
+        (c) =>
+          c?.isActive !== false ||
+          (selectedId && String(c._id) === selectedId),
+      )
+      .map(taskCategoryToDropdownOption)
+      .filter((o) => o.id && o.name);
+  }, [categories, formData.categoryId]);
+
+  useEffect(() => {
+    if (!showContactPersonField) {
+      setContactPickerOptions([]);
+      return;
+    }
+    let cancelled = false;
+    const loadContactPicker = async () => {
+      try {
+        const categoryId = formData.categoryId?.trim() || undefined;
+        const rows = await api.getTaskContactPersonPicker(categoryId);
+        if (cancelled) return;
+        setContactPickerOptions(
+          rows.map((u) => ({
+            id: u._id,
+            name: u.name?.trim() || u.email?.trim() || u._id,
+          })),
+        );
+      } catch {
+        if (!cancelled) setContactPickerOptions([]);
+      }
+    };
+    void loadContactPicker();
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.categoryId, activeOrgId, showContactPersonField]);
+
+  const contactPersonDropdownOptions = useMemo(() => {
+    const storedId = formData.contactPersonId?.trim();
+    const storedLabel =
+      formData.contactPerson?.name?.trim() ||
+      contactPickerOptions.find((o) => o.id === storedId)?.name;
+    const options = [...contactPickerOptions];
+    if (storedId && storedLabel && !options.some((o) => o.id === storedId)) {
+      options.unshift({ id: storedId, name: `${storedLabel} (saved)` });
+    }
+    return [{ id: "", name: "No contact person" }, ...options];
+  }, [
+    contactPickerOptions,
+    formData.contactPersonId,
+    formData.contactPerson?.name,
+  ]);
 
   const visibilityOptions = React.useMemo(() => {
     const privateDesc =
@@ -514,14 +602,17 @@ export const JobWizard: React.FC = () => {
   };
 
   const handleAIHelp = async () => {
-    if (!formData.title || !formData.category) {
+    const categoryLabel =
+      categoryDropdownOptions.find((c) => c.id === formData.categoryId)?.name ??
+      formData.category;
+    if (!formData.title || !formData.categoryId || !categoryLabel) {
       showError("Please enter Task Title and Category first.");
       return;
     }
     setIsGenerating(true);
     const desc = await generateJobDescription(
       formData.title,
-      formData.category,
+      categoryLabel,
       "Detailed resolution steps and collaboration requirements.",
     );
     updateField("description", desc);
@@ -555,7 +646,7 @@ export const JobWizard: React.FC = () => {
     const step1Errors = validateStep1();
     if (Object.keys(step1Errors).length > 0) {
       setErrors(step1Errors);
-      if (step1Errors.title || step1Errors.category)
+      if (step1Errors.title || step1Errors.categoryId)
         setOpenS1((p) => ({ ...p, basic: true }));
       else if (step1Errors.hoursRequired || step1Errors.startDate)
         setOpenS1((p) => ({ ...p, schedule: true }));
@@ -588,7 +679,11 @@ export const JobWizard: React.FC = () => {
     if (Object.keys(step1Errors).length > 0) {
       setErrors(step1Errors);
       goToStep(1);
-      if (step1Errors.title || step1Errors.category || step1Errors.description)
+      if (
+        step1Errors.title ||
+        step1Errors.categoryId ||
+        step1Errors.description
+      )
         setOpenS1((p) => ({ ...p, basic: true }));
       else if (step1Errors.hoursRequired || step1Errors.startDate)
         setOpenS1((p) => ({ ...p, schedule: true }));
@@ -619,10 +714,25 @@ export const JobWizard: React.FC = () => {
               return audiences.length > 0 ? audiences : [Visibility.INTERNAL];
             })()
           : [];
-      const { status: _formStatus, allowedRoles: _formAllowedRoles, ...formFields } =
-        formData;
+      const {
+        status: _formStatus,
+        allowedRoles: _formAllowedRoles,
+        category: _legacyCategory,
+        contactPerson: _contactPersonPopulated,
+        contactPersonId: _contactPersonId,
+        ...formFields
+      } = formData;
+      const includeContactPersonOnSubmit =
+        !isCreateMode || canSetContactOnCreate;
       const submissionData: Record<string, unknown> = {
         ...formFields,
+        ...(includeContactPersonOnSubmit
+          ? {
+              contactPerson: formData.contactPersonId?.trim()
+                ? formData.contactPersonId.trim()
+                : null,
+            }
+          : {}),
         privateAudiences: selectedPrivateAudiences,
         allowedGroups:
           formData.visibility === Visibility.PRIVATE
@@ -696,17 +806,22 @@ export const JobWizard: React.FC = () => {
             state: { toastMessage: "Task published successfully!" },
           });
         } else {
-          showSuccess("Task updated and resubmitted for approval!");
+          showSuccess(
+            formData.status === JobStatus.PUBLISHED
+              ? "Task updated."
+              : "Task updated and resubmitted for approval!",
+          );
           navigate("/jobs");
         }
       } else {
-        if (uploadedFiles.length > 0) {
-          await api.createTaskWithFiles(submissionData, uploadedFiles);
-        } else {
-          await db.addJob(submissionData);
-        }
+        const created =
+          uploadedFiles.length > 0
+            ? await api.createTaskWithFiles(submissionData, uploadedFiles)
+            : await db.addJob(submissionData);
         showSuccess(
-          "Task submitted for approval! You'll be notified when it's published.",
+          created?.status === JobStatus.PUBLISHED
+            ? "Task published successfully!"
+            : "Task submitted for approval! You'll be notified when it's published.",
         );
         navigate("/jobs");
       }
@@ -841,7 +956,7 @@ export const JobWizard: React.FC = () => {
             icon={<Info className="w-4 h-4" />}
             isOpen={openS1.basic}
             onToggle={() => toggleS1("basic")}
-            hasError={!!(errors.title || errors.category)}
+            hasError={!!(errors.title || errors.categoryId)}
           >
             <div className="grid md:grid-cols-2 gap-5">
               <div className="space-y-1.5">
@@ -868,22 +983,58 @@ export const JobWizard: React.FC = () => {
               <div className="space-y-1.5">
                 <CustomDropdown
                   label="Category *"
-                  options={categories}
-                  value={formData.category || ""}
+                  options={categoryDropdownOptions}
+                  valueKey="id"
+                  value={formData.categoryId || ""}
                   onChange={(val) => {
-                    updateField("category", val);
-                    if (errors.category)
-                      setErrors((p) => ({ ...p, category: "" }));
+                    const selected = categoryDropdownOptions.find(
+                      (c) => c.id === val,
+                    );
+                    updateField("categoryId", val);
+                    updateField("category", selected?.name ?? "");
+                    if (errors.categoryId)
+                      setErrors((p) => ({ ...p, categoryId: "" }));
                   }}
                   placeholder="Select Category"
-                  error={!!errors.category}
+                  error={!!errors.categoryId}
                 />
-                {errors.category && (
+                {errors.categoryId && (
                   <p className="text-red-500 text-xs font-bold">
-                    {errors.category}
+                    {errors.categoryId}
                   </p>
                 )}
               </div>
+
+              {showContactPersonField && (
+                <div className="space-y-1.5 md:col-span-2">
+                  <CustomDropdown
+                    label="Task contact person (optional)"
+                    options={contactPersonDropdownOptions}
+                    valueKey="id"
+                    value={formData.contactPersonId || ""}
+                    onChange={(val) => {
+                      updateField("contactPersonId", val);
+                      if (!val) {
+                        updateField("contactPerson", undefined);
+                        return;
+                      }
+                      const selected = contactPersonDropdownOptions.find(
+                        (o) => o.id === val,
+                      );
+                      updateField(
+                        "contactPerson",
+                        selected
+                          ? {
+                              _id: val,
+                              name: selected.name.replace(/ \(saved\)$/, ""),
+                            }
+                          : undefined,
+                      );
+                    }}
+                    placeholder="No contact person"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Description inside Basic, with AI button */}
@@ -1602,7 +1753,16 @@ export const JobWizard: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 {[
                   { label: "Title", value: formData.title || "-" },
-                  { label: "Category", value: formData.category || "-" },
+                  {
+                    label: "Category",
+                    value:
+                      categoryDropdownOptions.find(
+                        (c) => c.id === formData.categoryId,
+                      )?.name ??
+                      (formData.categoryId
+                        ? "—"
+                        : formData.category?.trim() || "-"),
+                  },
                   {
                     label: "Location",
                     value: formatOptionalTaskLocation(formData.location),

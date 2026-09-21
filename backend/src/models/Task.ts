@@ -23,7 +23,11 @@ export type TaskVisibility =
 export interface ITask extends Document {
   title: string;
   description: string;
-  category: string;
+  /** Read-only legacy display name during rollback; prefer categoryId for new writes. */
+  category?: string;
+  categoryId?: mongoose.Types.ObjectId;
+  /** Optional member designated for applicant contact (future chat). */
+  contactPerson?: mongoose.Types.ObjectId | undefined;
   location?: string | undefined;
   hoursRequired?: number | undefined;
   applicationOpenDate?: Date | undefined;
@@ -65,7 +69,17 @@ const TaskSchema: Schema = new Schema(
   {
     title: { type: String, required: true },
     description: { type: String, required: true },
-    category: { type: String, required: true },
+    category: { type: String },
+    categoryId: {
+      type: Schema.Types.ObjectId,
+      ref: "TaskCategory",
+      default: null,
+    },
+    contactPerson: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
     location: { type: String },
     hoursRequired: { type: Number },
     applicationOpenDate: { type: Date },

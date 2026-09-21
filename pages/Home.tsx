@@ -12,6 +12,7 @@ import {
   ShieldHalf,
 } from "lucide-react";
 import { db } from "../services/database";
+import { resolveTaskCategoryLabel } from "../utils/taskCategoryDisplay";
 import { resolveCatalogOrganisationId } from "../services/platformOrganisations";
 import { Job, JobStatus, User } from "../types";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
@@ -282,7 +283,7 @@ export const Home: React.FC = () => {
             >
               <div className="absolute top-6 right-6">
                 <span className="px-3 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-[10px] font-black uppercase tracking-widest rounded-lg">
-                  {job.category}
+                  {resolveTaskCategoryLabel(job)}
                 </span>
               </div>
 

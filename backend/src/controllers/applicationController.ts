@@ -29,6 +29,12 @@ import {
   memberSatisfiesPrivateTaskGroupRestriction,
 } from "../services/taskPrivateAudience.js";
 import { resolveMemberKindForOrg } from "../services/groupKindMembership.js";
+import {
+  applicationTaskPopulate,
+  presentApplicationForClient,
+  presentApplicationsForClient,
+} from "../utils/applicationTaskPopulate.js";
+import { taskCategoryIdPopulate } from "../services/taskCategoryReference.js";
 
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -193,10 +199,14 @@ export const assignTask = async (req: any, res: Response) => {
     });
 
     const populated = await Application.findById(app._id)
-      .populate("task", "title status")
+      .populate({
+        path: "task",
+        select: "title status category categoryId",
+        populate: taskCategoryIdPopulate,
+      })
       .populate("applicant", "name email");
 
-    res.status(201).json(populated);
+    res.status(201).json(presentApplicationForClient(populated));
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -337,7 +347,7 @@ export const applyForTask = async (req: any, res: Response) => {
       ),
     });
 
-    res.status(201).json(app);
+    res.status(201).json(presentApplicationForClient(app));
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -349,7 +359,7 @@ export const updateApplicationStatus = async (req: any, res: Response) => {
     const { status } = req.body;
 
     const app = await Application.findById(appId)
-      .populate("task")
+      .populate(applicationTaskPopulate)
       .populate("applicant");
     if (!app) return res.status(404).json({ message: "Application not found" });
 
@@ -433,7 +443,7 @@ export const updateApplicationStatus = async (req: any, res: Response) => {
       });
     }
 
-    res.json(app);
+    res.json(presentApplicationForClient(app));
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -553,7 +563,7 @@ export const getApplications = async (req: any, res: Response) => {
     const skip = (page - 1) * limit;
 
     const apps = await Application.find(query)
-      .populate("task")
+      .populate(applicationTaskPopulate)
       .populate(
         "applicant",
         "name email avatar about skills resumeUrl resumeOriginalName experience contactNumber gender yearLevel organisation",
@@ -564,11 +574,11 @@ export const getApplications = async (req: any, res: Response) => {
 
     // If no page/limit provided, return plain array for backward compatibility
     if (!req.query.page && !req.query.limit) {
-      return res.json(apps);
+      return res.json(presentApplicationsForClient(apps));
     }
 
     res.json({
-      applications: apps,
+      applications: presentApplicationsForClient(apps),
       pagination: {
         total,
         page,
@@ -588,7 +598,7 @@ export const getApplicationById = async (req: any, res: Response) => {
   try {
     const { appId } = req.params;
     const app = await Application.findById(appId)
-      .populate("task")
+      .populate(applicationTaskPopulate)
       .populate(
         "applicant",
         "name email avatar about skills resumeUrl resumeOriginalName experience contactNumber gender yearLevel organisation",
@@ -633,7 +643,7 @@ export const getApplicationById = async (req: any, res: Response) => {
       }
     }
 
-    res.json(app);
+    res.json(presentApplicationForClient(app));
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -642,7 +652,7 @@ export const getApplicationById = async (req: any, res: Response) => {
 export const confirmOffer = async (req: any, res: Response) => {
   try {
     const { appId } = req.params;
-    const app = await Application.findById(appId).populate("task");
+    const app = await Application.findById(appId).populate(applicationTaskPopulate);
 
     if (!app) return res.status(404).json({ message: "Application not found" });
 
@@ -711,7 +721,7 @@ export const confirmOffer = async (req: any, res: Response) => {
       });
     }
 
-    res.json(app);
+    res.json(presentApplicationForClient(app));
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -720,7 +730,7 @@ export const confirmOffer = async (req: any, res: Response) => {
 export const declineOffer = async (req: any, res: Response) => {
   try {
     const { appId } = req.params;
-    const app = await Application.findById(appId).populate("task");
+    const app = await Application.findById(appId).populate(applicationTaskPopulate);
 
     if (!app) return res.status(404).json({ message: "Application not found" });
 
@@ -765,7 +775,7 @@ export const declineOffer = async (req: any, res: Response) => {
       ),
     });
 
-    res.json(app);
+    res.json(presentApplicationForClient(app));
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -774,7 +784,7 @@ export const declineOffer = async (req: any, res: Response) => {
 export const requestCompletion = async (req: any, res: Response) => {
   try {
     const { appId } = req.params;
-    const app = await Application.findById(appId).populate("task");
+    const app = await Application.findById(appId).populate(applicationTaskPopulate);
     if (!app) return res.status(404).json({ message: "Application not found" });
 
     if (app.applicant.toString() !== req.user._id.toString()) {
@@ -810,7 +820,7 @@ export const requestCompletion = async (req: any, res: Response) => {
       ),
     });
 
-    res.json(app);
+    res.json(presentApplicationForClient(app));
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -820,7 +830,7 @@ export const acceptCompletion = async (req: any, res: Response) => {
   try {
     const { appId } = req.params;
     const app = await Application.findById(appId)
-      .populate("task")
+      .populate(applicationTaskPopulate)
       .populate("applicant");
     if (!app) return res.status(404).json({ message: "Application not found" });
 
@@ -901,7 +911,7 @@ export const acceptCompletion = async (req: any, res: Response) => {
       ),
     });
 
-    res.json(app);
+    res.json(presentApplicationForClient(app));
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -918,7 +928,7 @@ export const rejectCompletion = async (req: any, res: Response) => {
         .json({ message: "A reason is required when rejecting completion" });
     }
 
-    const app = await Application.findById(appId).populate("task");
+    const app = await Application.findById(appId).populate(applicationTaskPopulate);
     if (!app) return res.status(404).json({ message: "Application not found" });
 
     const task: any = app.task;
@@ -953,7 +963,7 @@ export const rejectCompletion = async (req: any, res: Response) => {
       ),
     });
 
-    res.json(app);
+    res.json(presentApplicationForClient(app));
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -968,7 +978,7 @@ export const submitReview = async (req: any, res: Response) => {
       return res.status(400).json({ message: "Rating must be between 1 and 5" });
     }
 
-    const app = await Application.findById(appId).populate("task");
+    const app = await Application.findById(appId).populate(applicationTaskPopulate);
     if (!app) return res.status(404).json({ message: "Application not found" });
 
     const task: any = app.task;

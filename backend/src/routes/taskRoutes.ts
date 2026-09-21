@@ -6,6 +6,7 @@ import {
   getMyAdsTasks,
   getPendingApprovalTasks,
   getTaskById,
+  getTaskContactPersonPicker,
   approveTask,
   updateTask,
   repostTask,
@@ -49,6 +50,13 @@ router.get(
   authenticate,
   requirePermission(Permission.TASK_VIEW_PENDING),
   getPendingApprovalTasks,
+);
+
+router.get(
+  "/contact-person-picker",
+  authenticate,
+  requireAnyPermission([Permission.TASK_CREATE, Permission.TASK_UPDATE]),
+  getTaskContactPersonPicker,
 );
 
 router.post(

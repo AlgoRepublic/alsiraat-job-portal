@@ -17,6 +17,10 @@ import {
   Mail,
   Sparkles,
   Gift,
+  UserPlus,
+  UserCircle,
+  Search,
+  ShieldCheck,
 } from "lucide-react";
 import { Loading } from "../components/Loading";
 import { useNavigate } from "react-router-dom";
@@ -29,7 +33,14 @@ import { OrganisationManagement } from "./OrganisationManagement";
 import { ArrowLeft } from "lucide-react";
 import {
   ACTIVE_ORG_CHANGED_EVENT,
+  getMemberRolesForActiveOrg,
+  getUserRoleCodesForActiveOrg,
+  getUserRoleIdsForActiveOrg,
 } from "../utils/orgScopedRoles";
+import {
+  hasPermissionForRoleCode,
+  Permission as TaskPermission,
+} from "../services/permissions";
 import { db } from "../services/database";
 import { invalidateRewardTypesCatalog } from "../services/rewardTypesCatalog";
 
@@ -96,6 +107,284 @@ function organisationParamFromReward(
   if (typeof raw === "string") return raw;
   return activeOrgId;
 }
+
+type OrgRoleCatalogueEntry = {
+  _id: string;
+  code?: string;
+  name: string;
+  isActive?: boolean;
+  permissions?: string[];
+};
+
+function categoryIsOrgScoped(
+  cat: { organisation?: string | { _id: string } | null },
+): boolean {
+  const raw = cat?.organisation;
+  if (raw == null) return false;
+  if (typeof raw === "object" && "_id" in raw) return true;
+  return String(raw).length > 0;
+}
+
+function contactMemberIdsFromCategory(cat: {
+  contactMembers?: unknown[];
+}): string[] {
+  return (cat.contactMembers ?? []).map((member) => {
+    if (typeof member === "string") return member;
+    if (member && typeof member === "object" && "_id" in member) {
+      return String((member as { _id: string })._id);
+    }
+    return String(member);
+  });
+}
+
+const userCanApproveTasksInOrg = (
+  user: {
+    isSuperAdmin?: boolean;
+    organisationRoles?: unknown[];
+    roles?: string[];
+  },
+  activeOrgId: string | null,
+  roleCatalogue: OrgRoleCatalogueEntry[],
+): boolean => {
+  if (user?.isSuperAdmin) return true;
+  const codes = getUserRoleCodesForActiveOrg(user, activeOrgId);
+  if (
+    codes.some((code) =>
+      hasPermissionForRoleCode(code, TaskPermission.TASK_APPROVE),
+    )
+  ) {
+    return true;
+  }
+  const roleIds = getUserRoleIdsForActiveOrg(user, activeOrgId);
+  return roleIds.some((id) => {
+    const role = roleCatalogue.find((r) => r._id === id);
+    return role?.permissions?.includes(TaskPermission.TASK_APPROVE);
+  });
+};
+
+const CategoryContactMembersEditor: React.FC<{
+  contactMemberIds: string[];
+  allUsers: any[];
+  activeOrgId: string;
+  roleCatalogue: OrgRoleCatalogueEntry[];
+  disabled?: boolean;
+  onChange: (ids: string[]) => void;
+}> = ({
+  contactMemberIds,
+  allUsers,
+  activeOrgId,
+  roleCatalogue,
+  disabled,
+  onChange,
+}) => {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<string[]>([]);
+
+  const resolveUser = (id: string) =>
+    allUsers.find((u) => u._id === id) ??
+    (contactMemberIds.includes(id) ? { _id: id, name: id, email: "" } : null);
+
+  const storedRows = contactMemberIds
+    .map((id) => resolveUser(id))
+    .filter(Boolean) as any[];
+
+  const pickerCandidates = allUsers.filter((u) => {
+    if (contactMemberIds.includes(u._id)) return false;
+    if (!userCanApproveTasksInOrg(u, activeOrgId, roleCatalogue)) {
+      return false;
+    }
+    return (
+      u.name?.toLowerCase().includes(search.toLowerCase()) ||
+      u.email?.toLowerCase().includes(search.toLowerCase())
+    );
+  });
+
+  const removeMember = (userId: string) => {
+    onChange(contactMemberIds.filter((id) => id !== userId));
+  };
+
+  const addSelected = () => {
+    if (selected.length === 0) return;
+    onChange([...contactMemberIds, ...selected]);
+    setSelected([]);
+    setPickerOpen(false);
+    setSearch("");
+  };
+
+  return (
+    <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 p-4 space-y-3 bg-white/60 dark:bg-zinc-900/40">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-xs font-black uppercase tracking-widest text-zinc-500 flex items-center gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+            Category contact members
+          </p>
+          <p className="text-[11px] text-zinc-400 mt-0.5">
+            Task approvers only · stored members stay if permission lapses but
+            won&apos;t appear in pickers until restored
+          </p>
+        </div>
+        {!disabled && (
+          <button
+            type="button"
+            onClick={() => setPickerOpen((v) => !v)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-800 dark:text-amber-200 hover:bg-amber-500/20 transition-all"
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            Add
+          </button>
+        )}
+      </div>
+
+      {storedRows.length === 0 ? (
+        <p className="text-sm text-zinc-400 font-medium py-2">
+          No contact members configured — task editors will use org-wide
+          approvers when picking contacts.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {storedRows.map((user) => {
+            const eligible = userCanApproveTasksInOrg(
+              user,
+              activeOrgId,
+              roleCatalogue,
+            );
+            return (
+              <li
+                key={user._id}
+                className="flex items-center gap-3 p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800"
+              >
+                <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden shrink-0">
+                  {user.avatar ? (
+                    <img
+                      src={user.avatar}
+                      alt={user.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <UserCircle className="w-5 h-5 text-zinc-400" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-sm text-zinc-900 dark:text-white truncate">
+                    {user.name}
+                  </p>
+                  <p className="text-xs text-zinc-400 truncate">{user.email}</p>
+                  {!eligible && (
+                    <p className="text-[10px] font-bold text-amber-700 dark:text-amber-300 mt-0.5">
+                      Not in picker — missing task approve permission
+                    </p>
+                  )}
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {getMemberRolesForActiveOrg(
+                      user,
+                      activeOrgId,
+                      roleCatalogue,
+                    ).map((r) => (
+                      <span
+                        key={r.id}
+                        className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg text-zinc-400 bg-zinc-100 dark:bg-zinc-800"
+                      >
+                        {r.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                {!disabled && !user.isSuperAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => removeMember(user._id)}
+                    className="p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
+                    title="Remove contact member"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {pickerOpen && !disabled && (
+        <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 space-y-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search approvers..."
+              className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm"
+            />
+          </div>
+          <div className="max-h-48 overflow-y-auto space-y-1">
+            {pickerCandidates.length === 0 ? (
+              <p className="text-sm text-zinc-400 text-center py-4">
+                No approvers available to add
+              </p>
+            ) : (
+              pickerCandidates.map((user) => {
+                const isSelected = selected.includes(user._id);
+                return (
+                  <button
+                    key={user._id}
+                    type="button"
+                    onClick={() =>
+                      setSelected((prev) =>
+                        prev.includes(user._id)
+                          ? prev.filter((id) => id !== user._id)
+                          : [...prev, user._id],
+                      )
+                    }
+                    className={`w-full flex items-center gap-3 p-2.5 rounded-xl border text-left transition-all ${
+                      isSelected
+                        ? "border-primary bg-primary/5"
+                        : "border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-sm truncate">{user.name}</p>
+                      <p className="text-xs text-zinc-400 truncate">
+                        {user.email}
+                      </p>
+                    </div>
+                    {isSelected && (
+                      <Check className="w-4 h-4 text-primary shrink-0" />
+                    )}
+                  </button>
+                );
+              })
+            )}
+          </div>
+          <div className="flex gap-2 justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                setPickerOpen(false);
+                setSelected([]);
+                setSearch("");
+              }}
+              className="px-4 py-2 text-xs font-bold text-zinc-500"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={selected.length === 0}
+              onClick={addSelected}
+              className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold disabled:opacity-50"
+            >
+              Add selected
+              {selected.length > 0 ? ` (${selected.length})` : ""}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const AiSettingsPanel: React.FC<{ reloadKey?: number }> = ({
   reloadKey = 0,
@@ -286,6 +575,10 @@ export const AdminSettings: React.FC = () => {
     color: "#6366F1",
     icon: "📋",
   });
+  const [catMemberUsers, setCatMemberUsers] = useState<any[]>([]);
+  const [catRoleCatalogue, setCatRoleCatalogue] = useState<
+    OrgRoleCatalogueEntry[]
+  >([]);
 
   const [rewardTypesList, setRewardTypesList] = useState<any[]>([]);
   const [rtLoading, setRtLoading] = useState(false);
@@ -348,6 +641,41 @@ export const AdminSettings: React.FC = () => {
     loadData();
     loadCategories();
   }, [adminOrgSync]);
+
+  const loadCategoryMemberPickerData = useCallback(async () => {
+    try {
+      const [usersData, rolesData] = await Promise.all([
+        db.getUsers(),
+        db.getRoles(),
+      ]);
+      setCatMemberUsers(Array.isArray(usersData) ? usersData : []);
+      setCatRoleCatalogue(
+        (rolesData ?? []).map(
+          (r: {
+            _id: string;
+            code?: string;
+            name: string;
+            isActive?: boolean;
+            permissions?: string[];
+          }) => ({
+            _id: String(r._id),
+            code: r.code,
+            name: r.name,
+            isActive: r.isActive,
+            permissions: Array.isArray(r.permissions) ? r.permissions : [],
+          }),
+        ),
+      );
+    } catch {
+      showError("Failed to load members for category contacts");
+    }
+  }, [showError]);
+
+  useEffect(() => {
+    if (activeTab === "categories") {
+      void loadCategoryMemberPickerData();
+    }
+  }, [activeTab, adminOrgSync, loadCategoryMemberPickerData]);
 
   const loadRewardTypes = useCallback(async () => {
     const requestSeq = ++rewardTypesLoadSeqRef.current;
@@ -1332,6 +1660,16 @@ export const AdminSettings: React.FC = () => {
 
   const handleUpdateCategory = async (cat: any) => {
     try {
+      const body: Record<string, unknown> = {
+        name: cat.name,
+        description: cat.description,
+        isActive: cat.isActive,
+        color: cat.color,
+        icon: cat.icon,
+      };
+      if (categoryIsOrgScoped(cat)) {
+        body.contactMembers = contactMemberIdsFromCategory(cat);
+      }
       const res = await fetch(
         withOrganisationQuery(
           `${API_BASE_URL}/task-categories/${cat._id}`,
@@ -1343,7 +1681,7 @@ export const AdminSettings: React.FC = () => {
             Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(cat),
+          body: JSON.stringify(body),
         },
       );
       const data = await res.json();
@@ -2352,6 +2690,22 @@ export const AdminSettings: React.FC = () => {
                             </button>
                           </div>
                         </div>
+                        {categoryIsOrgScoped(editingCat) && activeOrgId && (
+                          <CategoryContactMembersEditor
+                            contactMemberIds={contactMemberIdsFromCategory(
+                              editingCat,
+                            )}
+                            allUsers={catMemberUsers}
+                            activeOrgId={activeOrgId}
+                            roleCatalogue={catRoleCatalogue}
+                            onChange={(ids) =>
+                              setEditingCat({
+                                ...editingCat,
+                                contactMembers: ids,
+                              })
+                            }
+                          />
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -2376,6 +2730,12 @@ export const AdminSettings: React.FC = () => {
                           {cat.description && (
                             <p className="text-xs text-zinc-400 mt-0.5 line-clamp-1">
                               {cat.description}
+                            </p>
+                          )}
+                          {categoryIsOrgScoped(cat) && (
+                            <p className="text-[10px] font-bold text-zinc-400 mt-1">
+                              Contact members:{" "}
+                              {contactMemberIdsFromCategory(cat).length}
                             </p>
                           )}
                         </div>

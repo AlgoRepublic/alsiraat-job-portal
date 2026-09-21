@@ -19,6 +19,7 @@ import { Pagination } from "../components/Pagination";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 import { Application, Job, User } from "../types";
 import { formatOptionalTaskDuration } from "../utils/formatOptionalTaskField";
+import { resolveTaskCategoryLabel } from "../utils/taskCategoryDisplay";
 
 const PAGE_SIZE = 10;
 
@@ -242,7 +243,7 @@ export const MyAssignedTasks: React.FC = () => {
               {task?.title || "Task Deleted"}
             </p>
             <p className="text-xs text-zinc-500 font-medium uppercase tracking-widest mt-1">
-              {task?.category || "—"}
+              {resolveTaskCategoryLabel(task)}
               {` • ${formatOptionalTaskDuration(task?.hoursRequired, "h")}`}
             </p>
           </div>
@@ -300,7 +301,7 @@ export const MyAssignedTasks: React.FC = () => {
                 {task?.title || "Task Deleted"}
               </p>
               <p className="text-xs text-zinc-500 font-medium uppercase tracking-widest mt-1">
-                {task?.category || "—"}
+                {resolveTaskCategoryLabel(task)}
                 {` • ${formatOptionalTaskDuration(task?.hoursRequired, "h")}`}
               </p>
             </div>

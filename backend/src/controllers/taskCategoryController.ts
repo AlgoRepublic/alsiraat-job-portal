@@ -3,10 +3,17 @@ import mongoose from "mongoose";
 import TaskCategory from "../models/TaskCategory.js";
 import Organization from "../models/Organization.js";
 import {
+  applyCategoryContactMembersUpdate,
+  categoryIsOrgScoped,
+} from "../services/categoryContactMembers.js";
+import { GroupKindError } from "../services/groupKindMembership.js";
+import {
   assertResourceOrganisationScope,
   firstOrgQueryString,
   resolveMutationOrganisation,
 } from "../utils/orgMutationScope.js";
+
+const CONTACT_MEMBER_USER_FIELDS = "name email avatar organisationRoles";
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -114,7 +121,11 @@ export const getTaskCategories = async (req: Request, res: Response) => {
     const filter = includeInactive
       ? orgFilter
       : { isActive: true, ...orgFilter };
-    const categories = await TaskCategory.find(filter).sort({ name: 1 });
+    let categories = await TaskCategory.find(filter).sort({ name: 1 });
+    await TaskCategory.populate(categories, {
+      path: "contactMembers",
+      select: CONTACT_MEMBER_USER_FIELDS,
+    });
     const payload =
       effectiveOrgId && categories.length > 0
         ? dedupeCategoriesPreferOrg(categories, effectiveOrgId)
@@ -141,6 +152,7 @@ export const getTaskCategory = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Category not found" });
     }
 
+    await category.populate("contactMembers", CONTACT_MEMBER_USER_FIELDS);
     res.json(category);
   } catch (err: any) {
     res.status(500).json({ message: err.message });
@@ -194,7 +206,8 @@ export const updateTaskCategory = async (req: Request, res: Response) => {
       throw e;
     }
     const { id } = req.params;
-    const { name, description, isActive, color, icon } = req.body;
+    const { name, description, isActive, color, icon, contactMembers } =
+      req.body;
 
     const category = await TaskCategory.findById(id);
     if (!category) {
@@ -217,7 +230,35 @@ export const updateTaskCategory = async (req: Request, res: Response) => {
     if (color) category.color = color;
     if (icon) category.icon = icon;
 
+    const orgId = (req as any).orgId?.toString?.() ?? null;
+    if (contactMembers !== undefined) {
+      if (!orgId) {
+        return res.status(400).json({
+          message: "Select an organisation to manage category contact members",
+        });
+      }
+      if (!categoryIsOrgScoped(category)) {
+        return res.status(400).json({
+          message:
+            "Contact members are only supported on organisation task categories",
+        });
+      }
+      try {
+        await applyCategoryContactMembersUpdate(
+          category,
+          contactMembers,
+          orgId,
+        );
+      } catch (e) {
+        if (e instanceof GroupKindError) {
+          return res.status(e.status).json({ message: e.message });
+        }
+        throw e;
+      }
+    }
+
     await category.save();
+    await category.populate("contactMembers", CONTACT_MEMBER_USER_FIELDS);
     res.json(category);
   } catch (err: any) {
     res.status(500).json({ message: err.message });
