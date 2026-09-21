@@ -445,6 +445,7 @@ export const JobWizard: React.FC = () => {
               status: job.status,
               allowedGroups: job.allowedGroups ?? [],
               allowedRoles: job.allowedRoles ?? [],
+              canReview: job.canReview,
             });
           }
         } catch (err) {
@@ -642,6 +643,7 @@ export const JobWizard: React.FC = () => {
         status: formData.status,
         organisation: taskOrganisationId ?? undefined,
         organisationId: taskOrganisationId ?? undefined,
+        canReview: formData.canReview,
       };
       const viewerOrgIdForReview = resolveViewerOrgIdForTaskReview(
         currentUser,
@@ -743,6 +745,7 @@ export const JobWizard: React.FC = () => {
     status: formData.status,
     organisation: taskOrganisationId ?? undefined,
     organisationId: taskOrganisationId ?? undefined,
+    canReview: formData.canReview,
   };
   const showReviewerActions = Boolean(
     id &&

@@ -57,7 +57,7 @@ export const PendingApprovals: React.FC = () => {
           Pending Approvals
         </h1>
         <p className="text-zinc-500 dark:text-zinc-400 font-medium mt-2">
-          Tasks awaiting review and approval.
+          Tasks you can review that are awaiting approval or changes.
         </p>
       </div>
 

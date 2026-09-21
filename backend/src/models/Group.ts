@@ -11,6 +11,8 @@ export interface IGroup extends Document {
   description: string;
   color: string;
   members: mongoose.Types.ObjectId[];
+  /** Users who may approve tasks scoped to this group (org task:approve required). */
+  approvalMembers: mongoose.Types.ObjectId[];
   organisation?: mongoose.Types.ObjectId;
   isActive: boolean;
   /** Internal vs external cohort; aligns with member kind for membership rules. */
@@ -46,6 +48,15 @@ const GroupSchema = new Schema<IGroup>(
         ref: "User",
       },
     ],
+    approvalMembers: {
+      type: [
+        {
+          type: Schema.Types.ObjectId,
+          ref: "User",
+        },
+      ],
+      default: [],
+    },
     organisation: {
       type: Schema.Types.ObjectId,
       ref: "Organization",
@@ -74,5 +85,6 @@ const GroupSchema = new Schema<IGroup>(
 );
 
 GroupSchema.index({ members: 1 });
+GroupSchema.index({ approvalMembers: 1 });
 
 export default mongoose.model<IGroup>("Group", GroupSchema);

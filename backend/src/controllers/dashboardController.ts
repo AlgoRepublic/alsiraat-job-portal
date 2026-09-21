@@ -10,6 +10,11 @@ import {
   applicationWindowNotExpiredFilter,
   applicationWindowNotYetOpenTasksFilter,
 } from "../utils/taskApplicationDates.js";
+import {
+  filterDocumentsForBrowseReviewGates,
+  loadBrowseReviewGatesSession,
+} from "../services/taskBrowseReviewGates.js";
+import { taskReviewEligibilityTaskFromDocument } from "../services/taskReviewEligibility.js";
 
 /** Combine Mongo filters without clobbering nested `$and` via object spread. */
 function mergeMongoFilters(
@@ -201,11 +206,36 @@ export const getDashboardStats = async (req: any, res: Response) => {
       };
       if (orgId) filter.organisation = orgId;
       const pendingFilter = andWithLifecycle(filter, "active");
-      recentPendingTasks = await Task.find(pendingFilter)
+      let pendingDocs = await Task.find(pendingFilter)
         .sort({ createdAt: -1 })
-        .limit(5)
         .populate("createdBy", "name")
-        .select("_id title category createdAt createdBy");
+        .select("_id title category createdAt createdBy organisation visibility privateAudiences allowedGroups status");
+
+      const usesOrgWideManagerBrowse =
+        canManageTasks && canViewPending && canViewInternal && !!orgId;
+      const reviewGatesSession = await loadBrowseReviewGatesSession(req, {
+        organisation: orgId,
+        canViewPending,
+        usesOrgWideManagerBrowse,
+        viewerUserId: String(userId),
+      });
+      if (reviewGatesSession) {
+        pendingDocs = filterDocumentsForBrowseReviewGates(
+          pendingDocs,
+          reviewGatesSession.reviewMember,
+          reviewGatesSession.catalogue,
+          reviewGatesSession.viewerUserId,
+          taskReviewEligibilityTaskFromDocument,
+        );
+      }
+
+      recentPendingTasks = pendingDocs.slice(0, 5).map((task) => ({
+        _id: task._id,
+        title: task.title,
+        category: task.category,
+        createdAt: task.createdAt,
+        createdBy: task.createdBy,
+      }));
     }
 
     // ── Recent pending applications needing review (for managers) ──

@@ -8,6 +8,8 @@ import {
   deleteGroup,
   addMembers,
   removeMember,
+  addApprovalMembers,
+  removeApprovalMember,
 } from "../controllers/groupController.js";
 import {
   authenticate,
@@ -69,6 +71,20 @@ router.delete(
   authenticate,
   requirePermission(Permission.ADMIN_SETTINGS),
   removeMember,
+);
+
+router.post(
+  "/:id/approval-members",
+  authenticate,
+  requirePermission(Permission.ADMIN_SETTINGS),
+  addApprovalMembers,
+);
+
+router.delete(
+  "/:id/approval-members/:userId",
+  authenticate,
+  requirePermission(Permission.ADMIN_SETTINGS),
+  removeApprovalMember,
 );
 
 export default router;

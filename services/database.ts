@@ -136,6 +136,7 @@ const mapTaskToJob = (task: any): Job => {
         ? String((r as { _id: unknown })._id)
         : String(r),
     ),
+    canReview: task.canReview === true,
   };
 };
 
@@ -835,6 +836,7 @@ class DatabaseService {
     description?: string;
     color?: string;
     members?: string[];
+    approvalMembers?: string[];
     kind: OrgMemberKind;
     oidcMapping?: string[];
   }): Promise<any> {
@@ -855,6 +857,20 @@ class DatabaseService {
 
   async removeGroupMember(groupId: string, userId: string): Promise<any> {
     return api.removeGroupMember(groupId, userId);
+  }
+
+  async addGroupApprovalMembers(
+    groupId: string,
+    userIds: string[],
+  ): Promise<any> {
+    return api.addGroupApprovalMembers(groupId, userIds);
+  }
+
+  async removeGroupApprovalMember(
+    groupId: string,
+    userId: string,
+  ): Promise<any> {
+    return api.removeGroupApprovalMember(groupId, userId);
   }
 }
 

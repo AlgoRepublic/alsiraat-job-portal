@@ -89,5 +89,13 @@ export async function groupDocumentToClientJson(group: {
       members as Array<{ organisationRoles?: Array<Record<string, unknown>> }>,
     );
   }
+  const approvalMembers = obj.approvalMembers;
+  if (Array.isArray(approvalMembers) && approvalMembers.length > 0) {
+    await hydrateUsersOrganisationRolesInPlace(
+      approvalMembers as Array<{
+        organisationRoles?: Array<Record<string, unknown>>;
+      }>,
+    );
+  }
   return obj;
 }

@@ -583,6 +583,7 @@ class ApiService {
     description?: string;
     color?: string;
     members?: string[];
+    approvalMembers?: string[];
     kind: OrgMemberKind;
     oidcMapping?: string[];
   }): Promise<any> {
@@ -622,6 +623,28 @@ class ApiService {
     return this.request<any>(`/groups/${groupId}/members/${userId}`, {
       method: "DELETE",
     });
+  }
+
+  async addGroupApprovalMembers(
+    groupId: string,
+    userIds: string[],
+  ): Promise<any> {
+    return this.request<any>(`/groups/${groupId}/approval-members`, {
+      method: "POST",
+      body: JSON.stringify({ userIds }),
+    });
+  }
+
+  async removeGroupApprovalMember(
+    groupId: string,
+    userId: string,
+  ): Promise<any> {
+    return this.request<any>(
+      `/groups/${groupId}/approval-members/${userId}`,
+      {
+        method: "DELETE",
+      },
+    );
   }
 
   // --- Task Creation with Files ---

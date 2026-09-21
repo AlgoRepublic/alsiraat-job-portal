@@ -202,6 +202,8 @@ export const JobDetails: React.FC = () => {
     const privileged = canViewPrivilegedTaskDetail(currentUser, {
       createdById: job.createdById,
       createdBy: job.createdBy,
+      status: job.status,
+      canReview: job.canReview,
     });
     if (!privileged) return;
 
@@ -464,47 +466,8 @@ export const JobDetails: React.FC = () => {
       !isArchived &&
       !isSoftDeleted);
 
-  // Permission-based approval check (respects role management API)
-  const canApprove = (() => {
-    if (!currentUser) return false;
-
-    // Check if user has TASK_APPROVE permission
-    const hasApprovePermission = currentUser.permissions?.includes(
-      Permission.TASK_APPROVE,
-    );
-
-    if (!hasApprovePermission) {
-      return false;
-    }
-    const taskOrgId = organisationIdToString(
-      job.organisation ?? (job as { organization?: unknown }).organization,
-    );
-    const userOrgId =
-      organisationIdToString(
-        currentUser.organisation ?? (currentUser as { organization?: unknown }).organization,
-      ) ?? organisationIdToString(currentUser.activeOrganisation);
-
-    // Context-aware check: Super Admin can approve any task
-    if (currentUser.isSuperAdmin) {
-      return true;
-    }
-
-    // For other roles with TASK_APPROVE permission:
-    // They can only approve tasks from their own organization
-    if (
-      taskOrgId &&
-      userOrgId &&
-      taskOrgId === userOrgId
-    ) {
-      return true;
-    }
-
-    // No organisation match = no approval (unless Super Admin)
-    return false;
-  })();
-
   const showManagerActions =
-    canApprove &&
+    job.canReview === true &&
     (job.status === JobStatus.PENDING ||
       job.status === JobStatus.CHANGES_REQUESTED) &&
     !isArchived &&
@@ -543,6 +506,8 @@ export const JobDetails: React.FC = () => {
   const showPrivilegedDetail = canViewPrivilegedTaskDetail(currentUser, {
     createdById: job.createdById,
     createdBy: job.createdBy,
+    status: job.status,
+    canReview: job.canReview,
   });
   const provenanceHeader = showPrivilegedDetail
     ? buildTaskProvenanceHeader({

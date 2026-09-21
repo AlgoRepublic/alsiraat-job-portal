@@ -71,6 +71,15 @@ export interface TaskEditAccessInput {
   organisationId?: string;
   archivedAt?: string | Date | null;
   deletedAt?: string | Date | null;
+  /** Server-derived task review access for the authenticated viewer. */
+  canReview?: boolean;
+}
+
+export interface TaskDetailAccessInput {
+  createdById?: string;
+  createdBy?: string;
+  status?: string;
+  canReview?: boolean;
 }
 
 const CREATOR_EDITABLE_STATUSES = new Set(["Pending", "Changes Requested"]);
@@ -156,19 +165,24 @@ export interface TaskProvenanceHeader {
 /** Whether the viewer sees the privileged task detail layout (provenance + full fields). */
 export function canViewPrivilegedTaskDetail(
   viewer: TaskDetailViewer | null | undefined,
-  task: { createdById?: string; createdBy?: string },
+  task: TaskDetailAccessInput,
 ): boolean {
   if (!viewer) return false;
 
   if (viewer.isSuperAdmin) return true;
-
-  if (viewer.permissions?.includes(TASK_APPROVE_PERMISSION)) return true;
 
   if (viewer.id) {
     if (task.createdById && viewer.id === task.createdById) return true;
     // Align with JobDetails isJobOwner fallback when createdBy holds a raw id.
     if (task.createdBy && viewer.id === task.createdBy) return true;
   }
+
+  const status = task.status ?? "";
+  if (REVIEWABLE_STATUSES.has(status)) {
+    return task.canReview === true;
+  }
+
+  if (viewer.permissions?.includes(TASK_APPROVE_PERMISSION)) return true;
 
   return false;
 }
@@ -184,6 +198,21 @@ export function canEditTask(
 
   if (viewer.isSuperAdmin) return true;
 
+  const status = task.status ?? "";
+
+  if (viewer.id) {
+    if (
+      isTaskCreator(String(viewer.id), task) &&
+      CREATOR_EDITABLE_STATUSES.has(status)
+    ) {
+      return true;
+    }
+  }
+
+  if (REVIEWABLE_STATUSES.has(status)) {
+    return task.canReview === true;
+  }
+
   const activeOrgId = resolveViewerOrgIdForTaskReview(viewer, viewerOrgId);
 
   if (
@@ -192,16 +221,6 @@ export function canEditTask(
   ) {
     const taskOrgId = resolveTaskOrgId(task);
     if (taskOrgId && taskOrgId === activeOrgId) return true;
-  }
-
-  if (viewer.id) {
-    const status = task.status ?? "";
-    if (
-      isTaskCreator(String(viewer.id), task) &&
-      CREATOR_EDITABLE_STATUSES.has(status)
-    ) {
-      return true;
-    }
   }
 
   return false;
@@ -211,7 +230,7 @@ export function canEditTask(
 export function canShowReviewerEditActions(
   viewer: TaskEditViewer | null | undefined,
   task: TaskEditAccessInput,
-  viewerOrgId?: string,
+  _viewerOrgId?: string,
 ): boolean {
   if (!viewer) return false;
 
@@ -220,17 +239,7 @@ export function canShowReviewerEditActions(
 
   if (viewer.isSuperAdmin) return true;
 
-  const activeOrgId = resolveViewerOrgIdForTaskReview(viewer, viewerOrgId);
-
-  if (
-    viewer.permissions?.includes(TASK_APPROVE_PERMISSION) &&
-    activeOrgId
-  ) {
-    const taskOrgId = resolveTaskOrgId(task);
-    if (taskOrgId && taskOrgId === activeOrgId) return true;
-  }
-
-  return false;
+  return task.canReview === true;
 }
 
 export function buildTaskProvenanceHeader(

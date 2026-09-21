@@ -6,10 +6,12 @@ import {
   type ResolvedOrgMemberRoles,
 } from "./orgMemberRoleResolver.js";
 import { Permission, type PermissionContext } from "../config/permissions.js";
+import { loadApprovalMemberGroupIdsForUserInOrg } from "./groupApprovalMembers.js";
 
 export type AuthenticatedOrgMemberContext = ResolvedOrgMemberRoles & {
   organisationId: string;
   roleCodes: string[];
+  approvalMemberGroupIds: string[];
 };
 
 export function getOrganisationMembershipSlice(
@@ -37,15 +39,25 @@ export function getOrganisationMembershipSlice(
 }
 
 export async function resolveAuthenticatedOrgMemberContext(
-  user: Parameters<typeof getOrganisationMembershipSlice>[0],
+  user: Parameters<typeof getOrganisationMembershipSlice>[0] & {
+    _id?: { toString(): string } | string;
+  },
   organisationId: string,
 ): Promise<AuthenticatedOrgMemberContext> {
   const membership = getOrganisationMembershipSlice(user, organisationId);
-  const resolved = await resolveOrgMemberRoles(organisationId, membership);
+  const userId =
+    user._id != null && typeof user._id === "object" && "toString" in user._id
+      ? user._id.toString()
+      : String(user._id ?? "");
+  const [resolved, approvalMemberGroupIds] = await Promise.all([
+    resolveOrgMemberRoles(organisationId, membership),
+    loadApprovalMemberGroupIdsForUserInOrg(userId, organisationId),
+  ]);
   const roleCodes = resolved.roles.map((role) => role.code);
   return {
     organisationId,
     roleCodes,
+    approvalMemberGroupIds,
     ...resolved,
   };
 }
@@ -56,6 +68,7 @@ export type RequestOrgAuthFields = {
   orgRoleCodes: string[];
   orgMemberRoles: MemberRoleView[];
   orgPermissions: string[];
+  approvalMemberGroupIds: string[];
   hasOrgRoleCode: (code: string) => boolean;
   hasOrgPermission: (permission: string) => boolean;
 };
@@ -69,6 +82,7 @@ export function applyOrgMemberContextToRequest(
     req.orgRoleCodes = [];
     req.orgMemberRoles = [];
     req.orgPermissions = [];
+    req.approvalMemberGroupIds = [];
     req.hasOrgRoleCode = () => false;
     req.hasOrgPermission = () => false;
     return;
@@ -78,6 +92,7 @@ export function applyOrgMemberContextToRequest(
   req.orgRoleCodes = context.roleCodes;
   req.orgMemberRoles = context.roles;
   req.orgPermissions = context.permissions;
+  req.approvalMemberGroupIds = context.approvalMemberGroupIds ?? [];
   req.hasOrgRoleCode = context.hasRoleCode;
   req.hasOrgPermission = context.hasPermission;
 }

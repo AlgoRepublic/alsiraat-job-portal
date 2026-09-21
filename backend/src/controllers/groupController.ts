@@ -15,6 +15,19 @@ import {
   normalizeGroupKind,
   sanitizeOidcMappingForGroupKind,
 } from "../services/groupKindMembership.js";
+import { assertUsersHaveTaskApproveInOrg } from "../services/groupApprovalMembers.js";
+
+const MEMBER_USER_FIELDS =
+  "name email avatar role roles organisationRoles isSuperAdmin";
+const MEMBER_USER_FIELDS_WITH_ORG =
+  "name email avatar role roles organisation organisationRoles isSuperAdmin";
+
+async function populateGroupUsers(group: {
+  populate: (path: string, select: string) => Promise<unknown>;
+}) {
+  await group.populate("members", MEMBER_USER_FIELDS);
+  await group.populate("approvalMembers", MEMBER_USER_FIELDS);
+}
 
 function requireOrgId(req: any, res: Response): string | null {
   const orgId = req.orgId?.toString?.() ?? null;
@@ -41,7 +54,8 @@ export const getGroups = async (req: Request, res: Response) => {
     }
 
     const groups = await Group.find(query)
-      .populate("members", "name email avatar role roles organisationRoles isSuperAdmin")
+      .populate("members", MEMBER_USER_FIELDS)
+      .populate("approvalMembers", MEMBER_USER_FIELDS)
       .populate("createdBy", "name email")
       .populate("organisation", "name")
       .sort({ createdAt: -1 });
@@ -81,10 +95,8 @@ export const getGroup = async (req: Request, res: Response) => {
       _id: groupId,
       organisation: orgId,
     })
-      .populate(
-        "members",
-        "name email avatar role roles organisation organisationRoles isSuperAdmin",
-      )
+      .populate("members", MEMBER_USER_FIELDS_WITH_ORG)
+      .populate("approvalMembers", MEMBER_USER_FIELDS_WITH_ORG)
       .populate("createdBy", "name email")
       .populate("organisation", "name");
 
@@ -101,7 +113,8 @@ export const createGroup = async (req: any, res: Response) => {
     const orgId = requireOrgId(req, res);
     if (!orgId) return;
 
-    const { name, description, color, members, oidcMapping, kind } = req.body;
+    const { name, description, color, members, approvalMembers, oidcMapping, kind } =
+      req.body;
 
     if (!name?.trim()) {
       return res.status(400).json({ message: "Group name is required" });
@@ -149,11 +162,32 @@ export const createGroup = async (req: any, res: Response) => {
       }
     }
 
+    const approvalMemberIds = Array.isArray(approvalMembers)
+      ? approvalMembers
+      : [];
+    if (approvalMemberIds.length > 0) {
+      const foundApprovers = await User.find({ _id: { $in: approvalMemberIds } });
+      if (foundApprovers.length !== approvalMemberIds.length) {
+        return res
+          .status(400)
+          .json({ message: "One or more approval member users not found" });
+      }
+      try {
+        await assertUsersHaveTaskApproveInOrg(foundApprovers, orgId);
+      } catch (e) {
+        if (e instanceof GroupKindError) {
+          return res.status(e.status).json({ message: e.message });
+        }
+        throw e;
+      }
+    }
+
     const group = new Group({
       name: name.trim(),
       description: description?.trim() || "",
       color: color || "#6B7280",
       members: members || [],
+      approvalMembers: approvalMemberIds,
       oidcMapping: normalizedOidc,
       kind: groupKind,
       isDefault: false,
@@ -162,10 +196,7 @@ export const createGroup = async (req: any, res: Response) => {
     });
 
     await group.save();
-    await group.populate(
-      "members",
-      "name email avatar role roles organisationRoles isSuperAdmin",
-    );
+    await populateGroupUsers(group);
 
     res.status(201).json(await groupDocumentToClientJson(group));
   } catch (err: any) {
@@ -179,7 +210,8 @@ export const updateGroup = async (req: any, res: Response) => {
     const orgId = requireOrgId(req, res);
     if (!orgId) return;
 
-    const { name, description, color, isActive, oidcMapping } = req.body;
+    const { name, description, color, isActive, oidcMapping, approvalMembers } =
+      req.body;
 
     const groupId = new mongoose.Types.ObjectId(String(req.params.id));
     const group = await Group.findOne({
@@ -223,11 +255,31 @@ export const updateGroup = async (req: any, res: Response) => {
       );
     }
 
+    if (Array.isArray(approvalMembers)) {
+      const approvalMemberIds = approvalMembers;
+      if (approvalMemberIds.length > 0) {
+        const foundApprovers = await User.find({
+          _id: { $in: approvalMemberIds },
+        });
+        if (foundApprovers.length !== approvalMemberIds.length) {
+          return res
+            .status(400)
+            .json({ message: "One or more approval member users not found" });
+        }
+        try {
+          await assertUsersHaveTaskApproveInOrg(foundApprovers, orgId);
+        } catch (e) {
+          if (e instanceof GroupKindError) {
+            return res.status(e.status).json({ message: e.message });
+          }
+          throw e;
+        }
+      }
+      group.approvalMembers = approvalMemberIds;
+    }
+
     await group.save();
-    await group.populate(
-      "members",
-      "name email avatar role roles organisationRoles isSuperAdmin",
-    );
+    await populateGroupUsers(group);
 
     res.json(await groupDocumentToClientJson(group));
   } catch (err: any) {
@@ -308,10 +360,7 @@ export const addMembers = async (req: Request, res: Response) => {
     group.members.push(...newIds);
 
     await group.save();
-    await group.populate(
-      "members",
-      "name email avatar role roles organisationRoles isSuperAdmin",
-    );
+    await populateGroupUsers(group);
 
     res.json(await groupDocumentToClientJson(group));
   } catch (err: any) {
@@ -345,10 +394,80 @@ export const removeMember = async (req: Request, res: Response) => {
 
     group.members = group.members.filter((m) => m.toString() !== userId) as any;
     await group.save();
-    await group.populate(
-      "members",
-      "name email avatar role roles organisationRoles isSuperAdmin",
-    );
+    await populateGroupUsers(group);
+
+    res.json(await groupDocumentToClientJson(group));
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// POST /api/groups/:id/approval-members - add approval members to group
+export const addApprovalMembers = async (req: Request, res: Response) => {
+  try {
+    const orgId = requireOrgId(req as any, res);
+    if (!orgId) return;
+
+    const { userIds } = req.body;
+
+    if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ message: "userIds array is required" });
+    }
+
+    const groupId = new mongoose.Types.ObjectId(String(req.params.id));
+    const group = await Group.findOne({
+      _id: groupId,
+      organisation: orgId,
+    });
+    if (!group) return res.status(404).json({ message: "Group not found" });
+
+    const foundUsers = await User.find({ _id: { $in: userIds } });
+    if (foundUsers.length !== userIds.length) {
+      return res.status(400).json({ message: "One or more users not found" });
+    }
+
+    try {
+      await assertUsersHaveTaskApproveInOrg(foundUsers, orgId);
+    } catch (e) {
+      if (e instanceof GroupKindError) {
+        return res.status(e.status).json({ message: e.message });
+      }
+      throw e;
+    }
+
+    const existingIds = (group.approvalMembers ?? []).map((m) => m.toString());
+    const newIds = userIds.filter((id: string) => !existingIds.includes(id));
+    group.approvalMembers.push(...newIds);
+
+    await group.save();
+    await populateGroupUsers(group);
+
+    res.json(await groupDocumentToClientJson(group));
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// DELETE /api/groups/:id/approval-members/:userId - remove approval member
+export const removeApprovalMember = async (req: Request, res: Response) => {
+  try {
+    const orgId = requireOrgId(req as any, res);
+    if (!orgId) return;
+
+    const { userId } = req.params;
+
+    const groupId = new mongoose.Types.ObjectId(String(req.params.id));
+    const group = await Group.findOne({
+      _id: groupId,
+      organisation: orgId,
+    });
+    if (!group) return res.status(404).json({ message: "Group not found" });
+
+    group.approvalMembers = (group.approvalMembers ?? []).filter(
+      (m) => m.toString() !== userId,
+    ) as any;
+    await group.save();
+    await populateGroupUsers(group);
 
     res.json(await groupDocumentToClientJson(group));
   } catch (err: any) {

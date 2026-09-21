@@ -126,6 +126,8 @@ export interface Job {
   /** Populated display name when API returns organisation as an object */
   organisationName?: string;
   organization?: string;
+  /** Whether the authenticated viewer may exercise task review access on this task. */
+  canReview?: boolean;
 }
 
 /** Per-organisation membership: staff/student body vs external partner. */

@@ -25,12 +25,29 @@ import {
 } from "../utils/centralOrg.js";
 import { canEditTask } from "../utils/taskEditAccess.js";
 import {
-  hasReviewAuthority,
   inferReviewAction,
   resolveStatusAfterUpdate,
-  validatePublishAttempt,
 } from "../utils/taskReviewActions.js";
+import {
+  filterTaskDocumentsEligibleForMemberReview,
+  loadTaskReviewOrgCatalogue,
+  paginateEligibleReviewQueue,
+  attachCanReviewFlagsForHttpRequest,
+  resolveCanReviewForHttpRequest,
+  resolveMemberTaskReviewAccess,
+  resolveTaskOrganisationId,
+  taskReviewEligibilityTaskFromDocument,
+} from "../services/taskReviewEligibility.js";
+import {
+  type BrowseReviewGatesSession,
+  filterDocumentsForBrowseReviewGates,
+  loadBrowseReviewGatesSession,
+} from "../services/taskBrowseReviewGates.js";
 import { runTaskPublishSideEffects } from "../services/taskPublishSideEffects.js";
+import {
+  notifyEligibleTaskReviewers,
+  shouldNotifyTaskReviewersForPendingTransition,
+} from "../services/taskReviewNotifications.js";
 import {
   TaskAudienceError,
   enrichBrowseQueryWithTaskRoleAudience,
@@ -110,7 +127,93 @@ const parseArrayField = (value: any): string[] => {
   return [];
 };
 
+async function memberHasTaskApproveForTask(
+  req: any,
+  task: { organisation?: unknown; createdBy?: unknown },
+): Promise<boolean> {
+  if (!req.user) return false;
+  if (isSuperAdminUser(req.user)) return true;
+
+  const taskOrgId = resolveTaskOrganisationId(task.organisation);
+  const createdById =
+    typeof task.createdBy === "object" &&
+    task.createdBy !== null &&
+    "_id" in task.createdBy
+      ? String((task.createdBy as { _id: unknown })._id)
+      : task.createdBy != null
+        ? String(task.createdBy)
+        : null;
+
+  const { checkPermissionAsync } = await import("../middleware/rbac.js");
+  const { allowed } = await checkPermissionAsync(
+    req.user,
+    Permission.TASK_APPROVE,
+    {
+      organizationId: taskOrgId,
+      userOrganizationId: req.orgId ? String(req.orgId) : null,
+      taskCreatorId: createdById,
+      userId: req.user._id.toString(),
+    },
+  );
+  return allowed;
+}
+
+async function attachCanReviewToTaskObject(
+  req: any,
+  task: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const hasTaskApprove = await memberHasTaskApproveForTask(req, task);
+  const canReview = await resolveCanReviewForHttpRequest(
+    req,
+    task,
+    hasTaskApprove,
+  );
+  return { ...task, canReview };
+}
+
+async function attachCanReviewToTaskObjects(
+  req: any,
+  tasks: Record<string, unknown>[],
+): Promise<Record<string, unknown>[]> {
+  const flags = await attachCanReviewFlagsForHttpRequest(
+    req,
+    tasks,
+    (task) => memberHasTaskApproveForTask(req, task),
+  );
+  return tasks.map((task, index) => ({ ...task, canReview: flags[index] }));
+}
+
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+async function findTasksForBrowseListing(
+  query: Record<string, unknown>,
+  reviewGatesSession: BrowseReviewGatesSession | null,
+  page: number,
+  limit: number,
+  configureFind: (findQuery: ReturnType<typeof Task.find>) => any,
+): Promise<{ tasks: any[]; total: number }> {
+  if (!reviewGatesSession) {
+    const total = await Task.countDocuments(query);
+    const tasks = await configureFind(Task.find(query))
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+    return { tasks, total };
+  }
+
+  const allTasks = await configureFind(Task.find(query)).sort({
+    createdAt: -1,
+  });
+  const filtered = filterDocumentsForBrowseReviewGates(
+    allTasks,
+    reviewGatesSession.reviewMember,
+    reviewGatesSession.catalogue,
+    reviewGatesSession.viewerUserId,
+    taskReviewEligibilityTaskFromDocument,
+  );
+  const paged = paginateEligibleReviewQueue(filtered, page, limit);
+  return { tasks: paged.items, total: paged.total };
+}
 
 const normalizePrivateAudiences = (value: unknown): TaskVisibility[] => {
   return parseArrayField(value).filter(
@@ -331,8 +434,9 @@ export const createTask = async (req: any, res: Response) => {
     });
     console.log("\n");
 
-    // Note: Notifications are sent when task is approved/published, not on creation
-    // This prevents spam and ensures only reviewed tasks notify users
+    if (task.status === TaskStatus.PENDING) {
+      await notifyEligibleTaskReviewers(task);
+    }
 
     res.status(201).json(task);
   } catch (err: any) {
@@ -388,12 +492,28 @@ export const updateTask = async (req: any, res: Response) => {
       Permission.TASK_APPROVE,
     );
 
+    const reviewViewer = {
+      isSuperAdmin: !!req.user?.isSuperAdmin,
+      userId: req.user._id.toString(),
+      hasTaskApprove,
+      viewerOrgId: req.orgId ? String(req.orgId) : null,
+    };
+    const eligibilityTask = taskReviewEligibilityTaskFromDocument(task);
+    const canReview = await resolveMemberTaskReviewAccess({
+      isSuperAdmin: reviewViewer.isSuperAdmin,
+      userId: reviewViewer.userId,
+      viewerOrgId: reviewViewer.viewerOrgId,
+      hasTaskApprove: reviewViewer.hasTaskApprove,
+      task: eligibilityTask,
+      approvalMemberGroupIds: Array.isArray(req.approvalMemberGroupIds)
+        ? req.approvalMemberGroupIds
+        : undefined,
+    });
+
     const editAllowed = canEditTask(
       {
-        isSuperAdmin: !!req.user?.isSuperAdmin,
-        userId: req.user._id.toString(),
-        hasTaskApprove,
-        viewerOrgId: req.orgId ? String(req.orgId) : null,
+        ...reviewViewer,
+        canReview,
       },
       {
         status: task.status,
@@ -409,29 +529,19 @@ export const updateTask = async (req: any, res: Response) => {
         .status(403)
         .json({ message: "You are not authorized to edit this task" });
     }
-
-    const reviewViewer = {
-      isSuperAdmin: !!req.user?.isSuperAdmin,
-      userId: req.user._id.toString(),
-      hasTaskApprove,
-      viewerOrgId: req.orgId ? String(req.orgId) : null,
-    };
-    const reviewTask = {
-      status: task.status,
-      createdBy: task.createdBy.toString(),
-      organisation: task.organisation ? String(task.organisation) : null,
-    };
-    const actingAsReviewer = hasReviewAuthority(reviewViewer, reviewTask);
+    const actingAsReviewer = canReview;
     const reviewAction = inferReviewAction(requestedStatus, actingAsReviewer);
 
     if (reviewAction === "publish") {
-      const publishValidation = validatePublishAttempt(reviewViewer, reviewTask);
-      if (!publishValidation.allowed) {
-        if (publishValidation.reason === "unauthorized") {
-          return res
-            .status(403)
-            .json({ message: "You are not authorized to publish this task" });
-        }
+      if (!canReview) {
+        return res
+          .status(403)
+          .json({ message: "You are not authorized to publish this task" });
+      }
+      if (
+        task.status !== TaskStatus.PENDING &&
+        task.status !== TaskStatus.CHANGES_REQUESTED
+      ) {
         return res.status(400).json({
           message: "Task cannot be published from its current status",
         });
@@ -576,6 +686,11 @@ export const updateTask = async (req: any, res: Response) => {
       task.attachments = [...task.attachments, ...newAttachments];
     }
 
+    const reviewTask = {
+      status: previousStatus,
+      createdBy: task.createdBy.toString(),
+      organisation: task.organisation ? String(task.organisation) : null,
+    };
     const statusResolution = resolveStatusAfterUpdate(reviewTask, reviewAction);
     task.status = statusResolution.status as TaskStatus;
     if (statusResolution.clearRejectionReason) {
@@ -613,6 +728,15 @@ export const updateTask = async (req: any, res: Response) => {
       await runTaskPublishSideEffects(task);
     }
 
+    if (
+      shouldNotifyTaskReviewersForPendingTransition(
+        previousStatus,
+        task.status,
+      )
+    ) {
+      await notifyEligibleTaskReviewers(task);
+    }
+
     res.json(task);
   } catch (err: any) {
     if (err instanceof TaskAudienceError) {
@@ -640,6 +764,7 @@ export const getTasks = async (req: any, res: Response) => {
     const organisation = req.orgId;
     const hasSuperAdminRole = !!user?.isSuperAdmin;
     const { search, includeExpired, createdByMe } = req.query;
+    let reviewGatesSession: BrowseReviewGatesSession | null = null;
     const statusFilter = String(req.query.status || "");
     const { isApplicationWindowFilter, filters: applicationWindowStatusFilters } =
       buildApplicationWindowStatusFilters(statusFilter, {
@@ -693,10 +818,13 @@ export const getTasks = async (req: any, res: Response) => {
       ]);
       const countMap = new Map(counts.map((c) => [c._id.toString(), c.count]));
 
-      const tasksMapped = tasks.map((task) => ({
-        ...task.toObject(),
-        applicantsCount: countMap.get(task._id.toString()) || 0,
-      }));
+      const tasksMapped = await attachCanReviewToTaskObjects(
+        req,
+        tasks.map((task) => ({
+          ...task.toObject(),
+          applicantsCount: countMap.get(task._id.toString()) || 0,
+        })),
+      );
 
       // If no page/limit provided, return plain array for backward compatibility
       if (!req.query.page && !req.query.limit) {
@@ -829,6 +957,19 @@ export const getTasks = async (req: any, res: Response) => {
         query = { $or: conditions };
       }
 
+      const usesOrgWideManagerBrowse =
+        canViewAll &&
+        canViewInternal &&
+        canViewPending &&
+        !!organisation &&
+        !hasSuperAdminRole;
+      reviewGatesSession = await loadBrowseReviewGatesSession(req, {
+        organisation,
+        canViewPending,
+        usesOrgWideManagerBrowse,
+        viewerUserId: String(userId),
+      });
+
       query = await enrichBrowseQueryWithTaskRoleAudience(query, {
         user,
         userId: String(userId),
@@ -914,15 +1055,17 @@ export const getTasks = async (req: any, res: Response) => {
     // --- Pagination ---
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
-    const skip = (page - 1) * limit;
 
-    const total = await Task.countDocuments(query);
-    const tasks = await Task.find(query)
-      .populate("organisation", "name")
-      .populate("createdBy", "name")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+    const { tasks, total } = await findTasksForBrowseListing(
+      query,
+      reviewGatesSession,
+      page,
+      limit,
+      (findQuery) =>
+        findQuery
+          .populate("organisation", "name")
+          .populate("createdBy", "name"),
+    );
 
     // Get application counts for each task
     const taskIds = tasks.map((t) => t._id);
@@ -944,11 +1087,14 @@ export const getTasks = async (req: any, res: Response) => {
       );
     }
 
-    const tasksMapped = tasks.map((task) => ({
-      ...task.toObject(),
-      applicantsCount: countMap.get(task._id.toString()) || 0,
-      hasApplied: appliedTaskIds.has(task._id.toString()),
-    }));
+    const tasksMapped = await attachCanReviewToTaskObjects(
+      req,
+      tasks.map((task) => ({
+        ...task.toObject(),
+        applicantsCount: countMap.get(task._id.toString()) || 0,
+        hasApplied: appliedTaskIds.has(task._id.toString()),
+      })),
+    );
 
     // If no page/limit were provided, return plain array for backward compatibility
     if (!req.query.page && !req.query.limit) {
@@ -993,6 +1139,7 @@ export const getSearchTasks = async (req: any, res: Response) => {
     const organisation = req.orgId;
     const hasSuperAdminRole = !!user?.isSuperAdmin;
     const { search, includeExpired } = req.query;
+    let reviewGatesSession: BrowseReviewGatesSession | null = null;
     const statusFilter = String(req.query.status || "");
     const { isApplicationWindowFilter, filters: applicationWindowStatusFilters } =
       buildApplicationWindowStatusFilters(statusFilter, {
@@ -1137,6 +1284,19 @@ export const getSearchTasks = async (req: any, res: Response) => {
         query = { $or: conditions };
       }
 
+      const usesOrgWideManagerBrowse =
+        canViewAll &&
+        canViewInternal &&
+        canViewPending &&
+        !!organisation &&
+        !hasSuperAdminRole;
+      reviewGatesSession = await loadBrowseReviewGatesSession(req, {
+        organisation,
+        canViewPending,
+        usesOrgWideManagerBrowse,
+        viewerUserId: String(userId),
+      });
+
       query = await enrichBrowseQueryWithTaskRoleAudience(query, {
         user,
         userId: String(userId),
@@ -1209,17 +1369,19 @@ export const getSearchTasks = async (req: any, res: Response) => {
 
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
-    const skip = (page - 1) * limit;
 
-    const total = await Task.countDocuments(query);
-    const tasks = await Task.find(query)
-      .populate("category", "name code icon")
-      .populate("rewardType", "name code")
-      .populate("organisation", "name")
-      .populate("createdBy", "name")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+    const { tasks, total } = await findTasksForBrowseListing(
+      query,
+      reviewGatesSession,
+      page,
+      limit,
+      (findQuery) =>
+        findQuery
+          .populate("category", "name code icon")
+          .populate("rewardType", "name code")
+          .populate("organisation", "name")
+          .populate("createdBy", "name"),
+    );
 
     const taskIds = tasks.map((t) => t._id);
     const counts = await Application.aggregate([
@@ -1237,11 +1399,14 @@ export const getSearchTasks = async (req: any, res: Response) => {
       appliedTaskIds = new Set(userApplications.map((app) => app.task.toString()));
     }
 
-    const tasksMapped = tasks.map((task) => ({
-      ...task.toObject(),
-      applicantsCount: countMap.get(task._id.toString()) || 0,
-      hasApplied: appliedTaskIds.has(task._id.toString()),
-    }));
+    const tasksMapped = await attachCanReviewToTaskObjects(
+      req,
+      tasks.map((task) => ({
+        ...task.toObject(),
+        applicantsCount: countMap.get(task._id.toString()) || 0,
+        hasApplied: appliedTaskIds.has(task._id.toString()),
+      })),
+    );
 
     if (!req.query.page && !req.query.limit) {
       return res.json(tasksMapped);
@@ -1424,17 +1589,53 @@ export const getPendingApprovalTasks = async (req: any, res: Response) => {
 
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
-    const skip = (page - 1) * limit;
 
-    const total = await Task.countDocuments(query);
-    const tasks = await Task.find(query)
+    const hasTaskApprove =
+      hasSuperAdminRole ||
+      (typeof req.hasOrgPermission === "function" &&
+        req.hasOrgPermission(Permission.TASK_APPROVE));
+
+    const reviewMember = {
+      isSuperAdmin: hasSuperAdminRole,
+      viewerOrgId: organisation ? String(organisation) : null,
+      hasTaskApprove,
+      approvalMemberGroupIds: Array.isArray(req.approvalMemberGroupIds)
+        ? req.approvalMemberGroupIds.map(String)
+        : [],
+    };
+
+    const catalogue =
+      !hasSuperAdminRole && organisation
+        ? await loadTaskReviewOrgCatalogue(String(organisation))
+        : null;
+
+    const allMatchingTasks = await Task.find(query)
       .populate("category", "name code icon")
       .populate("rewardType", "name code")
       .populate("organisation", "name slug")
       .populate("createdBy", "name email")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+      .sort({ createdAt: -1 });
+
+    const eligibleTaskDocs = filterTaskDocumentsEligibleForMemberReview(
+      allMatchingTasks,
+      reviewMember,
+      catalogue,
+      taskReviewEligibilityTaskFromDocument,
+    );
+
+    const usePagination =
+      req.query.page != null || req.query.limit != null;
+    const paged = usePagination
+      ? paginateEligibleReviewQueue(eligibleTaskDocs, page, limit)
+      : {
+          items: eligibleTaskDocs,
+          total: eligibleTaskDocs.length,
+          page: 1,
+          limit: eligibleTaskDocs.length || 1,
+          pages: 1,
+        };
+    const tasks = paged.items;
+    const { total, page: pageNum, limit: limitNum, pages } = paged;
 
     const taskIds = tasks.map((t) => t._id);
     const counts = await Application.aggregate([
@@ -1456,9 +1657,9 @@ export const getPendingApprovalTasks = async (req: any, res: Response) => {
       tasks: tasksMapped,
       pagination: {
         total,
-        page,
-        limit,
-        pages: Math.ceil(total / limit),
+        page: pageNum,
+        limit: limitNum,
+        pages,
       },
     });
   } catch (err: any) {
@@ -1625,12 +1826,14 @@ export const getTaskById = async (req: any, res: Response) => {
       userGroupIds = userGroups.map((g: any) => g._id.toString());
     }
 
-    res.json({
+    const payload = await attachCanReviewToTaskObject(req, {
       ...task.toObject(),
       applicantsCount,
       hasApplied,
       _groupIds: userGroupIds,
     });
+
+    res.json(payload);
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }

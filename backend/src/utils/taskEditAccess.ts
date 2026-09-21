@@ -18,6 +18,8 @@ export interface TaskEditAccessViewer {
   userId: string;
   hasTaskApprove: boolean;
   viewerOrgId: string | null;
+  /** Resolved group-scoped task review access (required for reviewer edits on pending lanes). */
+  canReview?: boolean;
 }
 
 export function canEditTask(
@@ -28,14 +30,18 @@ export function canEditTask(
 
   if (viewer.isSuperAdmin) return true;
 
-  if (viewer.hasTaskApprove && viewer.viewerOrgId) {
-    const taskOrgId = task.organisation ? String(task.organisation) : null;
-    if (taskOrgId && taskOrgId === viewer.viewerOrgId) return true;
-  }
-
   const isCreator = task.createdBy === viewer.userId;
   if (isCreator && CREATOR_EDITABLE_STATUSES.has(task.status)) {
     return true;
+  }
+
+  if (CREATOR_EDITABLE_STATUSES.has(task.status)) {
+    return viewer.canReview === true;
+  }
+
+  if (viewer.hasTaskApprove && viewer.viewerOrgId) {
+    const taskOrgId = task.organisation ? String(task.organisation) : null;
+    if (taskOrgId && taskOrgId === viewer.viewerOrgId) return true;
   }
 
   return false;

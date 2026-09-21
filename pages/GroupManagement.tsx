@@ -14,13 +14,20 @@ import {
   ChevronUp,
   Layers,
   Check,
+  ShieldCheck,
 } from "lucide-react";
 import { Loading } from "../components/Loading";
 import {
   getActiveOrgIdFromStorage,
   getMemberKindForActiveOrg,
   getMemberRolesForActiveOrg,
+  getUserRoleCodesForActiveOrg,
+  getUserRoleIdsForActiveOrg,
 } from "../utils/orgScopedRoles";
+import {
+  hasPermissionForRoleCode,
+  Permission,
+} from "../services/permissions";
 import type { OrgMemberKind } from "../types";
 import type { MemberRoleView } from "@/shared/memberRoleView";
 
@@ -29,6 +36,32 @@ type OrgRoleCatalogueEntry = {
   code?: string;
   name: string;
   isActive?: boolean;
+  permissions?: string[];
+};
+
+const userCanApproveTasksInOrg = (
+  user: {
+    isSuperAdmin?: boolean;
+    organisationRoles?: unknown[];
+    roles?: string[];
+  },
+  activeOrgId: string | null,
+  roleCatalogue: OrgRoleCatalogueEntry[],
+): boolean => {
+  if (user?.isSuperAdmin) return true;
+  const codes = getUserRoleCodesForActiveOrg(user, activeOrgId);
+  if (
+    codes.some((code) =>
+      hasPermissionForRoleCode(code, Permission.TASK_APPROVE),
+    )
+  ) {
+    return true;
+  }
+  const roleIds = getUserRoleIdsForActiveOrg(user, activeOrgId);
+  return roleIds.some((id) => {
+    const role = roleCatalogue.find((r) => r._id === id);
+    return role?.permissions?.includes(Permission.TASK_APPROVE);
+  });
 };
 
 const resolveMemberUser = (member: unknown, allUsers: { _id: string }[]) => {
@@ -89,11 +122,114 @@ interface Group {
   description: string;
   color: string;
   members: any[];
+  approvalMembers?: any[];
   isActive: boolean;
   kind?: OrgMemberKind;
   isDefault?: boolean;
   oidcMapping?: string[];
 }
+
+const GroupMemberTable: React.FC<{
+  members: any[];
+  allUsers: any[];
+  activeOrgId: string | null;
+  roleCatalogue: OrgRoleCatalogueEntry[];
+  canRemoveUser: (user: any) => boolean;
+  onRemove: (userId: string) => void;
+  emptyLabel: string;
+}> = ({
+  members,
+  allUsers,
+  activeOrgId,
+  roleCatalogue,
+  canRemoveUser,
+  onRemove,
+  emptyLabel,
+}) => {
+  const rows = members
+    .map((member: any) => resolveMemberUser(member, allUsers))
+    .filter(Boolean);
+
+  if (rows.length === 0) {
+    return (
+      <p className="px-6 py-6 text-sm text-zinc-400 font-medium text-center">
+        {emptyLabel}
+      </p>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-left">
+        <thead>
+          <tr className="border-b border-zinc-50 dark:border-zinc-800">
+            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">
+              Member
+            </th>
+            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">
+              Role
+            </th>
+            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-400 text-right">
+              Remove
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((member: any) => (
+            <tr
+              key={member._id}
+              className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/50 transition-colors border-b border-zinc-50 dark:border-zinc-800 last:border-none"
+            >
+              <td className="px-6 py-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden">
+                    {member.avatar ? (
+                      <img
+                        src={member.avatar}
+                        alt={member.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <UserCircle className="w-5 h-5 text-zinc-400" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-bold text-sm text-zinc-900 dark:text-white">
+                      {member.name}
+                    </p>
+                    <p className="text-xs text-zinc-400">{member.email}</p>
+                  </div>
+                </div>
+              </td>
+              <td className="px-6 py-4">
+                <div className="flex flex-wrap gap-1">
+                  {renderMemberRoleBadges(
+                    member,
+                    activeOrgId,
+                    roleCatalogue,
+                  ) ?? (
+                    <span className="text-xs text-zinc-400">—</span>
+                  )}
+                </div>
+              </td>
+              <td className="px-6 py-4 text-right">
+                {canRemoveUser(member) && (
+                  <button
+                    onClick={() => onRemove(member._id)}
+                    className="p-2 text-zinc-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                    title="Remove"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
 
 interface CreateGroupModalProps {
   onClose: () => void;
@@ -313,11 +449,14 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
   );
 };
 
+type GroupMemberListMode = "audience" | "approval";
+
 interface AddMembersModalProps {
   group: Group;
   allUsers: any[];
   activeOrgId: string | null;
   roleCatalogue: OrgRoleCatalogueEntry[];
+  mode: GroupMemberListMode;
   onClose: () => void;
   onAdd: (userIds: string[]) => Promise<void>;
   onRemove: (userId: string) => Promise<void>;
@@ -328,6 +467,7 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
   allUsers,
   activeOrgId,
   roleCatalogue,
+  mode,
   onClose,
   onAdd,
   onRemove,
@@ -339,8 +479,13 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
   const [removedMemberIds, setRemovedMemberIds] = useState<string[]>([]);
   const canRemoveOrDeleteUser = (user: any) => !user?.isSuperAdmin;
   const isDefaultGroup = Boolean(group.isDefault);
+  const isApprovalMode = mode === "approval";
 
-  const existingMembers = group.members
+  const sourceMembers = isApprovalMode
+    ? group.approvalMembers ?? []
+    : group.members;
+
+  const existingMembers = sourceMembers
     .map((member: any) => resolveMemberUser(member, allUsers))
     .filter(Boolean)
     .filter((member: any) => !removedMemberIds.includes(member._id));
@@ -348,13 +493,20 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
   const existingMemberIds = existingMembers.map((m: any) => m._id);
   const requiredMemberKind = group.kind ?? "Internal";
 
-  const filtered = allUsers.filter(
-    (u) =>
-      !existingMemberIds.includes(u._id) &&
-      getMemberKindForActiveOrg(u, activeOrgId) === requiredMemberKind &&
-      (u.name.toLowerCase().includes(search.toLowerCase()) ||
-        u.email.toLowerCase().includes(search.toLowerCase())),
-  );
+  const filtered = allUsers.filter((u) => {
+    if (existingMemberIds.includes(u._id)) return false;
+    if (isApprovalMode) {
+      if (!userCanApproveTasksInOrg(u, activeOrgId, roleCatalogue)) {
+        return false;
+      }
+    } else if (getMemberKindForActiveOrg(u, activeOrgId) !== requiredMemberKind) {
+      return false;
+    }
+    return (
+      u.name.toLowerCase().includes(search.toLowerCase()) ||
+      u.email.toLowerCase().includes(search.toLowerCase())
+    );
+  });
 
   const toggle = (id: string) => {
     setSelected((prev) =>
@@ -390,13 +542,16 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter">
-              Add Members
+              {isApprovalMode ? "Add Approval Members" : "Add Members"}
             </h2>
             <p className="text-sm text-zinc-400 font-medium mt-1">
               to{" "}
               <span className="font-bold" style={{ color: group.color }}>
                 {group.name}
               </span>
+              {isApprovalMode
+                ? " · users who can approve tasks in this organisation"
+                : ""}
             </p>
           </div>
           <button
@@ -423,7 +578,8 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
           {existingMembers.length > 0 && (
             <div className="mb-4">
               <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2 px-1">
-                Existing Members ({existingMembers.length})
+                {isApprovalMode ? "Approval members" : "Existing members"} (
+                {existingMembers.length})
               </p>
               <div className="space-y-1">
                 {existingMembers.map((user: any) => (
@@ -455,12 +611,17 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
                         )}
                       </div>
                     </div>
-                    {canRemoveOrDeleteUser(user) && !isDefaultGroup && (
+                    {canRemoveOrDeleteUser(user) &&
+                      (!isDefaultGroup || isApprovalMode) && (
                       <button
                         onClick={() => handleRemove(user._id)}
                         disabled={removingId === user._id || saving}
                         className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 disabled:opacity-50 transition-all"
-                        title="Remove from group"
+                        title={
+                          isApprovalMode
+                            ? "Remove approval member"
+                            : "Remove from group"
+                        }
                       >
                         <X className="w-3 h-3" />
                         {removingId === user._id ? "Removing..." : "Remove"}
@@ -568,6 +729,8 @@ export const GroupManagement: React.FC<{
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingGroup, setEditingGroup] = useState<Group | null>(null);
   const [addMembersGroup, setAddMembersGroup] = useState<Group | null>(null);
+  const [addMembersMode, setAddMembersMode] =
+    useState<GroupMemberListMode>("audience");
   const { showSuccess, showError } = useToast();
 
   useEffect(() => {
@@ -596,6 +759,7 @@ export const GroupManagement: React.FC<{
             code: r.code,
             name: r.name,
             isActive: r.isActive,
+            permissions: Array.isArray(r.permissions) ? r.permissions : [],
           }),
         ),
       );
@@ -661,6 +825,39 @@ export const GroupManagement: React.FC<{
     } catch (err: any) {
       showError(err.message || "Failed to remove member");
     }
+  };
+
+  const handleAddApprovalMembers = async (userIds: string[]) => {
+    if (!addMembersGroup) return;
+    try {
+      await db.addGroupApprovalMembers(addMembersGroup._id, userIds);
+      showSuccess("Approval members added successfully");
+      fetchData();
+    } catch (err: any) {
+      showError(err.message || "Failed to add approval members");
+      throw err;
+    }
+  };
+
+  const handleRemoveApprovalMember = async (
+    groupId: string,
+    userId: string,
+  ) => {
+    try {
+      await db.removeGroupApprovalMember(groupId, userId);
+      showSuccess("Approval member removed");
+      fetchData();
+    } catch (err: any) {
+      showError(err.message || "Failed to remove approval member");
+    }
+  };
+
+  const openAddMembersModal = (
+    group: Group,
+    mode: GroupMemberListMode = "audience",
+  ) => {
+    setAddMembersMode(mode);
+    setAddMembersGroup(group);
   };
 
   const matchesSearch = (g: Group) =>
@@ -835,13 +1032,18 @@ export const GroupManagement: React.FC<{
 
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <button
-                          onClick={() => {
-                            setAddMembersGroup(group);
-                          }}
+                          onClick={() => openAddMembersModal(group, "audience")}
                           className="p-2 text-zinc-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
-                          title="Add Members"
+                          title="Add audience members"
                         >
                           <UserPlus className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => openAddMembersModal(group, "approval")}
+                          className="p-2 text-zinc-400 hover:text-amber-600 hover:bg-amber-500/10 rounded-xl transition-all"
+                          title="Add approval members"
+                        >
+                          <ShieldCheck className="w-5 h-5" />
                         </button>
                         {!group.isDefault && (
                           <>
@@ -879,108 +1081,63 @@ export const GroupManagement: React.FC<{
                       </div>
                     </div>
 
-                    {/* Members List (expanded) */}
                     {isExpanded && (
-                      <div className="border-t border-zinc-50 dark:border-zinc-800 animate-fade-in">
-                        {group.members.length === 0 ? (
-                          <div className="p-8 text-center">
-                            <UserCircle className="w-10 h-10 text-zinc-200 dark:text-zinc-800 mx-auto mb-2" />
-                            <p className="text-sm text-zinc-400 font-medium">
-                              No members yet
+                      <div className="border-t border-zinc-50 dark:border-zinc-800 animate-fade-in divide-y divide-zinc-50 dark:divide-zinc-800">
+                        <div>
+                          <div className="flex items-center justify-between px-6 py-4">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                              Audience members ({group.members.length})
                             </p>
                             <button
-                              onClick={() => setAddMembersGroup(group)}
-                              className="mt-3 px-4 py-2 bg-primary/10 text-primary rounded-xl font-black text-xs uppercase tracking-widest hover:bg-primary/20 transition-all"
+                              onClick={() =>
+                                openAddMembersModal(group, "audience")
+                              }
+                              className="px-3 py-1.5 bg-primary/10 text-primary rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-primary/20 transition-all"
                             >
-                              Add Members
+                              Add members
                             </button>
                           </div>
-                        ) : (
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-left">
-                              <thead>
-                                <tr className="border-b border-zinc-50 dark:border-zinc-800">
-                                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                                    Member
-                                  </th>
-                                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                                    Role
-                                  </th>
-                                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-400 text-right">
-                                    Remove
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {group.members
-                                  .map((member: any) =>
-                                    resolveMemberUser(member, allUsers),
-                                  )
-                                  .filter(Boolean)
-                                  .map((member: any) => (
-                                  <tr
-                                    key={member._id}
-                                    className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/50 transition-colors border-b border-zinc-50 dark:border-zinc-800 last:border-none"
-                                  >
-                                    <td className="px-6 py-4">
-                                      <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden">
-                                          {member.avatar ? (
-                                            <img
-                                              src={member.avatar}
-                                              alt={member.name}
-                                              className="w-full h-full object-cover"
-                                            />
-                                          ) : (
-                                            <UserCircle className="w-5 h-5 text-zinc-400" />
-                                          )}
-                                        </div>
-                                        <div>
-                                          <p className="font-bold text-sm text-zinc-900 dark:text-white">
-                                            {member.name}
-                                          </p>
-                                          <p className="text-xs text-zinc-400">
-                                            {member.email}
-                                          </p>
-                                        </div>
-                                      </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                      <div className="flex flex-wrap gap-1">
-                                        {renderMemberRoleBadges(
-                                          member,
-                                          activeOrgId,
-                                          roleCatalogue,
-                                        ) ?? (
-                                          <span className="text-xs text-zinc-400">
-                                            —
-                                          </span>
-                                        )}
-                                      </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                      {canRemoveOrDeleteUser(member) &&
-                                        !group.isDefault && (
-                                        <button
-                                          onClick={() =>
-                                            handleRemoveMember(
-                                              group._id,
-                                              member._id,
-                                            )
-                                          }
-                                          className="p-2 text-zinc-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
-                                          title="Remove from group"
-                                        >
-                                          <X className="w-4 h-4" />
-                                        </button>
-                                      )}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                          <GroupMemberTable
+                            members={group.members}
+                            allUsers={allUsers}
+                            activeOrgId={activeOrgId}
+                            roleCatalogue={roleCatalogue}
+                            canRemoveUser={(user) =>
+                              canRemoveOrDeleteUser(user) && !group.isDefault
+                            }
+                            onRemove={(userId) =>
+                              handleRemoveMember(group._id, userId)
+                            }
+                            emptyLabel="No audience members yet"
+                          />
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between px-6 py-4">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                              Approval members (
+                              {(group.approvalMembers ?? []).length})
+                            </p>
+                            <button
+                              onClick={() =>
+                                openAddMembersModal(group, "approval")
+                              }
+                              className="px-3 py-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-500/20 transition-all"
+                            >
+                              Add approval members
+                            </button>
                           </div>
-                        )}
+                          <GroupMemberTable
+                            members={group.approvalMembers ?? []}
+                            allUsers={allUsers}
+                            activeOrgId={activeOrgId}
+                            roleCatalogue={roleCatalogue}
+                            canRemoveUser={canRemoveOrDeleteUser}
+                            onRemove={(userId) =>
+                              handleRemoveApprovalMember(group._id, userId)
+                            }
+                            emptyLabel="No approval members yet"
+                          />
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1078,10 +1235,17 @@ export const GroupManagement: React.FC<{
           allUsers={allUsers}
           activeOrgId={activeOrgId}
           roleCatalogue={roleCatalogue}
+          mode={addMembersMode}
           onClose={() => setAddMembersGroup(null)}
-          onAdd={handleAddMembers}
+          onAdd={
+            addMembersMode === "approval"
+              ? handleAddApprovalMembers
+              : handleAddMembers
+          }
           onRemove={(userId: string) =>
-            handleRemoveMember(addMembersGroup._id, userId)
+            addMembersMode === "approval"
+              ? handleRemoveApprovalMember(addMembersGroup._id, userId)
+              : handleRemoveMember(addMembersGroup._id, userId)
           }
         />
       )}

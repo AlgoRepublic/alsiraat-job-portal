@@ -459,10 +459,7 @@ export const checkImpersonation = async (
 // ============================================================================
 
 /**
- * Context-aware middleware for task approval
- * - Platform super admin can approve ANY task (Internal, External, or Central)
- * - Organisation Admin and Task Manager can approve INTERNAL tasks from their org only
- * - All other roles cannot approve
+ * Context-aware middleware for task approval (group-scoped task review access).
  */
 export const requireTaskApproval = async (
   req: any,
@@ -503,17 +500,25 @@ export const requireTaskApproval = async (
     });
   }
 
-  const organisationId = task.organisation?.toString();
-  const userOrganisationId = req.orgId || null;
+  const {
+    resolveMemberTaskReviewAccess,
+    taskReviewEligibilityTaskFromDocument,
+  } = await import("../services/taskReviewEligibility.js");
 
-  if (
-    task.visibility !== "Internal" &&
-    !isSuperAdminUser(req.user) &&
-    organisationId !== userOrganisationId
-  ) {
+  const isSuperAdmin = isSuperAdminUser(req.user);
+  const eligibilityTask = taskReviewEligibilityTaskFromDocument(task);
+  const canReview = await resolveMemberTaskReviewAccess({
+    isSuperAdmin,
+    userId: req.user._id.toString(),
+    viewerOrgId: req.orgId ? String(req.orgId) : null,
+    hasTaskApprove: true,
+    task: eligibilityTask,
+  });
+
+  if (!canReview) {
     return res.status(403).json({
-      message:
-        "Only platform administrators can approve Central or External tasks from other organisations. You can only approve tasks from your own organisation.",
+      message: "Insufficient permissions to approve this task",
+      roleCodes: req.orgRoleCodes,
     });
   }
 
