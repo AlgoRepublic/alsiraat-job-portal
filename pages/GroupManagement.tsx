@@ -931,7 +931,7 @@ export const GroupManagement: React.FC<{
                       : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
                   }`}
                 >
-                  {tab === "All" ? "All kinds" : tab}
+                  {tab}
                   <span
                     className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
                       kindFilter === tab
