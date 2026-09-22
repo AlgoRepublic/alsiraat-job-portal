@@ -39,6 +39,16 @@ import {
 } from "../utils/orgTheme";
 import { TaskLifecycleActions } from "./TaskLifecycleActions";
 
+/** First URL segment → page title (e.g. `post-job` → `Post Job`). */
+function formatPathnamePageTitle(pathname: string): string {
+  const segment = pathname.substring(1).split("/")[0] || "";
+  return segment
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 /** Full display name for tooltip / labels when active org may omit `name` on the object. */
 function getActiveOrganisationDisplayName(user: User): string {
   const ao = user.activeOrganisation as OrgContext | string | null | undefined;
@@ -989,15 +999,7 @@ export const Layout: React.FC<LayoutProps> = ({
                                 ? "Pending Approvals"
                               : location.pathname === "/my-applications"
                                 ? "My Applications"
-                                : location.pathname
-                                    .substring(1)
-                                    .split("/")[0]
-                                    .charAt(0)
-                                    .toUpperCase() +
-                                  location.pathname
-                                    .substring(1)
-                                    .split("/")[0]
-                                    .slice(1)}
+                                : formatPathnamePageTitle(location.pathname)}
               </h1>
             </div>
           </div>
