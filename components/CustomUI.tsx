@@ -9,11 +9,12 @@ import {
   X,
 } from "lucide-react";
 
-interface Option {
+export interface Option {
   name: string;
   code?: string;
   icon?: string;
   id?: string;
+  description?: string;
 }
 
 interface CustomDropdownProps {
@@ -81,9 +82,13 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
   }, [isOpen]);
 
   const selectedOption = options.find((opt) => optionValue(opt) === value);
-  const filteredOptions = options.filter((opt) =>
-    opt.name.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  const matchesSearch = (opt: Option) => {
+    const term = searchTerm.toLowerCase();
+    if (opt.name.toLowerCase().includes(term)) return true;
+    return (opt.description ?? "").toLowerCase().includes(term);
+  };
+  const filteredOptions = options.filter(matchesSearch);
+  const optionKey = (opt: Option) => opt.id ?? opt.code ?? opt.name;
 
   const getButtonStyles = () => {
     switch (variant) {
@@ -161,25 +166,40 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
             {filteredOptions.length > 0 ? (
               filteredOptions.map((opt) => (
                 <button
-                  key={opt.code || opt.name}
+                  key={optionKey(opt)}
                   type="button"
                   onClick={() => {
                     onChange(optionValue(opt));
                     setIsOpen(false);
                     setSearchTerm("");
                   }}
-                  className={`w-full p-2.5 rounded-xl flex items-center justify-between text-xs font-bold transition-all ${
+                  className={`w-full p-2.5 rounded-xl flex items-center justify-between text-left transition-all ${
                     value === optionValue(opt)
                       ? "bg-primary text-white"
                       : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200"
                   }`}
                 >
-                  <span className="flex items-center gap-2">
+                  <span className="flex items-center gap-2 min-w-0">
                     {opt.icon && <span>{opt.icon}</span>}
-                    {opt.name}
+                    <span className="min-w-0">
+                      <span className="block text-xs font-bold truncate">
+                        {opt.name}
+                      </span>
+                      {opt.description && (
+                        <span
+                          className={`block text-[10px] font-semibold truncate mt-0.5 ${
+                            value === optionValue(opt)
+                              ? "text-white/80"
+                              : "text-zinc-500 dark:text-zinc-400"
+                          }`}
+                        >
+                          {opt.description}
+                        </span>
+                      )}
+                    </span>
                   </span>
                   {value === optionValue(opt) && (
-                    <Check className="w-3.5 h-3.5" />
+                    <Check className="w-3.5 h-3.5 shrink-0" />
                   )}
                 </button>
               ))

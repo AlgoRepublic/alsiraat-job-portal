@@ -4,6 +4,7 @@ import {
   ApplicantProfile,
   JobStatus,
   OrgMemberKind,
+  type TaskCategory,
 } from "../types";
 
 // In production (single container), use relative path. In dev, use full URL.
@@ -444,7 +445,15 @@ class ApiService {
 
   async getTaskContactPersonPicker(
     categoryId?: string,
-  ): Promise<Array<{ _id: string; name: string; email: string; avatar?: string }>> {
+  ): Promise<
+    Array<{
+      _id: string;
+      name: string;
+      email: string;
+      avatar?: string;
+      roles?: string[];
+    }>
+  > {
     const query =
       categoryId && categoryId.trim()
         ? `?categoryId=${encodeURIComponent(categoryId.trim())}`
@@ -565,12 +574,12 @@ class ApiService {
 
   // --- Task Categories ---
   /** Pass organisation id, slug, or display name for scoped public reads (e.g. Central). */
-  async getTaskCategories(organisation?: string): Promise<any[]> {
+  async getTaskCategories(organisation?: string): Promise<TaskCategory[]> {
     const q =
       organisation !== undefined && organisation !== ""
         ? `?organisation=${encodeURIComponent(organisation)}`
         : "";
-    return this.request<any[]>(`/task-categories${q}`);
+    return this.request<TaskCategory[]>(`/task-categories${q}`);
   }
 
   // --- Roles ---

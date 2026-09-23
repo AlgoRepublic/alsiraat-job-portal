@@ -17,10 +17,6 @@ import {
   Mail,
   Sparkles,
   Gift,
-  UserPlus,
-  UserCircle,
-  Search,
-  ShieldCheck,
 } from "lucide-react";
 import { Loading } from "../components/Loading";
 import { useNavigate } from "react-router-dom";
@@ -31,16 +27,7 @@ import { UserManagement } from "./UserManagement";
 import { EmailNotificationSettings } from "./EmailNotificationSettings";
 import { OrganisationManagement } from "./OrganisationManagement";
 import { ArrowLeft } from "lucide-react";
-import {
-  ACTIVE_ORG_CHANGED_EVENT,
-  getMemberRolesForActiveOrg,
-  getUserRoleCodesForActiveOrg,
-  getUserRoleIdsForActiveOrg,
-} from "../utils/orgScopedRoles";
-import {
-  hasPermissionForRoleCode,
-  Permission as TaskPermission,
-} from "../services/permissions";
+import { ACTIVE_ORG_CHANGED_EVENT } from "../utils/orgScopedRoles";
 import { db } from "../services/database";
 import { invalidateRewardTypesCatalog } from "../services/rewardTypesCatalog";
 
@@ -108,14 +95,6 @@ function organisationParamFromReward(
   return activeOrgId;
 }
 
-type OrgRoleCatalogueEntry = {
-  _id: string;
-  code?: string;
-  name: string;
-  isActive?: boolean;
-  permissions?: string[];
-};
-
 function categoryIsOrgScoped(
   cat: { organisation?: string | { _id: string } | null },
 ): boolean {
@@ -125,55 +104,71 @@ function categoryIsOrgScoped(
   return String(raw).length > 0;
 }
 
-function contactMemberIdsFromCategory(cat: {
-  contactMembers?: unknown[];
-}): string[] {
-  return (cat.contactMembers ?? []).map((member) => {
-    if (typeof member === "string") return member;
-    if (member && typeof member === "object" && "_id" in member) {
-      return String((member as { _id: string })._id);
-    }
-    return String(member);
-  });
-}
-
-const userCanApproveTasksInOrg = (
-  user: {
-    isSuperAdmin?: boolean;
-    organisationRoles?: unknown[];
-    roles?: string[];
-  },
-  activeOrgId: string | null,
-  roleCatalogue: OrgRoleCatalogueEntry[],
-): boolean => {
-  if (user?.isSuperAdmin) return true;
-  const codes = getUserRoleCodesForActiveOrg(user, activeOrgId);
-  if (
-    codes.some((code) =>
-      hasPermissionForRoleCode(code, TaskPermission.TASK_APPROVE),
-    )
-  ) {
-    return true;
-  }
-  const roleIds = getUserRoleIdsForActiveOrg(user, activeOrgId);
-  return roleIds.some((id) => {
-    const role = roleCatalogue.find((r) => r._id === id);
-    return role?.permissions?.includes(TaskPermission.TASK_APPROVE);
-  });
+type CategoryContactGroupRow = {
+  _id: string;
+  name: string;
+  color?: string;
+  kind?: string;
+  isActive?: boolean;
+  isDefault?: boolean;
 };
 
-const CategoryContactMembersEditor: React.FC<{
-  contactMemberIds: string[];
-  allUsers: any[];
-  activeOrgId: string;
-  roleCatalogue: OrgRoleCatalogueEntry[];
+function normalizeOrgGroupsForContactPicker(
+  rows: unknown[],
+): CategoryContactGroupRow[] {
+  return rows
+    .map((row) => {
+      const g = row as CategoryContactGroupRow & { id?: string };
+      return {
+        ...g,
+        _id: String(g._id ?? g.id ?? ""),
+        name: g.name ?? "Group",
+      };
+    })
+    .filter((g) => g._id);
+}
+
+function contactGroupEntryId(entry: unknown): string {
+  if (typeof entry === "string") return entry;
+  if (entry && typeof entry === "object" && "_id" in entry) {
+    return String((entry as { _id: string })._id);
+  }
+  return String(entry);
+}
+
+function contactGroupIdsFromCategory(cat: {
+  contactGroups?: unknown[];
+}): string[] {
+  return (cat.contactGroups ?? []).map(contactGroupEntryId);
+}
+
+function resolveCategoryContactGroup(
+  id: string,
+  storedEntries: unknown[],
+  catalog: CategoryContactGroupRow[],
+): CategoryContactGroupRow {
+  const stored = (storedEntries ?? []).find(
+    (entry) => contactGroupEntryId(entry) === id,
+  );
+  if (stored && typeof stored === "object" && "name" in stored) {
+    const row = stored as CategoryContactGroupRow;
+    return { ...row, _id: id, name: row.name ?? id };
+  }
+  const fromCatalog = catalog.find((g) => g._id === id);
+  if (fromCatalog) return fromCatalog;
+  return { _id: id, name: id };
+}
+
+const CategoryContactGroupsEditor: React.FC<{
+  contactGroupIds: string[];
+  storedContactGroups: unknown[];
+  orgGroups: CategoryContactGroupRow[];
   disabled?: boolean;
   onChange: (ids: string[]) => void;
 }> = ({
-  contactMemberIds,
-  allUsers,
-  activeOrgId,
-  roleCatalogue,
+  contactGroupIds,
+  storedContactGroups,
+  orgGroups,
   disabled,
   onChange,
 }) => {
@@ -181,32 +176,24 @@ const CategoryContactMembersEditor: React.FC<{
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
 
-  const resolveUser = (id: string) =>
-    allUsers.find((u) => u._id === id) ??
-    (contactMemberIds.includes(id) ? { _id: id, name: id, email: "" } : null);
+  const storedRows = contactGroupIds.map((id) =>
+    resolveCategoryContactGroup(id, storedContactGroups, orgGroups),
+  );
 
-  const storedRows = contactMemberIds
-    .map((id) => resolveUser(id))
-    .filter(Boolean) as any[];
-
-  const pickerCandidates = allUsers.filter((u) => {
-    if (contactMemberIds.includes(u._id)) return false;
-    if (!userCanApproveTasksInOrg(u, activeOrgId, roleCatalogue)) {
-      return false;
-    }
-    return (
-      u.name?.toLowerCase().includes(search.toLowerCase()) ||
-      u.email?.toLowerCase().includes(search.toLowerCase())
-    );
+  const searchLower = search.toLowerCase();
+  const pickerCandidates = orgGroups.filter((group) => {
+    if (contactGroupIds.includes(group._id)) return false;
+    if (group.isActive === false) return false;
+    return group.name.toLowerCase().includes(searchLower);
   });
 
-  const removeMember = (userId: string) => {
-    onChange(contactMemberIds.filter((id) => id !== userId));
+  const removeGroup = (groupId: string) => {
+    onChange(contactGroupIds.filter((id) => id !== groupId));
   };
 
   const addSelected = () => {
     if (selected.length === 0) return;
-    onChange([...contactMemberIds, ...selected]);
+    onChange([...contactGroupIds, ...selected]);
     setSelected([]);
     setPickerOpen(false);
     setSearch("");
@@ -217,21 +204,26 @@ const CategoryContactMembersEditor: React.FC<{
       <div className="flex items-center justify-between gap-2">
         <div>
           <p className="text-xs font-black uppercase tracking-widest text-zinc-500 flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
-            Category contact members
+            <Layers className="w-3.5 h-3.5 text-amber-600" />
+            Category contact groups
           </p>
-          <p className="text-[11px] text-zinc-400 mt-0.5">
-            Task approvers only · stored members stay if permission lapses but
-            won&apos;t appear in pickers until restored
+          <p className="text-[11px] text-zinc-400 mt-0.5 max-w-xl">
+            Task contact person choices for this category come from the{" "}
+            <span className="font-semibold text-zinc-500 dark:text-zinc-300">
+              category contact pool
+            </span>
+            —the members of the groups listed here. With no groups or no members
+            in those groups, the contact picker stays empty; there is no fallback
+            to all task approvers.
           </p>
         </div>
         {!disabled && (
           <button
             type="button"
             onClick={() => setPickerOpen((v) => !v)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-800 dark:text-amber-200 hover:bg-amber-500/20 transition-all"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-800 dark:text-amber-200 hover:bg-amber-500/20 transition-all shrink-0"
           >
-            <UserPlus className="w-3.5 h-3.5" />
+            <Plus className="w-3.5 h-3.5" />
             Add
           </button>
         )}
@@ -239,64 +231,41 @@ const CategoryContactMembersEditor: React.FC<{
 
       {storedRows.length === 0 ? (
         <p className="text-sm text-zinc-400 font-medium py-2">
-          No contact members configured — task editors will use org-wide
-          approvers when picking contacts.
+          No category contact groups configured.
         </p>
       ) : (
         <ul className="space-y-2">
-          {storedRows.map((user) => {
-            const eligible = userCanApproveTasksInOrg(
-              user,
-              activeOrgId,
-              roleCatalogue,
-            );
+          {storedRows.map((group) => {
+            const inactive = group.isActive === false;
             return (
               <li
-                key={user._id}
+                key={group._id}
                 className="flex items-center gap-3 p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800"
               >
-                <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden shrink-0">
-                  {user.avatar ? (
-                    <img
-                      src={user.avatar}
-                      alt={user.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <UserCircle className="w-5 h-5 text-zinc-400" />
-                  )}
+                <div
+                  className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black text-white shrink-0"
+                  style={{ backgroundColor: group.color || "#6366F1" }}
+                >
+                  {group.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-sm text-zinc-900 dark:text-white truncate">
-                    {user.name}
+                    {group.name}
+                    {inactive ? " (inactive)" : ""}
                   </p>
-                  <p className="text-xs text-zinc-400 truncate">{user.email}</p>
-                  {!eligible && (
+                  {inactive && (
                     <p className="text-[10px] font-bold text-amber-700 dark:text-amber-300 mt-0.5">
-                      Not in picker — missing task approve permission
+                      Inactive — does not add members to the category contact
+                      pool. Remove this group before saving changes.
                     </p>
                   )}
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {getMemberRolesForActiveOrg(
-                      user,
-                      activeOrgId,
-                      roleCatalogue,
-                    ).map((r) => (
-                      <span
-                        key={r.id}
-                        className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg text-zinc-400 bg-zinc-100 dark:bg-zinc-800"
-                      >
-                        {r.name}
-                      </span>
-                    ))}
-                  </div>
                 </div>
-                {!disabled && !user.isSuperAdmin && (
+                {!disabled && (
                   <button
                     type="button"
-                    onClick={() => removeMember(user._id)}
+                    onClick={() => removeGroup(group._id)}
                     className="p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
-                    title="Remove contact member"
+                    title="Remove contact group"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -309,33 +278,30 @@ const CategoryContactMembersEditor: React.FC<{
 
       {pickerOpen && !disabled && (
         <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 space-y-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search approvers..."
-              className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm"
-            />
-          </div>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search groups..."
+            className="w-full px-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm"
+          />
           <div className="max-h-48 overflow-y-auto space-y-1">
             {pickerCandidates.length === 0 ? (
               <p className="text-sm text-zinc-400 text-center py-4">
-                No approvers available to add
+                No active groups available to add
               </p>
             ) : (
-              pickerCandidates.map((user) => {
-                const isSelected = selected.includes(user._id);
+              pickerCandidates.map((group) => {
+                const isSelected = selected.includes(group._id);
                 return (
                   <button
-                    key={user._id}
+                    key={group._id}
                     type="button"
                     onClick={() =>
                       setSelected((prev) =>
-                        prev.includes(user._id)
-                          ? prev.filter((id) => id !== user._id)
-                          : [...prev, user._id],
+                        prev.includes(group._id)
+                          ? prev.filter((id) => id !== group._id)
+                          : [...prev, group._id],
                       )
                     }
                     className={`w-full flex items-center gap-3 p-2.5 rounded-xl border text-left transition-all ${
@@ -344,11 +310,12 @@ const CategoryContactMembersEditor: React.FC<{
                         : "border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
                     }`}
                   >
+                    <div
+                      className="w-7 h-7 rounded-lg shrink-0"
+                      style={{ backgroundColor: group.color || "#6366F1" }}
+                    />
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-sm truncate">{user.name}</p>
-                      <p className="text-xs text-zinc-400 truncate">
-                        {user.email}
-                      </p>
+                      <p className="font-bold text-sm truncate">{group.name}</p>
                     </div>
                     {isSelected && (
                       <Check className="w-4 h-4 text-primary shrink-0" />
@@ -575,10 +542,9 @@ export const AdminSettings: React.FC = () => {
     color: "#6366F1",
     icon: "📋",
   });
-  const [catMemberUsers, setCatMemberUsers] = useState<any[]>([]);
-  const [catRoleCatalogue, setCatRoleCatalogue] = useState<
-    OrgRoleCatalogueEntry[]
-  >([]);
+  const [catOrgGroups, setCatOrgGroups] = useState<CategoryContactGroupRow[]>(
+    [],
+  );
 
   const [rewardTypesList, setRewardTypesList] = useState<any[]>([]);
   const [rtLoading, setRtLoading] = useState(false);
@@ -642,40 +608,24 @@ export const AdminSettings: React.FC = () => {
     loadCategories();
   }, [adminOrgSync]);
 
-  const loadCategoryMemberPickerData = useCallback(async () => {
+  const loadCategoryContactGroupsData = useCallback(async () => {
     try {
-      const [usersData, rolesData] = await Promise.all([
-        db.getUsers(),
-        db.getRoles(),
-      ]);
-      setCatMemberUsers(Array.isArray(usersData) ? usersData : []);
-      setCatRoleCatalogue(
-        (rolesData ?? []).map(
-          (r: {
-            _id: string;
-            code?: string;
-            name: string;
-            isActive?: boolean;
-            permissions?: string[];
-          }) => ({
-            _id: String(r._id),
-            code: r.code,
-            name: r.name,
-            isActive: r.isActive,
-            permissions: Array.isArray(r.permissions) ? r.permissions : [],
-          }),
+      const groupsData = await db.getGroups();
+      setCatOrgGroups(
+        normalizeOrgGroupsForContactPicker(
+          Array.isArray(groupsData) ? groupsData : [],
         ),
       );
     } catch {
-      showError("Failed to load members for category contacts");
+      showError("Failed to load groups for category contact configuration");
     }
   }, [showError]);
 
   useEffect(() => {
     if (activeTab === "categories") {
-      void loadCategoryMemberPickerData();
+      void loadCategoryContactGroupsData();
     }
-  }, [activeTab, adminOrgSync, loadCategoryMemberPickerData]);
+  }, [activeTab, adminOrgSync, loadCategoryContactGroupsData]);
 
   const loadRewardTypes = useCallback(async () => {
     const requestSeq = ++rewardTypesLoadSeqRef.current;
@@ -1668,7 +1618,7 @@ export const AdminSettings: React.FC = () => {
         icon: cat.icon,
       };
       if (categoryIsOrgScoped(cat)) {
-        body.contactMembers = contactMemberIdsFromCategory(cat);
+        body.contactGroups = contactGroupIdsFromCategory(cat);
       }
       const res = await fetch(
         withOrganisationQuery(
@@ -2691,17 +2641,22 @@ export const AdminSettings: React.FC = () => {
                           </div>
                         </div>
                         {categoryIsOrgScoped(editingCat) && activeOrgId && (
-                          <CategoryContactMembersEditor
-                            contactMemberIds={contactMemberIdsFromCategory(
+                          <CategoryContactGroupsEditor
+                            contactGroupIds={contactGroupIdsFromCategory(
                               editingCat,
                             )}
-                            allUsers={catMemberUsers}
-                            activeOrgId={activeOrgId}
-                            roleCatalogue={catRoleCatalogue}
+                            storedContactGroups={editingCat.contactGroups ?? []}
+                            orgGroups={catOrgGroups}
                             onChange={(ids) =>
                               setEditingCat({
                                 ...editingCat,
-                                contactMembers: ids,
+                                contactGroups: ids.map((id) =>
+                                  resolveCategoryContactGroup(
+                                    id,
+                                    editingCat.contactGroups ?? [],
+                                    catOrgGroups,
+                                  ),
+                                ),
                               })
                             }
                           />
@@ -2734,8 +2689,8 @@ export const AdminSettings: React.FC = () => {
                           )}
                           {categoryIsOrgScoped(cat) && (
                             <p className="text-[10px] font-bold text-zinc-400 mt-1">
-                              Contact members:{" "}
-                              {contactMemberIdsFromCategory(cat).length}
+                              Category contact groups:{" "}
+                              {contactGroupIdsFromCategory(cat).length}
                             </p>
                           )}
                         </div>

@@ -24,7 +24,13 @@ import { Loading, LoadingOverlay } from "../components/Loading";
 import { CustomDropdown, CustomDatePicker } from "../components/CustomUI";
 import { useToast } from "../components/Toast";
 
-import { Job, JobStatus, Visibility, Attachment } from "../types";
+import {
+  Job,
+  JobStatus,
+  Visibility,
+  Attachment,
+  type TaskCategory,
+} from "../types";
 import { generateJobDescription } from "../services/geminiService";
 import { db } from "../services/database";
 import { api } from "../services/api";
@@ -56,11 +62,17 @@ import {
   validateWizardContactPersonField,
 } from "../utils/taskFormValidation";
 import {
+  TASK_WIZARD_CONTACT_KEPT_OUTSIDE_POOL_TOAST,
   TASK_WIZARD_CONTACT_REMOVED_TOAST,
-  isContactInTaskWizardPickerPool,
   isTaskWizardCategorySelected,
+  shouldClearTaskWizardContactOnCategoryChange,
+  shouldWarnTaskWizardContactKeptOutsidePoolOnCategoryChange,
 } from "../utils/taskWizardCategoryContact";
 import { canShowTaskWizardContactPersonField } from "../utils/taskWizardContactPerson";
+import {
+  type ContactPickerDropdownOption,
+  mapTaskContactPickerRowsToDropdownOptions,
+} from "../utils/taskContactPickerOptions";
 import {
   buildAudienceTargetingPresentation,
   canEditTask,
@@ -291,7 +303,7 @@ export const JobWizard: React.FC = () => {
 
   // Dynamic data from API
   const [rewardTypes, setRewardTypes] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
+  const [categories, setCategories] = useState<TaskCategory[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
   const [activeOrgName, setActiveOrgName] = useState<string | null>(() =>
@@ -310,8 +322,11 @@ export const JobWizard: React.FC = () => {
     canReview: formData.canReview === true,
   });
   const [contactPickerOptions, setContactPickerOptions] = useState<
-    Array<{ id: string; name: string }>
+    ContactPickerDropdownOption[]
   >([]);
+  const [loadedContactPersonId, setLoadedContactPersonId] = useState<
+    string | null
+  >(null);
   const [editAccessResolved, setEditAccessResolved] = useState(!id);
 
   const reviewAudiencePresentation = useMemo(() => {
@@ -376,6 +391,7 @@ export const JobWizard: React.FC = () => {
 
     if (!id) {
       setFormData(getInitialFormData());
+      setLoadedContactPersonId(null);
       setUploadedFiles([]);
       setStep(1);
       setErrors({});
@@ -462,11 +478,16 @@ export const JobWizard: React.FC = () => {
                       ? normalizePrivateAudiences(job.privateAudiences)
                       : [Visibility.INTERNAL]
                     : [];
+            const initialContactId =
+              job.contactPersonId?.trim() ||
+              job.contactPerson?._id?.trim() ||
+              "";
+            setLoadedContactPersonId(initialContactId || null);
             setFormData({
               title: job.title,
               categoryId: job.categoryId ?? "",
               category: job.category,
-              contactPersonId: job.contactPersonId ?? "",
+              contactPersonId: initialContactId,
               contactPerson: job.contactPerson,
               description: job.description,
               location: job.location ?? "",
@@ -546,10 +567,7 @@ export const JobWizard: React.FC = () => {
         const rows = await api.getTaskContactPersonPicker(categoryId);
         if (cancelled) return;
         setContactPickerOptions(
-          rows.map((u) => ({
-            id: u._id,
-            name: u.name?.trim() || u.email?.trim() || u._id,
-          })),
+          mapTaskContactPickerRowsToDropdownOptions(rows),
         );
       } catch {
         if (!cancelled) setContactPickerOptions([]);
@@ -719,7 +737,7 @@ export const JobWizard: React.FC = () => {
       required: showContactPersonField,
       categorySelected: isTaskWizardCategorySelected(formData.categoryId),
       contactPersonId: formData.contactPersonId,
-      existingContactPersonId: formData.contactPersonId,
+      existingContactPersonId: loadedContactPersonId,
     });
     if (contactError) {
       setErrors({ contactPersonId: contactError });
@@ -1031,8 +1049,16 @@ export const JobWizard: React.FC = () => {
                           val.trim(),
                         );
                         const poolIds = rows.map((u) => String(u._id));
+                        const changeParams = {
+                          isEditMode: !isCreateMode,
+                          loadedContactPersonId,
+                          currentContactPersonId: contactId,
+                          newCategoryPickerPoolMemberIds: poolIds,
+                        };
                         if (
-                          !isContactInTaskWizardPickerPool(contactId, poolIds)
+                          shouldClearTaskWizardContactOnCategoryChange(
+                            changeParams,
+                          )
                         ) {
                           updateField("contactPersonId", "");
                           updateField("contactPerson", undefined);
@@ -1040,6 +1066,16 @@ export const JobWizard: React.FC = () => {
                             "info",
                             TASK_WIZARD_CONTACT_REMOVED_TOAST.title,
                             TASK_WIZARD_CONTACT_REMOVED_TOAST.message,
+                          );
+                        } else if (
+                          shouldWarnTaskWizardContactKeptOutsidePoolOnCategoryChange(
+                            changeParams,
+                          )
+                        ) {
+                          showToast(
+                            "info",
+                            TASK_WIZARD_CONTACT_KEPT_OUTSIDE_POOL_TOAST.title,
+                            TASK_WIZARD_CONTACT_KEPT_OUTSIDE_POOL_TOAST.message,
                           );
                         }
                       } catch {

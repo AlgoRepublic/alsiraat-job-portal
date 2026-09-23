@@ -1,16 +1,11 @@
 import mongoose from "mongoose";
 import User from "../models/User.js";
-import TaskCategory from "../models/TaskCategory.js";
-import { assertUsersHaveTaskApproveInOrg } from "./groupApprovalMembers.js";
 import {
   applyTaskCategoryFieldsForRepost,
   readStoredObjectIdRef,
 } from "./taskCategoryReference.js";
-import {
-  filterContactMembersEligibleForPicker,
-  resolvePickerEligibleContactMemberIds,
-} from "./categoryContactMembers.js";
-import { loadTaskReviewNotificationCandidates } from "./taskReviewNotifications.js";
+import { resolveCategoryContactPoolMemberIds } from "./categoryContactPool.js";
+import { resolveOrgMemberRoles } from "./orgMemberRoleResolver.js";
 
 export class TaskContactPersonError extends Error {
   status: number;
@@ -63,16 +58,6 @@ export function classifyContactPersonUpdate(
   return "assign";
 }
 
-export function pickContactPickerPoolMemberIds(
-  eligibleCategoryContactMemberIds: string[],
-  orgApproverMemberIds: string[],
-): string[] {
-  if (eligibleCategoryContactMemberIds.length >= 1) {
-    return eligibleCategoryContactMemberIds;
-  }
-  return orgApproverMemberIds;
-}
-
 export function assertContactPersonAssignable(
   contactUserId: string,
   pickerPoolMemberIds: readonly string[],
@@ -86,82 +71,97 @@ export function assertContactPersonAssignable(
   }
 }
 
-export async function loadOrgTaskApproverMemberIds(
-  organisationId: string,
-): Promise<string[]> {
-  const candidates = await loadTaskReviewNotificationCandidates(organisationId);
-  return candidates
-    .filter((c) => c.hasTaskApprove)
-    .map((c) => c.userId);
-}
-
-export async function resolveEligibleCategoryContactMemberIds(
-  organisationId: string,
-  categoryId: string | null,
-): Promise<string[]> {
-  if (!categoryId) return [];
-
-  const category = await TaskCategory.findById(categoryId)
-    .select("contactMembers organisation")
-    .lean();
-  if (!category?.contactMembers?.length) return [];
-  if (
-    category.organisation != null &&
-    String(category.organisation) !== String(organisationId)
-  ) {
-    return [];
-  }
-
-  const storedIds = category.contactMembers.map((id) => String(id));
-  const users = await User.find({ _id: { $in: storedIds } })
-    .select("organisationRoles")
-    .lean();
-  const eligibleIds = await resolvePickerEligibleContactMemberIds(
-    users,
-    organisationId,
-  );
-  return filterContactMembersEligibleForPicker(storedIds, eligibleIds);
-}
-
 export async function resolveContactPickerPoolMemberIds(
   organisationId: string,
   categoryId: string | null,
 ): Promise<string[]> {
-  const [categoryEligible, orgApprovers] = await Promise.all([
-    resolveEligibleCategoryContactMemberIds(organisationId, categoryId),
-    loadOrgTaskApproverMemberIds(organisationId),
-  ]);
-  return pickContactPickerPoolMemberIds(categoryEligible, orgApprovers);
+  return resolveCategoryContactPoolMemberIds(organisationId, categoryId);
 }
 
-type PickerUserRow = {
+export type ContactPickerUserRow = {
   _id: unknown;
   name?: string;
   email?: string;
   avatar?: string | undefined;
+  roles: string[];
 };
+
+/** Dedupe pool member ids while preserving order (defensive; pool builder also dedupes). */
+export function uniquePoolMemberIdsInOrder(
+  poolIds: readonly string[],
+): string[] {
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+  for (const id of poolIds) {
+    const key = String(id);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    ordered.push(key);
+  }
+  return ordered;
+}
+
+function readRoleIdsForOrg(
+  organisationRoles: ReadonlyArray<{
+    organisation?: unknown;
+    roleIds?: unknown;
+  }> | undefined,
+  organisationId: string,
+): string[] {
+  const target = String(organisationId);
+  for (const entry of organisationRoles ?? []) {
+    const orgId =
+      readStoredObjectIdRef(entry.organisation) ??
+      (entry.organisation as { toString?: () => string })?.toString?.() ??
+      String(entry.organisation);
+    if (String(orgId) !== target) continue;
+    const raw = Array.isArray(entry.roleIds) ? entry.roleIds : [];
+    return raw
+      .map((id) =>
+        (id as { toString?: () => string })?.toString?.() ?? String(id),
+      )
+      .filter(Boolean);
+  }
+  return [];
+}
+
+async function resolveContactPickerRoleNames(
+  organisationId: string,
+  user: {
+    organisationRoles?: ReadonlyArray<{
+      organisation?: unknown;
+      roleIds?: unknown;
+    }>;
+  },
+): Promise<string[]> {
+  const roleIds = readRoleIdsForOrg(user.organisationRoles, organisationId);
+  const { roles } = await resolveOrgMemberRoles(organisationId, { roleIds });
+  return roles.map((role) => role.name).filter((name) => name.trim());
+}
 
 export async function loadContactPickerUsers(
   organisationId: string,
   categoryId: string | null,
-): Promise<PickerUserRow[]> {
+): Promise<ContactPickerUserRow[]> {
   const poolIds = await resolveContactPickerPoolMemberIds(
     organisationId,
     categoryId,
   );
   if (poolIds.length === 0) return [];
   const users = await User.find({ _id: { $in: poolIds } })
-    .select("name email avatar")
+    .select("name email avatar organisationRoles")
     .lean();
   const byId = new Map(users.map((u) => [String(u._id), u]));
-  const ordered: PickerUserRow[] = [];
-  for (const id of poolIds) {
+  const ordered: ContactPickerUserRow[] = [];
+  for (const id of uniquePoolMemberIdsInOrder(poolIds)) {
     const user = byId.get(id);
     if (!user) continue;
-    const row: PickerUserRow = {
+    const roles = await resolveContactPickerRoleNames(organisationId, user);
+    const row: ContactPickerUserRow = {
       _id: user._id,
       name: user.name,
       email: user.email,
+      roles,
     };
     if (user.avatar !== undefined) {
       row.avatar = user.avatar;
@@ -188,7 +188,6 @@ async function assertUserIsOrgMember(
       "Task contact person must be a member of this organisation",
     );
   }
-  await assertUsersHaveTaskApproveInOrg([user], organisationId);
 }
 
 export async function validateNewContactPersonAssignment(
@@ -323,7 +322,7 @@ export async function resolveContactPersonForUpdate(
 
 export const TASK_CONTACT_PERSON_POPULATE_SELECT = "name email avatar";
 
-/** Repost clones contact when set; does not re-validate assignment rules. */
+/** Low-level copy of stored contact ref; prefer `resolveContactPersonForRepostClone` for repost. */
 export function applyContactPersonFieldForRepost(
   sourceContactPerson: unknown,
   target: Record<string, unknown>,
@@ -343,7 +342,6 @@ export function applyTaskContactAndCategoryFieldsForRepost(
   source: TaskContactAndCategoryRepostSource,
   target: Record<string, unknown>,
 ): void {
-  applyContactPersonFieldForRepost(source.contactPerson, target);
   applyTaskCategoryFieldsForRepost(source, target);
 }
 

@@ -428,8 +428,7 @@ export function resolveTaskContactPersonDisplayName(
   if (name) return name;
   const email = contact?.email?.trim();
   if (email) return email;
-  const id = contact?._id?.trim() || contactPersonId?.trim();
-  return id || null;
+  return null;
 }
 
 /** True when a stored contact id is not in the current editor picker pool. */

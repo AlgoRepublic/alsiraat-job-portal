@@ -73,6 +73,28 @@ export interface Attachment {
 export type TaskVisibility = Visibility; // Or FileVisibility, depending on context
 export type TaskStatus = JobStatus; // Or a new specific TaskStatus enum
 
+/** Populated group summary on org-scoped task categories (`contactGroups`). */
+export interface TaskCategoryContactGroup {
+  _id: string;
+  name: string;
+  color?: string;
+  kind?: OrgMemberKind;
+  isActive?: boolean;
+}
+
+/** Org-scoped or platform task category from the API. */
+export interface TaskCategory {
+  _id: string;
+  name: string;
+  description?: string;
+  code?: string;
+  icon?: string;
+  color?: string;
+  isActive?: boolean;
+  organisation?: string | OrgContext | null;
+  contactGroups?: TaskCategoryContactGroup[];
+}
+
 export interface ITask {
   id: string;
   name: string;

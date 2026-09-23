@@ -63,6 +63,10 @@ import {
   isApplicationWindowOpen,
 } from "../utils/applicationWindow";
 import { CustomDatePicker, CustomDropdown } from "../components/CustomUI";
+import {
+  type ContactPickerDropdownOption,
+  mapTaskContactPickerRowsToDropdownOptions,
+} from "../utils/taskContactPickerOptions";
 import { validateRepostDates } from "../utils/taskFormValidation";
 
 function localTodayIsoDate(): string {
@@ -106,9 +110,8 @@ export const JobDetails: React.FC = () => {
   const [rejectionReason, setRejectionReason] = useState("");
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [approveContactPersonId, setApproveContactPersonId] = useState("");
-  const [approveContactPickerOptions, setApproveContactPickerOptions] = useState<
-    { id: string; name: string }[]
-  >([]);
+  const [approveContactPickerOptions, setApproveContactPickerOptions] =
+    useState<ContactPickerDropdownOption[]>([]);
   const [approveSubmitting, setApproveSubmitting] = useState(false);
 
   // Repost Modal State
@@ -346,10 +349,7 @@ export const JobDetails: React.FC = () => {
     try {
       const rows = await api.getTaskContactPersonPicker(job.categoryId);
       setApproveContactPickerOptions(
-        rows.map((row) => ({
-          id: String(row._id),
-          name: row.name?.trim() || row.email?.trim() || String(row._id),
-        })),
+        mapTaskContactPickerRowsToDropdownOptions(rows),
       );
     } catch {
       setApproveContactPickerOptions([]);

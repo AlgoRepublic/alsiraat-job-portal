@@ -562,6 +562,7 @@ export const getTaskContactPersonPicker = async (req: any, res: Response) => {
         name: user.name ?? "",
         email: user.email ?? "",
         avatar: user.avatar,
+        roles: user.roles ?? [],
       })),
     );
   } catch (err: any) {
