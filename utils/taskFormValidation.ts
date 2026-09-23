@@ -92,6 +92,24 @@ export function validateWizardStep1(
   return errors;
 }
 
+export function validateWizardContactPersonField(params: {
+  required: boolean;
+  categorySelected: boolean;
+  contactPersonId?: string | null;
+  existingContactPersonId?: string | null;
+}): string | undefined {
+  if (!params.required) return undefined;
+  const existing = params.existingContactPersonId?.trim();
+  if (existing) return undefined;
+  if (!params.categorySelected) {
+    return "Select a category before choosing a task contact person.";
+  }
+  if (!params.contactPersonId?.trim()) {
+    return "Task contact person is required.";
+  }
+  return undefined;
+}
+
 export function validateWizardStep2(
   fields: TaskWizardStep2Fields,
 ): Record<string, string> {

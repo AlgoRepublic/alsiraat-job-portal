@@ -221,6 +221,79 @@ export async function resolveContactPersonForCreate(
   return new mongoose.Types.ObjectId(parsed);
 }
 
+export function actorMayDesignateTaskContactOnCreate(
+  hasTaskAutoPublish: boolean,
+): boolean {
+  return hasTaskAutoPublish;
+}
+
+export function actorMayDesignateTaskContactOnEdit(
+  isSuperAdmin: boolean,
+  canReview: boolean,
+): boolean {
+  return isSuperAdmin || canReview;
+}
+
+export function readTaskContactPersonUserId(task: {
+  contactPerson?: unknown;
+}): string | null {
+  return readStoredObjectIdRef(task.contactPerson);
+}
+
+export function assertActorMayDesignateContactPerson(
+  mayDesignate: boolean,
+): void {
+  if (!mayDesignate) {
+    throw new TaskContactPersonError(
+      403,
+      "You are not authorized to set the task contact person",
+    );
+  }
+}
+
+export function assertTaskContactPersonPresentForPublish(
+  contactUserId: string | null,
+): void {
+  if (!contactUserId?.trim()) {
+    throw new TaskContactPersonError(
+      400,
+      "Task contact person is required to publish this task",
+    );
+  }
+}
+
+export function assertDesignateCapableSubmitIncludesContact(
+  mayDesignate: boolean,
+  contactUserId: string | null,
+): void {
+  if (!mayDesignate) return;
+  if (!contactUserId?.trim()) {
+    throw new TaskContactPersonError(
+      400,
+      "Task contact person is required",
+    );
+  }
+}
+
+export async function resolveContactPersonForRepostClone(
+  organisationId: string,
+  categoryId: string | null,
+  sourceContactPerson: unknown,
+): Promise<mongoose.Types.ObjectId | null> {
+  const idStr = readStoredObjectIdRef(sourceContactPerson);
+  if (!idStr) return null;
+  try {
+    await validateNewContactPersonAssignment(
+      organisationId,
+      categoryId,
+      idStr,
+    );
+    return new mongoose.Types.ObjectId(idStr);
+  } catch {
+    return null;
+  }
+}
+
 export async function resolveContactPersonForUpdate(
   organisationId: string,
   categoryId: string | null,
@@ -230,7 +303,15 @@ export async function resolveContactPersonForUpdate(
   const parsed = parseContactPersonInput(rawContactPerson);
   const action = classifyContactPersonUpdate(previousContactUserId, parsed);
   if (action === "omit") return undefined;
-  if (action === "clear") return null;
+  if (action === "clear") {
+    if (previousContactUserId != null) {
+      throw new TaskContactPersonError(
+        400,
+        "Task contact person cannot be removed once assigned",
+      );
+    }
+    return null;
+  }
   if (action === "unchanged") return undefined;
   await validateNewContactPersonAssignment(
     organisationId,

@@ -95,13 +95,20 @@ import {
   presentTaskCategoryFields,
   resolveTaskCategoryIdForCreate,
   resolveTaskCategoryIdForUpdate,
+  applyTaskCategoryFieldsForRepost,
 } from "../services/taskCategoryReference.js";
 import {
   TaskContactPersonError,
   TASK_CONTACT_PERSON_POPULATE_SELECT,
   loadContactPickerUsers,
   presentTaskContactPersonFields,
-  applyTaskContactAndCategoryFieldsForRepost,
+  actorMayDesignateTaskContactOnCreate,
+  actorMayDesignateTaskContactOnEdit,
+  assertActorMayDesignateContactPerson,
+  assertDesignateCapableSubmitIncludesContact,
+  assertTaskContactPersonPresentForPublish,
+  readTaskContactPersonUserId,
+  resolveContactPersonForRepostClone,
   resolveContactPersonForCreate,
   resolveContactPersonForUpdate,
 } from "../services/taskContactPerson.js";
@@ -428,13 +435,27 @@ export const createTask = async (req: any, res: Response) => {
       taskData.categoryId = categoryId;
     }
 
-    const contactPerson = await resolveContactPersonForCreate(
-      String(req.orgId),
-      categoryId ? String(categoryId) : null,
-      req.body.contactPerson,
+    const mayDesignateContact =
+      actorMayDesignateTaskContactOnCreate(isAutoPublish);
+    if (Object.prototype.hasOwnProperty.call(req.body, "contactPerson")) {
+      assertActorMayDesignateContactPerson(mayDesignateContact);
+      const contactPerson = await resolveContactPersonForCreate(
+        String(req.orgId),
+        categoryId ? String(categoryId) : null,
+        req.body.contactPerson,
+      );
+      if (contactPerson) {
+        taskData.contactPerson = contactPerson;
+      }
+    }
+    assertDesignateCapableSubmitIncludesContact(
+      mayDesignateContact,
+      taskData.contactPerson ? String(taskData.contactPerson) : null,
     );
-    if (contactPerson) {
-      taskData.contactPerson = contactPerson;
+    if (taskStatus === TaskStatus.PUBLISHED) {
+      assertTaskContactPersonPresentForPublish(
+        taskData.contactPerson ? String(taskData.contactPerson) : null,
+      );
     }
 
     taskData.allowedRoles = await resolveAndValidateTaskAllowedRoles(
@@ -691,7 +712,12 @@ export const updateTask = async (req: any, res: Response) => {
       }
     }
 
+    const mayDesignateContact = actorMayDesignateTaskContactOnEdit(
+      reviewViewer.isSuperAdmin,
+      canReview,
+    );
     if (Object.prototype.hasOwnProperty.call(req.body, "contactPerson")) {
+      assertActorMayDesignateContactPerson(mayDesignateContact);
       const postingOrgId = task.organisation
         ? String(task.organisation)
         : req.orgId
@@ -705,9 +731,7 @@ export const updateTask = async (req: any, res: Response) => {
       const effectiveCategoryId = (task as any).categoryId
         ? String((task as any).categoryId)
         : null;
-      const previousContactId = (task as any).contactPerson
-        ? String((task as any).contactPerson)
-        : null;
+      const previousContactId = readTaskContactPersonUserId(task);
       const resolvedContact = await resolveContactPersonForUpdate(
         postingOrgId,
         effectiveCategoryId,
@@ -837,6 +861,12 @@ export const updateTask = async (req: any, res: Response) => {
       task.attachments = [...task.attachments, ...newAttachments];
     }
 
+    const contactAfterUpdates = readTaskContactPersonUserId(task);
+    assertDesignateCapableSubmitIncludesContact(
+      mayDesignateContact,
+      contactAfterUpdates,
+    );
+
     const reviewTask = {
       status: previousStatus,
       createdBy: task.createdBy.toString(),
@@ -849,6 +879,12 @@ export const updateTask = async (req: any, res: Response) => {
     }
     if (statusResolution.setApprovedBy) {
       task.approvedBy = req.user._id;
+    }
+
+    if (reviewAction === "publish") {
+      assertTaskContactPersonPresentForPublish(
+        readTaskContactPersonUserId(task),
+      );
     }
 
     if (task.visibility === TaskVisibility.PRIVATE) {
@@ -2015,7 +2051,8 @@ export const getTaskById = async (req: any, res: Response) => {
 export const approveTask = async (req: any, res: Response) => {
   try {
     const { taskId } = req.params;
-    const { status, rejectionReason } = req.body; // Approved or Declined (Archived)
+    const { status, rejectionReason, contactPerson: rawContactPerson } =
+      req.body; // Approved or Declined (Archived)
 
     const task = await Task.findById(taskId);
     if (!task) return res.status(404).json({ message: "Task not found" });
@@ -2045,6 +2082,34 @@ export const approveTask = async (req: any, res: Response) => {
     const previousStatus = task.status;
 
     if (normalizedStatus === "approve") {
+      const postingOrgId = task.organisation
+        ? String(task.organisation)
+        : req.orgId
+          ? String(req.orgId)
+          : null;
+      if (!postingOrgId) {
+        return res.status(400).json({
+          message: "Task organisation is required to set contact person",
+        });
+      }
+      const effectiveCategoryId = (task as any).categoryId
+        ? String((task as any).categoryId)
+        : null;
+      const previousContactId = readTaskContactPersonUserId(task);
+      if (Object.prototype.hasOwnProperty.call(req.body, "contactPerson")) {
+        const resolvedContact = await resolveContactPersonForUpdate(
+          postingOrgId,
+          effectiveCategoryId,
+          rawContactPerson,
+          previousContactId,
+        );
+        if (resolvedContact !== undefined) {
+          (task as any).contactPerson = resolvedContact;
+        }
+      }
+      assertTaskContactPersonPresentForPublish(
+        readTaskContactPersonUserId(task),
+      );
       task.status = TaskStatus.PUBLISHED;
       task.rejectionReason = undefined;
     } else if (normalizedStatus === "decline") {
@@ -2108,6 +2173,9 @@ export const approveTask = async (req: any, res: Response) => {
 
     res.json(task);
   } catch (err: any) {
+    if (err instanceof TaskContactPersonError) {
+      return res.status(err.status).json({ message: err.message });
+    }
     res.status(500).json({ message: err.message });
   }
 };
@@ -2186,14 +2254,37 @@ export const repostTask = async (req: any, res: Response) => {
       ? TaskStatus.PUBLISHED
       : TaskStatus.PENDING;
 
-    applyTaskContactAndCategoryFieldsForRepost(
+    const postingOrgId = task.organisation
+      ? String(task.organisation)
+      : req.orgId
+        ? String(req.orgId)
+        : null;
+    if (!postingOrgId) {
+      return res.status(400).json({
+        message: "Task organisation is required to repost",
+      });
+    }
+    const repostCategoryId = (task as any).categoryId
+      ? String((task as any).categoryId)
+      : null;
+    const repostContact = await resolveContactPersonForRepostClone(
+      postingOrgId,
+      repostCategoryId,
+      (task as any).contactPerson,
+    );
+    clonedTaskData.contactPerson = repostContact;
+    applyTaskCategoryFieldsForRepost(
       {
-        contactPerson: (task as any).contactPerson,
         categoryId: (task as any).categoryId,
         category: (task as any).category,
       },
       clonedTaskData,
     );
+    if (isAutoPublish) {
+      assertTaskContactPersonPresentForPublish(
+        repostContact ? String(repostContact) : null,
+      );
+    }
 
     const newTask = await Task.create(clonedTaskData);
 
@@ -2204,6 +2295,9 @@ export const repostTask = async (req: any, res: Response) => {
       ),
     );
   } catch (err: any) {
+    if (err instanceof TaskContactPersonError) {
+      return res.status(err.status).json({ message: err.message });
+    }
     res.status(500).json({ message: err.message });
   }
 };

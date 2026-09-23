@@ -608,8 +608,9 @@ class DatabaseService {
     id: string,
     status: "approve" | "decline" | "archive" = "approve",
     rejectionReason?: string,
+    contactPerson?: string,
   ): Promise<any> {
-    return await api.approveTask(id, status, rejectionReason);
+    return await api.approveTask(id, status, rejectionReason, contactPerson);
   }
 
   async archiveJob(id: string): Promise<any> {

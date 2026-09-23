@@ -467,10 +467,15 @@ class ApiService {
     id: string,
     status: "approve" | "decline" | "archive" = "approve",
     rejectionReason?: string,
+    contactPerson?: string,
   ): Promise<any> {
+    const body: Record<string, unknown> = { status, rejectionReason };
+    if (contactPerson?.trim()) {
+      body.contactPerson = contactPerson.trim();
+    }
     return this.request<any>(`/tasks/${id}/approve`, {
       method: "PUT",
-      body: JSON.stringify({ status, rejectionReason }),
+      body: JSON.stringify(body),
     });
   }
 

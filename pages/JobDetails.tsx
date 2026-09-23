@@ -62,7 +62,7 @@ import {
   getApplicationWindowStatus,
   isApplicationWindowOpen,
 } from "../utils/applicationWindow";
-import { CustomDatePicker } from "../components/CustomUI";
+import { CustomDatePicker, CustomDropdown } from "../components/CustomUI";
 import { validateRepostDates } from "../utils/taskFormValidation";
 
 function localTodayIsoDate(): string {
@@ -104,6 +104,12 @@ export const JobDetails: React.FC = () => {
   // Revise and Resubmit Modal State
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [approveContactPersonId, setApproveContactPersonId] = useState("");
+  const [approveContactPickerOptions, setApproveContactPickerOptions] = useState<
+    { id: string; name: string }[]
+  >([]);
+  const [approveSubmitting, setApproveSubmitting] = useState(false);
 
   // Repost Modal State
   const [showRepostModal, setShowRepostModal] = useState(false);
@@ -322,6 +328,66 @@ export const JobDetails: React.FC = () => {
     }
   };
 
+  const resolveJobContactPersonId = (task: Job): string => {
+    return (
+      task.contactPersonId?.trim() || task.contactPerson?._id?.trim() || ""
+    );
+  };
+
+  const openApproveModal = async () => {
+    if (!job) return;
+    setApproveContactPersonId("");
+    setShowApproveModal(true);
+    const existingContactId = resolveJobContactPersonId(job);
+    if (existingContactId || !job.categoryId?.trim()) {
+      setApproveContactPickerOptions([]);
+      return;
+    }
+    try {
+      const rows = await api.getTaskContactPersonPicker(job.categoryId);
+      setApproveContactPickerOptions(
+        rows.map((row) => ({
+          id: String(row._id),
+          name: row.name?.trim() || row.email?.trim() || String(row._id),
+        })),
+      );
+    } catch {
+      setApproveContactPickerOptions([]);
+    }
+  };
+
+  const confirmApprove = async () => {
+    if (!job) return;
+    const existingContactId = resolveJobContactPersonId(job);
+    if (!existingContactId && !approveContactPersonId.trim()) {
+      showError("Task contact person is required to publish this task.");
+      return;
+    }
+    setApproveSubmitting(true);
+    try {
+      await db.approveJob(
+        job.id,
+        "approve",
+        undefined,
+        existingContactId ? undefined : approveContactPersonId.trim(),
+      );
+      const refreshed = await db.getJob(job.id);
+      if (refreshed) setJob(refreshed);
+      else setJob({ ...job, status: JobStatus.PUBLISHED });
+      setShowApproveModal(false);
+      showSuccess("Task published successfully!");
+    } catch (err: any) {
+      console.error("Manager action failed", err);
+      const errorMessage =
+        err?.data?.message ||
+        err?.message ||
+        "Action failed. Please try again.";
+      showError(errorMessage);
+    } finally {
+      setApproveSubmitting(false);
+    }
+  };
+
   const handleManagerAction = async (action: "approve" | "decline") => {
     if (!job) return;
 
@@ -330,19 +396,8 @@ export const JobDetails: React.FC = () => {
       return;
     }
 
-    try {
-      if (action === "approve") {
-        await db.approveJob(job.id, "approve");
-        setJob({ ...job, status: JobStatus.PUBLISHED });
-        showSuccess("Task published successfully!");
-      }
-    } catch (err: any) {
-      console.error("Manager action failed", err);
-      const errorMessage =
-        err?.data?.message ||
-        err?.message ||
-        "Action failed. Please try again.";
-      showError(errorMessage);
+    if (action === "approve") {
+      void openApproveModal();
     }
   };
 
@@ -1274,6 +1329,58 @@ export const JobDetails: React.FC = () => {
                 className="px-4 py-2.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 disabled:opacity-50 transition-colors"
               >
                 {archiveDeclineSubmitting ? "Please wait…" : "Archive task"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Publish / approve modal */}
+      {showApproveModal && job && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-zinc-900 w-full max-w-md p-6 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 animate-scale-in">
+            <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-4">
+              Publish task
+            </h3>
+            {resolveJobContactPersonId(job) ? (
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
+                This task will be published and visible to applicants.
+              </p>
+            ) : (
+              <>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
+                  Choose a contact person before publishing. Applicants will
+                  reach them with questions about this task.
+                </p>
+                <CustomDropdown
+                  label="Task contact person *"
+                  options={approveContactPickerOptions}
+                  valueKey="id"
+                  value={approveContactPersonId}
+                  onChange={(val) => setApproveContactPersonId(val)}
+                  placeholder="Select contact person"
+                />
+              </>
+            )}
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => setShowApproveModal(false)}
+                className="px-4 py-2 text-zinc-600 dark:text-zinc-400 font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmApprove()}
+                disabled={
+                  approveSubmitting ||
+                  (!resolveJobContactPersonId(job) &&
+                    !approveContactPersonId.trim())
+                }
+                className="px-4 py-2 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {approveSubmitting ? "Please wait…" : "Publish"}
               </button>
             </div>
           </div>

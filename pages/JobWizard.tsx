@@ -53,12 +53,14 @@ import {
   isRewardTypeUnset,
   validateWizardStep1,
   validateWizardStep2,
+  validateWizardContactPersonField,
 } from "../utils/taskFormValidation";
 import {
   TASK_WIZARD_CONTACT_REMOVED_TOAST,
   isContactInTaskWizardPickerPool,
   isTaskWizardCategorySelected,
 } from "../utils/taskWizardCategoryContact";
+import { canShowTaskWizardContactPersonField } from "../utils/taskWizardContactPerson";
 import {
   buildAudienceTargetingPresentation,
   canEditTask,
@@ -268,7 +270,6 @@ export const JobWizard: React.FC = () => {
   const { can: canPermission } = usePermissions(currentUser);
   const isCreateMode = !id;
   const canSetContactOnCreate = canPermission(Permission.TASK_AUTO_PUBLISH);
-  const showContactPersonField = !isCreateMode || canSetContactOnCreate;
   const [taskOrganisationId, setTaskOrganisationId] = useState<string | null>(
     null,
   );
@@ -302,6 +303,12 @@ export const JobWizard: React.FC = () => {
   const [rewardTypesOrgReady, setRewardTypesOrgReady] = useState(false);
 
   const [formData, setFormData] = useState<Partial<Job>>(getInitialFormData);
+  const showContactPersonField = canShowTaskWizardContactPersonField({
+    isCreateMode,
+    canAutoPublish: canSetContactOnCreate,
+    isSuperAdmin: !!currentUser?.isSuperAdmin,
+    canReview: formData.canReview === true,
+  });
   const [contactPickerOptions, setContactPickerOptions] = useState<
     Array<{ id: string; name: string }>
   >([]);
@@ -563,7 +570,7 @@ export const JobWizard: React.FC = () => {
     if (storedId && storedLabel && !options.some((o) => o.id === storedId)) {
       options.unshift({ id: storedId, name: `${storedLabel} (saved)` });
     }
-    return [{ id: "", name: "No contact person" }, ...options];
+    return options;
   }, [
     contactPickerOptions,
     formData.contactPersonId,
@@ -708,6 +715,18 @@ export const JobWizard: React.FC = () => {
         setOpenS2((p) => ({ ...p, reward: true }));
       return;
     }
+    const contactError = validateWizardContactPersonField({
+      required: showContactPersonField,
+      categorySelected: isTaskWizardCategorySelected(formData.categoryId),
+      contactPersonId: formData.contactPersonId,
+      existingContactPersonId: formData.contactPersonId,
+    });
+    if (contactError) {
+      setErrors({ contactPersonId: contactError });
+      goToStep(1);
+      setOpenS1((p) => ({ ...p, basic: true }));
+      return;
+    }
     setErrors({});
     setIsSubmitting(true);
     setSubmitAction(action);
@@ -729,16 +748,10 @@ export const JobWizard: React.FC = () => {
         contactPersonId: _contactPersonId,
         ...formFields
       } = formData;
-      const includeContactPersonOnSubmit =
-        !isCreateMode || canSetContactOnCreate;
       const submissionData: Record<string, unknown> = {
         ...formFields,
-        ...(includeContactPersonOnSubmit
-          ? {
-              contactPerson: formData.contactPersonId?.trim()
-                ? formData.contactPersonId.trim()
-                : null,
-            }
+        ...(showContactPersonField && formData.contactPersonId?.trim()
+          ? { contactPerson: formData.contactPersonId.trim() }
           : {}),
         privateAudiences: selectedPrivateAudiences,
         allowedGroups:
@@ -1047,17 +1060,15 @@ export const JobWizard: React.FC = () => {
               {showContactPersonField && (
                 <div className="space-y-1.5 md:col-span-2">
                   <CustomDropdown
-                    label="Task contact person (optional)"
+                    label="Task contact person *"
                     options={contactPersonDropdownOptions}
                     valueKey="id"
                     value={formData.contactPersonId || ""}
                     disabled={!contactPersonFieldEnabled}
+                    error={!!errors.contactPersonId}
                     onChange={(val) => {
+                      if (!val) return;
                       updateField("contactPersonId", val);
-                      if (!val) {
-                        updateField("contactPerson", undefined);
-                        return;
-                      }
                       const selected = contactPersonDropdownOptions.find(
                         (o) => o.id === val,
                       );
@@ -1071,8 +1082,13 @@ export const JobWizard: React.FC = () => {
                           : undefined,
                       );
                     }}
-                    placeholder="No contact person"
+                    placeholder="Select contact person"
                   />
+                  {errors.contactPersonId && (
+                    <p className="text-red-500 text-xs font-bold">
+                      {errors.contactPersonId}
+                    </p>
+                  )}
                   {!contactPersonFieldEnabled && (
                     <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 ml-1">
                       Select a category first.
