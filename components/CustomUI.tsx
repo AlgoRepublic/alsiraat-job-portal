@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import {
   ChevronDown,
   Calendar as CalendarIcon,
@@ -8,6 +8,10 @@ import {
   Search,
   X,
 } from "lucide-react";
+import {
+  FloatingMenuPortal,
+  useFloatingMenuClickOutside,
+} from "./FloatingMenuPortal";
 
 export interface Option {
   name: string;
@@ -47,39 +51,11 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
     valueKey === "id" && opt.id !== undefined ? opt.id : opt.name;
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [showAbove, setShowAbove] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // Detect available space and adjust dropdown position
-  useEffect(() => {
-    if (isOpen && buttonRef.current) {
-      const buttonRect = buttonRef.current.getBoundingClientRect();
-      const dropdownHeight = 300; // Approximate max height of dropdown
-      const spaceBelow = window.innerHeight - buttonRect.bottom;
-      const spaceAbove = buttonRect.top;
-
-      // Show above if there's not enough space below but enough space above
-      if (spaceBelow < dropdownHeight && spaceAbove > dropdownHeight) {
-        setShowAbove(true);
-      } else {
-        setShowAbove(false);
-      }
-    }
-  }, [isOpen]);
+  useFloatingMenuClickOutside(isOpen, () => setIsOpen(false), anchorRef, menuRef);
 
   const selectedOption = options.find((opt) => optionValue(opt) === value);
   const matchesSearch = (opt: Option) => {
@@ -105,8 +81,8 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
 
   return (
     <div
-      className={`${variant === "default" && label ? "space-y-2" : ""} relative ${isOpen ? "z-[99999]" : "z-0"}`}
-      ref={dropdownRef}
+      className={`${variant === "default" && label ? "space-y-2" : ""} relative`}
+      ref={anchorRef}
     >
       {label && (
         <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">
@@ -141,76 +117,76 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
         />
       </button>
 
-      {isOpen && (
-        <div
-          className={`absolute z-[99999] w-full min-w-[200px] glass-card rounded-2xl overflow-hidden animate-slide-up shadow-2xl border border-zinc-200 dark:border-zinc-800 backdrop-blur-2xl ${
-            showAbove ? "bottom-full mb-2" : "top-full mt-2"
-          }`}
-        >
-          {options.length > 10 && (
-            <div className="p-2 border-b border-zinc-100 dark:border-zinc-800">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                <input
-                  type="text"
-                  className="w-full pl-9 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800 border-none rounded-lg text-xs outline-none focus:ring-1 focus:ring-primary"
-                  placeholder="Search..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  autoFocus
-                />
-              </div>
+      <FloatingMenuPortal
+        isOpen={isOpen}
+        anchorRef={buttonRef}
+        menuRef={menuRef}
+        recalculateDeps={[searchTerm, filteredOptions.length]}
+        className="flex flex-col min-w-[200px] glass-card rounded-2xl overflow-hidden animate-slide-up shadow-2xl border border-zinc-200 dark:border-zinc-800 backdrop-blur-2xl"
+      >
+        {options.length > 10 && (
+          <div className="p-2 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+              <input
+                type="text"
+                className="w-full pl-9 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800 border-none rounded-lg text-xs outline-none focus:ring-1 focus:ring-primary"
+                placeholder="Search..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                autoFocus
+              />
+            </div>
+          </div>
+        )}
+        <div className="max-h-60 overflow-y-auto p-2 space-y-1 min-h-0">
+          {filteredOptions.length > 0 ? (
+            filteredOptions.map((opt) => (
+              <button
+                key={optionKey(opt)}
+                type="button"
+                onClick={() => {
+                  onChange(optionValue(opt));
+                  setIsOpen(false);
+                  setSearchTerm("");
+                }}
+                className={`w-full p-2.5 rounded-xl flex items-center justify-between text-left transition-all ${
+                  value === optionValue(opt)
+                    ? "bg-primary text-white"
+                    : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200"
+                }`}
+              >
+                <span className="flex items-center gap-2 min-w-0">
+                  {opt.icon && <span>{opt.icon}</span>}
+                  <span className="min-w-0">
+                    <span className="block text-xs font-bold truncate">
+                      {opt.name}
+                    </span>
+                    {opt.description && (
+                      <span
+                        className={`block text-[10px] font-semibold truncate mt-0.5 ${
+                          value === optionValue(opt)
+                            ? "text-white/80"
+                            : "text-zinc-500 dark:text-zinc-400"
+                        }`}
+                      >
+                        {opt.description}
+                      </span>
+                    )}
+                  </span>
+                </span>
+                {value === optionValue(opt) && (
+                  <Check className="w-3.5 h-3.5 shrink-0" />
+                )}
+              </button>
+            ))
+          ) : (
+            <div className="p-4 text-center text-xs text-zinc-500 font-bold">
+              No results found
             </div>
           )}
-          <div className="max-h-60 overflow-y-auto p-2 space-y-1">
-            {filteredOptions.length > 0 ? (
-              filteredOptions.map((opt) => (
-                <button
-                  key={optionKey(opt)}
-                  type="button"
-                  onClick={() => {
-                    onChange(optionValue(opt));
-                    setIsOpen(false);
-                    setSearchTerm("");
-                  }}
-                  className={`w-full p-2.5 rounded-xl flex items-center justify-between text-left transition-all ${
-                    value === optionValue(opt)
-                      ? "bg-primary text-white"
-                      : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200"
-                  }`}
-                >
-                  <span className="flex items-center gap-2 min-w-0">
-                    {opt.icon && <span>{opt.icon}</span>}
-                    <span className="min-w-0">
-                      <span className="block text-xs font-bold truncate">
-                        {opt.name}
-                      </span>
-                      {opt.description && (
-                        <span
-                          className={`block text-[10px] font-semibold truncate mt-0.5 ${
-                            value === optionValue(opt)
-                              ? "text-white/80"
-                              : "text-zinc-500 dark:text-zinc-400"
-                          }`}
-                        >
-                          {opt.description}
-                        </span>
-                      )}
-                    </span>
-                  </span>
-                  {value === optionValue(opt) && (
-                    <Check className="w-3.5 h-3.5 shrink-0" />
-                  )}
-                </button>
-              ))
-            ) : (
-              <div className="p-4 text-center text-xs text-zinc-500 font-bold">
-                No results found
-              </div>
-            )}
-          </div>
         </div>
-      )}
+      </FloatingMenuPortal>
     </div>
   );
 };
@@ -234,32 +210,22 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [viewDate, setViewDate] = useState(new Date(value || new Date()));
-  const [showAbove, setShowAbove] = useState(false);
-  const pickerRef = useRef<HTMLDivElement>(null);
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const labelText = label.replace(/\s*\*$/, "");
   const placeholderText = /date$/i.test(labelText)
     ? `Select ${labelText}`
     : `Select ${labelText} Date`;
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        pickerRef.current &&
-        !pickerRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  useFloatingMenuClickOutside(isOpen, () => setIsOpen(false), anchorRef, menuRef);
 
-  // Commented out the showAbove logic so the calendar always opens downwards
-  // so the user can scroll to see it, preventing it from cutting off at the top.
-  useEffect(() => {
-    setShowAbove(false);
-  }, [isOpen]);
+  const dateMenuWidth =
+    isOpen &&
+    typeof window !== "undefined" &&
+    window.matchMedia("(min-width: 640px)").matches
+      ? Math.max(buttonRef.current?.getBoundingClientRect().width ?? 0, 320)
+      : undefined;
 
   const daysInMonth = (year: number, month: number) =>
     new Date(year, month + 1, 0).getDate();
@@ -354,10 +320,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
   };
 
   return (
-    <div
-      className={`space-y-2 relative ${isOpen ? "z-[99999]" : "z-0"}`}
-      ref={pickerRef}
-    >
+    <div className="space-y-2 relative" ref={anchorRef}>
       <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">
         {label}
       </label>
@@ -398,55 +361,57 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
         </div>
       </button>
 
-      {isOpen && (
-        <div
-          className={`absolute z-[99999] w-full sm:w-[320px] glass-card rounded-[2rem] p-6 animate-slide-up shadow-2xl border border-zinc-200 dark:border-zinc-800 backdrop-blur-2xl ${
-            showAbove ? "bottom-full mb-2" : "top-full mt-2"
-          }`}
-        >
-          <div className="flex items-center justify-between mb-6">
-            <button
-              type="button"
-              onClick={handlePrevMonth}
-              className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <h4 className="font-black tracking-tight text-zinc-900 dark:text-white">
-              {monthNames[viewDate.getMonth()]} {viewDate.getFullYear()}
-            </h4>
-            <button
-              type="button"
-              onClick={handleNextMonth}
-              className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-7 gap-1 text-center mb-2">
-            {["S", "M", "T", "W", "T", "F", "S"].map((d) => (
-              <div
-                key={d}
-                className="text-[10px] font-black text-zinc-400 uppercase"
-              >
-                {d}
-              </div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-7 gap-1">{renderCalendar()}</div>
-          {clearable && value && (
-            <button
-              type="button"
-              onClick={handleClear}
-              className="mt-4 w-full py-2.5 text-xs font-black uppercase tracking-widest text-zinc-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors"
-            >
-              Clear date
-            </button>
-          )}
+      <FloatingMenuPortal
+        isOpen={isOpen}
+        anchorRef={buttonRef}
+        menuRef={menuRef}
+        menuWidth={dateMenuWidth}
+        maxMenuHeight={420}
+        recalculateDeps={[viewDate.getMonth(), viewDate.getFullYear()]}
+        className="glass-card rounded-[2rem] p-6 animate-slide-up shadow-2xl border border-zinc-200 dark:border-zinc-800 backdrop-blur-2xl"
+      >
+        <div className="flex items-center justify-between mb-6">
+          <button
+            type="button"
+            onClick={handlePrevMonth}
+            className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <h4 className="font-black tracking-tight text-zinc-900 dark:text-white">
+            {monthNames[viewDate.getMonth()]} {viewDate.getFullYear()}
+          </h4>
+          <button
+            type="button"
+            onClick={handleNextMonth}
+            className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
         </div>
-      )}
+
+        <div className="grid grid-cols-7 gap-1 text-center mb-2">
+          {["S", "M", "T", "W", "T", "F", "S"].map((d) => (
+            <div
+              key={d}
+              className="text-[10px] font-black text-zinc-400 uppercase"
+            >
+              {d}
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-7 gap-1">{renderCalendar()}</div>
+        {clearable && value && (
+          <button
+            type="button"
+            onClick={handleClear}
+            className="mt-4 w-full py-2.5 text-xs font-black uppercase tracking-widest text-zinc-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors"
+          >
+            Clear date
+          </button>
+        )}
+      </FloatingMenuPortal>
     </div>
   );
 };

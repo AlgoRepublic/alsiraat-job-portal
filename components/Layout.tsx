@@ -38,6 +38,7 @@ import {
   isValidThemeColorHex,
 } from "../utils/orgTheme";
 import { TaskLifecycleActions } from "./TaskLifecycleActions";
+import { FloatingMenuPortal } from "./FloatingMenuPortal";
 
 /** First URL segment → page title (e.g. `post-job` → `Post Job`). */
 function formatPathnamePageTitle(pathname: string): string {
@@ -229,24 +230,32 @@ const COLORS = [
   },
 ];
 
-const HeaderIconButton: React.FC<{
-  icon: any;
-  label: string;
-  onClick?: () => void;
-  badge?: boolean;
-  badgeCount?: number;
-  className?: string;
-  iconClassName?: string;
-}> = ({
-  icon: Icon,
-  label,
-  onClick,
-  badge = false,
-  badgeCount = 0,
-  className = "",
-  iconClassName = "",
-}) => (
+const HeaderIconButton = React.forwardRef<
+  HTMLButtonElement,
+  {
+    icon: any;
+    label: string;
+    onClick?: () => void;
+    badge?: boolean;
+    badgeCount?: number;
+    className?: string;
+    iconClassName?: string;
+  }
+>(function HeaderIconButton(
+  {
+    icon: Icon,
+    label,
+    onClick,
+    badge = false,
+    badgeCount = 0,
+    className = "",
+    iconClassName = "",
+  },
+  ref,
+) {
+  return (
   <button
+    ref={ref}
     type="button"
     onClick={onClick}
     className={`relative p-3 rounded-2xl bg-white/30 dark:bg-zinc-800/30 hover:bg-white/60 dark:hover:bg-zinc-800/60 transition-all border border-white/30 dark:border-white/5 shadow-sm ${className}`}
@@ -260,7 +269,8 @@ const HeaderIconButton: React.FC<{
       </span>
     )}
   </button>
-);
+  );
+});
 
 export const Layout: React.FC<LayoutProps> = ({
   children,
@@ -285,6 +295,8 @@ export const Layout: React.FC<LayoutProps> = ({
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationRef = useRef<HTMLDivElement>(null);
+  const notificationButtonRef = useRef<HTMLButtonElement>(null);
+  const notificationMenuRef = useRef<HTMLDivElement>(null);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -292,6 +304,10 @@ export const Layout: React.FC<LayoutProps> = ({
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const searchAnchorRef = useRef<HTMLDivElement>(null);
+  const searchMenuRef = useRef<HTMLDivElement>(null);
+  const orgSwitcherButtonRef = useRef<HTMLButtonElement>(null);
+  const orgSwitcherMenuRef = useRef<HTMLDivElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [searchRefreshNonce, setSearchRefreshNonce] = useState(0);
   const [publicCentralOrg, setPublicCentralOrg] = useState<PublicPlatformOrg | null>(null);
@@ -393,17 +409,24 @@ export const Layout: React.FC<LayoutProps> = ({
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        notificationRef.current &&
-        !notificationRef.current.contains(event.target as Node)
-      ) {
+      const target = event.target as Node;
+      const inNotifications =
+        notificationRef.current?.contains(target) ||
+        notificationMenuRef.current?.contains(target);
+      if (!inNotifications) {
         setShowNotifications(false);
       }
-      if (
-        searchRef.current &&
-        !searchRef.current.contains(event.target as Node)
-      ) {
+      const inSearch =
+        searchRef.current?.contains(target) ||
+        searchMenuRef.current?.contains(target);
+      if (!inSearch) {
         setShowSearchResults(false);
+      }
+      const inOrgSwitcher =
+        orgSwitcherButtonRef.current?.contains(target) ||
+        orgSwitcherMenuRef.current?.contains(target);
+      if (!inOrgSwitcher) {
+        setShowOrgSwitcher(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -747,6 +770,7 @@ export const Layout: React.FC<LayoutProps> = ({
                 {(currentUser.organisations?.length ?? 0) > 1 ? (
                   <div className="relative min-w-0 w-full">
                     <button
+                      ref={orgSwitcherButtonRef}
                       type="button"
                       title={getActiveOrganisationDisplayName(currentUser)}
                       onClick={() => {
@@ -770,8 +794,17 @@ export const Layout: React.FC<LayoutProps> = ({
                       />
                     </button>
 
-                    {showOrgSwitcher && (currentUser.organisations?.length ?? 0) > 1 && (
-                      <div className="absolute top-full mt-1 left-0 right-0 z-50 glass-card rounded-xl shadow-xl border border-white/20 dark:border-white/5 overflow-hidden animate-slide-up">
+                    <FloatingMenuPortal
+                      isOpen={
+                        showOrgSwitcher &&
+                        (currentUser.organisations?.length ?? 0) > 1
+                      }
+                      anchorRef={orgSwitcherButtonRef}
+                      menuRef={orgSwitcherMenuRef}
+                      maxMenuHeight={320}
+                      recalculateDeps={[currentUser.organisations?.length]}
+                      className="glass-card rounded-xl shadow-xl border border-white/20 dark:border-white/5 overflow-hidden animate-slide-up"
+                    >
                         {currentUser.organisations.map((org) => {
                           const activeId =
                             (currentUser.activeOrganisation as any)?._id ??
@@ -827,8 +860,7 @@ export const Layout: React.FC<LayoutProps> = ({
                             </button>
                           );
                         })}
-                      </div>
-                    )}
+                    </FloatingMenuPortal>
                   </div>
                 ) : (
                   <p
@@ -1015,7 +1047,10 @@ export const Layout: React.FC<LayoutProps> = ({
 
               {/* Search Bar with Dropdown */}
             <div className="hidden md:block relative" ref={searchRef}>
-                <div className="flex items-center px-5 py-3 glass-card rounded-2xl border-white/30 w-72 focus-within:ring-2 focus-within:ring-primary/30 transition-all">
+                <div
+                  ref={searchAnchorRef}
+                  className="flex items-center px-5 py-3 glass-card rounded-2xl border-white/30 w-72 focus-within:ring-2 focus-within:ring-primary/30 transition-all"
+                >
                   <Search className="w-4 h-4 text-zinc-400" />
                   <input
                     type="text"
@@ -1032,9 +1067,14 @@ export const Layout: React.FC<LayoutProps> = ({
                   )}
                 </div>
 
-                {/* Search Results Dropdown */}
-                {showSearchResults && searchResults.length > 0 && (
-                  <div className="absolute top-14 left-0 right-0 glass-card rounded-2xl shadow-2xl z-50 max-h-96 overflow-y-auto animate-slide-up">
+                <FloatingMenuPortal
+                  isOpen={showSearchResults && searchResults.length > 0}
+                  anchorRef={searchAnchorRef}
+                  menuRef={searchMenuRef}
+                  maxMenuHeight={384}
+                  recalculateDeps={[searchResults.length]}
+                  className="glass-card rounded-2xl shadow-2xl overflow-y-auto animate-slide-up flex flex-col min-h-0"
+                >
                     <div className="p-2">
                       <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest px-3 py-2">
                         Tasks ({searchResults.length})
@@ -1087,23 +1127,29 @@ export const Layout: React.FC<LayoutProps> = ({
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
+                </FloatingMenuPortal>
 
-                {showSearchResults &&
-                  searchQuery.length >= 2 &&
-                  searchResults.length === 0 &&
-                  !isSearching && (
-                    <div className="absolute top-14 left-0 right-0 glass-card rounded-2xl shadow-2xl z-50 p-6 text-center animate-slide-up">
+                <FloatingMenuPortal
+                  isOpen={
+                    showSearchResults &&
+                    searchQuery.length >= 2 &&
+                    searchResults.length === 0 &&
+                    !isSearching
+                  }
+                  anchorRef={searchAnchorRef}
+                  menuRef={searchMenuRef}
+                  maxMenuHeight={200}
+                  className="glass-card rounded-2xl shadow-2xl p-6 text-center animate-slide-up"
+                >
                       <Search className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
                       <p className="text-sm text-zinc-500">No tasks found</p>
-                    </div>
-                  )}
+                </FloatingMenuPortal>
               </div>
 
             {/* Notifications Bell */}
             <div className="relative" ref={notificationRef}>
               <HeaderIconButton
+                ref={notificationButtonRef}
                 icon={Bell}
                 label="Notifications"
                 badge={true}
@@ -1118,10 +1164,17 @@ export const Layout: React.FC<LayoutProps> = ({
                 iconClassName="w-4 h-4 sm:w-5 sm:h-5"
               />
 
-              {/* Notification Dropdown */}
-              {showNotifications && currentUser && (
-                <div className="absolute top-14 right-0 w-96 glass-card rounded-2xl shadow-2xl z-50 max-h-[32rem] overflow-hidden animate-slide-up">
-                  <div className="p-4 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
+              <FloatingMenuPortal
+                isOpen={showNotifications && !!currentUser}
+                anchorRef={notificationButtonRef}
+                menuRef={notificationMenuRef}
+                menuWidth={384}
+                align="end"
+                maxMenuHeight={512}
+                recalculateDeps={[notifications.length, unreadCount]}
+                className="glass-card rounded-2xl shadow-2xl overflow-hidden animate-slide-up flex flex-col"
+              >
+                  <div className="p-4 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between shrink-0">
                     <h3 className="font-bold text-zinc-900 dark:text-white">
                       Notifications
                     </h3>
@@ -1136,7 +1189,7 @@ export const Layout: React.FC<LayoutProps> = ({
                     )}
                   </div>
 
-                  <div className="max-h-80 overflow-y-auto">
+                  <div className="max-h-80 overflow-y-auto min-h-0">
                     {notifications.length === 0 ? (
                       <div className="p-8 text-center">
                         <Bell className="w-10 h-10 text-zinc-200 dark:text-zinc-700 mx-auto mb-3" />
@@ -1192,7 +1245,7 @@ export const Layout: React.FC<LayoutProps> = ({
                   </div>
 
                   {notifications.length > 0 && (
-                    <div className="p-3 border-t border-zinc-200 dark:border-zinc-700">
+                    <div className="p-3 border-t border-zinc-200 dark:border-zinc-700 shrink-0">
                       <button
                         onClick={() => {
                           navigate("/notifications");
@@ -1204,8 +1257,7 @@ export const Layout: React.FC<LayoutProps> = ({
                       </button>
                     </div>
                   )}
-                </div>
-              )}
+              </FloatingMenuPortal>
             </div>
           </div>
         </header>

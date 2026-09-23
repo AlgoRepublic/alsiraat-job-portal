@@ -22,6 +22,10 @@ import {
   memberMatchesTaskRoleAudience,
   normalizeTaskAllowedRoleIds,
 } from "../utils/taskAllowedRoles";
+import {
+  FloatingMenuPortal,
+  useFloatingMenuClickOutside,
+} from "./FloatingMenuPortal";
 import { formatOptionalTaskDuration } from "../utils/formatOptionalTaskField";
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -70,24 +74,21 @@ function SearchDropdown<T extends { _id: string }>({
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
+  useFloatingMenuClickOutside(open, () => setOpen(false), containerRef, menuRef);
 
   return (
-    <div className="space-y-2" ref={ref}>
+    <div className="space-y-2" ref={containerRef}>
       <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em]">
         {label}
       </label>
 
       {/* Trigger / selected value */}
       <button
+        ref={buttonRef}
         type="button"
         disabled={disabled}
         onClick={() => !disabled && setOpen((o) => !o)}
@@ -109,11 +110,16 @@ function SearchDropdown<T extends { _id: string }>({
         )}
       </button>
 
-      {/* Dropdown */}
-      {open && (
-        <div className="absolute z-50 mt-1 w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-2xl shadow-black/10 overflow-hidden animate-fade-in">
+      <FloatingMenuPortal
+        isOpen={open}
+        anchorRef={buttonRef}
+        menuRef={menuRef}
+        maxMenuHeight={224}
+        recalculateDeps={[items.length, loading, searchValue]}
+        className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-2xl shadow-black/10 overflow-hidden animate-fade-in flex flex-col"
+      >
           {/* Search */}
-          <div className="p-3 border-b border-zinc-100 dark:border-zinc-800">
+          <div className="p-3 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
               <input
@@ -127,7 +133,7 @@ function SearchDropdown<T extends { _id: string }>({
           </div>
 
           {/* Items */}
-          <div className="max-h-56 overflow-y-auto">
+          <div className="max-h-56 overflow-y-auto min-h-0">
             {loading ? (
               <div className="flex items-center justify-center py-8 gap-2 text-zinc-400">
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -148,8 +154,7 @@ function SearchDropdown<T extends { _id: string }>({
               ))
             )}
           </div>
-        </div>
-      )}
+      </FloatingMenuPortal>
     </div>
   );
 }
