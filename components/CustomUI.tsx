@@ -25,6 +25,7 @@ interface CustomDropdownProps {
   variant?: "default" | "outline" | "ghost" | "compact";
   icon?: React.ReactNode;
   error?: boolean;
+  disabled?: boolean;
   /** When `"id"`, value/onChange use `option.id` (falls back to name). */
   valueKey?: "name" | "id";
 }
@@ -38,6 +39,7 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
   variant = "default",
   icon,
   error,
+  disabled = false,
   valueKey = "name",
 }) => {
   const optionValue = (opt: Option) =>
@@ -109,8 +111,16 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
       <button
         ref={buttonRef}
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className={`${getButtonStyles()} flex items-center justify-between transition-all hover:bg-white/40 dark:hover:bg-zinc-800/60`}
+        disabled={disabled}
+        onClick={() => {
+          if (disabled) return;
+          setIsOpen(!isOpen);
+        }}
+        className={`${getButtonStyles()} flex items-center justify-between transition-all ${
+          disabled
+            ? "opacity-60 cursor-not-allowed"
+            : "hover:bg-white/40 dark:hover:bg-zinc-800/60"
+        }`}
       >
         <span className="flex items-center gap-2">
           {icon && <span>{icon}</span>}

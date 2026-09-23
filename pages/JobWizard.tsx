@@ -55,6 +55,11 @@ import {
   validateWizardStep2,
 } from "../utils/taskFormValidation";
 import {
+  TASK_WIZARD_CONTACT_REMOVED_TOAST,
+  isContactInTaskWizardPickerPool,
+  isTaskWizardCategorySelected,
+} from "../utils/taskWizardCategoryContact";
+import {
   buildAudienceTargetingPresentation,
   canEditTask,
   canShowReviewerEditActions,
@@ -251,7 +256,7 @@ const AccordionSection: React.FC<AccordionProps> = ({
 export const JobWizard: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { showSuccess, showError } = useToast();
+  const { showSuccess, showError, showToast } = useToast();
 
   const [step, setStep] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -484,13 +489,7 @@ export const JobWizard: React.FC = () => {
         }
       } else {
         setRewardTypes(activeTypes);
-        const initialData = getInitialFormData();
-        const firstActive = cats.find((c) => c?.isActive !== false);
-        if (firstActive?._id) {
-          initialData.categoryId = String(firstActive._id);
-          initialData.category = firstActive.name;
-        }
-        setFormData(initialData);
+        setFormData(getInitialFormData());
       }
     };
     fetchData();
@@ -529,10 +528,14 @@ export const JobWizard: React.FC = () => {
       setContactPickerOptions([]);
       return;
     }
+    const categoryId = formData.categoryId?.trim();
+    if (!categoryId) {
+      setContactPickerOptions([]);
+      return;
+    }
     let cancelled = false;
     const loadContactPicker = async () => {
       try {
-        const categoryId = formData.categoryId?.trim() || undefined;
         const rows = await api.getTaskContactPersonPicker(categoryId);
         if (cancelled) return;
         setContactPickerOptions(
@@ -566,6 +569,10 @@ export const JobWizard: React.FC = () => {
     formData.contactPersonId,
     formData.contactPerson?.name,
   ]);
+
+  const contactPersonFieldEnabled = isTaskWizardCategorySelected(
+    formData.categoryId,
+  );
 
   const visibilityOptions = React.useMemo(() => {
     const privateDesc =
@@ -987,6 +994,7 @@ export const JobWizard: React.FC = () => {
                   valueKey="id"
                   value={formData.categoryId || ""}
                   onChange={(val) => {
+                    const previousCategoryId = formData.categoryId?.trim() ?? "";
                     const selected = categoryDropdownOptions.find(
                       (c) => c.id === val,
                     );
@@ -994,6 +1002,37 @@ export const JobWizard: React.FC = () => {
                     updateField("category", selected?.name ?? "");
                     if (errors.categoryId)
                       setErrors((p) => ({ ...p, categoryId: "" }));
+
+                    const contactId = formData.contactPersonId?.trim();
+                    if (
+                      !showContactPersonField ||
+                      !contactId ||
+                      !val?.trim() ||
+                      previousCategoryId === val.trim()
+                    ) {
+                      return;
+                    }
+                    void (async () => {
+                      try {
+                        const rows = await api.getTaskContactPersonPicker(
+                          val.trim(),
+                        );
+                        const poolIds = rows.map((u) => String(u._id));
+                        if (
+                          !isContactInTaskWizardPickerPool(contactId, poolIds)
+                        ) {
+                          updateField("contactPersonId", "");
+                          updateField("contactPerson", undefined);
+                          showToast(
+                            "info",
+                            TASK_WIZARD_CONTACT_REMOVED_TOAST.title,
+                            TASK_WIZARD_CONTACT_REMOVED_TOAST.message,
+                          );
+                        }
+                      } catch {
+                        /* keep contact if picker fails */
+                      }
+                    })();
                   }}
                   placeholder="Select Category"
                   error={!!errors.categoryId}
@@ -1012,6 +1051,7 @@ export const JobWizard: React.FC = () => {
                     options={contactPersonDropdownOptions}
                     valueKey="id"
                     value={formData.contactPersonId || ""}
+                    disabled={!contactPersonFieldEnabled}
                     onChange={(val) => {
                       updateField("contactPersonId", val);
                       if (!val) {
@@ -1033,6 +1073,11 @@ export const JobWizard: React.FC = () => {
                     }}
                     placeholder="No contact person"
                   />
+                  {!contactPersonFieldEnabled && (
+                    <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 ml-1">
+                      Select a category first.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
