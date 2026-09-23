@@ -28,6 +28,13 @@ import {
   Textarea,
 } from "@/components/ui";
 import {
+  Modal,
+  ModalDescription,
+  ModalFooter,
+  ModalHeader,
+  ModalTitle,
+} from "@/components/ui/modal";
+import {
   getActiveOrgIdFromStorage,
   getMemberKindForActiveOrg,
   getMemberRolesForActiveOrg,
@@ -259,19 +266,21 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-white dark:bg-zinc-900 rounded-surface p-8 w-full max-w-md shadow-2xl border border-zinc-100 dark:border-zinc-800">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-semibold text-zinc-900 dark:text-white tracking-tighter">
-            {initial ? "Edit Group" : "Create Group"}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
-          >
-            <X className="w-5 h-5 text-zinc-400" />
-          </button>
-        </div>
+    <Modal open onClose={onClose} zIndex={50} panelClassName="max-w-md">
+      <ModalHeader className="mb-6 flex flex-row items-center justify-between gap-3">
+        <ModalTitle className="text-2xl tracking-tighter">
+          {initial ? "Edit Group" : "Create Group"}
+        </ModalTitle>
+        <Button
+          type="button"
+          variant="ghost"
+          size="iconCompact"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <X className="h-5 w-5" />
+        </Button>
+      </ModalHeader>
 
         <div className="space-y-5">
           {!initial && (
@@ -406,23 +415,20 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
           </div>
         </div>
 
-        <div className="flex gap-3 mt-8">
-          <button
-            onClick={onClose}
-            className="flex-1 py-4 rounded-xl border border-zinc-200 dark:border-zinc-700 font-semibold text-xs uppercase tracking-wide text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={!name.trim() || saving}
-            className="flex-1 py-4 rounded-xl bg-primary text-white font-semibold text-xs uppercase tracking-wide hover:bg-primaryHover transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
-          >
-            {saving ? "Saving..." : initial ? "Update" : "Create"}
-          </button>
-        </div>
-      </div>
-    </div>
+      <ModalFooter className="mt-8 grid w-full grid-cols-2 gap-3">
+        <Button type="button" variant="secondary" size="compact" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          size="compact"
+          onClick={handleSave}
+          disabled={!name.trim() || saving}
+        >
+          {saving ? "Saving..." : initial ? "Update" : "Create"}
+        </Button>
+      </ModalFooter>
+    </Modal>
   );
 };
 
@@ -514,37 +520,45 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-white dark:bg-zinc-900 rounded-surface p-8 w-full max-w-lg shadow-2xl border border-zinc-100 dark:border-zinc-800 flex flex-col max-h-[80vh]">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-semibold text-zinc-900 dark:text-white tracking-tighter">
-              {isApprovalMode ? "Add Approval Members" : "Add Members"}
-            </h2>
-            <p className="text-sm text-zinc-400 font-medium mt-1">
-              to{" "}
-              <span className="font-bold" style={{ color: group.color }}>
-                {group.name}
-              </span>
-              {isApprovalMode
-                ? " · users who can approve tasks in this organisation"
-                : ""}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
-          >
-            <X className="w-5 h-5 text-zinc-400" />
-          </button>
+    <Modal
+      open
+      onClose={onClose}
+      zIndex={50}
+      panelClassName="flex max-h-[80vh] max-w-lg flex-col"
+    >
+      <ModalHeader className="mb-6 flex flex-row items-start justify-between gap-3">
+        <div className="min-w-0">
+          <ModalTitle className="text-2xl tracking-tighter">
+            {isApprovalMode ? "Add Approval Members" : "Add Members"}
+          </ModalTitle>
+          <ModalDescription className="mt-1 font-medium">
+            to{" "}
+            <span className="font-bold" style={{ color: group.color }}>
+              {group.name}
+            </span>
+            {isApprovalMode
+              ? " · users who can approve tasks in this organisation"
+              : ""}
+          </ModalDescription>
         </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="iconCompact"
+          onClick={onClose}
+          className="shrink-0"
+          aria-label="Close"
+        >
+          <X className="h-5 w-5" />
+        </Button>
+      </ModalHeader>
 
         <div className="relative mb-4">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+          <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
             placeholder="Search users..."
-            className="font-medium"
+            className="pl-10 font-medium"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             autoFocus
@@ -672,25 +686,22 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
           </div>
         </div>
 
-        <div className="flex gap-3 mt-6 pt-4 border-t border-zinc-100 dark:border-zinc-800">
-          <button
-            onClick={onClose}
-            className="flex-1 py-4 rounded-xl border border-zinc-200 dark:border-zinc-700 font-semibold text-xs uppercase tracking-wide text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleAdd}
-            disabled={selected.length === 0 || saving}
-            className="flex-1 py-4 rounded-xl bg-primary text-white font-semibold text-xs uppercase tracking-wide hover:bg-primaryHover transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
-          >
-            {saving
-              ? "Adding..."
-              : `Add ${selected.length > 0 ? `(${selected.length})` : ""}`}
-          </button>
-        </div>
-      </div>
-    </div>
+      <ModalFooter className="mt-6 grid w-full grid-cols-2 gap-3 border-t border-border pt-4">
+        <Button type="button" variant="secondary" size="compact" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          size="compact"
+          onClick={handleAdd}
+          disabled={selected.length === 0 || saving}
+        >
+          {saving
+            ? "Adding..."
+            : `Add ${selected.length > 0 ? `(${selected.length})` : ""}`}
+        </Button>
+      </ModalFooter>
+    </Modal>
   );
 };
 
@@ -897,7 +908,7 @@ export const GroupManagement: React.FC<{
                   key={tab}
                   type="button"
                   onClick={() => setKindFilter(tab)}
-                  className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${
+                  className={`inline-flex h-9 items-center justify-center gap-2 px-4 rounded-control text-xs font-semibold uppercase tracking-wide transition-all ${
                     kindFilter === tab
                       ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-700"
                       : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"

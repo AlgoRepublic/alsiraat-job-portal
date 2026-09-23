@@ -662,44 +662,47 @@ export const ApplicationReview: React.FC = () => {
                   </h3>
                   <div className="space-y-3">
                     {canShowDecisionActions && canShortlist && (
-                      <button
+                      <Button
                         id="btn-shortlist"
+                        variant="infoSoft"
+                        className="w-full"
                         onClick={() => handleStatusUpdate("Shortlisted")}
                         disabled={app.status === "Shortlisted"}
-                        className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-blue-500/20"
                       >
                         <CheckCircle className="w-4 h-4" />
                         Shortlist Applicant
-                      </button>
+                      </Button>
                     )}
 
                     {canShowDecisionActions && canApproveReject && (
                       <>
-                        <button
+                        <Button
                           id="btn-offer"
+                          variant="success"
+                          className="w-full"
                           onClick={() => handleStatusUpdate("Offered")}
                           disabled={
                             app.status === "Offered" ||
                             app.status === "Accepted" ||
                             app.status === "Declined"
                           }
-                          className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-emerald-500/20"
                         >
                           <ChevronRight className="w-4 h-4" />
                           Send Offer
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           id="btn-reject"
+                          variant="dangerSoft"
+                          className="w-full"
                           onClick={() => handleStatusUpdate("Rejected")}
                           disabled={
                             app.status === "Rejected" ||
                             app.status === "Accepted"
                           }
-                          className="w-full py-3 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-red-600 rounded-xl font-bold text-sm hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <XCircle className="w-4 h-4" />
                           Reject Application
-                        </button>
+                        </Button>
                       </>
                     )}
 
@@ -709,22 +712,24 @@ export const ApplicationReview: React.FC = () => {
                             <p className="text-xs text-zinc-500 mb-3 font-semibold">
                               Applicant has marked this task as complete
                             </p>
-                            <button
+                            <Button
                               id="btn-verify-completion"
+                              variant="success"
+                              className="w-full"
                               onClick={handleAcceptCompletion}
-                              className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 flex items-center justify-center gap-2 transition-colors shadow-md shadow-emerald-500/20"
                             >
                               <CheckCircle className="w-4 h-4" />
                               Verify Completion
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                               id="btn-reject-completion"
+                              variant="dangerSoft"
+                              className="w-full mt-2"
                               onClick={() => setShowRejectModal(true)}
-                              className="w-full mt-2 py-3 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-red-600 rounded-xl font-bold text-sm hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center justify-center gap-2 transition-colors"
                             >
                               <XCircle className="w-4 h-4" />
                               Reject Completion
-                            </button>
+                            </Button>
                           </div>
                         </>
                       )}
@@ -747,19 +752,19 @@ export const ApplicationReview: React.FC = () => {
                               ))}
                             </div>
                             {app.reviewText && (
-                              <p className="text-xs text-emerald-800 dark:text-emerald-300 italic line-clamp-3">
+                              <p className="text-xs text-emerald-800 dark:text-emerald-300 italic whitespace-pre-wrap break-words">
                                 "{app.reviewText}"
                               </p>
                             )}
                           </div>
                         ) : canManageCompletion ? (
-                          <button
+                          <Button
+                            className="w-full"
                             onClick={() => setShowReviewForm(true)}
-                            className="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/90 flex items-center justify-center gap-2 transition-colors shadow-md shadow-primary/20"
                           >
                             <Star className="w-4 h-4" />
                             Rate Applicant
-                          </button>
+                          </Button>
                         ) : (
                           <p className="text-xs text-zinc-500 text-center py-2">
                             You do not have permission to submit a rating for
@@ -798,24 +803,26 @@ export const ApplicationReview: React.FC = () => {
                   </p>
                   <div className="space-y-3">
                     {canConfirmOffer && (
-                      <button
+                      <Button
                         id="btn-accept-offer"
+                        variant="success"
+                        className="w-full"
                         onClick={handleConfirmOffer}
-                        className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 flex items-center justify-center gap-2 transition-colors shadow-md shadow-emerald-500/20"
                       >
                         <CheckCircle className="w-4 h-4" />
                         Accept Offer
-                      </button>
+                      </Button>
                     )}
                     {canDeclineOffer && (
-                      <button
+                      <Button
                         id="btn-decline-offer"
+                        variant="dangerSoft"
+                        className="w-full"
                         onClick={handleDeclineOffer}
-                        className="w-full py-3 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-red-600 rounded-xl font-bold text-sm hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center justify-center gap-2 transition-colors"
                       >
                         <XCircle className="w-4 h-4" />
                         Decline Offer
-                      </button>
+                      </Button>
                     )}
                   </div>
                 </Card>

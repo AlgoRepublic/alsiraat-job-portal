@@ -39,6 +39,8 @@ import {
 } from "../utils/orgTheme";
 import { TaskLifecycleActions } from "./TaskLifecycleActions";
 import { FloatingMenuPortal } from "./FloatingMenuPortal";
+import { JobStatusLabel } from "@/utils/statusDisplay";
+import { cn } from "@/utils/cn";
 
 /** Full display name for tooltip / labels when active org may omit `name` on the object. */
 function getActiveOrganisationDisplayName(user: User): string {
@@ -248,11 +250,14 @@ const HeaderIconButton = React.forwardRef<
     ref={ref}
     type="button"
     onClick={onClick}
-    className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-control border border-border bg-surface text-muted-foreground hover:bg-surface-muted hover:text-foreground transition-colors ${className}`}
+    className={cn(
+      "relative flex h-9 w-9 shrink-0 items-center justify-center rounded-control border border-border bg-surface text-muted-foreground hover:bg-surface-muted hover:text-foreground transition-colors",
+      className,
+    )}
     aria-label={label}
     title={label}
   >
-    <Icon className={`w-[18px] h-[18px] ${iconClassName}`} />
+    <Icon className={cn("w-[18px] h-[18px]", iconClassName)} />
     {badge && badgeCount > 0 && (
       <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-bold text-white">
         {badgeCount > 9 ? "9+" : badgeCount}
@@ -1066,15 +1071,10 @@ export const Layout: React.FC<LayoutProps> = ({
                               {resolveTaskCategoryLabel(task)}
                             </p>
                           </div>
-                          <span
-                            className={`px-2 py-1 text-[10px] font-bold rounded-lg shrink-0 ${
-                              task.status === "Published"
-                                ? "bg-emerald-100 text-emerald-700"
-                                : "bg-zinc-100 text-zinc-500"
-                            }`}
-                          >
-                            {task.status}
-                          </span>
+                          <JobStatusLabel
+                            status={task.status}
+                            className="shrink-0"
+                          />
                           </button>
                           {currentUser && (
                             <TaskLifecycleActions
@@ -1190,7 +1190,7 @@ export const Layout: React.FC<LayoutProps> = ({
                             >
                               {notification.title}
                             </p>
-                            <p className="text-xs text-zinc-500 mt-0.5 line-clamp-2">
+                            <p className="text-xs text-zinc-500 mt-0.5 break-words whitespace-pre-wrap">
                               {notification.message}
                             </p>
                             <p className="text-[10px] text-zinc-400 mt-1">

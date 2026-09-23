@@ -26,7 +26,7 @@ import { api, API_BASE_URL } from "../services/api";
 import { resolveTaskCategoryLabel } from "../utils/taskCategoryDisplay";
 import { getMemberRolesForActiveOrg } from "../utils/orgScopedRoles";
 import { TaskLifecycleActions } from "./TaskLifecycleActions";
-import { Badge } from "@/components/ui/badge";
+import { MemberRoleBadges } from "./MemberRoleBadges";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -72,19 +72,6 @@ const SKILL_STYLES: Record<string, string> = {
   Expert:
     "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
 };
-
-const ROLE_COLOUR: Record<string, string> = {
-  "Super Admin": "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
-  "Organisation Admin":
-    "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
-  "Task Manager":
-    "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
-  "Task Advertiser":
-    "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-  Applicant: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
-};
-const roleColour = (name: string) =>
-  ROLE_COLOUR[name] ?? "bg-primary/10 text-primary dark:bg-primary/20";
 
 /* ─── InfoPill ───────────────────────────────────────────────────────────────── */
 const InfoPill: React.FC<{
@@ -234,9 +221,9 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
       />
 
       {/* Drawer */}
-      <div className="fixed inset-y-0 right-0 z-50 flex flex-col w-full max-w-2xl bg-white dark:bg-zinc-900 shadow-2xl animate-slide-in-right overflow-hidden">
+      <div className="fixed inset-y-0 right-0 z-50 flex flex-col w-full max-w-2xl bg-surface border-l border-border shadow-2xl animate-slide-in-right overflow-hidden">
         {/* ── Hero ─────────────────────────────────────────────────────────── */}
-        <div className="relative bg-gradient-to-br from-primary/20 via-primary/10 to-transparent p-6 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0">
+        <div className="relative bg-gradient-to-br from-primary/20 via-primary/10 to-transparent p-6 border-b border-border flex-shrink-0">
           <button
             onClick={onClose}
             className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-white/60 dark:hover:bg-zinc-800 rounded-xl transition-all"
@@ -264,27 +251,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
                 {user.name}
               </h2>
               <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                {displayMemberRoles.map((role) => (
-                  <Badge
-                    key={role.id}
-                    variant="chip"
-                    className={`text-xs uppercase tracking-wider ${roleColour(role.name)} ${
-                      role.isActive === false ? "opacity-60 line-through" : ""
-                    }`}
-                    title={
-                      role.isActive === false
-                        ? `${role.name} (inactive)`
-                        : role.name
-                    }
-                  >
-                    {role.name}
-                    {role.isActive === false ? (
-                      <span className="ml-1 normal-case tracking-normal font-semibold opacity-80">
-                        · inactive
-                      </span>
-                    ) : null}
-                  </Badge>
-                ))}
+                <MemberRoleBadges roles={displayMemberRoles} />
                 {user.organisation?.name && (
                   <span className="flex items-center gap-1 text-xs font-bold text-zinc-500 dark:text-zinc-400">
                     <Building2 className="w-3.5 h-3.5" />
@@ -328,7 +295,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
         </div>
 
         {/* ── Tab nav ──────────────────────────────────────────────────────── */}
-        <div className="flex border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0 bg-white dark:bg-zinc-900">
+        <div className="flex border-b border-border flex-shrink-0 bg-surface">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -713,17 +680,13 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
                     ...tasks.slice(0, 5).map((t) => ({
                       type: "task" as const,
                       label: t.title,
-                      sub: `Task · ${t.status}`,
                       date: t.createdAt,
-                      statusStyle: taskStatusStyle(t.status),
                       status: t.status,
                     })),
                     ...applications.slice(0, 5).map((a) => ({
                       type: "app" as const,
                       label: a.task?.title || "Unknown Task",
-                      sub: `Application · ${a.status}`,
                       date: a.createdAt,
-                      statusStyle: appStatusStyle(a.status),
                       status: a.status,
                     })),
                   ]
@@ -756,10 +719,15 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
                           </p>
                           <p className="text-xs text-zinc-400">{fmt(item.date)}</p>
                         </div>
-                        <span
-                          className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-lg uppercase tracking-wide ${item.statusStyle}`}
-                        >
-                          {item.status}
+                        <span className="shrink-0">
+                          {item.type === "task" ? (
+                            <JobStatusLabel status={item.status} />
+                          ) : (
+                            <ApplicationStatusLabel
+                              status={item.status}
+                              className="shrink-0"
+                            />
+                          )}
                         </span>
                       </div>
                     ))}
@@ -775,7 +743,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
         </div>
 
         {/* ── Footer ─────────────────────────────────────────────────────────── */}
-        <div className="flex-shrink-0 flex justify-between items-center gap-3 px-6 py-4 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
+        <div className="flex-shrink-0 flex justify-between items-center gap-3 px-6 py-4 border-t border-border bg-surface-muted/50">
           <button
             onClick={onClose}
             className="px-5 py-2.5 text-sm font-bold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all"

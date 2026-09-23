@@ -7,6 +7,7 @@ import {
   Edit2,
   AlertTriangle,
   UserCheck,
+  ArrowRight,
 } from "lucide-react";
 import { db } from "../services/database";
 import { Job, JobStatus, User } from "../types";
@@ -19,7 +20,7 @@ import { organisationIdToString } from "../utils/organisationId";
 import { canEditTask } from "../utils/taskDetailPresentation";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 import { formatOptionalTaskDuration } from "../utils/formatOptionalTaskField";
-import { Button, Card, PageHeader } from "@/components/ui";
+import { Badge, Button, Card, PageHeader } from "@/components/ui";
 import { JobStatusLabel } from "@/utils/statusDisplay";
 
 const PAGE_SIZE = 10;
@@ -124,61 +125,8 @@ export const MyAds: React.FC = () => {
     !!currentUser?.isSuperAdmin ||
     !!currentUser?.permissions?.includes(Permission.TASK_DELETE);
 
-  const renderAdActions = (task: Job) => (
-    <div className="flex flex-wrap items-center gap-2 justify-start md:justify-end">
-      {canAssign && isAssignable(task) && (
-        <Button
-          size="action"
-          variant="violetSoft"
-          onClick={() => {
-            setAssignTask(task);
-            setAssignModalOpen(true);
-          }}
-          title="Assign task directly to a user"
-        >
-          <UserCheck className="w-3.5 h-3.5" />
-          Assign
-        </Button>
-      )}
-      {canEditTask(
-        currentUser,
-        {
-          status: task.status,
-          createdBy: task.createdBy,
-          createdById: task.createdById,
-          organisation:
-            task.organisation ?? (task as { organization?: unknown }).organization,
-          archivedAt: task.archivedAt,
-          deletedAt: task.deletedAt,
-          canReview: task.canReview,
-        },
-        activeOrgId,
-      ) && (
-        <Button
-          size="action"
-          variant="amberSoft"
-          onClick={() => navigate(`/edit-job/${task._id}`)}
-        >
-          <Edit2 className="w-3.5 h-3.5" />
-          Edit
-        </Button>
-      )}
-      <Button
-        size="action"
-        variant="primary"
-        onClick={() => navigate(`/jobs/${task._id}`)}
-      >
-        <Eye className="w-3.5 h-3.5" />
-        View
-      </Button>
-      <TaskLifecycleActions
-        job={task}
-        currentUser={currentUser}
-        layout="compact"
-        onAfterMutation={() => fetchMyTasks(currentPage, adsLifecycle)}
-      />
-    </div>
-  );
+  const applicantCount = (task: Job) =>
+    (task as any).applicantsCount ?? (task as any).applicantCount ?? 0;
 
   if (loading) {
     return <Loading message="Loading..." />;
@@ -237,16 +185,110 @@ export const MyAds: React.FC = () => {
           </Card>
         )}
 
-        <Card padding="none" className="overflow-hidden">
-          <div className="md:hidden divide-y divide-border">
-            {tasks.map((task) => (
-              <div
-                key={task._id}
-                className="p-card space-y-4 hover:bg-surface-muted/50 transition-colors"
-              >
-                <div className="flex items-start gap-4">
+        <div className="grid gap-4">
+          {tasks.map((task) => (
+            <Card
+              key={task._id}
+              padding="card"
+              onClick={() => navigate(`/jobs/${task._id}`)}
+              className="group cursor-pointer transition-colors hover:border-primary/30"
+            >
+              <div className="min-w-0">
+                <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+                  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                    <JobStatusLabel status={task.status} />
+                    {task.archivedAt && (
+                      <Badge variant="chipMuted">Archived</Badge>
+                    )}
+                    {task.deletedAt && (
+                      <Badge variant="chip" className="border-red-200 text-red-700 dark:border-red-800 dark:text-red-300">
+                        Deleted
+                      </Badge>
+                    )}
+                    <Badge variant="chip">{task.visibility}</Badge>
+                    <Badge variant="chipMuted">
+                      {formatOptionalTaskDuration(task.hoursRequired, "h")}
+                    </Badge>
+                    <Badge variant="chip" className="gap-1">
+                      <Users className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+                      {applicantCount(task)} applicants
+                    </Badge>
+                    {task.createdAt && !isNaN(new Date(task.createdAt).getTime()) && (
+                      <Badge variant="chipMuted">
+                        Created{" "}
+                        {new Date(task.createdAt).toLocaleDateString("en-GB", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <div
+                      className="flex flex-wrap items-center gap-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {canAssign && isAssignable(task) && (
+                        <Button
+                          size="action"
+                          variant="violetSoft"
+                          onClick={() => {
+                            setAssignTask(task);
+                            setAssignModalOpen(true);
+                          }}
+                          title="Assign task directly to a user"
+                        >
+                          <UserCheck className="w-3.5 h-3.5" />
+                          Assign
+                        </Button>
+                      )}
+                      {canEditTask(
+                        currentUser,
+                        {
+                          status: task.status,
+                          createdBy: task.createdBy,
+                          createdById: task.createdById,
+                          organisation:
+                            task.organisation ?? (task as { organization?: unknown }).organization,
+                          archivedAt: task.archivedAt,
+                          deletedAt: task.deletedAt,
+                          canReview: task.canReview,
+                        },
+                        activeOrgId,
+                      ) && (
+                        <Button
+                          size="action"
+                          variant="amberSoft"
+                          onClick={() => navigate(`/edit-job/${task._id}`)}
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                          Edit
+                        </Button>
+                      )}
+                      <Button
+                        size="action"
+                        variant="primary"
+                        onClick={() => navigate(`/jobs/${task._id}`)}
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        View
+                      </Button>
+                      <TaskLifecycleActions
+                        job={task}
+                        currentUser={currentUser}
+                        layout="compact"
+                        onAfterMutation={() => fetchMyTasks(currentPage, adsLifecycle)}
+                      />
+                    </div>
+                    <span className="flex h-9 w-9 items-center justify-center rounded-control bg-surface-muted text-muted-foreground transition-colors group-hover:bg-primary group-hover:text-white">
+                      <ArrowRight className="h-4 w-4" />
+                    </span>
+                  </div>
+                </div>
+                <div className="mb-2 flex items-start gap-3">
                   <div
-                    className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-control ${
                       task.status === JobStatus.CHANGES_REQUESTED
                         ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
                         : "bg-primary/10 text-primary"
@@ -259,64 +301,30 @@ export const MyAds: React.FC = () => {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-base font-semibold text-foreground">
+                    <h3 className="text-lg font-semibold text-foreground transition-colors group-hover:text-primary">
                       {task.title}
-                    </p>
-                    <p className="text-xs text-zinc-500 font-medium uppercase tracking-widest mt-1">
-                      {task.visibility} •{" "}
-                      {formatOptionalTaskDuration(task.hoursRequired, "h")}
-                    </p>
+                    </h3>
                     {task.status === JobStatus.CHANGES_REQUESTED &&
                       task.rejectionReason && (
-                        <p className="text-xs text-red-600 dark:text-red-400 font-semibold mt-1.5 flex items-center gap-1">
+                        <p className="mt-1 text-xs font-semibold text-red-600 dark:text-red-400 flex items-center gap-1">
                           <AlertTriangle className="w-3 h-3 shrink-0" />
                           {task.rejectionReason}
                         </p>
                       )}
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-widest">
-                      Created Date
-                    </p>
-                    <p className="font-semibold text-zinc-500 dark:text-zinc-400 mt-1">
-                      {task.createdAt && !isNaN(new Date(task.createdAt).getTime())
-                        ? new Date(task.createdAt).toLocaleDateString("en-GB", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          })
-                        : "—"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                      Status
-                    </p>
-                    <div className="mt-1">
-                      <JobStatusLabel status={task.status} />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                      Applicants
-                    </p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Users className="w-4 h-4 text-zinc-400" />
-                      <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300">
-                        {(task as any).applicantsCount ??
-                          (task as any).applicantCount ??
-                          0}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                {renderAdActions(task)}
+                {task.description && (
+                  <p className="max-w-4xl whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground">
+                    {task.description}
+                  </p>
+                )}
               </div>
-            ))}
-            {tasks.length === 0 && (
-              <div className="p-card py-16 text-center text-muted-foreground italic">
+            </Card>
+          ))}
+
+          {tasks.length === 0 && (
+            <Card className="border-dashed py-12 text-center">
+              <p className="text-muted-foreground italic">
                 You haven't posted any ads yet.{" "}
                 <button
                   onClick={() => navigate("/post-job")}
@@ -324,114 +332,11 @@ export const MyAds: React.FC = () => {
                 >
                   Create Your First Ad
                 </button>
-              </div>
-            )}
-          </div>
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-surface-muted border-b border-border">
-                <tr>
-                  <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Task Information
-                  </th>
-                  <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Created Date
-                  </th>
-                  <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide text-center">
-                    Applicants
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {tasks.map((task) => (
-                  <tr
-                    key={task._id}
-                    className="hover:bg-surface-muted/50 transition-colors group"
-                  >
-                    <td className="px-4 py-4">
-                      <div className="flex items-center gap-4">
-                        <div
-                          className={`w-12 h-12 rounded-control flex items-center justify-center ${
-                            task.status === JobStatus.CHANGES_REQUESTED
-                              ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
-                              : "bg-primary/10 text-primary"
-                          }`}
-                        >
-                          {task.status === JobStatus.CHANGES_REQUESTED ? (
-                            <AlertTriangle className="w-6 h-6" />
-                          ) : (
-                            <Briefcase className="w-6 h-6" />
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">
-                            {task.title}
-                          </p>
-                          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mt-1">
-                            {task.visibility} •{" "}
-                            {formatOptionalTaskDuration(task.hoursRequired, "h")}
-                          </p>
-                          {task.status === JobStatus.CHANGES_REQUESTED &&
-                            task.rejectionReason && (
-                              <p className="text-xs text-red-600 dark:text-red-400 font-semibold mt-1.5 flex items-center gap-1">
-                                <AlertTriangle className="w-3 h-3 shrink-0" />
-                                {task.rejectionReason}
-                              </p>
-                            )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-muted-foreground">
-                      {task.createdAt && !isNaN(new Date(task.createdAt).getTime()) ? new Date(task.createdAt).toLocaleDateString("en-GB", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      }) : "—"}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <JobStatusLabel status={task.status} />
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <Users className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm font-semibold text-foreground">
-                          {(task as any).applicantsCount ??
-                            (task as any).applicantCount ??
-                            0}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-right">
-                      {renderAdActions(task)}
-                    </td>
-                  </tr>
-                ))}
-                {tasks.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="px-4 py-16 text-center text-muted-foreground italic"
-                    >
-                      You haven't posted any ads yet.{" "}
-                      <button
-                        onClick={() => navigate("/post-job")}
-                        className="text-primary font-semibold hover:underline ml-2"
-                      >
-                        Create Your First Ad
-                      </button>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+              </p>
+            </Card>
+          )}
+        </div>
+
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}

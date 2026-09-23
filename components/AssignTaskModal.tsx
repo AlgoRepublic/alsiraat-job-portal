@@ -31,6 +31,7 @@ import { Modal, ModalTitle, ModalDescription } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { JobStatusLabel } from "@/utils/statusDisplay";
 import { cn } from "@/utils/cn";
 
@@ -441,12 +442,12 @@ export const AssignTaskModal: React.FC<AssignTaskModalProps> = ({
               {/* Optional note */}
               <div className="space-y-2">
                 <Label>Note to Assignee (optional)</Label>
-                <textarea
+                <Textarea
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   rows={2}
                   placeholder="Add a message describing the task, expectations, etc."
-                  className="w-full min-h-[4.5rem] px-3 py-2 rounded-control border border-border bg-surface text-sm text-foreground placeholder:text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/30 resize-none transition-all"
+                  className="min-h-[4.5rem] resize-none"
                 />
               </div>
 

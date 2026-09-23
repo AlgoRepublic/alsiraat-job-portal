@@ -223,7 +223,7 @@ const AccordionSection: React.FC<AccordionProps> = ({
     >
       <div className="flex items-center gap-3">
         <div
-          className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
+          className={`w-9 h-9 rounded-control flex items-center justify-center transition-colors ${
             isOpen
               ? "bg-primary text-white"
               : hasError
@@ -1556,7 +1556,7 @@ export const JobWizard: React.FC = () => {
               </div>
 
               {formData.visibility === Visibility.PRIVATE && (
-                <div className="space-y-4 animate-fade-in bg-zinc-50 dark:bg-zinc-800/30 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800">
+                <div className="space-y-4 animate-fade-in rounded-control border border-border bg-surface-muted p-4">
                   <div>
                     <Label>Private Audience</Label>
                     <p className="text-xs text-zinc-500 mt-0.5">
@@ -1629,7 +1629,7 @@ export const JobWizard: React.FC = () => {
                   return (
                     <div
                       key={audienceKind}
-                      className="space-y-3 animate-fade-in bg-zinc-50 dark:bg-zinc-800/30 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800"
+                      className="space-y-3 animate-fade-in rounded-control border border-border bg-surface-muted p-4"
                     >
                       <div>
                         <Label>{audienceKind} Groups</Label>
@@ -1814,7 +1814,7 @@ export const JobWizard: React.FC = () => {
           {/* Summary grid */}
           <div className="surface-panel overflow-hidden rounded-control shadow-sm">
             <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center">
+              <div className="w-9 h-9 rounded-control bg-primary text-white flex items-center justify-center">
                 <Eye className="w-4 h-4" />
               </div>
               <div>
@@ -1874,7 +1874,7 @@ export const JobWizard: React.FC = () => {
                         : formData.visibility || "-",
                   },
                 ].map((item) => (
-                  <div key={item.label} className="bg-zinc-50 dark:bg-zinc-800/40 rounded-xl p-3">
+                  <div key={item.label} className="rounded-control border border-border bg-surface-muted p-3">
                     <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide mb-1">
                       {item.label}
                     </p>
@@ -1887,7 +1887,7 @@ export const JobWizard: React.FC = () => {
 
               {reviewAudiencePresentation?.showTargetGroups &&
                 reviewAudiencePresentation.targetGroupSections && (
-                  <div className="bg-zinc-50 dark:bg-zinc-800/40 rounded-xl p-4 space-y-3">
+                  <div className="rounded-control border border-border bg-surface-muted p-4 space-y-3">
                     <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">
                       Target Groups
                     </p>
@@ -1907,9 +1907,9 @@ export const JobWizard: React.FC = () => {
                 )}
 
               {formData.description && (
-                <div className="bg-zinc-50 dark:bg-zinc-800/40 rounded-xl p-4">
+                <div className="rounded-control border border-border bg-surface-muted p-4">
                   <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide mb-2">Description</p>
-                  <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed line-clamp-4 whitespace-pre-wrap">
+                  <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed break-words whitespace-pre-wrap">
                     {formData.description}
                   </p>
                 </div>
@@ -1920,7 +1920,7 @@ export const JobWizard: React.FC = () => {
           {/* Requirements summary */}
           <div className="surface-panel overflow-hidden rounded-control shadow-sm">
             <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center">
+              <div className="w-9 h-9 rounded-control bg-primary text-white flex items-center justify-center">
                 <Layers className="w-4 h-4" />
               </div>
               <div>
@@ -1959,7 +1959,7 @@ export const JobWizard: React.FC = () => {
               )}
 
               {formData.selectionCriteria && (
-                <div className="bg-zinc-50 dark:bg-zinc-800/40 rounded-xl p-4">
+                <div className="rounded-control border border-border bg-surface-muted p-4">
                   <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide mb-2">Success Criteria</p>
                   <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{formData.selectionCriteria}</p>
                 </div>

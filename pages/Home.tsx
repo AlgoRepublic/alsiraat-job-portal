@@ -3,20 +3,20 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   Briefcase,
-  Users,
   Award,
   GraduationCap,
   MapPin,
   Clock,
   UserRound,
   ShieldHalf,
+  Search,
 } from "lucide-react";
 import { db } from "../services/database";
 import { resolveTaskCategoryLabel } from "../utils/taskCategoryDisplay";
 import { resolveCatalogOrganisationId } from "../services/platformOrganisations";
 import { Job, JobStatus, User } from "../types";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
-import { Card } from "@/components/ui";
+import { Badge, Card, Input } from "@/components/ui";
 import {
   formatOptionalTaskDuration,
   formatOptionalTaskLocation,
@@ -167,11 +167,11 @@ export const Home: React.FC = () => {
 
             <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
               {/* Search */}
-              <div className="relative flex-1 md:w-64">
-                <input
-                  type="text"
+              <div className="relative min-w-0 flex-1 md:w-64">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  className="pl-9"
                   placeholder="Search tasks..."
-                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 focus:ring-2 focus:ring-primary outline-none font-medium text-sm"
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       navigate(
@@ -180,19 +180,6 @@ export const Home: React.FC = () => {
                     }
                   }}
                 />
-                <svg
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
               </div>
 
               {/* Add Task Button */}
@@ -225,7 +212,7 @@ export const Home: React.FC = () => {
                 onClick={() =>
                   navigate(`/jobs?category=${encodeURIComponent(cat.name)}`)
                 }
-                className="group relative bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl p-6 hover:shadow-xl transition-all cursor-pointer hover:-translate-y-1 overflow-hidden"
+                className="group relative surface-panel border border-border rounded-control p-6 hover:shadow-xl transition-all cursor-pointer hover:-translate-y-1 overflow-hidden"
                 style={{
                   borderColor: cat.color + "20",
                 }}
@@ -236,7 +223,7 @@ export const Home: React.FC = () => {
                 />
                 <div className="relative z-10 text-center">
                   <div
-                    className="mb-3 mx-auto w-16 h-16 rounded-xl flex items-center justify-center text-3xl"
+                    className="mb-3 mx-auto w-16 h-16 rounded-control flex items-center justify-center text-3xl"
                     style={{
                       backgroundColor: cat.color + "20",
                     }}
@@ -280,52 +267,57 @@ export const Home: React.FC = () => {
             <div
               key={job.id}
               onClick={() => navigate(`/jobs/${job.id}`)}
-              className="group relative bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-surface p-6 hover:shadow-xl hover:shadow-zinc-200/50 dark:hover:shadow-black/50 transition-all cursor-pointer hover:-translate-y-1"
+              className="group relative surface-panel border border-border rounded-surface p-6 hover:shadow-xl transition-all cursor-pointer hover:-translate-y-1 hover:border-primary/30"
             >
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                <span className="px-3 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-[10px] font-semibold uppercase tracking-wide rounded-lg">
-                  {resolveTaskCategoryLabel(job)}
-                </span>
-                <div onClick={(e) => e.stopPropagation()}>
-                  <TaskLifecycleActions
-                    job={job}
-                    currentUser={currentUser}
-                    layout="compact"
-                    onAfterMutation={() =>
-                      void db.getJobs().then((jobs) => {
-                        const visible = jobs.filter(
-                          (j) =>
-                            j.status === JobStatus.PUBLISHED ||
-                            j.status === JobStatus.APPROVED,
-                        );
-                        setPublicJobs(visible);
-                      })
-                    }
-                  />
+              <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                  <Badge variant="chip">{resolveTaskCategoryLabel(job)}</Badge>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <TaskLifecycleActions
+                      job={job}
+                      currentUser={currentUser}
+                      layout="compact"
+                      onAfterMutation={() =>
+                        void db.getJobs().then((jobs) => {
+                          const visible = jobs.filter(
+                            (j) =>
+                              j.status === JobStatus.PUBLISHED ||
+                              j.status === JobStatus.APPROVED,
+                          );
+                          setPublicJobs(visible);
+                        })
+                      }
+                    />
+                  </div>
+                  <span className="flex h-9 w-9 items-center justify-center rounded-control bg-surface-muted text-muted-foreground transition-colors group-hover:bg-primary group-hover:text-white">
+                    <ArrowRight className="h-4 w-4" />
+                  </span>
                 </div>
               </div>
 
-              <div className="mb-6">
-                <div className="w-12 h-12 bg-primary/10 text-primary rounded-xl flex items-center justify-center mb-4">
+              <div className="mb-4">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-control bg-primary/10 text-primary">
                   <Briefcase className="w-6 h-6" />
                 </div>
-                <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2 leading-tight">
+                <h3 className="mb-2 text-xl font-semibold text-foreground leading-tight transition-colors group-hover:text-primary">
                   {job.title}
                 </h3>
-                <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
+                <p className="max-w-4xl whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground">
                   {job.description}
                 </p>
               </div>
 
-              <div className="flex items-center gap-4 text-xs font-bold text-zinc-400 dark:text-zinc-500 border-t border-zinc-100 dark:border-zinc-800 pt-4">
-                <div className="flex items-center">
-                  <MapPin className="w-4 h-4 mr-1.5" />
+              <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4 text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5 rounded-control border border-border bg-surface-muted px-2.5 py-1">
+                  <MapPin className="h-3.5 w-3.5 text-primary" />
                   {formatOptionalTaskLocation(job.location)}
-                </div>
-                <div className="flex items-center">
-                  <Clock className="w-4 h-4 mr-1.5" />
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-control border border-border bg-surface-muted px-2.5 py-1">
+                  <Clock className="h-3.5 w-3.5 text-primary" />
                   {formatOptionalTaskDuration(job.hoursRequired, "h")}
-                </div>
+                </span>
               </div>
             </div>
           ))}

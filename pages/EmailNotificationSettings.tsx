@@ -820,10 +820,11 @@ export const EmailNotificationSettings: React.FC<{
               placeholder="Send test email to..."
               className="flex-1"
             />
-            <button
+            <Button
+              type="button"
               onClick={handleTest}
               disabled={testing}
-              className="flex items-center gap-2 px-5 py-2.5 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-xl text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="rounded-control bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900"
             >
               {testing ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />
@@ -831,7 +832,7 @@ export const EmailNotificationSettings: React.FC<{
                 <Send className="w-4 h-4" />
               )}
               {testing ? "Sending…" : "Send Test"}
-            </button>
+            </Button>
           </div>
 
           {testResult && (
@@ -940,10 +941,11 @@ export const EmailNotificationSettings: React.FC<{
               placeholder="Send test email to..."
               className="flex-1"
             />
-            <button
+            <Button
+              type="button"
               onClick={handleTest}
               disabled={testing}
-              className="flex items-center gap-2 px-5 py-2.5 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-xl text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="rounded-control bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900"
             >
               {testing ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />
@@ -951,7 +953,7 @@ export const EmailNotificationSettings: React.FC<{
                 <Send className="w-4 h-4" />
               )}
               {testing ? "Sending…" : "Send Test"}
-            </button>
+            </Button>
           </div>
 
           {testResult && (

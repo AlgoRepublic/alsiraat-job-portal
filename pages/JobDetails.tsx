@@ -73,7 +73,10 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { JobStatusLabel } from "@/utils/statusDisplay";
+import {
+  ApplicationStatusLabel,
+  JobStatusLabel,
+} from "@/utils/statusDisplay";
 import {
   Modal,
   ModalFooter,
@@ -758,25 +761,31 @@ export const JobDetails: React.FC = () => {
               This task is waiting for approval.
             </p>
           </div>
-          <div className="flex gap-3">
-            <button
+          <div className="flex flex-wrap gap-3">
+            <Button
+              type="button"
+              variant="amberSoft"
+              size="compact"
               onClick={() => handleManagerAction("decline")}
-              className="px-4 py-2 bg-white dark:bg-zinc-900 text-amber-600 border border-zinc-200 dark:border-zinc-700 rounded-xl font-semibold hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors flex items-center"
             >
-              <XCircle className="w-4 h-4 mr-2" /> Revise and Resubmit
-            </button>
-            <button
+              <XCircle className="w-4 h-4" /> Revise and Resubmit
+            </Button>
+            <Button
+              type="button"
+              variant="dangerSoft"
+              size="compact"
               onClick={() => setShowArchiveDeclineModal(true)}
-              className="px-4 py-2 bg-white dark:bg-zinc-900 text-red-600 border border-zinc-200 dark:border-zinc-700 rounded-xl font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center"
             >
-              <Archive className="w-4 h-4 mr-2" /> Decline
-            </button>
-            <button
+              <Archive className="w-4 h-4" /> Decline
+            </Button>
+            <Button
+              type="button"
+              variant="success"
+              size="compact"
               onClick={() => handleManagerAction("approve")}
-              className="px-4 py-2 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 shadow-md transition-colors flex items-center"
             >
-              <ShieldCheck className="w-4 h-4 mr-2" /> Publish
-            </button>
+              <ShieldCheck className="w-4 h-4" /> Publish
+            </Button>
           </div>
         </div>
       )}
@@ -792,21 +801,20 @@ export const JobDetails: React.FC = () => {
               This task's applications close date has passed. What would you like to do?
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             {isJobOwner && (
-              <button
+              <Button
+                type="button"
+                variant="infoSoft"
+                size="compact"
                 onClick={openRepostModal}
-                className="px-4 py-2 bg-white dark:bg-zinc-900 text-blue-600 border border-blue-200 dark:border-blue-700/50 rounded-xl font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors flex items-center"
               >
-                <RefreshCw className="w-4 h-4 mr-2" /> Repost
-              </button>
+                <RefreshCw className="w-4 h-4" /> Repost
+              </Button>
             )}
-            <button
-              onClick={handleMarkCompleted}
-              className="px-4 py-2 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 shadow-md transition-colors flex items-center"
-            >
-              <CheckCircle2 className="w-4 h-4 mr-2" /> Mark Completed
-            </button>
+            <Button type="button" size="compact" onClick={handleMarkCompleted}>
+              <CheckCircle2 className="w-4 h-4" /> Mark Completed
+            </Button>
           </div>
         </div>
       )}
@@ -1038,23 +1046,7 @@ export const JobDetails: React.FC = () => {
                                 {app.applicantEmail}
                               </p>
                               <div className="mt-2">
-                                <span
-                                  className={`px-2 py-1 text-[9px] font-semibold rounded-lg uppercase tracking-wider ${
-                                    app.status === "Approved" ||
-                                    app.status === "Accepted"
-                                      ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
-                                      : app.status === "Offered"
-                                        ? "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400"
-                                        : app.status === "Shortlisted"
-                                          ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
-                                          : app.status === "Rejected" ||
-                                              app.status === "Declined"
-                                            ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
-                                            : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
-                                  }`}
-                                >
-                                  {app.status}
-                                </span>
+                                <ApplicationStatusLabel status={app.status} />
                               </div>
                             </div>
                           </div>
@@ -1093,12 +1085,13 @@ export const JobDetails: React.FC = () => {
                     <p className="text-sm text-zinc-500 mb-6 font-medium">
                       You must be logged in to apply for this task.
                     </p>
-                    <button
+                    <Button
+                      type="button"
+                      className="w-full"
                       onClick={() => navigate("/login")}
-                      className="w-full py-3.5 bg-primary text-white rounded-xl font-bold hover:bg-primaryHover transition-all"
                     >
                       Login to Apply
-                    </button>
+                    </Button>
                   </div>
                 ) : job.status === JobStatus.CLOSED ? (
                   <div className="p-8 text-center animate-fade-in">
@@ -1111,12 +1104,14 @@ export const JobDetails: React.FC = () => {
                     <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-6">
                       A candidate has been selected for this position.
                     </p>
-                    <button
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="w-full"
                       onClick={() => navigate("/jobs")}
-                      className="w-full py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded-xl font-semibold hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all"
                     >
                       Search Other Tasks
-                    </button>
+                    </Button>
                   </div>
                 ) : applicationStep === "success" ||
                   applicationStep === "applied" ? (
@@ -1134,12 +1129,13 @@ export const JobDetails: React.FC = () => {
                         ? "We will review your application soon."
                         : "You have already applied for this."}
                     </p>
-                    <button
+                    <Button
+                      type="button"
+                      className="w-full"
                       onClick={() => navigate("/jobs")}
-                      className="w-full py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primaryHover"
                     >
                       Back to Tasks
-                    </button>
+                    </Button>
                   </div>
                 ) : isApplicationNotYetOpen ? (
                   <div className="p-8 text-center animate-fade-in">
@@ -1165,12 +1161,14 @@ export const JobDetails: React.FC = () => {
                     <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-6">
                       The application window for this task has ended.
                     </p>
-                    <button
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="w-full"
                       onClick={() => navigate("/jobs")}
-                      className="w-full py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded-xl font-semibold hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all"
                     >
                       Search Other Tasks
-                    </button>
+                    </Button>
                   </div>
                 ) : !passesGroupRestriction ? (
                   /* User is not in the required group for this internal task */
@@ -1250,13 +1248,13 @@ export const JobDetails: React.FC = () => {
                       </label>
                     </div>
 
-                    <button
+                    <Button
                       type="submit"
                       disabled={!agreed}
-                      className="w-full py-3.5 bg-primary text-white rounded-xl font-bold hover:bg-primaryHover shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                      className="w-full"
                     >
                       Apply
-                    </button>
+                    </Button>
                   </form>
                 )}
               </div>

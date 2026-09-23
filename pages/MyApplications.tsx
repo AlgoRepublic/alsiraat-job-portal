@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Briefcase, ChevronUp, ChevronDown, Eye } from "lucide-react";
+import { ArrowRight, ChevronUp, ChevronDown, Eye } from "lucide-react";
 import { api } from "../services/api";
 import { db } from "../services/database";
 import { Application, Job, User } from "../types";
@@ -13,7 +13,7 @@ import { Loading } from "../components/Loading";
 import { useToast } from "../components/Toast";
 import { Pagination } from "../components/Pagination";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
-import { Button, Card, PageHeader } from "@/components/ui";
+import { Badge, Button, Card, PageHeader } from "@/components/ui";
 import { ApplicationStatusLabel } from "@/utils/statusDisplay";
 
 const PAGE_SIZE = 10;
@@ -77,6 +77,18 @@ export default function MyApplications() {
     }
   };
 
+  const jobPath = (app: ApplicationWithJob) =>
+    `/jobs/${app.jobId || (app.task as any)?.id || (app.task as any)?._id}`;
+
+  const formatAppliedDate = (appliedAt: string | undefined) =>
+    appliedAt && !isNaN(new Date(appliedAt).getTime())
+      ? new Date(appliedAt).toLocaleDateString("en-GB", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        })
+      : "—";
+
   if (loading) {
     return <Loading message="Loading..." />;
   }
@@ -102,103 +114,104 @@ export default function MyApplications() {
         </Card>
       )}
 
-      <Card padding="none" className="overflow-hidden">
-        <div className="md:hidden border-b border-border px-4 py-3">
-          <button
-            type="button"
-            onClick={toggleSort}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide hover:text-primary transition-colors"
-          >
-            Applied Date
-            {sortDir === "desc" ? (
-              <ChevronDown className="w-3.5 h-3.5" />
-            ) : (
-              <ChevronUp className="w-3.5 h-3.5" />
-            )}
-          </button>
-        </div>
-        <div className="md:hidden divide-y divide-border">
-          {sorted.map((app) => (
-            <div
+      <div className="flex items-center justify-end">
+        <button
+          type="button"
+          onClick={toggleSort}
+          className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide hover:text-primary transition-colors"
+        >
+          Applied Date
+          {sortDir === "desc" ? (
+            <ChevronDown className="w-3.5 h-3.5" />
+          ) : (
+            <ChevronUp className="w-3.5 h-3.5" />
+          )}
+        </button>
+      </div>
+
+      <div className="grid gap-4">
+        {sorted.map((app) => {
+          const task = app.task as Job | undefined;
+          const canNavigate = !!(app.jobId || app.task);
+
+          return (
+            <Card
               key={app.id}
-              className="p-card space-y-4 hover:bg-surface-muted/50 transition-colors"
+              padding="card"
+              onClick={() => {
+                if (canNavigate) navigate(jobPath(app));
+              }}
+              className={`group transition-colors hover:border-primary/30 ${canNavigate ? "cursor-pointer" : ""}`}
             >
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-control bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                  <Briefcase className="w-6 h-6" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-base font-semibold text-foreground">
-                    {app.jobTitle || app.task?.title || "Task Deleted"}
-                  </p>
-                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mt-1">
-                    Ref: #{app.id?.slice(-6).toUpperCase()}
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Applied Date
-                  </p>
-                  <p className="font-medium text-muted-foreground mt-1">
-                    {app.appliedAt && !isNaN(new Date(app.appliedAt).getTime())
-                      ? new Date(app.appliedAt).toLocaleDateString("en-GB", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })
-                      : "—"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Status
-                  </p>
-                  <div className="mt-1">
+              <div className="min-w-0">
+                <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+                  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                     <ApplicationStatusLabel
                       status={displayApplicationStatus(app.status)}
                     />
+                    <Badge variant="chip">
+                      Ref #{app.id?.slice(-6).toUpperCase()}
+                    </Badge>
+                    <Badge variant="chipMuted">
+                      Applied {formatAppliedDate(app.appliedAt)}
+                    </Badge>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <div
+                      className="flex flex-wrap items-center gap-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {app.status === "Accepted" && (
+                        <Button
+                          size="action"
+                          className="bg-blue-600 hover:bg-blue-700"
+                          onClick={() => handleRequestCompletion(app.id)}
+                        >
+                          Request Completion
+                        </Button>
+                      )}
+                      {canNavigate && (
+                        <Button
+                          size="action"
+                          variant="primary"
+                          onClick={() => navigate(jobPath(app))}
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          View
+                        </Button>
+                      )}
+                      {task && (
+                        <TaskLifecycleActions
+                          job={task}
+                          currentUser={currentUser}
+                          layout="compact"
+                          onAfterMutation={() => fetchMyApplications(currentPage)}
+                        />
+                      )}
+                    </div>
+                    {canNavigate && (
+                      <span className="flex h-9 w-9 items-center justify-center rounded-control bg-surface-muted text-muted-foreground transition-colors group-hover:bg-primary group-hover:text-white">
+                        <ArrowRight className="h-4 w-4" />
+                      </span>
+                    )}
                   </div>
                 </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {app.status === "Accepted" && (
-                  <Button
-                    size="compact"
-                    className="bg-blue-600 hover:bg-blue-700"
-                    onClick={() => handleRequestCompletion(app.id)}
-                  >
-                    Request Completion
-                  </Button>
-                )}
-                {(app.jobId || app.task) && (
-                  <Button
-                    size="action"
-                    variant="primary"
-                    onClick={() =>
-                      navigate(
-                        `/jobs/${app.jobId || (app.task as any)?.id || (app.task as any)?._id}`,
-                      )
-                    }
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                    View
-                  </Button>
-                )}
-                {app.task && (
-                  <TaskLifecycleActions
-                    job={app.task as Job}
-                    currentUser={currentUser}
-                    layout="compact"
-                    onAfterMutation={() => fetchMyApplications(currentPage)}
-                  />
+                <h3 className="mb-2 text-lg font-semibold text-foreground transition-colors group-hover:text-primary">
+                  {app.jobTitle || task?.title || "Task Deleted"}
+                </h3>
+                {task?.description && (
+                  <p className="max-w-4xl whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground">
+                    {task.description}
+                  </p>
                 )}
               </div>
-            </div>
-          ))}
-          {applications.length === 0 && (
-            <div className="p-card py-16 text-center text-muted-foreground italic">
+            </Card>
+          );
+        })}
+
+        {applications.length === 0 && (
+          <Card className="border-dashed py-12 text-center">
+            <p className="text-muted-foreground italic">
               You haven't applied for any tasks yet.{" "}
               <button
                 onClick={() => navigate("/jobs")}
@@ -217,124 +230,11 @@ export default function MyApplications() {
                 </button>
                 .
               </span>
-            </div>
-          )}
-        </div>
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-surface-muted border-b border-border">
-              <tr>
-                <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Task Information
-                </th>
-                <th
-                  className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide cursor-pointer select-none hover:text-primary transition-colors"
-                  onClick={toggleSort}
-                >
-                  <span className="inline-flex items-center gap-1">
-                    Applied Date
-                    {sortDir === "desc" ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
-                  </span>
-                </th>
-                <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Action
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {sorted.map((app) => (
-                <tr
-                    key={app.id}
-                    className="hover:bg-surface-muted/50 transition-colors group"
-                  >
-                    <td className="px-4 py-4">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-control bg-primary/10 flex items-center justify-center text-primary">
-                          <Briefcase className="w-6 h-6" />
-                        </div>
-                        <div>
-                          <p className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">
-                            {app.jobTitle || app.task?.title || "Task Deleted"}
-                          </p>
-                          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mt-1">
-                            Ref: #{app.id?.slice(-6).toUpperCase()}
-                          </p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-muted-foreground">
-                    {app.appliedAt && !isNaN(new Date(app.appliedAt).getTime()) ? new Date(app.appliedAt).toLocaleDateString("en-GB", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    }) : "—"}
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap">
-                    <ApplicationStatusLabel
-                      status={displayApplicationStatus(app.status)}
-                    />
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      {app.status === "Accepted" && (
-                        <Button
-                          size="compact"
-                          className="bg-blue-600 hover:bg-blue-700"
-                          onClick={() => handleRequestCompletion(app.id)}
-                        >
-                          Request Completion
-                        </Button>
-                      )}
-                      {(app.jobId || app.task) && (
-                        <Button
-                          size="action"
-                          variant="primary"
-                          onClick={() => navigate(`/jobs/${app.jobId || (app.task as any)?.id || (app.task as any)?._id}`)}
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          View
-                        </Button>
-                      )}
-                      {app.task && (
-                        <TaskLifecycleActions
-                          job={app.task as Job}
-                          currentUser={currentUser}
-                          layout="compact"
-                          onAfterMutation={() => fetchMyApplications(currentPage)}
-                        />
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {applications.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={4}
-                    className="px-4 py-16 text-center text-muted-foreground italic"
-                  >
-                    You haven't applied for any tasks yet.{" "}
-                    <button
-                      onClick={() => navigate("/jobs")}
-                      className="text-primary font-semibold hover:underline ml-2"
-                    >
-                      Search Tasks
-                    </button>
-                    <br />
-                    <span className="text-xs text-muted-foreground block mt-1">
-                      Tasks you've been offered or assigned appear under{" "}
-                      <button onClick={() => navigate("/my-tasks")} className="text-primary font-semibold hover:underline">My Tasks</button>.
-                    </span>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+            </p>
+          </Card>
+        )}
+      </div>
+
       <Pagination
         currentPage={currentPage}
         totalPages={totalPages}

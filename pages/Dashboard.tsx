@@ -57,21 +57,6 @@ const getRelativeTime = (dateStr: string) => {
   return date.toLocaleDateString();
 };
 
-const getTaskStatusDot = (status: string) => {
-  switch (status) {
-    case "Published":
-      return "bg-emerald-500";
-    case "Pending":
-      return "bg-amber-500";
-    case "Completed":
-      return "bg-blue-500";
-    case "Closed":
-      return "bg-red-400";
-    default:
-      return "bg-zinc-400";
-  }
-};
-
 export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
   const navigate = useNavigate();
   const [stats, setStats] = useState<any>(null);
@@ -653,80 +638,92 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
               Quick Links
             </h3>
             <div className="space-y-2">
-              <button
+              <Button
+                type="button"
+                variant="ghost"
+                size="compact"
+                className="h-auto w-full justify-start gap-3 p-3"
                 onClick={() => navigate("/post-job")}
-                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all group"
               >
-                <div className="p-2 bg-emerald-100 dark:bg-emerald-900/20 rounded-lg group-hover:scale-110 transition-transform">
-                  <Plus className="w-4 h-4 text-emerald-600" />
+                <div className="rounded-control bg-emerald-100 p-2 dark:bg-emerald-900/20">
+                  <Plus className="h-4 w-4 text-emerald-600" />
                 </div>
-                <span className="font-medium text-foreground">
-                  Create Task
-                </span>
-              </button>
+                <span className="font-medium text-foreground">Create Task</span>
+              </Button>
 
-              <button
+              <Button
+                type="button"
+                variant="ghost"
+                size="compact"
+                className="h-auto w-full justify-start gap-3 p-3"
                 onClick={() => navigate("/jobs")}
-                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all group"
               >
-                <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg group-hover:scale-110 transition-transform">
-                  <Eye className="w-4 h-4 text-blue-600" />
+                <div className="rounded-control bg-blue-100 p-2 dark:bg-blue-900/20">
+                  <Eye className="h-4 w-4 text-blue-600" />
                 </div>
-                <span className="font-medium text-foreground">
-                  Search Tasks
-                </span>
-              </button>
+                <span className="font-medium text-foreground">Search Tasks</span>
+              </Button>
 
-              <button
+              <Button
+                type="button"
+                variant="ghost"
+                size="compact"
+                className="h-auto w-full justify-start gap-3 p-3"
                 onClick={() => navigate("/my-tasks")}
-                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all group"
               >
-                <div className="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-lg group-hover:scale-110 transition-transform">
-                  <ClipboardCheck className="w-4 h-4 text-purple-600" />
+                <div className="rounded-control bg-purple-100 p-2 dark:bg-purple-900/20">
+                  <ClipboardCheck className="h-4 w-4 text-purple-600" />
                 </div>
-                <span className="font-medium text-foreground">
-                  My Tasks
-                </span>
-              </button>
+                <span className="font-medium text-foreground">My Tasks</span>
+              </Button>
 
-              <button
+              <Button
+                type="button"
+                variant="ghost"
+                size="compact"
+                className="h-auto w-full justify-start gap-3 p-3"
                 onClick={() => navigate("/my-applications")}
-                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all group"
               >
-                <div className="p-2 bg-cyan-100 dark:bg-cyan-900/20 rounded-lg group-hover:scale-110 transition-transform">
-                  <Send className="w-4 h-4 text-cyan-600" />
+                <div className="rounded-control bg-cyan-100 p-2 dark:bg-cyan-900/20">
+                  <Send className="h-4 w-4 text-cyan-600" />
                 </div>
                 <span className="font-medium text-foreground">
                   My Applications
                 </span>
-              </button>
+              </Button>
 
               {isAdmin && (
-                <button
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="compact"
+                  className="h-auto w-full justify-start gap-3 p-3"
                   onClick={() => navigate("/admin/settings")}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all group"
                 >
-                  <div className="p-2 bg-amber-100 dark:bg-amber-900/20 rounded-lg group-hover:scale-110 transition-transform">
-                    <FileText className="w-4 h-4 text-amber-600" />
+                  <div className="rounded-control bg-amber-100 p-2 dark:bg-amber-900/20">
+                    <FileText className="h-4 w-4 text-amber-600" />
                   </div>
                   <span className="font-medium text-foreground">
                     Admin Settings
                   </span>
-                </button>
+                </Button>
               )}
 
               {isAdmin && (
-                <button
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="compact"
+                  className="h-auto w-full justify-start gap-3 p-3"
                   onClick={() => navigate("/reports")}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all group"
                 >
-                  <div className="p-2 bg-primary/10 rounded-lg group-hover:scale-110 transition-transform">
-                    <TrendingUp className="w-4 h-4 text-primary" />
+                  <div className="rounded-control bg-primary/10 p-2">
+                    <TrendingUp className="h-4 w-4 text-primary" />
                   </div>
                   <span className="font-medium text-foreground">
                     View Reports
                   </span>
-                </button>
+                </Button>
               )}
             </div>
           </Card>
@@ -770,10 +767,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
                       }}
                       className="flex flex-1 min-w-0 items-center gap-3 cursor-pointer"
                     >
-                    <div
-                      className={`w-2 h-2 rounded-full shrink-0 ${getTaskStatusDot(task.status)}`}
-                    />
-                    <div className="flex-1 min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-zinc-900 dark:text-white truncate">
                         {task.title}
                       </p>

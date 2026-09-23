@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye } from "lucide-react";
+import { ArrowRight, Eye } from "lucide-react";
 import { db } from "../services/database";
 import { Job, User } from "../types";
 import { Loading } from "../components/Loading";
 import { Pagination } from "../components/Pagination";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 import { resolveTaskCategoryLabel } from "../utils/taskCategoryDisplay";
-import { Button, Card, PageHeader } from "@/components/ui";
+import { Badge, Button, Card, PageHeader } from "@/components/ui";
 import { JobStatusLabel } from "@/utils/statusDisplay";
 
 const PAGE_SIZE = 10;
@@ -66,155 +66,77 @@ export const PendingApprovals: React.FC = () => {
         </Card>
       )}
 
-      <Card padding="none" className="overflow-hidden">
-        <div className="md:hidden divide-y divide-border">
-          {tasks.map((task) => (
-            <div
-              key={task._id}
-              className="p-card space-y-4 hover:bg-surface-muted/50 transition-colors"
-            >
-              <div>
-                <p className="text-base font-semibold text-foreground">
-                  {task.title}
-                </p>
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mt-1">
-                  {resolveTaskCategoryLabel(task)} • {task.visibility}
-                </p>
-              </div>
-              <div className="space-y-3 text-sm">
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Created By
-                  </p>
-                  <p className="font-medium text-muted-foreground mt-1">
-                    {task.createdBy || "—"}
-                  </p>
+      <div className="grid gap-4">
+        {tasks.map((task) => (
+          <Card
+            key={task._id}
+            padding="card"
+            onClick={() => navigate(`/jobs/${task._id}`)}
+            className="group cursor-pointer transition-colors hover:border-primary/30"
+          >
+            <div className="min-w-0">
+              <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                  <JobStatusLabel status={task.status || "Pending Approval"} />
+                  <Badge variant="chip">{resolveTaskCategoryLabel(task)}</Badge>
+                  <Badge variant="chip">{task.visibility}</Badge>
+                  {task.createdBy && (
+                    <Badge variant="chipMuted">By {task.createdBy}</Badge>
+                  )}
                 </div>
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Created Date
-                  </p>
-                  <p className="font-medium text-muted-foreground mt-1">
-                    {task.createdAt && !isNaN(new Date(task.createdAt).getTime())
-                      ? new Date(task.createdAt).toLocaleDateString("en-GB", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })
-                      : "—"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Status
-                  </p>
-                  <div className="mt-1">
-                    <JobStatusLabel status={task.status || "Pending Approval"} />
+                <div className="flex shrink-0 items-center gap-2">
+                  <div
+                    className="flex flex-wrap items-center gap-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <TaskLifecycleActions
+                      job={task}
+                      currentUser={currentUser}
+                      layout="compact"
+                      onAfterMutation={() => setListVersion((v) => v + 1)}
+                    />
+                    <Button
+                      size="action"
+                      variant="primary"
+                      onClick={() => navigate(`/jobs/${task._id}`)}
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      Review
+                    </Button>
                   </div>
+                  <span className="flex h-9 w-9 items-center justify-center rounded-control bg-surface-muted text-muted-foreground transition-colors group-hover:bg-primary group-hover:text-white">
+                    <ArrowRight className="h-4 w-4" />
+                  </span>
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <TaskLifecycleActions
-                  job={task}
-                  currentUser={currentUser}
-                  layout="compact"
-                  onAfterMutation={() => setListVersion((v) => v + 1)}
-                />
-                <Button
-                  size="action"
-                  variant="primary"
-                  onClick={() => navigate(`/jobs/${task._id}`)}
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  Review
-                </Button>
-              </div>
-            </div>
-          ))}
-          {tasks.length === 0 && (
-            <div className="p-card py-16 text-center text-muted-foreground italic">
-              No pending tasks right now.
-            </div>
-          )}
-        </div>
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-surface-muted border-b border-border">
-              <tr>
-                <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Task
-                </th>
-                <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Created By
-                </th>
-                <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Created Date
-                </th>
-                <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {tasks.map((task) => (
-                <tr key={task._id} className="hover:bg-surface-muted/50 transition-colors group">
-                  <td className="px-4 py-4">
-                    <p className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">
-                      {task.title}
-                    </p>
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mt-1">
-                      {resolveTaskCategoryLabel(task)} • {task.visibility}
-                    </p>
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-muted-foreground">
-                    {task.createdBy || "—"}
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-muted-foreground">
-                    {task.createdAt && !isNaN(new Date(task.createdAt).getTime())
-                      ? new Date(task.createdAt).toLocaleDateString("en-GB", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })
-                      : "—"}
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap">
-                    <JobStatusLabel status={task.status || "Pending Approval"} />
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-right">
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      <TaskLifecycleActions
-                        job={task}
-                        currentUser={currentUser}
-                        layout="compact"
-                        onAfterMutation={() => setListVersion((v) => v + 1)}
-                      />
-                      <Button
-                        size="action"
-                        variant="primary"
-                        onClick={() => navigate(`/jobs/${task._id}`)}
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        Review
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {tasks.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-4 py-16 text-center text-muted-foreground italic">
-                    No pending tasks right now.
-                  </td>
-                </tr>
+              <h3 className="mb-2 text-lg font-semibold text-foreground transition-colors group-hover:text-primary">
+                {task.title}
+              </h3>
+              {task.description && (
+                <p className="max-w-4xl whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground">
+                  {task.description}
+                </p>
               )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+              {task.createdAt && !isNaN(new Date(task.createdAt).getTime()) && (
+                <p className="mt-4 text-xs text-muted-foreground">
+                  Created{" "}
+                  {new Date(task.createdAt).toLocaleDateString("en-GB", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </p>
+              )}
+            </div>
+          </Card>
+        ))}
+
+        {tasks.length === 0 && (
+          <Card className="border-dashed py-12 text-center">
+            <p className="text-muted-foreground italic">No pending tasks right now.</p>
+          </Card>
+        )}
+      </div>
 
       <Pagination
         currentPage={currentPage}

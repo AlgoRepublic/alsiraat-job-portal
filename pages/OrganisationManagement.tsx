@@ -504,7 +504,7 @@ export const OrganisationManagement: React.FC<{
                     <input
                       type="color"
                       aria-label="Pick theme colour"
-                      className="h-11 w-14 rounded-lg border border-zinc-200 dark:border-zinc-700 cursor-pointer bg-transparent"
+                      className="h-11 w-14 rounded-control border border-border cursor-pointer bg-transparent"
                       value={
                         isValidThemeColorHex(editForm.themeColor.trim())
                           ? editForm.themeColor.trim().toLowerCase()
@@ -633,10 +633,9 @@ export const OrganisationManagement: React.FC<{
               </div>
 
               <div className="flex items-center gap-3 pt-2">
-                <button
+                <Button
                   type="submit"
                   disabled={editSubmitting || !editForm.name.trim()}
-                  className="flex items-center gap-2 px-6 py-3 bg-primary text-white font-semibold text-sm rounded-xl hover:bg-primaryHover transition-colors shadow-lg shadow-primary/20 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {editSubmitting ? (
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -644,14 +643,10 @@ export const OrganisationManagement: React.FC<{
                     <Save className="w-4 h-4" />
                   )}
                   {editSubmitting ? "Saving…" : "Save changes"}
-                </button>
-                <button
-                  type="button"
-                  onClick={closeEdit}
-                  className="px-5 py-3 text-sm font-bold text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors"
-                >
+                </Button>
+                <Button type="button" variant="ghost" onClick={closeEdit}>
                   Cancel
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -832,7 +827,7 @@ export const OrganisationManagement: React.FC<{
                   <input
                     type="color"
                     aria-label="Pick theme colour"
-                    className="h-11 w-14 rounded-lg border border-zinc-200 dark:border-zinc-700 cursor-pointer bg-transparent"
+                    className="h-11 w-14 rounded-control border border-border cursor-pointer bg-transparent"
                     value={
                       isValidThemeColorHex(form.themeColor.trim())
                         ? form.themeColor.trim().toLowerCase()
@@ -896,7 +891,7 @@ export const OrganisationManagement: React.FC<{
                     onChange={(e) =>
                       setForm({ ...form, ownerEmail: e.target.value })
                     }
-                    className="w-full pl-10 pr-4 py-3 rounded-xl bg-primary/5 border-2 border-primary/20 focus:border-primary outline-none text-sm font-bold text-zinc-900 dark:text-white placeholder:text-zinc-400 transition-colors"
+                    className="font-bold pl-10"
                   />
                 </div>
               </div>
@@ -915,10 +910,9 @@ export const OrganisationManagement: React.FC<{
 
             {/* Actions */}
             <div className="flex items-center gap-3 pt-2">
-              <button
+              <Button
                 type="submit"
                 disabled={submitting || !form.name.trim() || !form.ownerEmail.trim()}
-                className="flex items-center gap-2 px-6 py-3 bg-primary text-white font-semibold text-sm rounded-xl hover:bg-primaryHover transition-colors shadow-lg shadow-primary/20 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {submitting ? (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -926,9 +920,10 @@ export const OrganisationManagement: React.FC<{
                   <Send className="w-4 h-4" />
                 )}
                 {submitting ? "Sending…" : "Create & Send Invitation"}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={() => {
                   setShowForm(false);
                   setInviteLogoFile(null);
@@ -941,10 +936,9 @@ export const OrganisationManagement: React.FC<{
                     themeColor: "",
                   });
                 }}
-                className="px-5 py-3 text-sm font-bold text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         </Card>
@@ -1168,7 +1162,7 @@ export const OrganisationManagement: React.FC<{
                     </span>
                   </div>
                   {org.about && (
-                    <p className="text-xs text-zinc-500 mt-1 line-clamp-1">
+                    <p className="text-xs text-zinc-500 mt-1 break-words">
                       {org.about}
                     </p>
                   )}

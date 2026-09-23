@@ -210,7 +210,7 @@ const CategoryContactGroupsEditor: React.FC<{
   };
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 p-4 space-y-3 bg-white/60 dark:bg-zinc-900/40">
+    <div className="rounded-control border border-border bg-surface-muted p-4 space-y-3">
       <div className="flex items-center justify-between gap-2">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 flex items-center gap-1.5">
@@ -228,14 +228,16 @@ const CategoryContactGroupsEditor: React.FC<{
           </p>
         </div>
         {!disabled && (
-          <button
+          <Button
             type="button"
+            variant="amberSoft"
+            size="compact"
             onClick={() => setPickerOpen((v) => !v)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-semibold uppercase tracking-wide bg-amber-500/10 text-amber-800 dark:text-amber-200 hover:bg-amber-500/20 transition-all shrink-0"
+            className="gap-1.5 text-[10px] font-semibold uppercase tracking-wide shrink-0"
           >
             <Plus className="w-3.5 h-3.5" />
             Add
-          </button>
+          </Button>
         )}
       </div>
 
@@ -271,14 +273,16 @@ const CategoryContactGroupsEditor: React.FC<{
                   )}
                 </div>
                 {!disabled && (
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="iconCompact"
                     onClick={() => removeGroup(group._id)}
-                    className="p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
+                    className="text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                     title="Remove contact group"
                   >
                     <X className="w-4 h-4" />
-                  </button>
+                  </Button>
                 )}
               </li>
             );
@@ -336,26 +340,29 @@ const CategoryContactGroupsEditor: React.FC<{
             )}
           </div>
           <div className="flex gap-2 justify-end">
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="compact"
               onClick={() => {
                 setPickerOpen(false);
                 setSelected([]);
                 setSearch("");
               }}
-              className="px-4 py-2 text-xs font-bold text-zinc-500"
+              className="text-xs font-bold text-zinc-500"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              size="compact"
               disabled={selected.length === 0}
               onClick={addSelected}
-              className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold disabled:opacity-50"
+              className="text-xs font-bold"
             >
               Add selected
               {selected.length > 0 ? ` (${selected.length})` : ""}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -967,21 +974,21 @@ export const AdminSettings: React.FC = () => {
             </p>
           </div>
           <div className="flex gap-3">
-            <button
+            <Button
+              type="button"
+              variant="ghost"
+              size="compact"
               onClick={handleSeedDefaults}
               className="font-bold"
             >
-              <RefreshCw className="w-4 h-4 mr-2" />
+              <RefreshCw className="w-4 h-4" />
               Reset Defaults
-            </button>
+            </Button>
             {!showNewRoleForm && (
-              <button
-                onClick={() => setShowNewRoleForm(true)}
-                className="flex items-center px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primaryHover transition-all shadow-lg shadow-primary/20"
-              >
-                <Plus className="w-4 h-4 mr-2" />
+              <Button type="button" onClick={() => setShowNewRoleForm(true)}>
+                <Plus className="w-4 h-4" />
                 New Role
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -1033,19 +1040,24 @@ export const AdminSettings: React.FC = () => {
               />
             </div>
             <div className="flex gap-3">
-              <button
+              <Button
+                type="button"
+                size="default"
                 onClick={handleCreateRole}
-                className="flex items-center gap-2 px-5 py-2 bg-emerald-500 text-white rounded-xl font-bold text-sm"
+                className="bg-emerald-500 font-bold hover:bg-emerald-600"
               >
                 <Save className="w-4 h-4" />
                 Create Role
-              </button>
-              <button
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="compact"
                 onClick={() => setShowNewRoleForm(false)}
-                className="px-5 py-2 text-zinc-500 hover:text-zinc-900 font-bold text-sm"
+                className="font-bold text-zinc-500 hover:text-zinc-900"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </Card>
         )}
@@ -1079,24 +1091,29 @@ export const AdminSettings: React.FC = () => {
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      <button
+                      <Button
+                        type="button"
+                        size="compact"
                         onClick={() => handleUpdateRole(editingRole)}
                         title="Save role changes"
                         aria-label="Save role changes"
-                        className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-bold transition-colors"
+                        className="bg-emerald-500 font-bold hover:bg-emerald-600"
                       >
                         <Check className="w-4 h-4" />
                         Save Role
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="compact"
                         onClick={() => setEditingRole(null)}
                         title="Cancel editing"
                         aria-label="Cancel editing"
-                        className="inline-flex items-center gap-1.5 px-3 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-700 dark:text-zinc-200 rounded-xl text-sm font-bold transition-colors"
+                        className="font-bold"
                       >
                         <X className="w-4 h-4" />
                         Cancel
-                      </button>
+                      </Button>
                     </div>
                   </div>
 
@@ -1176,7 +1193,10 @@ export const AdminSettings: React.FC = () => {
                         }}
                         className="flex-1"
                       />
-                      <button
+                      <Button
+                        type="button"
+                        variant="infoSoft"
+                        size="icon"
                         onClick={() => {
                           const val = oidcMappingInput.trim();
                           if (
@@ -1195,10 +1215,10 @@ export const AdminSettings: React.FC = () => {
                         }}
                         title="Add mapping value"
                         aria-label="Add mapping value"
-                        className="inline-flex items-center justify-center w-11 h-11 border border-blue-300 dark:border-blue-700 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/35 text-blue-700 dark:text-blue-300 rounded-xl transition-colors"
+                        className="h-11 w-11"
                       >
                         <Plus className="w-5 h-5" />
-                      </button>
+                      </Button>
                     </div>
                     <p className="text-xs text-zinc-400">
                       This button only adds a claim value. Use Save Role above to
@@ -1299,22 +1319,28 @@ export const AdminSettings: React.FC = () => {
                     )}
                   </div>
                   <div className="flex gap-2">
-                    <button
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="iconCompact"
                       onClick={() => {
                         setEditingRole(role);
                         setOidcMappingInput("");
                       }}
-                      className="p-2 text-zinc-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
+                      className="text-zinc-400 hover:text-primary hover:bg-primary/10"
                     >
                       <Edit2 className="w-4 h-4" />
-                    </button>
+                    </Button>
                     {!role.isSystem && (
-                      <button
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="iconCompact"
                         onClick={() => handleDeleteRole(role._id)}
-                        className="p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
+                        className="text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                       >
                         <Trash2 className="w-4 h-4" />
-                      </button>
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -1351,13 +1377,13 @@ export const AdminSettings: React.FC = () => {
           </div>
           <div className="flex gap-3">
             {!showNewPermissionForm && (
-              <button
+              <Button
+                type="button"
                 onClick={() => setShowNewPermissionForm(true)}
-                className="flex items-center px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primaryHover transition-all shadow-lg shadow-primary/20"
               >
-                <Plus className="w-4 h-4 mr-2" />
+                <Plus className="w-4 h-4" />
                 New Permission
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -1414,19 +1440,24 @@ export const AdminSettings: React.FC = () => {
               />
             </div>
             <div className="flex gap-3">
-              <button
+              <Button
+                type="button"
+                size="default"
                 onClick={handleCreatePermission}
-                className="flex items-center gap-2 px-5 py-2 bg-emerald-500 text-white rounded-xl font-bold text-sm"
+                className="bg-emerald-500 font-bold hover:bg-emerald-600"
               >
                 <Save className="w-4 h-4" />
                 Create Permission
-              </button>
-              <button
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="compact"
                 onClick={() => setShowNewPermissionForm(false)}
-                className="px-5 py-2 text-zinc-500 hover:text-zinc-900 font-bold text-sm"
+                className="font-bold text-zinc-500 hover:text-zinc-900"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </Card>
         )}
@@ -1488,20 +1519,24 @@ export const AdminSettings: React.FC = () => {
                           placeholder="Description"
                         />
                         <div className="flex gap-2">
-                          <button
+                          <Button
+                            type="button"
+                            size="iconCompact"
                             onClick={() =>
                               handleUpdatePermission(editingPermission)
                             }
-                            className="p-2 bg-emerald-500 text-white rounded-lg"
+                            className="bg-emerald-500 hover:bg-emerald-600"
                           >
                             <Check className="w-4 h-4" />
-                          </button>
-                          <button
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="iconCompact"
                             onClick={() => setEditingPermission(null)}
-                            className="p-2 bg-zinc-200 dark:bg-zinc-700 rounded-lg"
                           >
                             <X className="w-4 h-4" />
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     ) : (
@@ -1527,19 +1562,25 @@ export const AdminSettings: React.FC = () => {
                           )}
                         </div>
                         <div className="flex gap-2">
-                          <button
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="iconCompact"
                             onClick={() => setEditingPermission(perm)}
-                            className="p-2 text-zinc-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
+                            className="text-zinc-400 hover:text-primary hover:bg-primary/10"
                           >
                             <Edit2 className="w-4 h-4" />
-                          </button>
+                          </Button>
                           {!perm.isSystem && (
-                            <button
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="iconCompact"
                               onClick={() => handleDeletePermission(perm._id)}
-                              className="p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                              className="text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                             >
                               <Trash2 className="w-4 h-4" />
-                            </button>
+                            </Button>
                           )}
                         </div>
                       </>
@@ -1852,23 +1893,21 @@ export const AdminSettings: React.FC = () => {
           </p>
         </div>
         <div className="flex gap-3">
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="compact"
             onClick={handleSeedRewardTypes}
             className="font-bold"
           >
-            <RefreshCw className="w-4 h-4 mr-2" />
+            <RefreshCw className="w-4 h-4" />
             Seed Defaults
-          </button>
+          </Button>
           {!showNewRtForm && (
-            <button
-              type="button"
-              onClick={() => setShowNewRtForm(true)}
-              className="flex items-center px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primaryHover transition-all shadow-lg shadow-primary/20"
-            >
-              <Plus className="w-4 h-4 mr-2" />
+            <Button type="button" onClick={() => setShowNewRtForm(true)}>
+              <Plus className="w-4 h-4" />
               New Reward Type
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -2038,20 +2077,23 @@ export const AdminSettings: React.FC = () => {
             </div>
           </div>
           <div className="flex gap-3">
-            <button
+            <Button
               type="button"
+              size="default"
               onClick={handleCreateRewardType}
-              className="flex items-center gap-2 px-5 py-2 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 transition-all"
+              className="bg-emerald-500 font-bold hover:bg-emerald-600"
             >
               <Save className="w-4 h-4" /> Create
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="ghost"
+              size="compact"
               onClick={() => setShowNewRtForm(false)}
-              className="px-5 py-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-white font-bold text-sm"
+              className="font-bold text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </Card>
       )}
@@ -2245,20 +2287,23 @@ export const AdminSettings: React.FC = () => {
                             Active
                           </label>
                           <div className="flex gap-2 ml-auto">
-                            <button
+                            <Button
                               type="button"
+                              size="compact"
                               onClick={() => handleUpdateRewardType(editingRt)}
-                              className="flex items-center gap-1.5 px-4 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold hover:bg-emerald-600 transition-all"
+                              className="bg-emerald-500 text-xs font-bold hover:bg-emerald-600"
                             >
                               <Check className="w-3.5 h-3.5" /> Save
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                               type="button"
+                              variant="ghost"
+                              size="compact"
                               onClick={() => setEditingRt(null)}
-                              className="px-4 py-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-white rounded-xl text-xs font-bold"
+                              className="text-xs font-bold text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
                             >
                               Cancel
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       </div>
@@ -2274,7 +2319,7 @@ export const AdminSettings: React.FC = () => {
                         {rt.name}
                       </p>
                       {rt.description && (
-                        <p className="text-xs text-zinc-400 mt-0.5 line-clamp-1">
+                        <p className="text-xs text-zinc-400 mt-0.5 break-words">
                           {rt.description}
                         </p>
                       )}
@@ -2307,18 +2352,22 @@ export const AdminSettings: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="iconCompact"
                           onClick={() => setEditingRt({ ...rt })}
-                          className="p-2 text-zinc-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
+                          className="text-zinc-400 hover:text-primary hover:bg-primary/10"
                         >
                           <Edit2 className="w-4 h-4" />
-                        </button>
+                        </Button>
                         {(isSuperAdmin || !rt.isSystem) && (
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
+                            size="iconCompact"
                             onClick={() => handleDeleteRewardType(rt)}
-                            className="p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
+                            className="text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                             title={
                               rt.isSystem
                                 ? "Super admin: delete system reward type"
@@ -2326,7 +2375,7 @@ export const AdminSettings: React.FC = () => {
                             }
                           >
                             <Trash2 className="w-4 h-4" />
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </td>
@@ -2365,21 +2414,21 @@ export const AdminSettings: React.FC = () => {
           </p>
         </div>
         <div className="flex gap-3">
-          <button
+          <Button
+            type="button"
+            variant="ghost"
+            size="compact"
             onClick={handleSeedCategories}
             className="font-bold"
           >
-            <RefreshCw className="w-4 h-4 mr-2" />
+            <RefreshCw className="w-4 h-4" />
             Seed Defaults
-          </button>
+          </Button>
           {!showNewCatForm && (
-            <button
-              onClick={() => setShowNewCatForm(true)}
-              className="flex items-center px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primaryHover transition-all shadow-lg shadow-primary/20"
-            >
-              <Plus className="w-4 h-4 mr-2" />
+            <Button type="button" onClick={() => setShowNewCatForm(true)}>
+              <Plus className="w-4 h-4" />
               New Category
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -2468,18 +2517,23 @@ export const AdminSettings: React.FC = () => {
             </div>
           </div>
           <div className="flex gap-3">
-            <button
+            <Button
+              type="button"
+              size="default"
               onClick={handleCreateCategory}
-              className="flex items-center gap-2 px-5 py-2 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 transition-all"
+              className="bg-emerald-500 font-bold hover:bg-emerald-600"
             >
               <Save className="w-4 h-4" /> Create
-            </button>
-            <button
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="compact"
               onClick={() => setShowNewCatForm(false)}
-              className="px-5 py-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-white font-bold text-sm"
+              className="font-bold text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </Card>
       )}
@@ -2596,18 +2650,23 @@ export const AdminSettings: React.FC = () => {
                             Active
                           </label>
                           <div className="flex gap-2 ml-auto">
-                            <button
+                            <Button
+                              type="button"
+                              size="compact"
                               onClick={() => handleUpdateCategory(editingCat)}
-                              className="flex items-center gap-1.5 px-4 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold hover:bg-emerald-600 transition-all"
+                              className="bg-emerald-500 text-xs font-bold hover:bg-emerald-600"
                             >
                               <Check className="w-3.5 h-3.5" /> Save
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="compact"
                               onClick={() => setEditingCat(null)}
-                              className="px-4 py-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-white rounded-xl text-xs font-bold"
+                              className="text-xs font-bold text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
                             >
                               Cancel
-                            </button>
+                            </Button>
                           </div>
                         </div>
                         {categoryIsOrgScoped(editingCat) && activeOrgId && (
@@ -2653,7 +2712,7 @@ export const AdminSettings: React.FC = () => {
                             {cat.name}
                           </p>
                           {cat.description && (
-                            <p className="text-xs text-zinc-400 mt-0.5 line-clamp-1">
+                            <p className="text-xs text-zinc-400 mt-0.5 break-words">
                               {cat.description}
                             </p>
                           )}
@@ -2690,19 +2749,25 @@ export const AdminSettings: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="iconCompact"
                           onClick={() => setEditingCat({ ...cat })}
-                          className="p-2 text-zinc-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
+                          className="text-zinc-400 hover:text-primary hover:bg-primary/10"
                         >
                           <Edit2 className="w-4 h-4" />
-                        </button>
+                        </Button>
                         {!cat.isSystem && (
-                          <button
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="iconCompact"
                             onClick={() => handleDeleteCategory(cat)}
-                            className="p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
+                            className="text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                           >
                             <Trash2 className="w-4 h-4" />
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </td>
@@ -2764,13 +2829,15 @@ export const AdminSettings: React.FC = () => {
               { key: "ai" as const, icon: Sparkles, label: "AI Settings" },
             ] as const
           ).map(({ key, icon: Icon, label }) => (
-            <button
+            <Button
               key={key}
               type="button"
+              variant="ghost"
+              size="compact"
               onClick={() => setActiveTab(key)}
-              className={`relative flex w-full items-center gap-2 border-b border-border px-3 py-2.5 text-left text-sm font-medium transition-colors last:border-none ${
+              className={`relative h-auto w-full justify-start gap-2 rounded-none border-b border-border px-3 py-2.5 text-left text-sm font-medium last:border-none ${
                 activeTab === key
-                  ? "bg-primary/5 text-primary"
+                  ? "bg-primary/5 text-primary hover:bg-primary/5"
                   : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"
               }`}
             >
@@ -2787,7 +2854,7 @@ export const AdminSettings: React.FC = () => {
                 <Icon className="h-3.5 w-3.5" />
               </span>
               <span className="truncate">{label}</span>
-            </button>
+            </Button>
           ))}
         </Card>
 

@@ -297,33 +297,33 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
                 size="xl"
               />
               {isEditing && (
-                <button
+                <Button
+                  type="button"
+                  size="iconCompact"
+                  className="absolute bottom-1 right-1 rounded-full shadow-md"
                   onClick={() =>
                     document.getElementById("avatar-upload")?.click()
                   }
-                  className="absolute bottom-1 right-1 p-2 bg-primary text-white rounded-full hover:bg-primaryHover shadow-md transition-colors"
                 >
                   <Camera className="w-4 h-4" />
-                </button>
+                </Button>
               )}
             </div>
             <div className="flex gap-2">
               {isEditing && (
-                <button
+                <Button
+                  type="button"
+                  variant="secondary"
                   onClick={handleCancel}
-                  className="px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all flex items-center gap-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700"
                 >
                   <X className="w-4 h-4" /> Cancel
-                </button>
+                </Button>
               )}
-              <button
+              <Button
+                type="button"
+                variant={isEditing ? "primary" : "secondary"}
                 onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
                 disabled={isSaving}
-                className={`px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all flex items-center gap-2 ${
-                  isEditing
-                    ? "bg-primary text-white hover:bg-primaryHover"
-                    : "bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700"
-                }`}
               >
                 {isEditing ? (
                   <>
@@ -335,7 +335,7 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
                     <Edit2 className="w-4 h-4" /> Edit Profile
                   </>
                 )}
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -588,12 +588,15 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
                     {skill.level}
                   </span>
                   {isEditing && (
-                    <button
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="iconCompact"
+                      className="ml-2 h-7 w-7 rounded-full text-zinc-400 hover:text-red-500"
                       onClick={() => removeSkill(skill.id)}
-                      className="ml-2 p-1.5 text-zinc-400 hover:text-red-500 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                     >
                       <X className="w-3.5 h-3.5" />
-                    </button>
+                    </Button>
                   )}
                 </div>
               );
@@ -631,12 +634,9 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
                   placeholder="Level"
                 />
               </div>
-              <button
-                onClick={handleAddSkill}
-                className="px-4 bg-primary text-white rounded-xl hover:bg-primaryHover transition-colors shadow-md"
-              >
+              <Button type="button" size="icon" onClick={handleAddSkill}>
                 <Plus className="w-5 h-5" />
-              </button>
+              </Button>
             </div>
           )}
         </Card>
@@ -669,26 +669,31 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
                   href={`${import.meta.env.VITE_API_URL?.replace(/\/api$/, "") ?? "http://localhost:5001"}${profile.resumeUrl}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white rounded-xl text-xs font-semibold uppercase tracking-wide hover:bg-primaryHover transition-all shadow-md active:scale-[0.98]"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white rounded-control text-xs font-semibold uppercase tracking-wide hover:bg-primaryHover transition-all shadow-md active:scale-[0.98]"
                 >
                   <Download className="w-3.5 h-3.5" /> View / Download
                 </a>
                 <div className="flex gap-2">
-                  <button
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="compact"
+                    className="flex-1 text-[10px] font-semibold uppercase tracking-wide"
                     onClick={() =>
                       document.getElementById("resume-upload")?.click()
                     }
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[10px] font-semibold uppercase tracking-wide hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all active:scale-[0.98]"
                   >
                     <Upload className="w-3 h-3" /> Replace
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="dangerSoft"
+                    size="iconCompact"
                     onClick={handleRemoveResume}
-                    className="p-2.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/40 transition-all active:scale-[0.98]"
                     title="Remove Resume"
                   >
                     <Trash2 className="w-4 h-4" />
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>

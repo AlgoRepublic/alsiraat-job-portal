@@ -40,7 +40,17 @@ import { UserProfileDrawer } from "../components/UserProfileDrawer";
 import {
   MemberRoleBadges,
 } from "../components/MemberRoleBadges";
-import { Badge, Button, Card, Input, PageHeader, Label} from "@/components/ui";
+import {
+  Badge,
+  Button,
+  Card,
+  Input,
+  PageHeader,
+  Label,
+  inputVariants,
+} from "@/components/ui";
+import { Modal, ModalFooter } from "@/components/ui/modal";
+import { cn } from "@/utils/cn";
 import { DefaultRoleCode } from "@/shared/defaultRoleCodes";
 import { OrgMemberKind, Permission } from "../types";
 import {
@@ -421,7 +431,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
               <h3 className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 mb-3">
                 About
               </h3>
-              <p className="h-auto py-3">
+              <p className="text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed break-words whitespace-pre-wrap">
                 {user.about}
               </p>
             </section>
@@ -482,23 +492,21 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
 
         {/* ── Footer ── */}
         <div className="flex-shrink-0 flex justify-between items-center gap-3 px-6 py-4 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
-          <button
-            onClick={onClose}
-            className="px-5 py-2.5 text-sm font-bold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all"
-          >
+          <Button type="button" variant="secondary" onClick={onClose}>
             Close
-          </button>
+          </Button>
           {!user?.isSuperAdmin && (
-            <button
+            <Button
+              type="button"
               onClick={() => {
                 onClose();
                 onEdit(user);
               }}
-              className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primaryHover shadow-lg shadow-primary/20 transition-all"
+              className="shadow-lg shadow-primary/20"
             >
               <Pencil className="w-4 h-4" />
               Edit User
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -1252,7 +1260,7 @@ export const UserManagement: React.FC = () => {
                                 </p>
                               )}
                               {user.about && (
-                                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed line-clamp-2">
+                                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed break-words whitespace-pre-wrap">
                                   {user.about}
                                 </p>
                               )}
@@ -1298,187 +1306,184 @@ export const UserManagement: React.FC = () => {
       )}
 
       {/* ─── Create/Edit User Modal ─── */}
-      {(editingUser || isCreating) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-          <div>
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-zinc-100 dark:border-zinc-800">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  {isCreating ? (
-                    <Users className="w-5 h-5 text-primary" />
-                  ) : (
-                    <Pencil className="w-5 h-5 text-primary" />
-                  )}
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
-                    {isCreating ? "Create New User" : "Edit User"}
-                  </h3>
-                  <p className="text-xs text-zinc-400 font-medium">
-                    {isCreating
-                      ? currentUser?.activeOrganisation?.name
-                        ? `Adds them to ${currentUser.activeOrganisation.name}`
-                        : "Select an organisation in the sidebar"
-                      : "Update profile details and roles for this organisation"}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={closeEditModal}
-                className="p-2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Body */}
-            <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto">
-              <div>
-                <Label className="text-zinc-500 dark:text-zinc-400 mb-2 block">Full Name</Label>
-                <Input
-                  type="text"
-                  value={editForm.name}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, name: e.target.value })
-                  }
-                  className="font-medium"
-                  placeholder="Full name"
-                />
-              </div>
-
-              <div>
-                <Label className="text-zinc-500 dark:text-zinc-400 mb-2 block">Email Address</Label>
-                <Input
-                  type="email"
-                  value={editForm.email}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, email: e.target.value })
-                  }
-                  className="font-medium"
-                  placeholder="email@example.com"
-                />
-              </div>
-
-              {isCreating && (
-                <div>
-                  <Label className="text-zinc-500 dark:text-zinc-400 mb-2 block">Password</Label>
-                  <Input
-                    type="password"
-                    value={editForm.password}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, password: e.target.value })
-                    }
-                    className="font-medium"
-                    placeholder="Set password"
-                  />
-                </div>
+      <Modal
+        open={Boolean(editingUser || isCreating)}
+        onClose={closeEditModal}
+        zIndex={50}
+        panelClassName="max-w-lg p-0 overflow-hidden bg-surface"
+      >
+        <div className="flex items-center justify-between p-6 border-b border-border">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+              {isCreating ? (
+                <Users className="w-5 h-5 text-primary" />
+              ) : (
+                <Pencil className="w-5 h-5 text-primary" />
               )}
-
-              {currentUser?.activeOrganisation?.name && (
-                <div>
-                  <Building2 className="w-4 h-4 text-zinc-400 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
-                      Organisation
-                    </p>
-                    <p className="text-sm font-bold text-zinc-800 dark:text-zinc-100">
-                      {currentUser.activeOrganisation.name}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <Label className="text-zinc-500 dark:text-zinc-400 mb-2 block">Role &amp; member type</Label>
-                <div>
-                  <select
-                    value={
-                      editForm.roleId || resolveDefaultApplicantRoleId(roles)
-                    }
-                    onChange={(e) =>
-                      setEditForm({
-                        ...editForm,
-                        roleId: e.target.value,
-                      })
-                    }
-                    className="flex-1 text-sm font-semibold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-2 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-primary outline-none transition-all"
-                  >
-                    {roles.map((r) => (
-                      <option key={r._id} value={r._id}>
-                        {r.name}
-                        {r.isActive === false ? " (inactive)" : ""}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={editForm.memberKind}
-                    onChange={(e) => {
-                      const nextKind = e.target.value as OrgMemberKind;
-                      setEditForm((prev) => ({
-                        ...prev,
-                        memberKind: nextKind,
-                        groupIds: memberExtraGroupIdsForForm(
-                          nextKind,
-                          orgGroups,
-                          prev.groupIds,
-                        ),
-                      }));
-                    }}
-                    className="flex-1 text-sm font-semibold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-2 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-primary outline-none transition-all"
-                    aria-label="Member type"
-                  >
-                    <option value="Internal">Internal</option>
-                    <option value="External">External</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-zinc-500 dark:text-zinc-400 mb-2 block">Groups</Label>
-                <MemberGroupMultiSelect
-                  memberKind={editForm.memberKind}
-                  groups={orgGroups}
-                  selectedIds={editForm.groupIds}
-                  retainInactiveSelections={!isCreating}
-                  onChange={(ids) =>
-                    setEditForm({ ...editForm, groupIds: ids })
-                  }
-                />
-              </div>
             </div>
-
-            {/* Footer */}
-            <div className="flex justify-end gap-3 p-6 border-t border-zinc-100 dark:border-zinc-800">
-              <button
-                onClick={closeEditModal}
-                className="px-5 py-2.5 text-sm font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={isCreating ? handleCreateUser : handleSaveUser}
-                disabled={
-                  saving ||
-                  !activeOrgId ||
-                  !editForm.name ||
-                  !editForm.email ||
-                  (isCreating && !editForm.password) ||
-                  !(editForm.roleId || resolveDefaultApplicantRoleId(roles))
-                }
-                className="flex items-center px-5 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primaryHover shadow-lg shadow-primary/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Save className="w-4 h-4 mr-2" />
-                {saving
-                  ? "Saving…"
-                  : isCreating
-                    ? "Create User"
-                    : "Save Changes"}
-              </button>
+            <div>
+              <h3 className="text-lg font-semibold text-foreground">
+                {isCreating ? "Create New User" : "Edit User"}
+              </h3>
+              <p className="text-xs text-muted-foreground font-medium">
+                {isCreating
+                  ? currentUser?.activeOrganisation?.name
+                    ? `Adds them to ${currentUser.activeOrganisation.name}`
+                    : "Select an organisation in the sidebar"
+                  : "Update profile details and roles for this organisation"}
+              </p>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={closeEditModal}
+            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition-all"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
-      )}
+
+        <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto">
+          <div>
+            <Label className="mb-2 block">Full Name</Label>
+            <Input
+              type="text"
+              value={editForm.name}
+              onChange={(e) =>
+                setEditForm({ ...editForm, name: e.target.value })
+              }
+              className="font-medium"
+              placeholder="Full name"
+            />
+          </div>
+
+          <div>
+            <Label className="mb-2 block">Email Address</Label>
+            <Input
+              type="email"
+              value={editForm.email}
+              onChange={(e) =>
+                setEditForm({ ...editForm, email: e.target.value })
+              }
+              className="font-medium"
+              placeholder="email@example.com"
+            />
+          </div>
+
+          {isCreating && (
+            <div>
+              <Label className="mb-2 block">Password</Label>
+              <Input
+                type="password"
+                value={editForm.password}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, password: e.target.value })
+                }
+                className="font-medium"
+                placeholder="Set password"
+              />
+            </div>
+          )}
+
+          {currentUser?.activeOrganisation?.name && (
+            <div className="flex items-start gap-3">
+              <Building2 className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Organisation
+                </p>
+                <p className="text-sm font-bold text-foreground">
+                  {currentUser.activeOrganisation.name}
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <Label className="mb-2 block">Role &amp; member type</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <select
+                value={
+                  editForm.roleId || resolveDefaultApplicantRoleId(roles)
+                }
+                onChange={(e) =>
+                  setEditForm({
+                    ...editForm,
+                    roleId: e.target.value,
+                  })
+                }
+                className={cn(inputVariants(), "h-10 w-full")}
+              >
+                {roles.map((r) => (
+                  <option key={r._id} value={r._id}>
+                    {r.name}
+                    {r.isActive === false ? " (inactive)" : ""}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={editForm.memberKind}
+                onChange={(e) => {
+                  const nextKind = e.target.value as OrgMemberKind;
+                  setEditForm((prev) => ({
+                    ...prev,
+                    memberKind: nextKind,
+                    groupIds: memberExtraGroupIdsForForm(
+                      nextKind,
+                      orgGroups,
+                      prev.groupIds,
+                    ),
+                  }));
+                }}
+                className={cn(inputVariants(), "h-10 w-full")}
+                aria-label="Member type"
+              >
+                <option value="Internal">Internal</option>
+                <option value="External">External</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <Label className="mb-2 block">Groups</Label>
+            <MemberGroupMultiSelect
+              memberKind={editForm.memberKind}
+              groups={orgGroups}
+              selectedIds={editForm.groupIds}
+              retainInactiveSelections={!isCreating}
+              onChange={(ids) =>
+                setEditForm({ ...editForm, groupIds: ids })
+              }
+            />
+          </div>
+        </div>
+
+        <ModalFooter className="mt-0 flex justify-end gap-3 p-6 border-t border-border">
+          <Button type="button" variant="secondary" onClick={closeEditModal}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={isCreating ? handleCreateUser : handleSaveUser}
+            disabled={
+              saving ||
+              !activeOrgId ||
+              !editForm.name ||
+              !editForm.email ||
+              (isCreating && !editForm.password) ||
+              !(editForm.roleId || resolveDefaultApplicantRoleId(roles))
+            }
+            className="shadow-lg shadow-primary/20"
+          >
+            <Save className="w-4 h-4" />
+            {saving
+              ? "Saving…"
+              : isCreating
+                ? "Create User"
+                : "Save Changes"}
+          </Button>
+        </ModalFooter>
+      </Modal>
 
       {isInviteModalOpen && (
         <InviteUserModal
@@ -1539,107 +1544,116 @@ const InviteUserModal: React.FC<{
     onOpen();
   }, [isOpen, onOpen]);
 
-  if (!isOpen) return null;
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onInvite(email, roleId || defaultRoleId, memberKind, groupIds);
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in overflow-y-auto">
-      <div className="relative w-full max-w-md bg-white dark:bg-zinc-900 rounded-surface shadow-2xl border border-white/20 dark:border-zinc-800 p-8 md:p-10 animate-scale-in transition-all">
-        <button
-          onClick={onClose}
-          className="absolute top-6 right-6 p-2 text-zinc-400 hover:text-primary transition-colors"
-        >
-          <X className="w-6 h-6" />
-        </button>
-
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-4">
-            <Mail className="w-8 h-8 text-primary" />
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      zIndex={60}
+      panelClassName="max-w-md p-0 overflow-hidden bg-surface"
+    >
+      <div className="flex items-center justify-between p-6 border-b border-border">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+            <Mail className="w-5 h-5 text-primary" />
           </div>
-          <h2 className="text-2xl font-semibold text-zinc-900 dark:text-white mb-2 tracking-tight">
-            Invite New User
-          </h2>
-          <p className="text-sm text-zinc-500 font-medium text-[10px] font-semibold uppercase tracking-wide text-center">
-            Send an onboarding link via email
-          </p>
+          <div>
+            <h3 className="text-lg font-semibold text-foreground">
+              Invite New User
+            </h3>
+            <p className="text-xs text-muted-foreground font-medium">
+              Send an onboarding link via email
+            </p>
+          </div>
         </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition-all"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-4">
-            <div className="relative group">
-              <Mail className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
+      <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <div className="space-y-4">
+          <div>
+            <Label className="mb-2 block">Email address</Label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 type="email"
                 required
-                placeholder="User Email Address"
+                placeholder="User email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="font-bold"
-              />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <Label className="text-zinc-400 mb-2 block">Role</Label>
-                <select
-                  value={roleId || defaultRoleId}
-                  onChange={(e) => setRoleId(e.target.value)}
-                  className="font-bold"
-                >
-                  {roles.map((r) => (
-                    <option key={r._id} value={r._id}>
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <Label className="text-zinc-400 mb-2 block">Member type</Label>
-                <select
-                  value={memberKind}
-                  onChange={(e) => {
-                    const next = e.target.value as OrgMemberKind;
-                    setMemberKind(next);
-                    setGroupIds((prev) =>
-                      memberExtraGroupIdsForForm(next, groups, prev),
-                    );
-                  }}
-                  className="font-bold"
-                >
-                  <option value="Internal">Internal</option>
-                  <option value="External">External</option>
-                </select>
-              </div>
-            </div>
-            <div>
-              <Label className="text-zinc-400 mb-2 block">Groups</Label>
-              <MemberGroupMultiSelect
-                memberKind={memberKind}
-                groups={groups}
-                selectedIds={groupIds}
-                onChange={setGroupIds}
+                className="pl-10"
               />
             </div>
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label className="mb-2 block">Role</Label>
+              <select
+                value={roleId || defaultRoleId}
+                onChange={(e) => setRoleId(e.target.value)}
+                className={cn(inputVariants(), "h-10 w-full")}
+              >
+                {roles.map((r) => (
+                  <option key={r._id} value={r._id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label className="mb-2 block">Member type</Label>
+              <select
+                value={memberKind}
+                onChange={(e) => {
+                  const next = e.target.value as OrgMemberKind;
+                  setMemberKind(next);
+                  setGroupIds((prev) =>
+                    memberExtraGroupIdsForForm(next, groups, prev),
+                  );
+                }}
+                className={cn(inputVariants(), "h-10 w-full")}
+              >
+                <option value="Internal">Internal</option>
+                <option value="External">External</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <Label className="mb-2 block">Groups</Label>
+            <MemberGroupMultiSelect
+              memberKind={memberKind}
+              groups={groups}
+              selectedIds={groupIds}
+              onChange={setGroupIds}
+            />
+          </div>
+        </div>
 
-          <button
-            disabled={isInviting || !email || !(roleId || defaultRoleId)}
-            className="w-full py-4 bg-primary text-white rounded-xl font-semibold uppercase tracking-wide text-xs hover:bg-primaryHover shadow-xl shadow-primary/30 transition-all hover:-translate-y-1 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
-          >
-            {isInviting ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Sending Invitation...
-              </>
-            ) : (
-              "Send Invitation Link"
-            )}
-          </button>
-        </form>
-      </div>
-    </div>
+        <Button
+          type="submit"
+          disabled={isInviting || !email || !(roleId || defaultRoleId)}
+          className="w-full"
+        >
+          {isInviting ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Sending Invitation...
+            </>
+          ) : (
+            "Send Invitation Link"
+          )}
+        </Button>
+      </form>
+    </Modal>
   );
 };
