@@ -880,7 +880,7 @@ export const GroupManagement: React.FC<{
     <div className="animate-fade-in space-y-6">
       <PageHeader
         title="Group Management"
-        description="Organise users into groups to control task visibility"
+        description="Organise users into groups to control who sees internal tasks. Users can belong to multiple groups; when you post, choose which groups are in the audience."
         actions={
           <Button onClick={() => setShowCreateModal(true)}>
             <Plus className="h-4 w-4" />
@@ -889,18 +889,23 @@ export const GroupManagement: React.FC<{
         }
       />
 
-      <div className="grid gap-6 md:grid-cols-4">
-        <div className="space-y-6 md:col-span-3">
+      <div className="space-y-6">
           <Card className="flex flex-col gap-4">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search groups..."
-                className="pl-9"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="relative w-full sm:max-w-md">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search groups..."
+                  className="pl-9"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <Badge variant="chipMuted">{groups.length} groups</Badge>
+                <Badge variant="chipMuted">{allUsers.length} users</Badge>
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {(["All", "Internal", "External"] as const).map((tab) => (
@@ -1122,72 +1127,6 @@ export const GroupManagement: React.FC<{
               })}
             </div>
           )}
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          <div className="p-8 rounded-surface bg-zinc-900 text-white relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]"></div>
-            <div className="relative z-10">
-              <Layers className="w-10 h-10 text-primary mb-6" />
-              <h3 className="text-xl font-semibold tracking-tighter mb-2">
-                Group Visibility
-              </h3>
-              <p className="text-sm text-zinc-400 font-medium leading-relaxed">
-                When posting an internal task, select which groups can see it.
-                Users can belong to multiple groups.
-              </p>
-              <div className="mt-8 pt-6 border-t border-white/10 grid grid-cols-2 gap-4">
-                <div>
-                  <div className="text-3xl font-semibold text-white">
-                    {groups.length}
-                  </div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-primary mt-1">
-                    Total Groups
-                  </div>
-                </div>
-                <div>
-                  <div className="text-3xl font-semibold text-white">
-                    {allUsers.length}
-                  </div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-primary mt-1">
-                    Total Users
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick group overview */}
-          {groups.length > 0 && (
-            <div className="bg-white dark:bg-zinc-900 rounded-surface border border-zinc-100 dark:border-zinc-800 p-6">
-              <h4 className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 mb-4">
-                All Groups
-              </h4>
-              <div className="space-y-3">
-                {groups.slice(0, 8).map((g) => (
-                  <div key={g._id} className="flex items-center gap-3">
-                    <div
-                      className="w-3 h-3 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: g.color }}
-                    />
-                    <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300 truncate flex-1">
-                      {g.name}
-                    </span>
-                    <span className="text-xs font-bold text-zinc-400">
-                      {g.members.length}
-                    </span>
-                  </div>
-                ))}
-                {groups.length > 8 && (
-                  <p className="text-xs text-zinc-400 font-medium">
-                    +{groups.length - 8} more
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Modals */}

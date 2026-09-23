@@ -40,6 +40,7 @@ import { ArrowLeft } from "lucide-react";
 import { ACTIVE_ORG_CHANGED_EVENT } from "../utils/orgScopedRoles";
 import { db } from "../services/database";
 import { invalidateRewardTypesCatalog } from "../services/rewardTypesCatalog";
+import { groupKindOfGroup } from "../utils/orgMemberKind";
 
 interface Permission {
   _id: string;
@@ -261,10 +262,18 @@ const CategoryContactGroupsEditor: React.FC<{
                   {group.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-sm text-zinc-900 dark:text-white truncate">
-                    {group.name}
-                    {inactive ? " (inactive)" : ""}
-                  </p>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <p className="font-bold text-sm text-zinc-900 dark:text-white truncate">
+                      {group.name}
+                      {inactive ? " (inactive)" : ""}
+                    </p>
+                    <span
+                      className="px-2 py-0.5 rounded-lg text-[10px] font-semibold uppercase tracking-wide bg-zinc-100 dark:bg-zinc-800 text-zinc-500 shrink-0"
+                    >
+                      {groupKindOfGroup(group)}
+                      {group.isDefault ? " · Default" : ""}
+                    </span>
+                  </div>
                   {inactive && (
                     <p className="text-[10px] font-bold text-amber-700 dark:text-amber-300 mt-0.5">
                       Inactive — does not add members to the category contact
@@ -328,8 +337,14 @@ const CategoryContactGroupsEditor: React.FC<{
                       className="w-7 h-7 rounded-lg shrink-0"
                       style={{ backgroundColor: group.color || "#6366F1" }}
                     />
-                    <div className="flex-1 min-w-0">
+                    <div className="flex flex-1 items-center gap-2 min-w-0">
                       <p className="font-bold text-sm truncate">{group.name}</p>
+                      <span
+                        className="px-2 py-0.5 rounded-lg text-[10px] font-semibold uppercase tracking-wide bg-zinc-100 dark:bg-zinc-800 text-zinc-500 shrink-0"
+                      >
+                        {groupKindOfGroup(group)}
+                        {group.isDefault ? " · Default" : ""}
+                      </span>
                     </div>
                     {isSelected && (
                       <Check className="w-4 h-4 text-primary shrink-0" />
