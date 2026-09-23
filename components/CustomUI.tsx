@@ -8,6 +8,10 @@ import {
   Search,
   X,
 } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Input, inputVariants } from "@/components/ui/input";
+import { fieldErrorClass } from "@/components/ui/field";
+import { cn } from "@/utils/cn";
 import {
   FloatingMenuPortal,
   useFloatingMenuClickOutside,
@@ -69,13 +73,27 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
   const getButtonStyles = () => {
     switch (variant) {
       case "outline":
-        return `px-3 py-1.5 border ${error ? "border-red-500" : "border-zinc-200 dark:border-zinc-800"} rounded-xl text-sm font-bold`;
+        return cn(
+          "h-9 px-3 border rounded-control text-sm font-medium",
+          error ? "border-red-500" : "border-border",
+        );
       case "ghost":
-        return `px-2 py-1 text-sm font-black ${error ? "text-red-500" : "text-primary"} hover:underline`;
+        return cn(
+          "h-9 px-2 text-sm font-semibold",
+          error ? "text-red-500" : "text-primary",
+          "hover:underline",
+        );
       case "compact":
-        return `w-full p-3 border ${error ? "border-red-500 ring-1 ring-red-500" : "border-zinc-200 dark:border-zinc-700"} rounded-xl text-sm font-semibold bg-zinc-50 dark:bg-zinc-800 dark:text-white focus:bg-white dark:focus:bg-zinc-900`;
+        return cn(
+          "w-full h-10 px-3 border rounded-control text-sm font-medium bg-surface-muted text-foreground focus:bg-surface",
+          error ? "border-red-500 ring-1 ring-red-500" : "border-border",
+        );
       default:
-        return `w-full p-3.5 glass rounded-xl font-bold text-sm dark:text-white ${error ? "border-2 border-red-500" : ""}`;  
+        return cn(
+          inputVariants({ size: "default" }),
+          "flex items-center justify-between text-left font-medium",
+          fieldErrorClass(error),
+        );
     }
   };
 
@@ -84,11 +102,7 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
       className={`${variant === "default" && label ? "space-y-2" : ""} relative`}
       ref={anchorRef}
     >
-      {label && (
-        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">
-          {label}
-        </label>
-      )}
+      {label && <Label className="ml-1">{label}</Label>}
       <button
         ref={buttonRef}
         type="button"
@@ -97,11 +111,13 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
           if (disabled) return;
           setIsOpen(!isOpen);
         }}
-        className={`${getButtonStyles()} flex items-center justify-between transition-all ${
+        className={cn(
+          getButtonStyles(),
+          "flex items-center justify-between transition-colors",
           disabled
             ? "opacity-60 cursor-not-allowed"
-            : "hover:bg-white/40 dark:hover:bg-zinc-800/60"
-        }`}
+            : "hover:bg-surface-muted",
+        )}
       >
         <span className="flex items-center gap-2">
           {icon && <span>{icon}</span>}
@@ -122,15 +138,16 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
         anchorRef={buttonRef}
         menuRef={menuRef}
         recalculateDeps={[searchTerm, filteredOptions.length]}
-        className="flex flex-col min-w-[200px] glass-card rounded-2xl overflow-hidden animate-slide-up shadow-2xl border border-zinc-200 dark:border-zinc-800 backdrop-blur-2xl"
+        className="flex flex-col min-w-[200px] glass-overlay rounded-surface overflow-hidden animate-slide-up shadow-lg"
       >
         {options.length > 10 && (
           <div className="p-2 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-              <input
+              <Input
                 type="text"
-                className="w-full pl-9 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800 border-none rounded-lg text-xs outline-none focus:ring-1 focus:ring-primary"
+                size="compact"
+                className="pl-9 text-xs"
                 placeholder="Search..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -150,7 +167,7 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
                   setIsOpen(false);
                   setSearchTerm("");
                 }}
-                className={`w-full p-2.5 rounded-xl flex items-center justify-between text-left transition-all ${
+                className={`w-full p-2.5 rounded-control flex items-center justify-between text-left text-sm transition-all ${
                   value === optionValue(opt)
                     ? "bg-primary text-white"
                     : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200"
@@ -159,7 +176,7 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
                 <span className="flex items-center gap-2 min-w-0">
                   {opt.icon && <span>{opt.icon}</span>}
                   <span className="min-w-0">
-                    <span className="block text-xs font-bold truncate">
+                    <span className="block text-xs font-semibold truncate">
                       {opt.name}
                     </span>
                     {opt.description && (
@@ -181,7 +198,7 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
               </button>
             ))
           ) : (
-            <div className="p-4 text-center text-xs text-zinc-500 font-bold">
+            <div className="p-4 text-center text-xs text-zinc-500 font-semibold">
               No results found
             </div>
           )}
@@ -303,7 +320,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
           type="button"
           disabled={isDisabled}
           onClick={() => handleSelectDate(day)}
-          className={`h-10 w-full rounded-xl text-sm font-bold transition-all ${
+          className={`h-10 w-full rounded-control text-sm font-medium transition-all ${
             isSelected
               ? "bg-primary text-white shadow-lg shadow-primary/30 scale-105"
               : isDisabled
@@ -321,14 +338,16 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
 
   return (
     <div className="space-y-2 relative" ref={anchorRef}>
-      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">
-        {label}
-      </label>
+      <Label className="ml-1">{label}</Label>
       <button
         ref={buttonRef}
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full p-3.5 glass rounded-xl flex items-center justify-between font-bold text-sm dark:text-white transition-all hover:bg-white/40 dark:hover:bg-zinc-800/60 group ${error ? "border-2 border-red-500" : ""}`}
+        className={cn(
+          inputVariants({ size: "default" }),
+          "flex items-center justify-between text-left font-medium transition-colors hover:bg-surface-muted group",
+          fieldErrorClass(error),
+        )}
       >
         <div className="flex items-center gap-3">
           <CalendarIcon className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
@@ -368,7 +387,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
         menuWidth={dateMenuWidth}
         maxMenuHeight={420}
         recalculateDeps={[viewDate.getMonth(), viewDate.getFullYear()]}
-        className="glass-card rounded-[2rem] p-6 animate-slide-up shadow-2xl border border-zinc-200 dark:border-zinc-800 backdrop-blur-2xl"
+        className="glass-overlay rounded-surface p-card animate-slide-up shadow-lg"
       >
         <div className="flex items-center justify-between mb-6">
           <button
@@ -378,7 +397,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <h4 className="font-black tracking-tight text-zinc-900 dark:text-white">
+          <h4 className="font-semibold tracking-tight text-zinc-900 dark:text-white">
             {monthNames[viewDate.getMonth()]} {viewDate.getFullYear()}
           </h4>
           <button
@@ -394,7 +413,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
           {["S", "M", "T", "W", "T", "F", "S"].map((d) => (
             <div
               key={d}
-              className="text-[10px] font-black text-zinc-400 uppercase"
+              className="text-[10px] font-semibold text-zinc-400 uppercase"
             >
               {d}
             </div>
@@ -406,7 +425,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
           <button
             type="button"
             onClick={handleClear}
-            className="mt-4 w-full py-2.5 text-xs font-black uppercase tracking-widest text-zinc-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors"
+            className="mt-4 w-full h-9 text-xs font-semibold uppercase tracking-widest text-zinc-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-control transition-colors"
           >
             Clear date
           </button>

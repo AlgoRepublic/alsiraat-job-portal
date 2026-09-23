@@ -6,6 +6,7 @@ import { API_BASE_URL } from "../services/api";
 import { Permission } from "../types";
 
 import { LoadingOverlay } from "../components/Loading";
+import { Button, Card, Input, Label } from "@/components/ui";
 
 export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
   onLoginSuccess,
@@ -106,7 +107,7 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 transition-colors relative overflow-hidden bg-zinc-50 dark:bg-black">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 transition-colors relative overflow-hidden bg-background">
       {(isLoading || isSSOLoading) && (
         <LoadingOverlay
           message={isSSOLoading ? "Completing sign-in..." : "Authenticating..."}
@@ -117,8 +118,8 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[100px]"></div>
       </div>
 
-      <div className="w-full max-w-md glass-card rounded-3xl shadow-2xl shadow-zinc-200 dark:shadow-black/50 p-8 md:p-10 border border-white/20 dark:border-zinc-700 animate-slide-up relative">
-        <div className="text-center mb-10">
+      <Card radius="surface" padding="section" className="w-full max-w-md animate-slide-up relative">
+        <div className="text-center mb-8">
           <div className="w-16 h-16 flex items-center justify-center mx-auto mb-6 relative">
             <img
               src="/logo-light.png"
@@ -143,27 +144,28 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
               }}
             />
           </div>
-          <h1 className="text-3xl font-black text-zinc-900 dark:text-white mb-2 tracking-tighter">
+          <h1 className="text-title-page-lg font-semibold text-foreground mb-2 tracking-tight">
             Tasker
           </h1>
         </div>
 
-        <div className="mb-8 space-y-3">
-          <button
+        <div className="mb-6 space-y-3">
+          <Button
+            type="button"
+            className="w-full relative"
             onClick={handleEntraLogin}
-            className="w-full flex items-center justify-center relative px-4 py-3.5 bg-primary hover:bg-primaryHover text-white border border-transparent rounded-xl transition-all shadow-md group"
           >
-            <div className="absolute left-4 flex items-center">
-              <Shield className="w-5 h-5" />
-            </div>
-            <span className="font-bold tracking-tight">Sign in with SSO</span>
-          </button>
+            <Shield className="w-5 h-5 absolute left-4" />
+            Sign in with SSO
+          </Button>
 
-          <button
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full relative"
             onClick={handleGoogleLogin}
-            className="w-full flex items-center justify-center relative px-4 py-3.5 bg-white hover:bg-zinc-50 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-900 dark:text-white border border-zinc-200 dark:border-zinc-700 rounded-xl transition-all shadow-sm group"
           >
-            <div className="absolute left-4 flex items-center">
+            <span className="absolute left-4 flex items-center">
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -182,19 +184,17 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
                   fill="#EA4335"
                 />
               </svg>
-            </div>
-            <span className="font-bold tracking-tight">
-              Sign in with Google
             </span>
-          </button>
+            Sign in with Google
+          </Button>
         </div>
 
-        <div className="flex items-center mb-8">
-          <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-800"></div>
-          <span className="px-4 text-[10px] text-zinc-400 font-black uppercase tracking-[0.2em]">
+        <div className="flex items-center mb-6">
+          <div className="flex-1 h-px bg-border"></div>
+          <span className="px-4 text-xs text-muted-foreground font-semibold uppercase tracking-wide">
             Access your Account
           </span>
-          <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-800"></div>
+          <div className="flex-1 h-px bg-border"></div>
         </div>
 
         {error && (
@@ -208,58 +208,67 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
 
         <form onSubmit={handleLogin} className="space-y-5">
           <div className="space-y-4">
-            <div className="relative group">
-              <Mail className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
-              <input
-                type="email"
-                required
-                placeholder="Email Address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
-              />
+            <div className="space-y-1.5">
+              <Label htmlFor="login-email">Email</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="login-email"
+                  type="email"
+                  required
+                  placeholder="Email Address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
             </div>
-            <div className="relative group">
-              <Lock className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
-              <input
-                type="password"
-                required
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
-              />
+            <div className="space-y-1.5">
+              <Label htmlFor="login-password">Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="login-password"
+                  type="password"
+                  required
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-[10px]">
+          <div className="flex items-center justify-between text-xs">
             <label className="flex items-center space-x-2 cursor-pointer">
               <input
                 type="checkbox"
-                className="rounded-md border-zinc-300 text-primary focus:ring-primary"
+                className="rounded-control border-border text-primary focus:ring-primary/30"
               />
-              <span className="text-zinc-500 font-bold uppercase tracking-widest">
+              <span className="text-muted-foreground font-medium">
                 Remember me
               </span>
             </label>
             <Link
               to="/forgot-password"
-              className="font-black text-primary hover:underline uppercase tracking-widest"
+              className="font-semibold text-primary hover:underline"
             >
               Forgot Password?
             </Link>
           </div>
 
-          <button
+          <Button
+            type="submit"
             disabled={isLoading}
-            className="w-full py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primaryHover shadow-xl shadow-primary/30 transition-all hover:-translate-y-1 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
+            className="w-full"
           >
             Login
-          </button>
+          </Button>
         </form>
 
-        <div className="mt-8 text-center">
-          <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">
+        <div className="mt-6 text-center">
+          <p className="text-xs text-muted-foreground font-medium">
             No account?{" "}
             <Link to="/signup" className="text-primary hover:underline ml-1">
               Sign up
@@ -267,7 +276,7 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
           </p>
         </div>
 
-        <div className="mt-8 text-center text-[10px] text-zinc-400 font-medium">
+        <div className="mt-6 text-center text-xs text-muted-foreground">
           <p>
             By signing in, you agree to our{" "}
             <Link to="/terms" className="text-primary hover:underline">
@@ -279,7 +288,7 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({
             </Link>
           </p>
         </div>
-      </div>
+      </Card>
     </div>
   );
 };

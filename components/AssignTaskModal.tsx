@@ -27,6 +27,12 @@ import {
   useFloatingMenuClickOutside,
 } from "./FloatingMenuPortal";
 import { formatOptionalTaskDuration } from "../utils/formatOptionalTaskField";
+import { Modal, ModalTitle, ModalDescription } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { JobStatusLabel } from "@/utils/statusDisplay";
+import { cn } from "@/utils/cn";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Types
@@ -82,23 +88,21 @@ function SearchDropdown<T extends { _id: string }>({
 
   return (
     <div className="space-y-2" ref={containerRef}>
-      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em]">
-        {label}
-      </label>
+      <Label>{label}</Label>
 
-      {/* Trigger / selected value */}
       <button
         ref={buttonRef}
         type="button"
         disabled={disabled}
         onClick={() => !disabled && setOpen((o) => !o)}
-        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-all text-left ${
+        className={cn(
+          "w-full h-10 flex items-center justify-between px-3 rounded-control border text-left text-sm transition-all",
           disabled
-            ? "opacity-60 cursor-not-allowed bg-zinc-50 dark:bg-zinc-800/30 border-zinc-200 dark:border-zinc-700"
+            ? "opacity-60 cursor-not-allowed bg-surface-muted border-border"
             : open
               ? "border-primary bg-primary/5 dark:bg-primary/10"
-              : "border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/40 hover:border-primary/50"
-        }`}
+              : "border-border bg-surface hover:border-primary/50",
+        )}
       >
         <span className={`text-sm font-semibold truncate ${selected ? "text-zinc-800 dark:text-zinc-100" : "text-zinc-400"}`}>
           {selected ? renderSelected(selected) : placeholder}
@@ -116,18 +120,19 @@ function SearchDropdown<T extends { _id: string }>({
         menuRef={menuRef}
         maxMenuHeight={224}
         recalculateDeps={[items.length, loading, searchValue]}
-        className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-2xl shadow-black/10 overflow-hidden animate-fade-in flex flex-col"
+        className="glass-overlay rounded-surface shadow-lg overflow-hidden animate-fade-in flex flex-col"
       >
           {/* Search */}
           <div className="p-3 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
-              <input
+              <Input
                 autoFocus
                 value={searchValue}
                 onChange={(e) => onSearchChange(e.target.value)}
                 placeholder="Search..."
-                className="w-full pl-9 pr-3 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:border-primary"
+                size="compact"
+                className="pl-9"
               />
             </div>
           </div>
@@ -316,50 +321,31 @@ export const AssignTaskModal: React.FC<AssignTaskModalProps> = ({
 
   const canSubmit = !!selectedTask && !!selectedUser && !submitting;
 
-  // ── Status colour helper ───────────────────────────────────────────────────
-  const statusColor = (status: string) => {
-    switch ((status || "").toLowerCase()) {
-      case "published": return "bg-emerald-100 text-emerald-700";
-      case "pending":   return "bg-amber-100 text-amber-700";
-      case "archived":  return "bg-zinc-100 text-zinc-500";
-      default:          return "bg-blue-100 text-blue-700";
-    }
-  };
-
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
-
-      {/* Panel */}
-      <div className="relative w-full max-w-lg bg-white dark:bg-zinc-900 rounded-[2rem] shadow-2xl shadow-black/20 overflow-hidden animate-fade-in">
-        {/* Header */}
-        <div className="px-8 pt-8 pb-6 border-b border-zinc-100 dark:border-zinc-800 flex items-start justify-between">
+    <Modal open onClose={onClose} zIndex={50} panelClassName="max-w-lg p-0 overflow-hidden">
+        <div className="p-card pb-4 border-b border-border flex items-start justify-between gap-4">
           <div>
-            <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center mb-3">
+            <div className="w-10 h-10 rounded-control bg-primary/10 flex items-center justify-center mb-3">
               <UserCheck className="w-5 h-5 text-primary" />
             </div>
-            <h2 className="text-xl font-black text-zinc-900 dark:text-white tracking-tight">
-              Assign Task Directly
-            </h2>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+            <ModalTitle className="text-xl">Assign Task Directly</ModalTitle>
+            <ModalDescription className="mt-1">
               Skip the application queue and assign a task straight to a user.
-            </p>
+            </ModalDescription>
           </div>
-          <button
+          <Button
+            type="button"
+            variant="ghost"
+            size="iconCompact"
             onClick={onClose}
-            className="p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 transition-colors ml-4 shrink-0"
+            className="shrink-0"
           >
             <X className="w-5 h-5" />
-          </button>
+          </Button>
         </div>
 
         {/* Body */}
-        <div className="px-8 py-6 space-y-5">
+        <div className="p-card space-y-5">
           {success ? (
             /* Success state */
             <div className="py-8 flex flex-col items-center gap-4 animate-fade-in">
@@ -367,7 +353,7 @@ export const AssignTaskModal: React.FC<AssignTaskModalProps> = ({
                 <CheckCircle2 className="w-8 h-8 text-emerald-500" />
               </div>
               <div className="text-center">
-                <p className="font-black text-zinc-900 dark:text-white text-lg">Assignment Sent!</p>
+                <p className="font-semibold text-foreground text-lg">Assignment Sent!</p>
                 <p className="text-sm text-zinc-500 mt-1">
                   {selectedUser?.name} has been notified and can confirm or decline.
                 </p>
@@ -403,9 +389,7 @@ export const AssignTaskModal: React.FC<AssignTaskModalProps> = ({
                           {t.visibility}
                         </p>
                       </div>
-                      <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${statusColor(t.status)}`}>
-                        {t.status}
-                      </span>
+                      <JobStatusLabel status={t.status} />
                     </>
                   )}
                 />
@@ -456,20 +440,18 @@ export const AssignTaskModal: React.FC<AssignTaskModalProps> = ({
 
               {/* Optional note */}
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em]">
-                  Note to Assignee (optional)
-                </label>
+                <Label>Note to Assignee (optional)</Label>
                 <textarea
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   rows={2}
                   placeholder="Add a message describing the task, expectations, etc."
-                  className="w-full px-4 py-3 rounded-xl border-2 border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/40 text-sm text-zinc-800 dark:text-zinc-200 placeholder-zinc-400 outline-none focus:border-primary resize-none transition-all"
+                  className="w-full min-h-[4.5rem] px-3 py-2 rounded-control border border-border bg-surface text-sm text-foreground placeholder:text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/30 resize-none transition-all"
                 />
               </div>
 
               {/* Info callout */}
-              <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+              <div className="flex items-start gap-3 p-4 rounded-control bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                 <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                 <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
                   The assignee will receive an <strong>offer notification</strong> and must confirm or decline. If they already applied, their status will be updated to <strong>Offered</strong>.
@@ -481,19 +463,14 @@ export const AssignTaskModal: React.FC<AssignTaskModalProps> = ({
 
         {/* Footer */}
         {!success && (
-          <div className="px-8 pb-8 flex gap-3 justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-5 py-2.5 rounded-xl border-2 border-zinc-200 dark:border-zinc-700 text-sm font-black text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
-            >
+          <div className="p-card pt-0 flex gap-3 justify-end">
+            <Button type="button" variant="secondary" onClick={onClose}>
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={handleAssign}
               disabled={!canSubmit}
-              className="px-6 py-2.5 rounded-xl bg-primary text-white text-sm font-black shadow-lg shadow-primary/20 hover:bg-primaryHover transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {submitting ? (
                 <>
@@ -506,10 +483,9 @@ export const AssignTaskModal: React.FC<AssignTaskModalProps> = ({
                   Assign Task
                 </>
               )}
-            </button>
+            </Button>
           </div>
         )}
-      </div>
-    </div>
+    </Modal>
   );
 };

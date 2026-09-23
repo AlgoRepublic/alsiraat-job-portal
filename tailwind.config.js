@@ -9,10 +9,25 @@ export default {
     "./hooks/**/*.{js,ts,jsx,tsx}",
     "./services/**/*.{js,ts,jsx,tsx}",
     "./routes/**/*.{js,ts,jsx,tsx}",
+    "./utils/**/*.{js,ts,jsx,tsx}",
   ],
   darkMode: "class",
   theme: {
     extend: {
+      spacing: {
+        card: "var(--spacing-card)",
+        section: "var(--spacing-section)",
+      },
+      borderRadius: {
+        control: "var(--radius-control)",
+        surface: "var(--radius-surface)",
+      },
+      fontSize: {
+        ui: ["0.875rem", { lineHeight: "1.25rem" }],
+        "title-sm": ["1rem", { lineHeight: "1.5rem", fontWeight: "600" }],
+        "title-page": ["1.25rem", { lineHeight: "1.75rem", fontWeight: "600" }],
+        "title-page-lg": ["1.5rem", { lineHeight: "2rem", fontWeight: "600" }],
+      },
       colors: {
         red: {
           50: "var(--accent-50)",
@@ -30,8 +45,21 @@ export default {
         primary: "var(--accent-800)",
         primaryHover: "var(--accent-900)",
         secondary: "#71717a",
-        surface: "#ffffff",
-        background: "#fafafa",
+        surface: {
+          DEFAULT: "var(--surface)",
+          muted: "var(--surface-muted)",
+          elevated: "var(--surface-elevated)",
+        },
+        border: {
+          DEFAULT: "var(--border)",
+          strong: "var(--border-strong)",
+        },
+        background: "var(--background)",
+        foreground: "var(--foreground)",
+        muted: {
+          DEFAULT: "var(--muted)",
+          foreground: "var(--muted-foreground)",
+        },
       },
       fontFamily: {
         sans: ["Inter", "sans-serif"],

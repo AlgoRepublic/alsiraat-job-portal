@@ -31,15 +31,16 @@ import {
   Plus,
   Upload,
   Loader2,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
 } from "lucide-react";
 
 import { Loading } from "../components/Loading";
+import { Pagination } from "../components/Pagination";
 import { CustomDropdown } from "../components/CustomUI";
 import { UserProfileDrawer } from "../components/UserProfileDrawer";
+import {
+  MemberRoleBadges,
+} from "../components/MemberRoleBadges";
+import { Badge, Button, Card, Input, PageHeader, Label} from "@/components/ui";
 import { DefaultRoleCode } from "@/shared/defaultRoleCodes";
 import { OrgMemberKind, Permission } from "../types";
 import {
@@ -242,23 +243,6 @@ const SKILL_LEVEL_STYLES: Record<string, string> = {
     "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
 };
 
-// Role badge colours
-const ROLE_COLOUR: Record<string, string> = {
-  "Super Admin":
-    "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
-  "Organisation Admin":
-    "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
-  "Task Manager":
-    "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
-  "Task Advertiser":
-    "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-  Applicant: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
-};
-
-const getRoleColour = (role: string) =>
-  ROLE_COLOUR[role] ??
-  "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary";
-
 const formatDate = (d?: string | Date) => {
   if (!d) return "—";
   const date = new Date(d);
@@ -299,7 +283,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white dark:bg-zinc-900 w-full max-w-2xl rounded-3xl shadow-2xl border border-zinc-200 dark:border-zinc-800 animate-scale-in overflow-hidden max-h-[90vh] flex flex-col">
+      <div className="bg-white dark:bg-zinc-900 w-full max-w-2xl rounded-surface shadow-2xl border border-zinc-200 dark:border-zinc-800 animate-scale-in overflow-hidden max-h-[90vh] flex flex-col">
         {/* ── Hero header ── */}
         <div className="relative bg-gradient-to-br from-primary/20 via-primary/10 to-transparent p-6 pb-4 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0">
           <button
@@ -311,7 +295,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
 
           <div className="flex items-center gap-5">
             {/* Avatar */}
-            <div className="flex-shrink-0 w-20 h-20 rounded-2xl bg-white dark:bg-zinc-800 border-2 border-primary/20 flex items-center justify-center overflow-hidden shadow-lg">
+            <div className="flex-shrink-0 w-20 h-20 rounded-xl bg-white dark:bg-zinc-800 border-2 border-primary/20 flex items-center justify-center overflow-hidden shadow-lg">
               {user.avatar ? (
                 <img
                   src={user.avatar}
@@ -325,26 +309,14 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
 
             {/* Name / role / org */}
             <div className="min-w-0">
-              <h2 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tight truncate">
+              <h2 className="text-2xl font-semibold text-zinc-900 dark:text-white tracking-tight truncate">
                 {user.name}
               </h2>
               <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                <div className="flex flex-wrap gap-2">
-                  {displayRoles.map((r) => (
-                    <span
-                      key={r.id}
-                      className={`px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider ${getRoleColour(r.name)}`}
-                    >
-                      {r.name}
-                      {r.isActive === false ? " (inactive)" : ""}
-                    </span>
-                  ))}
-                  {displayRoles.length === 0 && (
-                    <span className="px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider bg-zinc-100 text-zinc-400">
-                      No Role
-                    </span>
-                  )}
-                </div>
+                <MemberRoleBadges roles={displayRoles} />
+                {displayRoles.length === 0 && (
+                  <Badge variant="chipMuted">No Role</Badge>
+                )}
                 {(user.organisations?.length > 0 ||
                   user.activeOrganisation?.name) && (
                   <span className="flex items-center gap-1.5 text-xs font-bold text-zinc-500 dark:text-zinc-400">
@@ -365,7 +337,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
         <div className="overflow-y-auto flex-1 p-6 space-y-6">
           {/* Contact & Personal Info */}
           <section>
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-3">
+            <h3 className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 mb-3">
               Contact & Personal Information
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -415,7 +387,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
 
           {/* Auth Methods */}
           <section>
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-3">
+            <h3 className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 mb-3">
               Authentication
             </h3>
             <div className="flex flex-wrap gap-2">
@@ -446,10 +418,10 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
           {/* About */}
           {user.about && (
             <section>
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-3">
+              <h3 className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 mb-3">
                 About
               </h3>
-              <p className="text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed bg-zinc-50 dark:bg-zinc-800/60 rounded-xl p-4">
+              <p className="h-auto py-3">
                 {user.about}
               </p>
             </section>
@@ -458,7 +430,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
           {/* Skills */}
           {user.skills && user.skills.length > 0 && (
             <section>
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-3">
+              <h3 className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 mb-3">
                 Skills ({user.skills.length})
               </h3>
               <div className="flex flex-wrap gap-2">
@@ -471,7 +443,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
                       {skill.name}
                     </span>
                     <span
-                      className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide ${
+                      className={`px-2 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wide ${
                         SKILL_LEVEL_STYLES[skill.level] ??
                         SKILL_LEVEL_STYLES["Beginner"]
                       }`}
@@ -486,7 +458,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
 
           {/* Resume */}
           <section>
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-3">
+            <h3 className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 mb-3">
               Resume / CV
             </h3>
             {resumeFullUrl ? (
@@ -541,10 +513,10 @@ const InfoPill: React.FC<{
   value: string;
   mono?: boolean;
 }> = ({ icon, label, value, mono }) => (
-  <div className="flex items-start gap-3 p-3 bg-zinc-50 dark:bg-zinc-800/60 rounded-xl">
+  <div>
     <span className="mt-0.5 flex-shrink-0 text-primary/70">{icon}</span>
     <div className="min-w-0">
-      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
         {label}
       </p>
       <p
@@ -921,113 +893,100 @@ export const UserManagement: React.FC = () => {
     );
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div>
-          <h2 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
-            User Management
-          </h2>
-          <p className="text-zinc-500 font-medium mt-1">
-            {currentUser?.activeOrganisation?.name ? (
-              <>
-                Members of{" "}
-                <span className="text-zinc-800 dark:text-zinc-200 font-bold">
-                  {currentUser.activeOrganisation.name}
-                </span>
-                . Switch organisation in the sidebar to manage another community.
-              </>
-            ) : (
-              "Select an organisation in the sidebar to view and manage its members."
-            )}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 px-4 py-2.5 bg-primary/10 rounded-xl">
-          <Users className="w-5 h-5 text-primary" />
-          <span className="font-black text-primary text-sm">
-            {totalUsers} {totalUsers === 1 ? "User" : "Users"}
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
-          {(currentUser?.permissions?.includes(Permission.USER_IMPORT) ||
-            currentUser?.permissions?.includes(Permission.USER_CREATE) ||
-            currentUser?.isSuperAdmin) && (
+    <div className="animate-fade-in space-y-6">
+      <PageHeader
+        title="User Management"
+        description={
+          currentUser?.activeOrganisation?.name ? (
             <>
-              <input
-                type="file"
-                accept=".csv"
-                className="hidden"
-                ref={fileInputRef}
-                onChange={handleFileUpload}
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={importing || saving || !activeOrgId}
-                className="flex items-center gap-2 px-5 py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 rounded-xl font-bold text-sm hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all disabled:opacity-50"
-              >
-                {importing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Importing...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-4 h-4" />
-                    Import CSV
-                  </>
-                )}
-              </button>
-
-              <button
-                onClick={() => setIsInviteModalOpen(true)}
-                disabled={saving || !activeOrgId}
-                className="flex items-center gap-2 px-5 py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primaryHover transition-all shadow-lg shadow-primary/20 hover:-translate-y-0.5 active:translate-y-0"
-              >
-                <Mail className="w-4 h-4" />
-                Invite User
-              </button>
-
-              <button
-                onClick={handleDownloadCsv}
-                disabled={exporting || saving || !activeOrgId}
-                className="flex items-center gap-2 px-5 py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 rounded-xl font-bold text-sm hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all disabled:opacity-50"
-              >
-                {exporting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Exporting...
-                  </>
-                ) : (
-                  <>
-                    <FileText className="w-4 h-4" />
-                    Download CSV
-                  </>
-                )}
-              </button>
+              Members of{" "}
+              <span className="font-semibold text-foreground">
+                {currentUser.activeOrganisation.name}
+              </span>
+              . Switch organisation in the sidebar to manage another community.
             </>
-          )}
-          {(currentUser?.permissions?.includes(Permission.USER_CREATE) ||
-            currentUser?.isSuperAdmin) && (
-            <button
-              onClick={openCreateModal}
-              disabled={saving || !activeOrgId}
-              className="flex items-center gap-2 px-5 py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primaryHover transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
-            >
-              <Plus className="w-4 h-4" />
-              Create User
-            </button>
-          )}
-        </div>
-      </div>
+          ) : (
+            "Select an organisation in the sidebar to view and manage its members."
+          )
+        }
+        actions={
+          <>
+            <Badge variant="chipPrimary">
+              <Users className="h-3.5 w-3.5" />
+              {totalUsers} {totalUsers === 1 ? "User" : "Users"}
+            </Badge>
+            {(currentUser?.permissions?.includes(Permission.USER_IMPORT) ||
+              currentUser?.permissions?.includes(Permission.USER_CREATE) ||
+              currentUser?.isSuperAdmin) && (
+              <>
+                <input
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                />
+                <Button
+                  variant="secondary"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={importing || saving || !activeOrgId}
+                >
+                  {importing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Importing...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4" />
+                      Import CSV
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={() => setIsInviteModalOpen(true)}
+                  disabled={saving || !activeOrgId}
+                >
+                  <Mail className="h-4 w-4" />
+                  Invite User
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={handleDownloadCsv}
+                  disabled={exporting || saving || !activeOrgId}
+                >
+                  {exporting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Exporting...
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="h-4 w-4" />
+                      Download CSV
+                    </>
+                  )}
+                </Button>
+              </>
+            )}
+            {(currentUser?.permissions?.includes(Permission.USER_CREATE) ||
+              currentUser?.isSuperAdmin) && (
+              <Button onClick={openCreateModal} disabled={saving || !activeOrgId}>
+                <Plus className="h-4 w-4" />
+                Create User
+              </Button>
+            )}
+          </>
+        }
+      />
 
-      {/* Controls */}
-      <div className="flex flex-col sm:flex-row gap-4 bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
-          <input
+      <Card className="flex flex-col gap-4 sm:flex-row">
+        <div className="relative min-w-0 flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
             type="text"
             placeholder="Search users by name or email…"
-            className="w-full pl-10 pr-4 py-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-primary outline-none font-medium text-sm transition-all"
+            className="pl-9"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -1064,10 +1023,9 @@ export const UserManagement: React.FC = () => {
             icon={<Filter className="w-4 h-4 text-zinc-400" />}
           />
         </div>
-      </div>
+      </Card>
 
-      {/* Table */}
-      <div className="bg-white dark:bg-zinc-900 rounded-[2rem] border border-zinc-100 dark:border-zinc-800 overflow-hidden shadow-sm">
+      <Card padding="none" className="overflow-hidden">
         {loading ? (
           <Loading message="Loading users…" />
         ) : sortedUsers.length === 0 ? (
@@ -1081,18 +1039,18 @@ export const UserManagement: React.FC = () => {
               <thead>
                 <tr className="border-b border-zinc-50 dark:border-zinc-800">
                   <th
-                    className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400 cursor-pointer select-none hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+                    className="px-6 py-5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400 cursor-pointer select-none hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
                     onClick={() => toggleSort("name")}
                   >
                     User <SortIcon col="name" />
                   </th>
                   <th
-                    className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400 cursor-pointer select-none hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+                    className="px-6 py-5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400 cursor-pointer select-none hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
                     onClick={() => toggleSort("role")}
                   >
                     Role <SortIcon col="role" />
                   </th>
-                  <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400 text-right">
+                  <th className="px-6 py-5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400 text-right">
                     Actions
                   </th>
                 </tr>
@@ -1143,18 +1101,9 @@ export const UserManagement: React.FC = () => {
                           );
                           return (
                             <div className="flex flex-wrap gap-1">
-                              {displayRoles.map((r) => (
-                                <span
-                                  key={r.id}
-                                  className={`px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-wider ${getRoleColour(r.name)}`}
-                                >
-                                  {r.name}
-                                </span>
-                              ))}
+                              <MemberRoleBadges roles={displayRoles} />
                               {displayRoles.length === 0 && (
-                                <span className="px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-wider bg-zinc-100 text-zinc-400">
-                                  No Role
-                                </span>
+                                <Badge variant="chipMuted">No Role</Badge>
                               )}
                             </div>
                           );
@@ -1217,7 +1166,7 @@ export const UserManagement: React.FC = () => {
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                             {/* Contact Info */}
                             <div className="space-y-2 min-w-0">
-                              <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
                                 Contact
                               </p>
                               <p className="text-sm font-medium text-zinc-700 dark:text-zinc-200 flex items-start gap-1.5 min-w-0">
@@ -1236,7 +1185,7 @@ export const UserManagement: React.FC = () => {
 
                             {/* Personal */}
                             <div className="space-y-2 min-w-0">
-                              <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
                                 Personal
                               </p>
                               <p className="text-sm font-medium text-zinc-700 dark:text-zinc-200">
@@ -1249,7 +1198,7 @@ export const UserManagement: React.FC = () => {
 
                             {/* Skills */}
                             <div className="space-y-2 min-w-0">
-                              <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
                                 Skills
                               </p>
                               {user.skills?.length > 0 ? (
@@ -1279,7 +1228,7 @@ export const UserManagement: React.FC = () => {
 
                             {/* Resume & About */}
                             <div className="space-y-2 min-w-0">
-                              <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
                                 Profile
                               </p>
                               {user.resumeUrl ? (
@@ -1322,87 +1271,16 @@ export const UserManagement: React.FC = () => {
             </table>
           </div>
         )}
-      </div>
+      </Card>
 
-      {/* ─── Pagination ─── */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between gap-4 mt-2 px-2">
-          <p className="text-xs text-zinc-400 font-medium">
-            Showing{" "}
-            <span className="font-black text-zinc-600 dark:text-zinc-300">
-              {(currentPage - 1) * PAGE_SIZE + 1}–
-              {Math.min(currentPage * PAGE_SIZE, totalUsers)}
-            </span>{" "}
-            of{" "}
-            <span className="font-black text-zinc-600 dark:text-zinc-300">
-              {totalUsers}
-            </span>{" "}
-            users
-          </p>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setCurrentPage(1)}
-              disabled={currentPage === 1}
-              className="p-2 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-              title="First page"
-            >
-              <ChevronsLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="p-2 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-              title="Previous page"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-
-            {/* Page number pills */}
-            {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-              let page: number;
-              if (totalPages <= 7) {
-                page = i + 1;
-              } else if (currentPage <= 4) {
-                page = i + 1;
-              } else if (currentPage >= totalPages - 3) {
-                page = totalPages - 6 + i;
-              } else {
-                page = currentPage - 3 + i;
-              }
-              return (
-                <button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${
-                    page === currentPage
-                      ? "bg-primary text-white shadow-md shadow-primary/30"
-                      : "text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-800 dark:hover:text-zinc-200"
-                  }`}
-                >
-                  {page}
-                </button>
-              );
-            })}
-
-            <button
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="p-2 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-              title="Next page"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setCurrentPage(totalPages)}
-              disabled={currentPage === totalPages}
-              className="p-2 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-              title="Last page"
-            >
-              <ChevronsRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={totalUsers}
+        itemsPerPage={PAGE_SIZE}
+        onPageChange={setCurrentPage}
+        label="users"
+      />
 
       {/* ─── Full Profile Drawer ─── */}
       {viewingUser && (
@@ -1422,7 +1300,7 @@ export const UserManagement: React.FC = () => {
       {/* ─── Create/Edit User Modal ─── */}
       {(editingUser || isCreating) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-zinc-900 w-full max-w-md rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 animate-scale-in">
+          <div>
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-zinc-100 dark:border-zinc-800">
               <div className="flex items-center gap-3">
@@ -1434,7 +1312,7 @@ export const UserManagement: React.FC = () => {
                   )}
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-zinc-900 dark:text-white">
+                  <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
                     {isCreating ? "Create New User" : "Edit User"}
                   </h3>
                   <p className="text-xs text-zinc-400 font-medium">
@@ -1457,57 +1335,51 @@ export const UserManagement: React.FC = () => {
             {/* Body */}
             <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto">
               <div>
-                <label className="block text-xs font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest mb-2">
-                  Full Name
-                </label>
-                <input
+                <Label className="text-zinc-500 dark:text-zinc-400 mb-2 block">Full Name</Label>
+                <Input
                   type="text"
                   value={editForm.name}
                   onChange={(e) =>
                     setEditForm({ ...editForm, name: e.target.value })
                   }
-                  className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-medium text-zinc-900 dark:text-white focus:ring-2 focus:ring-primary focus:outline-none transition-all"
+                  className="font-medium"
                   placeholder="Full name"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest mb-2">
-                  Email Address
-                </label>
-                <input
+                <Label className="text-zinc-500 dark:text-zinc-400 mb-2 block">Email Address</Label>
+                <Input
                   type="email"
                   value={editForm.email}
                   onChange={(e) =>
                     setEditForm({ ...editForm, email: e.target.value })
                   }
-                  className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-medium text-zinc-900 dark:text-white focus:ring-2 focus:ring-primary focus:outline-none transition-all"
+                  className="font-medium"
                   placeholder="email@example.com"
                 />
               </div>
 
               {isCreating && (
                 <div>
-                  <label className="block text-xs font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest mb-2">
-                    Password
-                  </label>
-                  <input
+                  <Label className="text-zinc-500 dark:text-zinc-400 mb-2 block">Password</Label>
+                  <Input
                     type="password"
                     value={editForm.password}
                     onChange={(e) =>
                       setEditForm({ ...editForm, password: e.target.value })
                     }
-                    className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-medium text-zinc-900 dark:text-white focus:ring-2 focus:ring-primary focus:outline-none transition-all"
+                    className="font-medium"
                     placeholder="Set password"
                   />
                 </div>
               )}
 
               {currentUser?.activeOrganisation?.name && (
-                <div className="flex items-start gap-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/80 px-4 py-3">
+                <div>
                   <Building2 className="w-4 h-4 text-zinc-400 shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
                       Organisation
                     </p>
                     <p className="text-sm font-bold text-zinc-800 dark:text-zinc-100">
@@ -1518,10 +1390,8 @@ export const UserManagement: React.FC = () => {
               )}
 
               <div>
-                <label className="block text-xs font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest mb-2">
-                  Role &amp; member type
-                </label>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 p-3 bg-zinc-50 dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                <Label className="text-zinc-500 dark:text-zinc-400 mb-2 block">Role &amp; member type</Label>
+                <div>
                   <select
                     value={
                       editForm.roleId || resolveDefaultApplicantRoleId(roles)
@@ -1565,9 +1435,7 @@ export const UserManagement: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest mb-2">
-                  Groups
-                </label>
+                <Label className="text-zinc-500 dark:text-zinc-400 mb-2 block">Groups</Label>
                 <MemberGroupMultiSelect
                   memberKind={editForm.memberKind}
                   groups={orgGroups}
@@ -1680,7 +1548,7 @@ const InviteUserModal: React.FC<{
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in overflow-y-auto">
-      <div className="relative w-full max-w-md bg-white dark:bg-zinc-900 rounded-[2.5rem] shadow-2xl border border-white/20 dark:border-zinc-800 p-8 md:p-10 animate-scale-in transition-all">
+      <div className="relative w-full max-w-md bg-white dark:bg-zinc-900 rounded-surface shadow-2xl border border-white/20 dark:border-zinc-800 p-8 md:p-10 animate-scale-in transition-all">
         <button
           onClick={onClose}
           className="absolute top-6 right-6 p-2 text-zinc-400 hover:text-primary transition-colors"
@@ -1689,13 +1557,13 @@ const InviteUserModal: React.FC<{
         </button>
 
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-4">
             <Mail className="w-8 h-8 text-primary" />
           </div>
-          <h2 className="text-2xl font-black text-zinc-900 dark:text-white mb-2 tracking-tight">
+          <h2 className="text-2xl font-semibold text-zinc-900 dark:text-white mb-2 tracking-tight">
             Invite New User
           </h2>
-          <p className="text-sm text-zinc-500 font-medium text-[10px] font-black uppercase tracking-widest text-center">
+          <p className="text-sm text-zinc-500 font-medium text-[10px] font-semibold uppercase tracking-wide text-center">
             Send an onboarding link via email
           </p>
         </div>
@@ -1704,24 +1572,22 @@ const InviteUserModal: React.FC<{
           <div className="space-y-4">
             <div className="relative group">
               <Mail className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
-              <input
+              <Input
                 type="email"
                 required
                 placeholder="User Email Address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-sm font-bold dark:text-white transition-all shadow-sm"
+                className="font-bold"
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2">
-                  Role
-                </label>
+                <Label className="text-zinc-400 mb-2 block">Role</Label>
                 <select
                   value={roleId || defaultRoleId}
                   onChange={(e) => setRoleId(e.target.value)}
-                  className="w-full px-3 py-3 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-bold dark:text-white"
+                  className="font-bold"
                 >
                   {roles.map((r) => (
                     <option key={r._id} value={r._id}>
@@ -1731,9 +1597,7 @@ const InviteUserModal: React.FC<{
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2">
-                  Member type
-                </label>
+                <Label className="text-zinc-400 mb-2 block">Member type</Label>
                 <select
                   value={memberKind}
                   onChange={(e) => {
@@ -1743,7 +1607,7 @@ const InviteUserModal: React.FC<{
                       memberExtraGroupIdsForForm(next, groups, prev),
                     );
                   }}
-                  className="w-full px-3 py-3 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-bold dark:text-white"
+                  className="font-bold"
                 >
                   <option value="Internal">Internal</option>
                   <option value="External">External</option>
@@ -1751,9 +1615,7 @@ const InviteUserModal: React.FC<{
               </div>
             </div>
             <div>
-              <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2">
-                Groups
-              </label>
+              <Label className="text-zinc-400 mb-2 block">Groups</Label>
               <MemberGroupMultiSelect
                 memberKind={memberKind}
                 groups={groups}
@@ -1765,7 +1627,7 @@ const InviteUserModal: React.FC<{
 
           <button
             disabled={isInviting || !email || !(roleId || defaultRoleId)}
-            className="w-full py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primaryHover shadow-xl shadow-primary/30 transition-all hover:-translate-y-1 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
+            className="w-full py-4 bg-primary text-white rounded-xl font-semibold uppercase tracking-wide text-xs hover:bg-primaryHover shadow-xl shadow-primary/30 transition-all hover:-translate-y-1 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
           >
             {isInviting ? (
               <>

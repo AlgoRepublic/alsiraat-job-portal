@@ -1,5 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
-import { createPortal } from "react-dom";
+import React, { useState, useCallback } from "react";
 import { Archive, RotateCcw, Trash2, X } from "lucide-react";
 import { db } from "../services/database";
 import { useToast } from "./Toast";
@@ -9,6 +8,13 @@ import {
   type TaskLifecycleJobLike,
   type TaskLifecycleUserLike,
 } from "../utils/taskLifecyclePermissions";
+import { Button } from "@/components/ui/button";
+import {
+  Modal,
+  ModalDescription,
+  ModalFooter,
+  ModalTitle,
+} from "@/components/ui/modal";
 
 type Layout = "detail" | "compact";
 
@@ -16,35 +22,34 @@ type ConfirmKind = "archive" | "unarchive" | "softDelete" | "restore";
 
 const CONFIRM_CONFIG: Record<
   ConfirmKind,
-  { title: string; body: string; confirmLabel: string; confirmClass: string }
+  { title: string; body: string; confirmLabel: string; confirmVariant: "secondary" | "destructive" | "primary"; confirmClassName?: string }
 > = {
   archive: {
     title: "Archive this task?",
     body: "It will be hidden from default listings until you unarchive it.",
     confirmLabel: "Archive",
-    confirmClass:
-      "px-4 py-2.5 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-bold rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity",
+    confirmVariant: "secondary",
+    confirmClassName: "bg-foreground text-background hover:opacity-90",
   },
   unarchive: {
     title: "Restore to active listings?",
     body: "This task will appear in default search and listings again.",
     confirmLabel: "Unarchive",
-    confirmClass:
-      "px-4 py-2.5 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-bold rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity",
+    confirmVariant: "secondary",
+    confirmClassName: "bg-foreground text-background hover:opacity-90",
   },
   softDelete: {
     title: "Soft-delete this task?",
     body: "It will be hidden from listings. An authorised user can restore it later.",
     confirmLabel: "Soft delete",
-    confirmClass:
-      "px-4 py-2.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 disabled:opacity-50 transition-colors",
+    confirmVariant: "destructive",
   },
   restore: {
     title: "Restore from deleted?",
     body: "This task will no longer be treated as deleted (lifecycle).",
     confirmLabel: "Restore",
-    confirmClass:
-      "px-4 py-2.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition-colors",
+    confirmVariant: "primary",
+    confirmClassName: "bg-emerald-600 hover:bg-emerald-700",
   },
 };
 
@@ -78,15 +83,6 @@ export const TaskLifecycleActions: React.FC<TaskLifecycleActionsProps> = ({
   const closeModal = useCallback(() => {
     if (!submitting) setConfirmKind(null);
   }, [submitting]);
-
-  useEffect(() => {
-    if (!confirmKind) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeModal();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [confirmKind, closeModal]);
 
   const runConfirmed = async () => {
     if (!taskId || !confirmKind) return;
@@ -130,118 +126,99 @@ export const TaskLifecycleActions: React.FC<TaskLifecycleActionsProps> = ({
     e.stopPropagation();
   };
 
-  const detailBtnNeutral =
-    "flex items-center px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white text-sm font-bold rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors";
-  const detailBtnDanger =
-    "flex items-center px-4 py-2 bg-red-50 dark:bg-red-900/30 text-red-800 dark:text-red-200 text-sm font-bold rounded-xl hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors";
-  const detailBtnRestore =
-    "flex items-center px-4 py-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200 text-sm font-bold rounded-xl hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors";
+  const cfg = confirmKind ? CONFIRM_CONFIG[confirmKind] : null;
 
-  const compactBtn =
-    "inline-flex items-center justify-center p-2 rounded-xl border border-zinc-200 dark:border-zinc-600 bg-white/80 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors";
-
-  const modal =
-    confirmKind &&
-    typeof document !== "undefined" &&
-    createPortal(
-      (() => {
-        const cfg = CONFIRM_CONFIG[confirmKind];
-        return (
-          <div
-          className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="task-lifecycle-confirm-title"
+  const modal = (
+    <Modal
+      open={!!confirmKind}
+      onClose={closeModal}
+      zIndex={200}
+      panelClassName="max-w-md p-0 overflow-hidden"
+      closeOnBackdrop={!submitting}
+    >
+      <div className="flex items-start justify-between gap-3 border-b border-border p-card pb-4">
+        <ModalTitle id="task-lifecycle-confirm-title" className="flex-1 min-w-0 text-lg">
+          {cfg?.title}
+        </ModalTitle>
+        <Button
+          type="button"
+          variant="ghost"
+          size="iconCompact"
           onClick={closeModal}
+          disabled={submitting}
+          aria-label="Close"
         >
-          <div
-            className="bg-white dark:bg-zinc-900 w-full max-w-md rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 animate-scale-in"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-3 p-6 border-b border-zinc-100 dark:border-zinc-800">
-              <h3
-                id="task-lifecycle-confirm-title"
-                className="text-lg font-black text-zinc-900 dark:text-white tracking-tight flex-1 min-w-0"
-              >
-                {cfg.title}
-              </h3>
-              <button
-                type="button"
-                onClick={closeModal}
-                disabled={submitting}
-                className="p-2 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-40 shrink-0"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <p className="px-6 py-4 text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-              {cfg.body}
-            </p>
-            <div className="flex justify-end gap-3 px-6 pb-6">
-              <button
-                type="button"
-                onClick={closeModal}
-                disabled={submitting}
-                className="px-4 py-2.5 text-zinc-600 dark:text-zinc-400 font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => void runConfirmed()}
-                disabled={submitting}
-                className={cfg.confirmClass}
-              >
-                {submitting ? "Please wait…" : cfg.confirmLabel}
-              </button>
-            </div>
-          </div>
-        </div>
-        );
-      })(),
-      document.body,
-    );
+          <X className="w-5 h-5" />
+        </Button>
+      </div>
+      <ModalDescription className="px-card py-4">{cfg?.body}</ModalDescription>
+      <ModalFooter className="px-card pb-card pt-0">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={closeModal}
+          disabled={submitting}
+        >
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          variant={cfg?.confirmVariant ?? "primary"}
+          className={cfg?.confirmClassName}
+          onClick={() => void runConfirmed()}
+          disabled={submitting}
+        >
+          {submitting ? "Please wait…" : cfg?.confirmLabel}
+        </Button>
+      </ModalFooter>
+    </Modal>
+  );
 
   if (layout === "detail") {
     return (
       <>
         <div className={`flex flex-wrap items-center gap-2 ${className ?? ""}`}>
           {canArchive && !isSoftDeleted && !isArchived && (
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="compact"
               onClick={() => setConfirmKind("archive")}
-              className={detailBtnNeutral}
             >
-              <Archive className="w-4 h-4 mr-2" /> Archive
-            </button>
+              <Archive className="w-4 h-4" /> Archive
+            </Button>
           )}
           {canArchive && isArchived && !isSoftDeleted && (
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="compact"
               onClick={() => setConfirmKind("unarchive")}
-              className={detailBtnNeutral}
             >
-              <RotateCcw className="w-4 h-4 mr-2" /> Unarchive
-            </button>
+              <RotateCcw className="w-4 h-4" /> Unarchive
+            </Button>
           )}
           {canSoftDelete && !isSoftDeleted && (
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="compact"
+              className="border-red-200 bg-red-50 text-red-800 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200 dark:hover:bg-red-900/50"
               onClick={() => setConfirmKind("softDelete")}
-              className={detailBtnDanger}
             >
-              <Trash2 className="w-4 h-4 mr-2" /> Soft delete
-            </button>
+              <Trash2 className="w-4 h-4" /> Soft delete
+            </Button>
           )}
           {canSoftDelete && isSoftDeleted && (
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="compact"
+              className="border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200 dark:hover:bg-emerald-900/50"
               onClick={() => setConfirmKind("restore")}
-              className={detailBtnRestore}
             >
-              <RotateCcw className="w-4 h-4 mr-2" /> Restore
-            </button>
+              <RotateCcw className="w-4 h-4" /> Restore
+            </Button>
           )}
         </div>
         {modal}
@@ -258,56 +235,62 @@ export const TaskLifecycleActions: React.FC<TaskLifecycleActionsProps> = ({
         role="presentation"
       >
         {canArchive && !isSoftDeleted && !isArchived && (
-          <button
+          <Button
             type="button"
+            variant="secondary"
+            size="iconCompact"
             title="Archive"
             onClick={(e) => {
               stop(e);
               setConfirmKind("archive");
             }}
-            className={compactBtn}
           >
             <Archive className="w-4 h-4" />
-          </button>
+          </Button>
         )}
         {canArchive && isArchived && !isSoftDeleted && (
-          <button
+          <Button
             type="button"
+            variant="secondary"
+            size="iconCompact"
             title="Unarchive"
             onClick={(e) => {
               stop(e);
               setConfirmKind("unarchive");
             }}
-            className={compactBtn}
           >
             <RotateCcw className="w-4 h-4" />
-          </button>
+          </Button>
         )}
         {canSoftDelete && !isSoftDeleted && (
-          <button
+          <Button
             type="button"
+            variant="secondary"
+            size="iconCompact"
             title="Soft delete"
+            className="border-red-200 text-red-700 dark:border-red-800 dark:text-red-300"
             onClick={(e) => {
               stop(e);
               setConfirmKind("softDelete");
             }}
-            className={`${compactBtn} border-red-200 dark:border-red-800 text-red-700 dark:text-red-300`}
           >
             <Trash2 className="w-4 h-4" />
-          </button>
+          </Button>
         )}
         {canSoftDelete && isSoftDeleted && (
-          <button
+          <Button
             type="button"
+            variant="secondary"
+            size="iconCompact"
             title="Restore from deleted"
+            className="border-emerald-200 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300"
             onClick={(e) => {
               stop(e);
               setConfirmKind("restore");
             }}
-            className={`${compactBtn} border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300`}
           >
             <RotateCcw className="w-4 h-4" />
-          </button>
+          </Button>
         )}
       </div>
       {modal}

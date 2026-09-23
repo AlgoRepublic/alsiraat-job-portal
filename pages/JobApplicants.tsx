@@ -2,9 +2,11 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db } from "../services/database";
 import { Application, Job } from "../types";
-import { ArrowLeft, Mail, User } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { Loading } from "../components/Loading";
+import { Button, Card, PageHeader } from "@/components/ui";
+import { ApplicationStatusLabel } from "@/utils/statusDisplay";
 
 export const JobApplicants: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -33,23 +35,10 @@ export const JobApplicants: React.FC = () => {
     fetchData();
   }, [id]);
 
-  const getStatusStyle = (status: string) => {
-    switch (status) {
-      case "Approved":
-      case "Accepted":
-      case "Offer Accepted":
-        return "bg-emerald-100 text-emerald-800 border-emerald-200";
-      case "Rejected":
-      case "Declined":
-      case "Offer Declined":
-        return "bg-red-100 text-red-800 border-red-200";
-      case "Offered":
-        return "bg-purple-100 text-purple-800 border-purple-200";
-      case "Shortlisted":
-        return "bg-blue-100 text-blue-800 border-blue-200";
-      default:
-        return "bg-amber-100 text-amber-800 border-amber-200";
-    }
+  const displayStatus = (status: string) => {
+    if (status === "Accepted") return "Offer Accepted";
+    if (status === "Declined") return "Offer Declined";
+    return status;
   };
 
   if (loading) {
@@ -57,85 +46,82 @@ export const JobApplicants: React.FC = () => {
   }
   if (!job)
     return (
-      <div className="p-10 text-center font-bold text-red-600">
+      <div className="p-10 text-center font-semibold text-red-600">
         Task designation not found
       </div>
     );
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
-      <button
-        onClick={() => navigate(`/jobs/${id}`)}
-        className="flex items-center text-xs font-black uppercase tracking-widest text-zinc-500 hover:text-primary transition-colors"
-      >
-        <ArrowLeft className="w-4 h-4 mr-2" /> Back to Task
-      </button>
+    <div className="max-w-5xl mx-auto space-y-section animate-fade-in">
+      <PageHeader
+        title="Resolution Candidates"
+        description={
+          <>
+            Managing collaborators for{" "}
+            <span className="font-semibold text-primary">{job.title}</span>
+          </>
+        }
+        actions={
+          <Button
+            type="button"
+            variant="ghost"
+            size="compact"
+            onClick={() => navigate(`/jobs/${id}`)}
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Task
+          </Button>
+        }
+      />
 
-      <div className="glass-card p-10 rounded-[2rem]">
-        <h1 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
-          Resolution Candidates
-        </h1>
-        <p className="text-zinc-500 dark:text-zinc-400 font-medium mt-2">
-          Managing collaborators for{" "}
-          <span className="font-black text-primary">{job.title}</span>
-        </p>
-      </div>
-
-      <div className="glass-card rounded-[2rem] overflow-hidden shadow-2xl">
+      <Card padding="none" className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-white/50 dark:bg-zinc-800/50 border-b border-white/20 dark:border-white/5">
+            <thead className="bg-surface-muted border-b border-border">
               <tr>
-                <th className="px-8 py-6 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]"></th>
-                <th className="px-8 py-6 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide"></th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Applicant Name
                 </th>
-                <th className="px-8 py-6 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Email Address
                 </th>
-                <th className="px-8 py-6 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Status
                 </th>
-                <th className="px-8 py-6 text-right text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]"></th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/20 dark:divide-white/5">
+            <tbody className="divide-y divide-border">
               {applicants.map((app) => (
                 <tr
                   key={app.id}
-                  className="hover:bg-white/40 dark:hover:bg-white/5 transition-all group"
+                  className="hover:bg-surface-muted/50 transition-colors group"
                 >
-                  <td className="px-8 py-4 whitespace-nowrap">
+                  <td className="px-4 py-3 whitespace-nowrap">
                     <img
                       src={app.applicantAvatar}
                       alt=""
-                      className="w-10 h-10 rounded-2xl bg-zinc-200 border-2 border-white dark:border-zinc-800 shadow-sm object-cover"
+                      className="w-10 h-10 rounded-control bg-surface-muted border border-border object-cover"
                     />
                   </td>
-                  <td className="px-8 py-4 whitespace-nowrap text-sm font-black text-zinc-900 dark:text-white">
+                  <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-foreground">
                     {app.applicantName}
                   </td>
-                  <td className="px-8 py-4 whitespace-nowrap text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-muted-foreground">
                     {app.applicantEmail}
                   </td>
-                  <td className="px-8 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-3 py-1.5 inline-flex text-[9px] font-black rounded-xl uppercase tracking-widest border ${getStatusStyle(app.status)}`}
-                    >
-                      {app.status === "Accepted"
-                        ? "Offer Accepted"
-                        : app.status === "Declined"
-                          ? "Offer Declined"
-                          : app.status}
-                    </span>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <ApplicationStatusLabel status={displayStatus(app.status)} />
                   </td>
-                  <td className="px-8 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
+                  <td className="px-4 py-3 whitespace-nowrap text-right">
+                    <Button
+                      size="action"
+                      variant="primary"
                       onClick={() => navigate(`/application/${app.id}`)}
-                      className="px-6 py-2.5 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primaryHover transition-all shadow-lg shadow-primary/10 group-hover:scale-105"
                     >
                       View
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               ))}
@@ -143,7 +129,7 @@ export const JobApplicants: React.FC = () => {
                 <tr>
                   <td
                     colSpan={5}
-                    className="px-8 py-20 text-center font-bold text-zinc-400"
+                    className="px-4 py-16 text-center font-medium text-muted-foreground"
                   >
                     No tasker submissions detected.
                   </td>
@@ -152,7 +138,7 @@ export const JobApplicants: React.FC = () => {
             </tbody>
           </table>
         </div>
-      </div>
+      </Card>
     </div>
   );
 };

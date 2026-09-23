@@ -21,6 +21,16 @@ import {
 import { useToast } from "../components/Toast";
 import { API_BASE_URL } from "../services/api";
 import { Loading } from "../components/Loading";
+import {
+  Button,
+  Card,
+  Input,
+  Label,
+  PageHeader,
+  Textarea,
+  inputVariants,
+} from "@/components/ui";
+import { cn } from "@/utils/cn";
 import { db } from "../services/database";
 import { isValidThemeColorHex } from "../utils/orgTheme";
 
@@ -62,7 +72,7 @@ const authHeader = () => ({
 const AL_SIRAAT_ORG_LABEL = "Al Siraat Organisation";
 const CENTRAL_ORG_LABEL = "Central Organisation";
 const platformOrgBadgeClass =
-  "px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-primary/10 text-primary rounded-full";
+  "px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-primary/10 text-primary rounded-full";
 
 export const OrganisationManagement: React.FC<{
   /** Increment when the user switches active organisation so lists refetch. */
@@ -387,7 +397,7 @@ export const OrganisationManagement: React.FC<{
           onClick={closeEdit}
         >
           <div
-            className="glass-card rounded-2xl border border-zinc-200 dark:border-zinc-700 w-full max-w-lg max-h-[min(90vh,720px)] overflow-y-auto shadow-2xl"
+            className="w-full max-w-lg max-h-[min(90vh,720px)] overflow-y-auto rounded-control border border-border bg-surface shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >
             <form onSubmit={handleUpdateOrg} className="p-6 space-y-5">
@@ -395,7 +405,7 @@ export const OrganisationManagement: React.FC<{
                 <div>
                   <h3
                     id="edit-org-title"
-                    className="text-lg font-black text-zinc-900 dark:text-white flex items-center gap-2"
+                    className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2"
                   >
                     <span className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
                       <Edit2 className="w-4 h-4 text-primary" />
@@ -416,30 +426,28 @@ export const OrganisationManagement: React.FC<{
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                <Label className="text-zinc-500">
                   Organisation name <span className="text-red-500">*</span>
-                </label>
-                <input
+                </Label>
+                <Input
                   type="text"
                   required
                   value={editForm.name}
                   onChange={(e) =>
                     setEditForm({ ...editForm, name: e.target.value })
                   }
-                  className="w-full px-4 py-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 focus:border-primary outline-none text-sm font-bold text-zinc-900 dark:text-white transition-colors"
+                  className="font-bold"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
-                  Type
-                </label>
+                <Label className="text-zinc-500">Type</Label>
                 <select
                   value={editForm.type}
                   onChange={(e) =>
                     setEditForm({ ...editForm, type: e.target.value })
                   }
-                  className="w-full px-4 py-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 focus:border-primary outline-none text-sm font-bold text-zinc-900 dark:text-white transition-colors"
+                  className={cn(inputVariants(), "font-bold")}
                 >
                   <option value="">None</option>
                   <option value="School">School</option>
@@ -454,46 +462,44 @@ export const OrganisationManagement: React.FC<{
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                <Label className="text-zinc-500">
                   Email domain{" "}
                   <span className="font-medium normal-case text-zinc-400">
                     (optional)
                   </span>
-                </label>
+                </Label>
                 <div className="relative">
                   <Globe className="absolute left-3.5 top-3.5 w-4 h-4 text-zinc-400" />
-                  <input
+                  <Input
                     type="text"
                     value={editForm.domain}
                     onChange={(e) =>
                       setEditForm({ ...editForm, domain: e.target.value })
                     }
                     placeholder="Clear field to remove domain"
-                    className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 focus:border-primary outline-none text-sm font-bold text-zinc-900 dark:text-white placeholder:text-zinc-400 transition-colors"
+                    className="font-bold pl-10"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
-                  About
-                </label>
-                <textarea
+                <Label className="text-zinc-500">About</Label>
+                <Textarea
                   value={editForm.about}
                   onChange={(e) =>
                     setEditForm({ ...editForm, about: e.target.value })
                   }
                   rows={3}
-                  className="w-full px-4 py-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 focus:border-primary outline-none text-sm font-bold text-zinc-900 dark:text-white transition-colors resize-none"
+                  className="font-bold resize-none"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500 flex items-center gap-1.5">
+                  <Label className="text-zinc-500 flex items-center gap-1.5">
                     <Palette className="w-3.5 h-3.5" />
                     Theme colour
-                  </label>
+                  </Label>
                   <div className="flex items-center gap-3 flex-wrap">
                     <input
                       type="color"
@@ -508,21 +514,19 @@ export const OrganisationManagement: React.FC<{
                         setEditForm({ ...editForm, themeColor: e.target.value })
                       }
                     />
-                    <input
+                    <Input
                       type="text"
                       placeholder="Clear to use profile accent only"
                       value={editForm.themeColor}
                       onChange={(e) =>
                         setEditForm({ ...editForm, themeColor: e.target.value })
                       }
-                      className="flex-1 min-w-[8rem] px-4 py-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 focus:border-primary outline-none text-sm font-mono font-bold text-zinc-900 dark:text-white placeholder:text-zinc-400 transition-colors"
+                      className="font-mono font-bold flex-1"
                     />
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
-                    Replace logo
-                  </label>
+                  <Label className="text-zinc-500">Replace logo</Label>
                   <input
                     type="file"
                     accept="image/*"
@@ -591,7 +595,7 @@ export const OrganisationManagement: React.FC<{
               )}
 
               <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4 space-y-3">
-                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
                   Task and application defaults
                 </p>
                 <label className="flex items-center gap-3 cursor-pointer">
@@ -632,7 +636,7 @@ export const OrganisationManagement: React.FC<{
                 <button
                   type="submit"
                   disabled={editSubmitting || !editForm.name.trim()}
-                  className="flex items-center gap-2 px-6 py-3 bg-primary text-white font-black text-sm rounded-xl hover:bg-primaryHover transition-colors shadow-lg shadow-primary/20 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 px-6 py-3 bg-primary text-white font-semibold text-sm rounded-xl hover:bg-primaryHover transition-colors shadow-lg shadow-primary/20 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {editSubmitting ? (
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -655,48 +659,36 @@ export const OrganisationManagement: React.FC<{
       )}
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
-            Organisations
-          </h2>
-          <p className="text-zinc-500 font-medium mt-1">
-            {!loading && orgs.length === 1 ? (
-              <>
-                You are editing{" "}
-                <span className="font-bold text-zinc-800 dark:text-zinc-100">
-                  {orgs[0]?.name}
-                </span>{" "}
-                (the organisation selected in the sidebar). Use the other
-                administration sections for members, groups, and settings. The
-                onboarding flow below is for adding additional organisations to the
-                platform.
-              </>
-            ) : (
-              <>
-                Onboard new organisations by sending them an invitation email. They
-                register themselves through the secure link.
-              </>
-            )}
-          </p>
-        </div>
-        {!showForm && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primaryHover transition-all shadow-lg shadow-primary/20 shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            Add New Organisation
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Organisations"
+        description={
+          !loading && orgs.length === 1 ? (
+            <>
+              You are editing{" "}
+              <span className="font-semibold text-foreground">{orgs[0]?.name}</span>{" "}
+              (the organisation selected in the sidebar). Use the other administration
+              sections for members, groups, and settings. The onboarding flow below is
+              for adding additional organisations to the platform.
+            </>
+          ) : (
+            "Onboard new organisations by sending them an invitation email. They register themselves through the secure link."
+          )
+        }
+        actions={
+          !showForm ? (
+            <Button onClick={() => setShowForm(true)}>
+              <Plus className="h-4 w-4" />
+              Add New Organisation
+            </Button>
+          ) : undefined
+        }
+      />
 
-      {/* ── Onboarding Form ─────────────────────────────────────────────────── */}
       {showForm && (
-        <div className="glass-card rounded-2xl border border-primary/20 p-6 space-y-6 animate-slide-up">
+        <Card className="animate-slide-up space-y-6 border-primary/20">
           <div className="flex items-start justify-between">
             <div>
-              <h3 className="text-lg font-black text-zinc-900 dark:text-white flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
                 <span className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
                   <Building2 className="w-4 h-4 text-primary" />
                 </span>
@@ -733,7 +725,7 @@ export const OrganisationManagement: React.FC<{
                 <React.Fragment key={step}>
                   <div className="flex items-center gap-2">
                     <div
-                      className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${
+                      className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-semibold ${
                         i === 2
                           ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-400"
                           : "bg-primary text-white"
@@ -741,7 +733,7 @@ export const OrganisationManagement: React.FC<{
                     >
                       {i + 1}
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 hidden sm:block">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 hidden sm:block">
                       {step}
                     </span>
                   </div>
@@ -757,26 +749,24 @@ export const OrganisationManagement: React.FC<{
             {/* Name + Type row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                <Label className="text-zinc-500">
                   Organisation Name <span className="text-red-500">*</span>
-                </label>
-                <input
+                </Label>
+                <Input
                   type="text"
                   required
                   placeholder="e.g. Al-Siraat College"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 focus:border-primary outline-none text-sm font-bold text-zinc-900 dark:text-white placeholder:text-zinc-400 transition-colors"
+                  className="font-bold"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
-                  Type
-                </label>
+                <Label className="text-zinc-500">Type</Label>
                 <select
                   value={form.type}
                   onChange={(e) => setForm({ ...form, type: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 focus:border-primary outline-none text-sm font-bold text-zinc-900 dark:text-white transition-colors"
+                  className={cn(inputVariants(), "font-bold")}
                 >
                   <option value="">Select type…</option>
                   <option value="School">School</option>
@@ -793,51 +783,51 @@ export const OrganisationManagement: React.FC<{
 
             {/* Domain */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+              <Label className="text-zinc-500">
                 Email Domain{" "}
                 <span className="font-medium normal-case text-zinc-400">
                   (optional — e.g. alsiraat.vic.edu.au)
                 </span>
-              </label>
+              </Label>
               <div className="relative">
                 <Globe className="absolute left-3.5 top-3.5 w-4 h-4 text-zinc-400" />
-                <input
+                <Input
                   type="text"
                   placeholder="school.edu.au"
                   value={form.domain}
                   onChange={(e) => setForm({ ...form, domain: e.target.value })}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 focus:border-primary outline-none text-sm font-bold text-zinc-900 dark:text-white placeholder:text-zinc-400 transition-colors"
+                  className="font-bold pl-10"
                 />
               </div>
             </div>
 
             {/* About */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+              <Label className="text-zinc-500">
                 About{" "}
                 <span className="font-medium normal-case text-zinc-400">
                   (optional)
                 </span>
-              </label>
-              <textarea
+              </Label>
+              <Textarea
                 placeholder="Brief description of the organisation…"
                 value={form.about}
                 onChange={(e) => setForm({ ...form, about: e.target.value })}
                 rows={2}
-                className="w-full px-4 py-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 focus:border-primary outline-none text-sm font-bold text-zinc-900 dark:text-white placeholder:text-zinc-400 transition-colors resize-none"
+                className="font-bold resize-none"
               />
             </div>
 
             {/* Branding: theme + optional logo */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500 flex items-center gap-1.5">
+                <Label className="text-zinc-500 flex items-center gap-1.5">
                   <Palette className="w-3.5 h-3.5" />
                   Theme colour
                   <span className="font-medium normal-case text-zinc-400">
                     (optional)
                   </span>
-                </label>
+                </Label>
                 <div className="flex items-center gap-3 flex-wrap">
                   <input
                     type="color"
@@ -852,24 +842,24 @@ export const OrganisationManagement: React.FC<{
                       setForm({ ...form, themeColor: e.target.value })
                     }
                   />
-                  <input
+                  <Input
                     type="text"
                     placeholder="#812349"
                     value={form.themeColor}
                     onChange={(e) =>
                       setForm({ ...form, themeColor: e.target.value })
                     }
-                    className="flex-1 min-w-[8rem] px-4 py-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 focus:border-primary outline-none text-sm font-mono font-bold text-zinc-900 dark:text-white placeholder:text-zinc-400 transition-colors"
+                    className="font-mono font-bold flex-1"
                   />
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                <Label className="text-zinc-500">
                   Logo{" "}
                   <span className="font-medium normal-case text-zinc-400">
                     (optional)
                   </span>
-                </label>
+                </Label>
                 <input
                   type="file"
                   accept="image/*"
@@ -889,16 +879,16 @@ export const OrganisationManagement: React.FC<{
             {/* Divider */}
             <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                <Label className="text-zinc-500">
                   Owner / Admin Email <span className="text-red-500">*</span>
-                </label>
+                </Label>
                 <p className="text-xs text-zinc-400 -mt-0.5">
                   This person will receive the onboarding invitation and become
                   the organisation admin once they register.
                 </p>
                 <div className="relative">
                   <Mail className="absolute left-3.5 top-3.5 w-4 h-4 text-zinc-400" />
-                  <input
+                  <Input
                     type="email"
                     required
                     placeholder="principal@school.edu.au"
@@ -928,7 +918,7 @@ export const OrganisationManagement: React.FC<{
               <button
                 type="submit"
                 disabled={submitting || !form.name.trim() || !form.ownerEmail.trim()}
-                className="flex items-center gap-2 px-6 py-3 bg-primary text-white font-black text-sm rounded-xl hover:bg-primaryHover transition-colors shadow-lg shadow-primary/20 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-6 py-3 bg-primary text-white font-semibold text-sm rounded-xl hover:bg-primaryHover transition-colors shadow-lg shadow-primary/20 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {submitting ? (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -957,21 +947,21 @@ export const OrganisationManagement: React.FC<{
               </button>
             </div>
           </form>
-        </div>
+        </Card>
       )}
 
       {/* ── Pending Invitations ──────────────────────────────────────────────── */}
       {invLoading ? (
         <Loading message="Loading invitations…" />
       ) : invitations.length > 0 ? (
-        <div className="glass-card rounded-2xl border border-zinc-100 dark:border-zinc-800 overflow-hidden">
+        <Card padding="none" className="overflow-hidden">
           <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Mail className="w-4 h-4 text-primary" />
-              <h3 className="font-black text-zinc-900 dark:text-white text-sm uppercase tracking-widest">
+              <h3 className="font-semibold text-zinc-900 dark:text-white text-sm uppercase tracking-wide">
                 Pending Invitations
               </h3>
-              <span className="ml-1 px-2 py-0.5 text-[10px] font-black bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full">
+              <span className="ml-1 px-2 py-0.5 text-[10px] font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full">
                 {invitations.length}
               </span>
             </div>
@@ -1051,18 +1041,18 @@ export const OrganisationManagement: React.FC<{
               );
             })}
           </div>
-        </div>
+        </Card>
       ) : null}
 
       {/* ── Registered Organisations ─────────────────────────────────────────── */}
-      <div className="glass-card rounded-2xl border border-zinc-100 dark:border-zinc-800 overflow-hidden">
+      <Card padding="none" className="overflow-hidden">
         <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Building2 className="w-4 h-4 text-primary" />
-            <h3 className="font-black text-zinc-900 dark:text-white text-sm uppercase tracking-widest">
+            <h3 className="font-semibold text-zinc-900 dark:text-white text-sm uppercase tracking-wide">
               Registered Organisations
             </h3>
-            <span className="ml-1 px-2 py-0.5 text-[10px] font-black bg-primary/10 text-primary rounded-full">
+            <span className="ml-1 px-2 py-0.5 text-[10px] font-semibold bg-primary/10 text-primary rounded-full">
               {orgs.length}
             </span>
           </div>
@@ -1115,9 +1105,7 @@ export const OrganisationManagement: React.FC<{
                     <label
                       htmlFor={`logo-upload-${org._id}`}
                       className="text-[8px] font-bold text-white uppercase tracking-wider cursor-pointer hover:text-primary transition-colors text-center px-1"
-                    >
-                      {org.logo ? "Change" : "Upload"}
-                    </label>
+                    >{org.logo ? "Change" : "Upload"}</label>
                     {org.logo && (
                       <button
                         onClick={(e) => { e.preventDefault(); handleRemoveLogo(org._id); }}
@@ -1132,16 +1120,16 @@ export const OrganisationManagement: React.FC<{
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-black text-zinc-900 dark:text-white text-sm">
+                    <p className="font-semibold text-zinc-900 dark:text-white text-sm">
                       {org.name}
                     </p>
                     {org.type && (
-                      <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-zinc-100 dark:bg-zinc-800 text-zinc-500 rounded-full">
+                      <span className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-zinc-100 dark:bg-zinc-800 text-zinc-500 rounded-full">
                         {org.type}
                       </span>
                     )}
                     {org.isPublic && (
-                      <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full flex items-center gap-1">
+                      <span className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full flex items-center gap-1">
                         <Globe className="w-2.5 h-2.5" /> Public
                       </span>
                     )}
@@ -1214,7 +1202,7 @@ export const OrganisationManagement: React.FC<{
             ))}
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 };

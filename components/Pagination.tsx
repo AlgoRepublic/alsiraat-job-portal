@@ -1,5 +1,7 @@
 import React from "react";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/utils/cn";
 
 interface PaginationProps {
   currentPage: number;
@@ -25,37 +27,40 @@ export const Pagination: React.FC<PaginationProps> = ({
 
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8 px-2">
-      <p className="text-sm text-zinc-400 font-medium">
+      <p className="text-sm text-muted-foreground font-medium">
         Showing{" "}
-        <span className="font-black text-zinc-600 dark:text-zinc-300">
+        <span className="font-semibold text-foreground">
           {startItem}–{endItem}
         </span>{" "}
         of{" "}
-        <span className="font-black text-zinc-600 dark:text-zinc-300">
+        <span className="font-semibold text-foreground">
           {totalItems}
         </span>{" "}
         {label}
       </p>
-      
+
       <div className="flex items-center gap-1.5">
-        <button
+        <Button
+          type="button"
+          variant="ghost"
+          size="iconCompact"
           onClick={() => onPageChange(1)}
           disabled={currentPage === 1}
-          className="p-2 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700"
           title="First page"
         >
           <ChevronsLeft className="w-5 h-5" />
-        </button>
-        <button
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="iconCompact"
           onClick={() => onPageChange(Math.max(1, currentPage - 1))}
           disabled={currentPage === 1}
-          className="p-2 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700"
           title="Previous page"
         >
           <ChevronLeft className="w-5 h-5" />
-        </button>
+        </Button>
 
-        {/* Page number pills */}
         <div className="flex items-center gap-1 mx-2">
           {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
             let pageNum: number;
@@ -68,16 +73,18 @@ export const Pagination: React.FC<PaginationProps> = ({
             } else {
               pageNum = currentPage - 2 + i;
             }
-            
+
             return (
               <button
                 key={pageNum}
+                type="button"
                 onClick={() => onPageChange(pageNum)}
-                className={`w-10 h-10 rounded-xl text-sm font-black transition-all ${
+                className={cn(
+                  "h-10 w-10 rounded-control text-sm font-semibold transition-all",
                   pageNum === currentPage
-                    ? "bg-primary text-white shadow-lg shadow-primary/30 scale-110"
-                    : "text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-800 dark:hover:text-zinc-200"
-                }`}
+                    ? "bg-primary text-white shadow-sm"
+                    : "text-muted-foreground hover:bg-surface-muted hover:text-foreground",
+                )}
               >
                 {pageNum}
               </button>
@@ -85,22 +92,26 @@ export const Pagination: React.FC<PaginationProps> = ({
           })}
         </div>
 
-        <button
+        <Button
+          type="button"
+          variant="ghost"
+          size="iconCompact"
           onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
           disabled={currentPage === totalPages}
-          className="p-2 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700"
           title="Next page"
         >
           <ChevronRight className="w-5 h-5" />
-        </button>
-        <button
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="iconCompact"
           onClick={() => onPageChange(totalPages)}
           disabled={currentPage === totalPages}
-          className="p-2 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700"
           title="Last page"
         >
           <ChevronsRight className="w-5 h-5" />
-        </button>
+        </Button>
       </div>
     </div>
   );

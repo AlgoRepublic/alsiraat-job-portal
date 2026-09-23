@@ -68,7 +68,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
       <img
         src={src}
         alt={name}
-        className={`${sizeClasses[size]} rounded-xl object-cover shadow-sm border border-white/50 ${className}`}
+        className={`${sizeClasses[size]} rounded-control object-cover shadow-sm border border-white/50 ${className}`}
         onError={() => setError(true)}
       />
     );
@@ -76,7 +76,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
 
   return (
     <div
-      className={`${sizeClasses[size]} rounded-xl flex items-center justify-center font-black text-white shadow-sm border border-white/50 ${bgColor} ${className}`}
+      className={`${sizeClasses[size]} rounded-control flex items-center justify-center font-semibold text-white shadow-sm border border-white/50 ${bgColor} ${className}`}
     >
       {initials}
     </div>

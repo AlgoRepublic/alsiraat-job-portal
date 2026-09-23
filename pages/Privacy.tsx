@@ -1,25 +1,26 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { Shield, ArrowLeft } from "lucide-react";
+import { Card } from "@/components/ui";
 
 export const Privacy: React.FC = () => {
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-black">
-      <div className="max-w-4xl mx-auto px-4 py-12">
+    <div className="min-h-screen bg-background">
+      <div className="max-w-4xl mx-auto px-4 py-12 space-y-section">
         <Link
           to="/login"
-          className="inline-flex items-center gap-2 text-primary hover:underline mb-8"
+          className="inline-flex items-center gap-2 text-primary hover:underline"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Login
         </Link>
 
-        <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-lg p-8 md:p-12 border border-zinc-200 dark:border-zinc-800">
+        <Card padding="section" radius="surface">
           <div className="flex items-center gap-4 mb-8">
-            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
+            <div className="w-12 h-12 bg-primary/10 rounded-control flex items-center justify-center">
               <Shield className="w-6 h-6 text-primary" />
             </div>
-            <h1 className="text-4xl font-black text-zinc-900 dark:text-white">
+            <h1 className="text-xl font-semibold text-foreground">
               Privacy Policy
             </h1>
           </div>
@@ -185,7 +186,7 @@ export const Privacy: React.FC = () => {
               </div>
             </section>
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   );

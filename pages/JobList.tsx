@@ -24,10 +24,16 @@ import {
   getPublicCentralOrganisation,
   resolveCatalogOrganisationId,
 } from "../services/platformOrganisations";
-import { getStatusColor } from "./Dashboard";
 import { APPLICATION_WINDOW_NOT_YET_OPEN_FILTER } from "../utils/applicationWindow";
 
 import { Loading } from "../components/Loading";
+import { PageHeader } from "@/components/ui/page-header";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { JobStatusLabel } from "@/utils/statusDisplay";
 import { Pagination } from "../components/Pagination";
 import { useToast } from "../components/Toast";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
@@ -327,59 +333,45 @@ export const JobList: React.FC = () => {
     return <Loading message="Fetching tasks..." />;
   }
 
+  const filterSelectClass =
+    "h-10 w-full rounded-control border border-border bg-surface px-3 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30";
+
   return (
-    <div className={`space-y-10 animate-fade-in pb-20 relative min-w-0 ${listRefreshing ? "opacity-70 pointer-events-none" : ""}`}>
-      <div className="relative overflow-hidden rounded-[2rem] md:rounded-[3rem] p-6 sm:p-10 md:p-16 shadow-2xl transition-all duration-300 bg-primary dark:bg-zinc-900 border border-white/10">
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-white/10 rounded-full -mr-40 -mt-40 blur-[120px] pointer-events-none"></div>
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-white/5 rounded-full -ml-20 -mb-20 blur-[100px] pointer-events-none"></div>
+    <div className={`space-y-6 animate-fade-in pb-12 relative min-w-0 ${listRefreshing ? "opacity-70 pointer-events-none" : ""}`}>
+      <PageHeader
+        title="Search Tasks"
+        description={`Discover tasks within ${browseOrgLabel}.`}
+      />
 
-        <div className="relative z-10 max-w-4xl mx-auto">
-          <h2 className="text-3xl sm:text-5xl md:text-6xl font-black mb-6 text-center md:text-left text-white tracking-tighter">
-            Search Tasks
-          </h2>
-          <p className="text-white/80 dark:text-zinc-400 text-lg md:text-xl mb-12 text-center md:text-left font-medium leading-relaxed">
-            Discover tasks within{" "}
-            <span className="font-bold text-white">{browseOrgLabel}</span>
-            .
-          </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="pl-9"
+            placeholder="Search tasks, skills, locations..."
+            value={queryDraft}
+            onChange={(e) => setQueryDraft(e.target.value)}
+          />
+        </div>
+        <Button
+          variant={showFilters || hasActiveFilters ? "primary" : "secondary"}
+          onClick={() => setShowFilters(!showFilters)}
+          className="shrink-0"
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+          Filters
+          {hasActiveFilters ? (
+            <span className="ml-1 h-2 w-2 rounded-full bg-white/90" aria-hidden />
+          ) : null}
+        </Button>
+      </div>
 
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-5 top-5 text-zinc-400 w-6 h-6" />
-              <input
-                type="text"
-                placeholder="Search tasks, skills, locations..."
-                className="w-full pl-14 pr-6 py-5 rounded-2xl bg-white/95 dark:bg-zinc-800 border-0 focus:ring-4 focus:ring-primary/30 outline-none shadow-2xl placeholder-zinc-400 dark:text-white font-bold transition-all text-lg"
-                value={queryDraft}
-                onChange={(e) => setQueryDraft(e.target.value)}
-              />
-            </div>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`px-8 py-5 rounded-2xl font-black flex items-center justify-center transition-all shadow-2xl border-2 ${
-                showFilters || hasActiveFilters
-                  ? "bg-white text-primary border-white"
-                  : "bg-transparent text-white border-white/20 hover:bg-white/10"
-              }`}
-            >
-              <SlidersHorizontal className="w-5 h-5 md:mr-3" />
-              <span className="hidden md:inline uppercase tracking-widest text-xs">
-                Filter Browser
-              </span>
-              {hasActiveFilters && (
-                <span className="ml-3 w-3 h-3 rounded-full bg-primary shadow-[0_0_12px_rgba(var(--accent-800-rgb),0.8)]"></span>
-              )}
-            </button>
-          </div>
-
-          {showFilters && (
-            <div className="mt-8 p-8 glass-card border-white/10 rounded-3xl animate-slide-up grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-white/60 dark:text-zinc-500 uppercase tracking-widest ml-1">
-                  Category
-                </label>
+      {showFilters && (
+        <Card className="animate-slide-up grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+              <div className="space-y-1.5">
+                <Label>Category</Label>
                 <select
-                  className="w-full px-5 py-3 rounded-xl bg-white/90 dark:bg-zinc-900 border-0 focus:ring-2 focus:ring-[#812349] outline-none font-bold text-sm"
+                  className={filterSelectClass}
                   value={filterCategory}
                   onChange={(e) => updateParam("category", e.target.value)}
                 >
@@ -396,12 +388,10 @@ export const JobList: React.FC = () => {
                     ))}
                 </select>
               </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-white/60 dark:text-zinc-500 uppercase tracking-widest ml-1">
-                  Status
-                </label>
+              <div className="space-y-1.5">
+                <Label>Status</Label>
                 <select
-                  className="w-full px-5 py-3 rounded-xl bg-white/90 dark:bg-zinc-900 border-0 focus:ring-2 focus:ring-[#812349] outline-none font-bold text-sm"
+                  className={filterSelectClass}
                   value={filterStatus}
                   onChange={(e) => {
                     const val = e.target.value;
@@ -437,12 +427,10 @@ export const JobList: React.FC = () => {
                 </select>
               </div>
               {(canArchiveFilter || canDeleteFilter) && (
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-white/60 dark:text-zinc-500 uppercase tracking-widest ml-1">
-                    Tasks
-                  </label>
+                <div className="space-y-1.5">
+                  <Label>Tasks</Label>
                   <select
-                    className="w-full px-5 py-3 rounded-xl bg-white/90 dark:bg-zinc-900 border-0 focus:ring-2 focus:ring-[#812349] outline-none font-bold text-sm"
+                    className={filterSelectClass}
                     value={filterLifecycle}
                     onChange={(e) => {
                       const v = e.target.value;
@@ -455,12 +443,10 @@ export const JobList: React.FC = () => {
                   </select>
                 </div>
               )}
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-white/60 dark:text-zinc-500 uppercase tracking-widest ml-1">
-                  Reward Type
-                </label>
+              <div className="space-y-1.5">
+                <Label>Reward type</Label>
                 <select
-                  className="w-full px-5 py-3 rounded-xl bg-white/90 dark:bg-zinc-900 border-0 focus:ring-2 focus:ring-[#812349] outline-none font-bold text-sm"
+                  className={filterSelectClass}
                   value={filterReward}
                   onChange={(e) => updateParam("reward", e.target.value)}
                 >
@@ -475,126 +461,105 @@ export const JobList: React.FC = () => {
 
 
 
-              <div className="md:col-span-2 lg:col-span-4 space-y-2">
-                <label className="text-[10px] font-black text-white/60 dark:text-zinc-500 uppercase tracking-widest ml-1">
-                  Timeline
-                </label>
-                <div className="flex gap-3">
-                  <input
+              <div className="md:col-span-2 lg:col-span-4 space-y-1.5">
+                <Label>Timeline</Label>
+                <div className="flex gap-2">
+                  <Input
                     type="date"
-                    className="flex-1 px-4 py-3 rounded-xl bg-white/90 dark:bg-zinc-900 border-0 focus:ring-2 focus:ring-[#812349] font-bold text-sm"
+                    className="flex-1"
                     value={dateFromDraft}
                     onChange={(e) => onDateFromChange(e.target.value)}
                     onBlur={commitDateFrom}
-                    placeholder="From"
                   />
-                  <input
+                  <Input
                     type="date"
-                    className="flex-1 px-4 py-3 rounded-xl bg-white/90 dark:bg-zinc-900 border-0 focus:ring-2 focus:ring-[#812349] font-bold text-sm"
+                    className="flex-1"
                     value={dateToDraft}
                     onChange={(e) => onDateToChange(e.target.value)}
                     onBlur={commitDateTo}
-                    placeholder="To"
                   />
                 </div>
               </div>
-              <div className="md:col-span-2 lg:col-span-4 flex justify-end mt-4 pt-6 border-t border-white/10">
-                <button
-                  onClick={clearFilters}
-                  className="flex items-center text-xs font-black text-white/60 hover:text-white uppercase tracking-widest transition-colors"
-                >
-                  <RotateCcw className="w-4 h-4 mr-2" /> Reset Filters
-                </button>
+              <div className="md:col-span-2 lg:col-span-5 flex justify-end border-t border-border pt-3">
+                <Button variant="ghost" size="compact" onClick={clearFilters}>
+                  <RotateCcw className="h-4 w-4" />
+                  Reset filters
+                </Button>
               </div>
-            </div>
-          )}
-        </div>
-      </div>
+        </Card>
+      )}
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-2 min-w-0">
-        <p className="text-sm font-bold text-zinc-400">
-          Active Board:{" "}
-          <span className="text-zinc-900 dark:text-white">
-            {totalItems} tasks
-          </span>
+      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted-foreground">
+          <span className="font-semibold text-foreground">{totalItems}</span> tasks
         </p>
         {hasActiveFilters && (
           <div className="flex flex-wrap gap-2">
             {filterCategory !== "All" && (
-              <span className="px-3 py-1.5 glass-card rounded-xl text-[10px] font-black uppercase text-zinc-600 dark:text-zinc-400 flex items-center">
-                {filterCategory}{" "}
-                <X
-                  className="w-3 h-3 ml-2 cursor-pointer"
-                  onClick={() => updateParam("category", "All")}
-                />
-              </span>
+              <Badge variant="chip" className="gap-1">
+                {filterCategory}
+                <button type="button" aria-label="Clear category filter" onClick={() => updateParam("category", "All")}>
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
             )}
             {filterStatus !== "All" && (
-              <span className="px-3 py-1.5 glass-card rounded-xl text-[10px] font-black uppercase text-zinc-600 dark:text-zinc-400 flex items-center">
+              <Badge variant="chip" className="gap-1">
                 {filterStatus === APPLICATION_WINDOW_NOT_YET_OPEN_FILTER
                   ? "Not Yet Open"
-                  : filterStatus}{" "}
-                <X
-                  className="w-3 h-3 ml-2 cursor-pointer"
-                  onClick={() => updateParam("status", "All")}
-                />
-              </span>
+                  : filterStatus}
+                <button type="button" aria-label="Clear status filter" onClick={() => updateParam("status", "All")}>
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
             )}
             {filterLifecycle !== "active" && (
-              <span className="px-3 py-1.5 glass-card rounded-xl text-[10px] font-black uppercase text-zinc-600 dark:text-zinc-400 flex items-center">
-                {filterLifecycle}{" "}
-                <X
-                  className="w-3 h-3 ml-2 cursor-pointer"
-                  onClick={() => updateParam("lifecycle", "")}
-                />
-              </span>
+              <Badge variant="chip" className="gap-1">
+                {filterLifecycle}
+                <button type="button" aria-label="Clear lifecycle filter" onClick={() => updateParam("lifecycle", "")}>
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
             )}
-
           </div>
         )}
       </div>
 
-      <div className="grid gap-6">
+      <div className="grid gap-4">
         {jobs.map((job) => {
           const orgLabel = job.organisationName?.trim();
 
           return (
-          <div
+          <Card
             key={job.id}
+            padding="card"
             onClick={() => navigate(`/jobs/${job.id}`)}
-            className="glass-card rounded-[2rem] p-5 sm:p-8 md:p-10 group cursor-pointer relative top-0 hover:-top-2 hover:shadow-2xl transition-all duration-500"
+            className="group cursor-pointer transition-colors hover:border-primary/30"
           >
-            <div className="flex flex-col md:flex-row justify-between items-start gap-8">
-              <div className="flex-1">
-                <div className="flex flex-wrap items-center gap-3 mb-4">
-                  <span
-                    className={`px-3 py-1.5 text-[10px] font-black rounded-xl uppercase tracking-widest border ${getStatusColor(job.status)}`}
-                  >
-                    {job.status}
-                  </span>
+            <div className="min-w-0">
+              <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                  <JobStatusLabel status={job.status} />
                   {job.archivedAt && (
-                    <span className="px-3 py-1.5 text-[10px] font-black rounded-xl uppercase tracking-widest border bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-600">
-                      Archived
-                    </span>
+                    <Badge variant="chipMuted">Archived</Badge>
                   )}
                   {job.deletedAt && (
-                    <span className="px-3 py-1.5 text-[10px] font-black rounded-xl uppercase tracking-widest border bg-red-100 text-red-800 border-red-200 dark:bg-red-900/40 dark:text-red-200 dark:border-red-800">
+                    <Badge variant="chip" className="border-red-200 text-red-700 dark:border-red-800 dark:text-red-300">
                       Deleted
-                    </span>
+                    </Badge>
                   )}
-                  <span className="px-3 py-1.5 glass bg-white/20 text-zinc-600 dark:text-zinc-400 text-[10px] font-black rounded-xl uppercase tracking-widest">
-                    {resolveTaskCategoryLabel(job)}
-                  </span>
+                  <Badge variant="chip">{resolveTaskCategoryLabel(job)}</Badge>
                   {orgLabel && (
-                    <span
+                    <Badge
+                      variant="chip"
                       title={orgLabel}
-                      className="inline-flex items-center gap-1.5 max-w-[min(100%,14rem)] px-3 py-1.5 rounded-xl border border-zinc-200/80 dark:border-zinc-600/80 bg-white/40 dark:bg-zinc-800/40 text-zinc-600 dark:text-zinc-300 text-[10px] font-bold uppercase tracking-wide"
+                      className="max-w-[14rem] gap-1"
                     >
-                      <Building2 className="w-3.5 h-3.5 shrink-0 text-primary opacity-90" aria-hidden />
+                      <Building2 className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
                       <span className="truncate">{orgLabel}</span>
-                    </span>
+                    </Badge>
                   )}
-                  <span className="px-3 py-1.5 bg-primary text-white text-[10px] font-black rounded-xl uppercase tracking-widest shadow-lg shadow-primary/20">
+                  <Badge variant="chipPrimary">
                     <TaskRewardText
                       task={{
                         rewardType: job.rewardType,
@@ -604,77 +569,69 @@ export const JobList: React.FC = () => {
                       organisationId={organisationIdToString(job.organisation)}
                       catalog={rewardCatalog}
                     />
+                  </Badge>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <TaskLifecycleActions
+                      job={job}
+                      currentUser={currentUser}
+                      layout="compact"
+                      onAfterMutation={() => setListVersion((v) => v + 1)}
+                    />
+                  </div>
+                  <span className="flex h-9 w-9 items-center justify-center rounded-control bg-surface-muted text-muted-foreground transition-colors group-hover:bg-primary group-hover:text-white">
+                    <ArrowRight className="h-4 w-4" />
                   </span>
                 </div>
-                <h3 className="text-3xl font-black text-zinc-900 dark:text-white group-hover:text-primary transition-colors mb-3 tracking-tighter">
-                  {job.title}
-                </h3>
-                <p className="text-zinc-500 dark:text-zinc-400 text-base line-clamp-2 leading-relaxed font-medium max-w-4xl">
-                  {job.description}
-                </p>
+              </div>
+              <h3 className="mb-2 text-lg font-semibold text-foreground transition-colors group-hover:text-primary">
+                {job.title}
+              </h3>
+              <p className="max-w-4xl whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground">
+                {job.description}
+              </p>
 
-                <div className="flex flex-wrap items-center gap-4 mt-8">
-                  <div className="flex items-center px-4 py-2 glass rounded-2xl text-xs font-bold text-zinc-500">
-                    <MapPin className="w-4 h-4 mr-2 text-primary" />{" "}
-                    {formatOptionalTaskLocation(job.location)}
-                  </div>
-                  <div className="flex items-center px-4 py-2 glass rounded-2xl text-xs font-bold text-zinc-500">
-                    <Clock className="w-4 h-4 mr-2 text-primary" />{" "}
-                    {formatOptionalTaskDuration(job.hoursRequired, "totalHrs")}
-                  </div>
-                  <div className="flex items-center px-4 py-2 glass rounded-2xl text-xs font-bold text-zinc-500">
-                    <Calendar className="w-4 h-4 mr-2 text-zinc-400" />
-                    Applications:{" "}
-                    {formatTaskApplicationWindow(
-                      job.applicationOpenDate,
-                      job.applicationCloseDate,
-                    )}
-                  </div>
-                  {job.startDate && (
-                    <div className="flex items-center px-4 py-2 glass rounded-2xl text-xs font-bold text-zinc-500">
-                      <Calendar className="w-4 h-4 mr-2 text-primary" />
-                      Starts: {formatTaskDate(job.startDate)}
-                    </div>
+              <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5 rounded-control border border-border bg-surface-muted px-2.5 py-1">
+                  <MapPin className="h-3.5 w-3.5 text-primary" />
+                  {formatOptionalTaskLocation(job.location)}
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-control border border-border bg-surface-muted px-2.5 py-1">
+                  <Clock className="h-3.5 w-3.5 text-primary" />
+                  {formatOptionalTaskDuration(job.hoursRequired, "totalHrs")}
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-control border border-border bg-surface-muted px-2.5 py-1">
+                  <Calendar className="h-3.5 w-3.5" />
+                  Applications:{" "}
+                  {formatTaskApplicationWindow(
+                    job.applicationOpenDate,
+                    job.applicationCloseDate,
                   )}
-                </div>
-              </div>
-              <div className="hidden md:flex flex-col items-center justify-center pl-10 border-l border-white/20 dark:border-white/5 h-full min-h-[140px]">
-                <div className="w-14 h-14 rounded-[1.25rem] bg-zinc-100 dark:bg-white/5 flex items-center justify-center text-zinc-400 group-hover:bg-primary group-hover:text-white transition-all duration-500 shadow-xl shadow-black/5">
-                  <ArrowRight className="w-6 h-6" />
-                </div>
+                </span>
+                {job.startDate && (
+                  <span className="inline-flex items-center gap-1.5 rounded-control border border-border bg-surface-muted px-2.5 py-1">
+                    <Calendar className="h-3.5 w-3.5 text-primary" />
+                    Starts: {formatTaskDate(job.startDate)}
+                  </span>
+                )}
               </div>
             </div>
-            <div
-              className="mt-6 pt-6 border-t border-white/20 dark:border-white/5 flex flex-wrap justify-end"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <TaskLifecycleActions
-                job={job}
-                currentUser={currentUser}
-                layout="compact"
-                onAfterMutation={() => setListVersion((v) => v + 1)}
-              />
-            </div>
-          </div>
+          </Card>
           );
         })}
 
         {jobs.length === 0 && (
-          <div className="text-center py-24 glass-card rounded-[3rem] border-dashed border-2 border-zinc-200 dark:border-zinc-800">
-            <ClipboardList className="w-16 h-16 text-zinc-300 dark:text-zinc-700 mx-auto mb-6" />
-            <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter">
-              No tasks found
-            </h3>
-            <p className="text-zinc-500 dark:text-zinc-400 mt-2 font-medium">
+          <Card className="border-dashed py-12 text-center">
+            <ClipboardList className="mx-auto mb-4 h-12 w-12 text-muted-foreground/40" />
+            <h3 className="text-lg font-semibold text-foreground">No tasks found</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
               Your current filter configuration returned 0 results.
             </p>
-            <button
-              onClick={clearFilters}
-              className="mt-10 px-8 py-3.5 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primaryHover transition-all"
-            >
-              Clear Filters
-            </button>
-          </div>
+            <Button className="mt-6" size="compact" onClick={clearFilters}>
+              Clear filters
+            </Button>
+          </Card>
         )}
       </div>
 

@@ -23,6 +23,14 @@ import { db } from "../services/database";
 import { api } from "../services/api";
 import { CustomDropdown } from "../components/CustomUI";
 import { getMemberRolesForActiveOrg } from "../utils/orgScopedRoles";
+import {
+  Button,
+  Card,
+  Input,
+  Label,
+  PageHeader,
+  Textarea,
+} from "@/components/ui";
 
 interface ProfileProps {
   user: User;
@@ -251,7 +259,11 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
     );
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-fade-in px-4">
+    <div className="max-w-4xl mx-auto space-y-section animate-fade-in px-4">
+      <PageHeader
+        title="Profile"
+        description="Manage your personal information, skills, and volunteer history."
+      />
       {/* Hidden File Inputs */}
       <input
         type="file"
@@ -269,7 +281,7 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
       />
 
       {/* Header Card */}
-      <div className="glass-card rounded-2xl shadow-lg shadow-zinc-200 dark:shadow-none border border-zinc-100 dark:border-zinc-800 overflow-hidden relative group">
+      <Card padding="none" className="overflow-hidden relative group">
         {/* Cover Image */}
         <div className="h-40 bg-primary w-full relative">
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
@@ -281,7 +293,7 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
               <UserAvatar
                 src={profile.avatar}
                 name={profile.name}
-                className="w-28 h-28 text-4xl border-[6px] border-white dark:border-zinc-900 shadow-xl"
+                className="w-28 h-28 text-3xl border-[6px] border-white dark:border-zinc-900 shadow-xl"
                 size="xl"
               />
               {isEditing && (
@@ -328,7 +340,7 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
           </div>
 
           <div>
-            <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">
+            <h1 className="text-xl font-semibold text-foreground">
               {[profile.firstName, profile.lastName]
                 .filter(Boolean)
                 .join(" ") || profile.name}
@@ -378,11 +390,11 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
             </div>
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* Personal Information Card */}
-      <div className="glass-card rounded-2xl shadow-lg shadow-zinc-200 dark:shadow-none p-8 border border-zinc-50 dark:border-zinc-800">
-        <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-6 flex items-center gap-2">
+      <Card>
+        <h3 className="text-base font-semibold text-foreground mb-6 flex items-center gap-2">
           <UserIcon className="w-5 h-5 text-primary" />
           Personal Information
         </h3>
@@ -390,21 +402,18 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* First Name */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-              First Name
-            </label>
+            <Label htmlFor="profile-first-name">First Name</Label>
             {isEditing ? (
-              <input
+              <Input
                 type="text"
                 value={profile.firstName || ""}
                 onChange={(e) =>
                   setProfile({ ...profile, firstName: e.target.value })
                 }
                 placeholder="Enter first name"
-                className="w-full p-3 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm bg-zinc-50 dark:bg-zinc-800 focus:bg-white dark:focus:bg-zinc-900 focus:ring-2 focus:ring-primary outline-none transition-all dark:text-white"
               />
             ) : (
-              <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl">
+              <p>
                 {profile.firstName || (
                   <span className="text-zinc-400 italic">Not set</span>
                 )}
@@ -414,21 +423,18 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
 
           {/* Last Name */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-              Last Name
-            </label>
+            <Label className="text-zinc-400">Last Name</Label>
             {isEditing ? (
-              <input
+              <Input
                 type="text"
                 value={profile.lastName || ""}
                 onChange={(e) =>
                   setProfile({ ...profile, lastName: e.target.value })
                 }
                 placeholder="Enter last name"
-                className="w-full p-3 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm bg-zinc-50 dark:bg-zinc-800 focus:bg-white dark:focus:bg-zinc-900 focus:ring-2 focus:ring-primary outline-none transition-all dark:text-white"
               />
             ) : (
-              <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl">
+              <p>
                 {profile.lastName || (
                   <span className="text-zinc-400 italic">Not set</span>
                 )}
@@ -438,13 +444,11 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
 
           {/* Contact Number */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-              Contact Number
-            </label>
+            <Label className="text-zinc-400">Contact Number</Label>
             {isEditing ? (
               <div className="relative">
                 <Phone className="absolute left-3 top-3 w-4 h-4 text-zinc-400" />
-                <input
+                <Input
                   type="tel"
                   value={profile.contactNumber || ""}
                   onChange={(e) =>
@@ -455,11 +459,10 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
                   }
                   placeholder="04XX XXX XXX"
                   maxLength={13}
-                  className="w-full pl-9 pr-3 py-3 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm bg-zinc-50 dark:bg-zinc-800 focus:bg-white dark:focus:bg-zinc-900 focus:ring-2 focus:ring-primary outline-none transition-all dark:text-white"
                 />
               </div>
             ) : (
-              <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl flex items-center gap-2">
+              <p>
                 {profile.contactNumber ? (
                   <>
                     <Phone className="w-4 h-4 text-zinc-400" />
@@ -474,9 +477,7 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
 
           {/* Gender */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-              Gender
-            </label>
+            <Label className="text-zinc-400">Gender</Label>
             {isEditing ? (
               <CustomDropdown
                 options={GENDER_OPTIONS}
@@ -492,7 +493,7 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
                 variant="compact"
               />
             ) : (
-              <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl">
+              <p>
                 {profile.gender || (
                   <span className="text-zinc-400 italic">Not set</span>
                 )}
@@ -502,10 +503,8 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
 
           {/* Year Level (Read-Only) */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-              Year Level
-            </label>
-            <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl">
+            <Label className="text-zinc-400">Year Level</Label>
+            <p>
               {profile.yearLevel || (
                 <span className="text-zinc-400 italic">Not set</span>
               )}
@@ -515,12 +514,10 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
 
         {/* About Me */}
         <div className="mt-6 space-y-1.5">
-          <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-            About Me
-          </label>
+          <Label className="text-zinc-400">About Me</Label>
           {isEditing ? (
-            <textarea
-              className="w-full p-4 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-primary outline-none leading-relaxed transition-all dark:text-white focus:bg-white dark:focus:bg-zinc-900"
+            <Textarea
+              className="h-auto py-3"
               rows={4}
               value={profile.about}
               placeholder="Tell us about yourself..."
@@ -529,20 +526,20 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
               }
             />
           ) : (
-            <p className="text-zinc-600 dark:text-zinc-300 text-sm leading-relaxed whitespace-pre-wrap p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl">
+            <p className="h-auto py-3">
               {profile.about || (
                 <span className="text-zinc-400 italic">No bio added yet.</span>
               )}
             </p>
           )}
         </div>
-      </div>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {/* Skills */}
-        <div className="md:col-span-2 glass-card rounded-2xl shadow-lg shadow-zinc-200 dark:shadow-none p-8 border border-zinc-50 dark:border-zinc-800 h-full">
+        <Card className="md:col-span-2 h-full">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-bold text-zinc-900 dark:text-white">
+            <h3 className="text-base font-semibold text-foreground">
               Skills &amp; Expertise
             </h3>
           </div>
@@ -610,9 +607,8 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
 
           {isEditing && (
             <div className="flex gap-2 mt-auto">
-              <input
+              <Input
                 type="text"
-                className="flex-[2] p-3 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm bg-zinc-50 dark:bg-zinc-800 focus:bg-white dark:focus:bg-zinc-900 focus:ring-2 focus:ring-primary dark:focus:ring-primary outline-none transition-all dark:text-white"
                 placeholder="Add a new skill (e.g. Leadership)"
                 value={newSkill}
                 onChange={(e) => setNewSkill(e.target.value)}
@@ -643,11 +639,11 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
               </button>
             </div>
           )}
-        </div>
+        </Card>
 
         {/* Resume Upload */}
-        <div className="glass-card rounded-2xl shadow-lg shadow-zinc-200 dark:shadow-none p-8 border border-zinc-50 dark:border-zinc-800 flex flex-col">
-          <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-4">
+        <Card className="flex flex-col">
+          <h3 className="text-base font-semibold text-foreground mb-4">
             Resume / CV
           </h3>
 
@@ -655,7 +651,7 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
             /* ── Uploaded CV thumbnail card ── */
             <div className="flex-1 flex flex-col gap-4">
               {/* PDF icon card */}
-              <div className="flex items-center gap-4 p-4 rounded-2xl bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800">
+              <div className="flex items-center gap-4 p-4 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800">
                 <div className="shrink-0 w-14 h-14 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
                   <FileText className="w-7 h-7 text-red-600 dark:text-red-400" />
                 </div>
@@ -673,7 +669,7 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
                   href={`${import.meta.env.VITE_API_URL?.replace(/\/api$/, "") ?? "http://localhost:5001"}${profile.resumeUrl}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-primaryHover transition-all shadow-md active:scale-[0.98]"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white rounded-xl text-xs font-semibold uppercase tracking-wide hover:bg-primaryHover transition-all shadow-md active:scale-[0.98]"
                 >
                   <Download className="w-3.5 h-3.5" /> View / Download
                 </a>
@@ -682,7 +678,7 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
                     onClick={() =>
                       document.getElementById("resume-upload")?.click()
                     }
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all active:scale-[0.98]"
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[10px] font-semibold uppercase tracking-wide hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all active:scale-[0.98]"
                   >
                     <Upload className="w-3 h-3" /> Replace
                   </button>
@@ -703,7 +699,7 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
                 !isUploadingResume &&
                 document.getElementById("resume-upload")?.click()
               }
-              className="flex-1 border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-2xl p-6 text-center hover:bg-red-50 dark:hover:bg-red-900/10 hover:border-red-300 dark:hover:border-red-900 transition-all cursor-pointer flex flex-col items-center justify-center group h-full min-h-[160px]"
+              className="flex-1 border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-xl p-6 text-center hover:bg-red-50 dark:hover:bg-red-900/10 hover:border-red-300 dark:hover:border-red-900 transition-all cursor-pointer flex flex-col items-center justify-center group h-full min-h-[160px]"
             >
               {isUploadingResume ? (
                 <>
@@ -727,12 +723,12 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
               )}
             </div>
           )}
-        </div>
+        </Card>
       </div>
 
       {/* Volunteer History */}
-      <div className="glass-card rounded-2xl shadow-lg shadow-zinc-200 dark:shadow-none p-8 border border-zinc-50 dark:border-zinc-800">
-        <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-6">
+      <Card>
+        <h3 className="text-base font-semibold text-foreground mb-6">
           Task Performance &amp; History
         </h3>
         <div className="space-y-6">
@@ -740,7 +736,6 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
             completedTasks.map((app) => (
               <div
                 key={app.id || app._id || `${app.jobId}-${app.appliedAt}`}
-                className="flex gap-4 p-4 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-800"
               >
                 <div className="mt-1">
                   <div className="p-2.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 rounded-xl shadow-sm">
@@ -748,7 +743,7 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
                   </div>
                 </div>
                 <div>
-                  <h4 className="text-base font-bold text-zinc-900 dark:text-white">
+                  <h4 className="text-sm font-semibold text-foreground">
                     {app.jobTitle || "Task Deleted"}
                   </h4>
                   <div className="flex items-center gap-4 mt-0.5">
@@ -795,7 +790,7 @@ export const Profile: React.FC<ProfileProps> = ({ user }) => {
             </p>
           )}
         </div>
-      </div>
+      </Card>
     </div>
   );
 };

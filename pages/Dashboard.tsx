@@ -23,50 +23,23 @@ import {
   Send,
   XCircle,
 } from "lucide-react";
-import { DefaultRoleCode, JobStatus, Permission } from "../types";
+import { DefaultRoleCode, Permission } from "../types";
 import { db } from "../services/database";
 import { resolveTaskCategoryLabel } from "../utils/taskCategoryDisplay";
 import { useNavigate } from "react-router-dom";
 import { Loading } from "../components/Loading";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
+import { PageHeader } from "@/components/ui/page-header";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import {
+  ApplicationStatusLabel,
+  JobStatusLabel,
+} from "@/utils/statusDisplay";
 
 interface DashboardProps {
   roles?: DefaultRoleCode[];
 }
-
-export const getStatusColor = (status: JobStatus) => {
-  switch (status) {
-    case JobStatus.PUBLISHED:
-      return "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800";
-    case JobStatus.APPROVED:
-      return "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800";
-    case JobStatus.DRAFT:
-      return "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700";
-    case JobStatus.PENDING:
-      return "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800";
-    case JobStatus.CLOSED:
-      return "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800";
-    default:
-      return "bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200";
-  }
-};
-
-const getApplicationStatusColor = (status: string) => {
-  switch (status) {
-    case "Approved":
-    case "Accepted":
-      return "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400";
-    case "Offered":
-      return "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400";
-    case "Shortlisted":
-      return "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400";
-    case "Rejected":
-    case "Declined":
-      return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400";
-    default:
-      return "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400";
-  }
-};
 
 const getRelativeTime = (dateStr: string) => {
   if (!dateStr) return "—";
@@ -185,15 +158,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
   ].slice(0, 8);
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      {/* ── Welcome Header ── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-black text-zinc-900 dark:text-white tracking-tighter">
-            {getGreeting()}
-            {currentUser?.name ? `, ${currentUser.name.split(" ")[0]}` : ""} 👋
-          </h1>
-          <p className="text-zinc-500 dark:text-zinc-400 mt-1 flex items-center gap-2">
+    <div className="space-y-6 animate-fade-in">
+      <PageHeader
+        title={`${getGreeting()}${currentUser?.name ? `, ${currentUser.name.split(" ")[0]}` : ""}`}
+        description={
+          <span className="inline-flex items-center gap-2">
             <Calendar className="w-4 h-4" />
             {currentTime.toLocaleDateString("en-AU", {
               weekday: "long",
@@ -201,58 +170,57 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
               month: "long",
               year: "numeric",
             })}
-          </p>
-        </div>
-
-        <div className="flex gap-3 items-center">
-          <button
-            onClick={loadData}
-            className="p-2.5 bg-white/50 dark:bg-zinc-800/50 text-zinc-500 dark:text-zinc-400 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-white dark:hover:bg-zinc-800 transition-all"
-            title="Refresh"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => navigate("/post-job")}
-            className="flex items-center gap-2 px-5 py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primaryHover transition-all shadow-lg shadow-primary/20"
-          >
-            <Plus className="w-4 h-4" />
-            New Task
-          </button>
-          <button
-            onClick={() => navigate("/jobs")}
-            className="flex items-center gap-2 px-5 py-3 bg-white/50 dark:bg-zinc-800/50 text-zinc-700 dark:text-zinc-300 rounded-xl font-bold text-sm border border-zinc-200 dark:border-zinc-700 hover:bg-white dark:hover:bg-zinc-800 transition-all"
-          >
-            <Briefcase className="w-4 h-4" />
-            Search Tasks
-          </button>
-        </div>
-      </div>
+          </span>
+        }
+        actions={
+          <>
+            <Button
+              variant="ghost"
+              size="iconCompact"
+              onClick={loadData}
+              title="Refresh"
+              aria-label="Refresh dashboard"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </Button>
+            <Button variant="secondary" size="compact" onClick={() => navigate("/jobs")}>
+              <Briefcase className="w-4 h-4" />
+              Search Tasks
+            </Button>
+            <Button size="compact" onClick={() => navigate("/post-job")}>
+              <Plus className="w-4 h-4" />
+              New Task
+            </Button>
+          </>
+        }
+      />
 
       {/* ── Pending Approval Alert ── */}
       {tasks.pending > 0 && canSeeOrgStats && (
-        <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-5 flex items-center justify-between text-white shadow-lg shadow-amber-500/20">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-white/20 rounded-xl">
-              <AlertCircle className="w-6 h-6" />
+        <Card className="flex flex-col gap-4 border-amber-200 bg-amber-50/80 dark:border-amber-900/50 dark:bg-amber-950/30 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-control bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+              <AlertCircle className="w-5 h-5" />
             </div>
             <div>
-              <p className="font-bold text-lg">
-                {tasks.pending} task{tasks.pending > 1 ? "s" : ""} awaiting
-                approval
+              <p className="font-semibold text-foreground">
+                {tasks.pending} task{tasks.pending > 1 ? "s" : ""} awaiting approval
               </p>
-              <p className="text-white/80 text-sm">
+              <p className="text-sm text-muted-foreground">
                 Review pending submissions to keep things moving
               </p>
             </div>
           </div>
-          <button
+          <Button
+            variant="secondary"
+            size="compact"
             onClick={() => navigate("/pending-approvals")}
-            className="flex items-center gap-2 px-5 py-2.5 bg-white text-amber-600 rounded-xl font-bold text-sm hover:bg-amber-50 transition-all whitespace-nowrap"
+            className="shrink-0"
           >
-            Review Now <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
+            Review now
+            <ArrowRight className="w-4 h-4" />
+          </Button>
+        </Card>
       )}
 
       {/* ── Stats Cards ── */}
@@ -262,17 +230,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
           {/* Total Tasks */}
           <div
             onClick={() => navigate("/jobs")}
-            className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+            className="surface-panel shadow-sm p-4 rounded-control cursor-pointer transition-colors hover:border-primary/30 group"
           >
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-primary/10 rounded-xl group-hover:scale-110 transition-transform">
                 <Briefcase className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                <p className="text-2xl font-semibold text-foreground">
                   {tasks.total ?? 0}
                 </p>
-                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                <p className="text-xs font-medium text-muted-foreground">
                   Total Tasks
                 </p>
               </div>
@@ -282,17 +250,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
           {/* Active Tasks */}
           <div
             onClick={() => navigate("/jobs?status=Published")}
-            className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+            className="surface-panel shadow-sm p-4 rounded-control cursor-pointer transition-colors hover:border-primary/30 group"
           >
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-emerald-100 dark:bg-emerald-900/20 rounded-xl group-hover:scale-110 transition-transform">
                 <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div>
-                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                <p className="text-2xl font-semibold text-foreground">
                   {tasks.active ?? 0}
                 </p>
-                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                <p className="text-xs font-medium text-muted-foreground">
                   Active
                 </p>
               </div>
@@ -302,17 +270,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
           {/* Pending Approval */}
           <div
             onClick={() => navigate("/pending-approvals")}
-            className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+            className="surface-panel shadow-sm p-4 rounded-control cursor-pointer transition-colors hover:border-primary/30 group"
           >
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-amber-100 dark:bg-amber-900/20 rounded-xl group-hover:scale-110 transition-transform">
                 <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
               </div>
               <div>
-                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                <p className="text-2xl font-semibold text-foreground">
                   {tasks.pending ?? 0}
                 </p>
-                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                <p className="text-xs font-medium text-muted-foreground">
                   Pending
                 </p>
               </div>
@@ -322,17 +290,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
           {/* Closed Tasks */}
           <div
             onClick={() => navigate("/jobs?status=Closed")}
-            className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+            className="surface-panel shadow-sm p-4 rounded-control cursor-pointer transition-colors hover:border-primary/30 group"
           >
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-red-100 dark:bg-red-900/20 rounded-xl group-hover:scale-110 transition-transform">
                 <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                <p className="text-2xl font-semibold text-foreground">
                   {tasks.closed ?? 0}
                 </p>
-                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                <p className="text-xs font-medium text-muted-foreground">
                   Closed
                 </p>
               </div>
@@ -342,17 +310,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
           {/* Not Yet Open Tasks */}
           <div
             onClick={() => navigate("/jobs?status=NotYetOpen")}
-            className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+            className="surface-panel shadow-sm p-4 rounded-control cursor-pointer transition-colors hover:border-primary/30 group"
           >
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-sky-100 dark:bg-sky-900/20 rounded-xl group-hover:scale-110 transition-transform">
                 <Calendar className="w-5 h-5 text-sky-600 dark:text-sky-400" />
               </div>
               <div>
-                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                <p className="text-2xl font-semibold text-foreground">
                   {tasks.notYetOpen ?? 0}
                 </p>
-                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                <p className="text-xs font-medium text-muted-foreground">
                   Not Yet Open
                 </p>
               </div>
@@ -362,17 +330,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
           {/* Total Applications */}
           <div
             onClick={() => navigate("/jobs")}
-            className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+            className="surface-panel shadow-sm p-4 rounded-control cursor-pointer transition-colors hover:border-primary/30 group"
           >
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-blue-100 dark:bg-blue-900/20 rounded-xl group-hover:scale-110 transition-transform">
                 <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                <p className="text-2xl font-semibold text-foreground">
                   {applications.total ?? 0}
                 </p>
-                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                <p className="text-xs font-medium text-muted-foreground">
                   Applications
                 </p>
               </div>
@@ -383,17 +351,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
           {canSeeUsers && (
             <div
               onClick={() => navigate("/admin/settings")}
-              className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+              className="surface-panel shadow-sm p-4 rounded-control cursor-pointer transition-colors hover:border-primary/30 group"
             >
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-indigo-100 dark:bg-indigo-900/20 rounded-xl group-hover:scale-110 transition-transform">
                   <UserCheck className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                  <p className="text-2xl font-semibold text-foreground">
                     {users.total ?? 0}
                   </p>
-                  <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                  <p className="text-xs font-medium text-muted-foreground">
                     Members
                   </p>
                 </div>
@@ -401,48 +369,48 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
             </div>
           )}
 
-          <div className="glass-card p-5 rounded-2xl group">
+          <div className="surface-panel shadow-sm rounded-control p-4 group">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-purple-100 dark:bg-purple-900/20 rounded-xl group-hover:scale-110 transition-transform">
                 <Award className="w-5 h-5 text-purple-600 dark:text-purple-400" />
               </div>
               <div>
-                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                <p className="text-2xl font-semibold text-foreground">
                   {tasks.completed ?? 0}
                 </p>
-                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                <p className="text-xs font-medium text-muted-foreground">
                   Completed
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="glass-card p-5 rounded-2xl group">
+          <div className="surface-panel shadow-sm rounded-control p-4 group">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-rose-100 dark:bg-rose-900/20 rounded-xl group-hover:scale-110 transition-transform">
                 <BarChart3 className="w-5 h-5 text-rose-600 dark:text-rose-400" />
               </div>
               <div>
-                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                <p className="text-2xl font-semibold text-foreground">
                   {applications.pending ?? 0}
                 </p>
-                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                <p className="text-xs font-medium text-muted-foreground">
                   Pending Apps
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="glass-card p-5 rounded-2xl group">
+          <div className="surface-panel shadow-sm rounded-control p-4 group">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-cyan-100 dark:bg-cyan-900/20 rounded-xl group-hover:scale-110 transition-transform">
                 <Send className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
               </div>
               <div>
-                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                <p className="text-2xl font-semibold text-foreground">
                   {tasks.createdByMe ?? 0}
                 </p>
-                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                <p className="text-xs font-medium text-muted-foreground">
                   My Posts
                 </p>
               </div>
@@ -454,17 +422,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div
             onClick={() => navigate("/my-applications")}
-            className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+            className="surface-panel shadow-sm p-4 rounded-control cursor-pointer transition-colors hover:border-primary/30 group"
           >
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-primary/10 rounded-xl group-hover:scale-110 transition-transform">
                 <Send className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                <p className="text-2xl font-semibold text-foreground">
                   {applications.mine ?? 0}
                 </p>
-                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                <p className="text-xs font-medium text-muted-foreground">
                   My Apps
                 </p>
               </div>
@@ -473,17 +441,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
 
           <div
             onClick={() => navigate("/my-applications")}
-            className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+            className="surface-panel shadow-sm p-4 rounded-control cursor-pointer transition-colors hover:border-primary/30 group"
           >
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-amber-100 dark:bg-amber-900/20 rounded-xl group-hover:scale-110 transition-transform">
                 <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
               </div>
               <div>
-                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                <p className="text-2xl font-semibold text-foreground">
                   {applications.myPending ?? 0}
                 </p>
-                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                <p className="text-xs font-medium text-muted-foreground">
                   Pending
                 </p>
               </div>
@@ -492,17 +460,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
 
           <div
             onClick={() => navigate("/my-applications")}
-            className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+            className="surface-panel shadow-sm p-4 rounded-control cursor-pointer transition-colors hover:border-primary/30 group"
           >
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-emerald-100 dark:bg-emerald-900/20 rounded-xl group-hover:scale-110 transition-transform">
                 <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div>
-                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                <p className="text-2xl font-semibold text-foreground">
                   {applications.myAccepted ?? 0}
                 </p>
-                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                <p className="text-xs font-medium text-muted-foreground">
                   Accepted
                 </p>
               </div>
@@ -511,17 +479,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
 
           <div
             onClick={() => navigate("/jobs")}
-            className="glass-card p-5 rounded-2xl cursor-pointer hover:-translate-y-1 transition-all group"
+            className="surface-panel shadow-sm p-4 rounded-control cursor-pointer transition-colors hover:border-primary/30 group"
           >
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-blue-100 dark:bg-blue-900/20 rounded-xl group-hover:scale-110 transition-transform">
                 <Briefcase className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                <p className="text-2xl font-semibold text-foreground">
                   {tasks.active ?? 0}
                 </p>
-                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                <p className="text-xs font-medium text-muted-foreground">
                   Open Tasks
                 </p>
               </div>
@@ -533,17 +501,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
       {/* ── Main Content Grid ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Action Feed (for managers) or My Recent Applications (for applicants) */}
-        <div className="lg:col-span-2 glass-card rounded-2xl overflow-hidden">
-          <div className="p-6 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
+        <Card padding="none" className="lg:col-span-2 overflow-hidden">
+          <div className="flex items-center justify-between border-b border-border px-card py-3">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-primary/10 rounded-xl">
                 <Zap className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
+                <h3 className="text-base font-semibold text-foreground">
                   {canSeeOrgStats ? "Action Required" : "My Applications"}
                 </h3>
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-muted-foreground">
                   {canSeeOrgStats
                     ? "Items needing your attention"
                     : "Status of your recent applications"}
@@ -551,7 +519,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
               </div>
             </div>
             {canSeeOrgStats && actionFeed.length > 0 && (
-              <span className="px-3 py-1 bg-primary text-white text-xs font-bold rounded-full">
+              <span className="rounded-control bg-primary px-2 py-0.5 text-xs font-semibold text-white">
                 {actionFeed.length}
               </span>
             )}
@@ -623,12 +591,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
                 <p className="text-sm text-zinc-500 mt-1 mb-6">
                   Search available tasks and apply for one that interests you
                 </p>
-                <button
-                  onClick={() => navigate("/jobs")}
-                  className="px-6 py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primaryHover transition-all"
-                >
-                  Search Tasks
-                </button>
+                <Button onClick={() => navigate("/jobs")}>Search Tasks</Button>
               </div>
             ) : (
               myRecentApps.map((app) => (
@@ -649,11 +612,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
                     </p>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
-                    <span
-                      className={`px-2.5 py-1 text-[10px] font-black rounded-lg uppercase tracking-wider ${getApplicationStatusColor(app.status)}`}
-                    >
-                      {app.status}
-                    </span>
+                    <ApplicationStatusLabel status={app.status} />
                     <ChevronRight className="w-4 h-4 text-zinc-300 group-hover:text-primary transition-colors" />
                   </div>
                 </div>
@@ -663,30 +622,34 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
 
           {canSeeOrgStats ? (
             <div className="p-4 border-t border-zinc-100 dark:border-zinc-800">
-              <button
+              <Button
+                variant="ghost"
+                size="compact"
+                className="w-full"
                 onClick={() => navigate("/pending-approvals")}
-                className="w-full py-2 text-xs font-black uppercase tracking-widest text-primary hover:bg-primary/5 rounded-lg transition-colors"
               >
-                View All Pending Approvals
-              </button>
+                View all pending approvals
+              </Button>
             </div>
           ) : myRecentApps.length > 0 ? (
             <div className="p-4 border-t border-zinc-100 dark:border-zinc-800">
-              <button
+              <Button
+                variant="ghost"
+                size="compact"
+                className="w-full"
                 onClick={() => navigate("/my-applications")}
-                className="w-full py-2 text-xs font-black uppercase tracking-widest text-primary hover:bg-primary/5 rounded-lg transition-colors"
               >
-                View All My Applications
-              </button>
+                View all my applications
+              </Button>
             </div>
           ) : null}
-        </div>
+        </Card>
 
         {/* Right Sidebar */}
         <div className="space-y-4">
           {/* Quick Links */}
-          <div className="glass-card p-6 rounded-2xl">
-            <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-4">
+          <Card>
+            <h3 className="mb-3 text-base font-semibold text-foreground">
               Quick Links
             </h3>
             <div className="space-y-2">
@@ -697,7 +660,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
                 <div className="p-2 bg-emerald-100 dark:bg-emerald-900/20 rounded-lg group-hover:scale-110 transition-transform">
                   <Plus className="w-4 h-4 text-emerald-600" />
                 </div>
-                <span className="font-bold text-zinc-700 dark:text-zinc-300">
+                <span className="font-medium text-foreground">
                   Create Task
                 </span>
               </button>
@@ -709,7 +672,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
                 <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg group-hover:scale-110 transition-transform">
                   <Eye className="w-4 h-4 text-blue-600" />
                 </div>
-                <span className="font-bold text-zinc-700 dark:text-zinc-300">
+                <span className="font-medium text-foreground">
                   Search Tasks
                 </span>
               </button>
@@ -721,7 +684,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
                 <div className="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-lg group-hover:scale-110 transition-transform">
                   <ClipboardCheck className="w-4 h-4 text-purple-600" />
                 </div>
-                <span className="font-bold text-zinc-700 dark:text-zinc-300">
+                <span className="font-medium text-foreground">
                   My Tasks
                 </span>
               </button>
@@ -733,7 +696,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
                 <div className="p-2 bg-cyan-100 dark:bg-cyan-900/20 rounded-lg group-hover:scale-110 transition-transform">
                   <Send className="w-4 h-4 text-cyan-600" />
                 </div>
-                <span className="font-bold text-zinc-700 dark:text-zinc-300">
+                <span className="font-medium text-foreground">
                   My Applications
                 </span>
               </button>
@@ -746,7 +709,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
                   <div className="p-2 bg-amber-100 dark:bg-amber-900/20 rounded-lg group-hover:scale-110 transition-transform">
                     <FileText className="w-4 h-4 text-amber-600" />
                   </div>
-                  <span className="font-bold text-zinc-700 dark:text-zinc-300">
+                  <span className="font-medium text-foreground">
                     Admin Settings
                   </span>
                 </button>
@@ -760,26 +723,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
                   <div className="p-2 bg-primary/10 rounded-lg group-hover:scale-110 transition-transform">
                     <TrendingUp className="w-4 h-4 text-primary" />
                   </div>
-                  <span className="font-bold text-zinc-700 dark:text-zinc-300">
+                  <span className="font-medium text-foreground">
                     View Reports
                   </span>
                 </button>
               )}
             </div>
-          </div>
+          </Card>
 
           {/* Recent Tasks (my posts for managers, available tasks for applicants) */}
-          <div className="glass-card p-6 rounded-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
+          <Card>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-foreground">
                 {canSeeOrgStats ? "My Posts" : "Recent Tasks"}
               </h3>
-              <button
+              <Button
+                variant="link"
+                size="compact"
+                className="text-xs"
                 onClick={() => navigate(canSeeOrgStats ? "/my-tasks" : "/jobs")}
-                className="text-xs font-black text-primary uppercase tracking-widest hover:underline"
               >
-                See All
-              </button>
+                See all
+              </Button>
             </div>
             <div className="space-y-3">
               {(canSeeOrgStats ? myRecentTasks : []).length === 0 &&
@@ -817,17 +782,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
                         {task.applicantsCount !== 1 ? "s" : ""}
                       </p>
                     </div>
-                    <span
-                      className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg shrink-0 ${
-                        task.status === "Published"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : task.status === "Pending"
-                            ? "bg-amber-100 text-amber-700"
-                            : "bg-zinc-100 text-zinc-500"
-                      }`}
-                    >
-                      {task.status}
-                    </span>
+                    <JobStatusLabel status={task.status} className="shrink-0" />
                     </div>
                     <TaskLifecycleActions
                       job={task}
@@ -851,7 +806,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ roles }) => {
                 </div>
               )}
             </div>
-          </div>
+          </Card>
         </div>
       </div>
     </div>

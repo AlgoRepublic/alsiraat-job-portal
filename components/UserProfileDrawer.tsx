@@ -26,6 +26,13 @@ import { api, API_BASE_URL } from "../services/api";
 import { resolveTaskCategoryLabel } from "../utils/taskCategoryDisplay";
 import { getMemberRolesForActiveOrg } from "../utils/orgScopedRoles";
 import { TaskLifecycleActions } from "./TaskLifecycleActions";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+  ApplicationStatusLabel,
+  JobStatusLabel,
+} from "@/utils/statusDisplay";
 
 /* ─── Types ──────────────────────────────────────────────────────────────────── */
 interface UserProfileDrawerProps {
@@ -79,46 +86,6 @@ const ROLE_COLOUR: Record<string, string> = {
 const roleColour = (name: string) =>
   ROLE_COLOUR[name] ?? "bg-primary/10 text-primary dark:bg-primary/20";
 
-const taskStatusStyle = (s: string) => {
-  switch (s?.toLowerCase()) {
-    case "published":
-      return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300";
-    case "pending":
-      return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
-    case "completed":
-      return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300";
-    case "draft":
-      return "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300";
-    case "closed":
-    case "archived":
-      return "bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500";
-    case "changes requested":
-      return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300";
-    default:
-      return "bg-zinc-100 text-zinc-500";
-  }
-};
-
-const appStatusStyle = (s: string) => {
-  switch (s?.toLowerCase()) {
-    case "approved":
-    case "accepted":
-    case "completed":
-      return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300";
-    case "pending":
-    case "reviewing":
-      return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
-    case "shortlisted":
-    case "offered":
-      return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300";
-    case "rejected":
-    case "declined":
-      return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300";
-    default:
-      return "bg-zinc-100 text-zinc-500";
-  }
-};
-
 /* ─── InfoPill ───────────────────────────────────────────────────────────────── */
 const InfoPill: React.FC<{
   icon: React.ReactNode;
@@ -126,12 +93,10 @@ const InfoPill: React.FC<{
   value: string;
   mono?: boolean;
 }> = ({ icon, label, value, mono }) => (
-  <div className="flex items-start gap-3 p-3 bg-zinc-50 dark:bg-zinc-800/60 rounded-xl">
+  <div className="flex items-start gap-3 p-3 bg-zinc-50 dark:bg-zinc-800/60 rounded-control">
     <span className="mt-0.5 flex-shrink-0 text-primary/70">{icon}</span>
     <div className="min-w-0">
-      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-        {label}
-      </p>
+      <Label className="normal-case tracking-normal">{label}</Label>
       <p
         className={`text-sm font-semibold text-zinc-800 dark:text-zinc-100 break-all mt-0.5 ${
           mono ? "font-mono text-xs" : ""
@@ -151,10 +116,10 @@ const StatChip: React.FC<{
   colour: string;
 }> = ({ icon, label, value, colour }) => (
   <div
-    className={`flex flex-col items-center justify-center gap-1 p-4 rounded-2xl ${colour}`}
+    className={`flex flex-col items-center justify-center gap-1 p-4 rounded-surface ${colour}`}
   >
     <div className="mb-0.5">{icon}</div>
-    <span className="text-2xl font-black leading-none">{value}</span>
+    <span className="text-2xl font-semibold leading-none">{value}</span>
     <span className="text-[10px] font-bold uppercase tracking-wider opacity-70 text-center leading-tight">
       {label}
     </span>
@@ -295,14 +260,15 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
 
             {/* Name / roles / org */}
             <div className="min-w-0 flex-1">
-              <h2 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tight truncate">
+              <h2 className="text-2xl font-semibold text-zinc-900 dark:text-white tracking-tight truncate">
                 {user.name}
               </h2>
               <div className="flex flex-wrap items-center gap-2 mt-1.5">
                 {displayMemberRoles.map((role) => (
-                  <span
+                  <Badge
                     key={role.id}
-                    className={`px-2.5 py-0.5 rounded-lg text-xs font-black uppercase tracking-wider ${roleColour(role.name)} ${
+                    variant="chip"
+                    className={`text-xs uppercase tracking-wider ${roleColour(role.name)} ${
                       role.isActive === false ? "opacity-60 line-through" : ""
                     }`}
                     title={
@@ -317,7 +283,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
                         · inactive
                       </span>
                     ) : null}
-                  </span>
+                  </Badge>
                 ))}
                 {user.organisation?.name && (
                   <span className="flex items-center gap-1 text-xs font-bold text-zinc-500 dark:text-zinc-400">
@@ -367,7 +333,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`relative flex items-center gap-1.5 px-4 py-3.5 text-xs font-black uppercase tracking-wider transition-all flex-1 justify-center ${
+              className={`relative flex items-center gap-1.5 px-4 py-3.5 text-xs font-semibold uppercase tracking-wider transition-all flex-1 justify-center ${
                 activeTab === tab.id
                   ? "text-primary"
                   : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
@@ -377,7 +343,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
               <span className="hidden sm:inline">{tab.label}</span>
               {tab.count !== undefined && tab.count > 0 && (
                 <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
+                  className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
                     activeTab === tab.id
                       ? "bg-primary text-white"
                       : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500"
@@ -400,7 +366,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
             <div className="p-6 space-y-6 animate-fade-in">
               {/* Contact & Personal */}
               <section>
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-3">
+                <h3 className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">
                   Contact & Personal Information
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -445,7 +411,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
 
               {/* Auth Methods */}
               <section>
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-3">
+                <h3 className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">
                   Authentication
                 </h3>
                 <div className="flex flex-wrap gap-2">
@@ -476,7 +442,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
               {/* About */}
               {user.about && (
                 <section>
-                  <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-3">
+                  <h3 className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">
                     About
                   </h3>
                   <p className="text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed bg-zinc-50 dark:bg-zinc-800/60 rounded-xl p-4">
@@ -488,7 +454,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
               {/* Skills */}
               {user.skills && user.skills.length > 0 && (
                 <section>
-                  <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-3">
+                  <h3 className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">
                     Skills ({user.skills.length})
                   </h3>
                   <div className="flex flex-wrap gap-2">
@@ -501,7 +467,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
                           {skill.name}
                         </span>
                         <span
-                          className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wide ${
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold uppercase tracking-wide ${
                             SKILL_STYLES[skill.level] ?? SKILL_STYLES["Beginner"]
                           }`}
                         >
@@ -515,7 +481,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
 
               {/* Resume */}
               <section>
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-3">
+                <h3 className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">
                   Resume / CV
                 </h3>
                 {resumeUrl ? (
@@ -557,7 +523,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
                     <section>
                       <div className="flex items-center gap-2 mb-3">
                         <Clock className="w-4 h-4 text-amber-500" />
-                        <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                        <h3 className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">
                           Open Tasks ({openTasks.length})
                         </h3>
                       </div>
@@ -579,7 +545,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
                     <section>
                       <div className="flex items-center gap-2 mb-3">
                         <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                        <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                        <h3 className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">
                           Completed / Closed ({completedTasks.length})
                         </h3>
                       </div>
@@ -618,7 +584,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
                     <section>
                       <div className="flex items-center gap-2 mb-3">
                         <Clock className="w-4 h-4 text-amber-500" />
-                        <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                        <h3 className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">
                           In Progress ({openApps.length})
                         </h3>
                       </div>
@@ -634,7 +600,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
                     <section>
                       <div className="flex items-center gap-2 mb-3">
                         <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                        <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                        <h3 className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">
                           Completed ({completedApps.length})
                         </h3>
                       </div>
@@ -650,7 +616,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
                     <section>
                       <div className="flex items-center gap-2 mb-3">
                         <AlertTriangle className="w-4 h-4 text-red-500" />
-                        <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                        <h3 className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">
                           Declined / Rejected ({closedApps.length})
                         </h3>
                       </div>
@@ -671,7 +637,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
             <div className="p-6 space-y-6 animate-fade-in">
               {/* Summary stats grid */}
               <section>
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-3">
+                <h3 className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">
                   Summary
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -728,7 +694,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
                       className={`flex flex-col gap-2 p-4 rounded-2xl ${item.colour}`}
                     >
                       {item.icon}
-                      <span className="text-2xl font-black">{item.value}</span>
+                      <span className="text-2xl font-semibold">{item.value}</span>
                       <span className="text-[10px] font-bold uppercase tracking-wider opacity-70 leading-tight">
                         {item.label}
                       </span>
@@ -739,7 +705,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
 
               {/* Recent Activity */}
               <section>
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-3">
+                <h3 className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">
                   Recent Activity
                 </h3>
                 <div className="space-y-2">
@@ -791,7 +757,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
                           <p className="text-xs text-zinc-400">{fmt(item.date)}</p>
                         </div>
                         <span
-                          className={`shrink-0 text-[10px] font-black px-2 py-0.5 rounded-lg uppercase tracking-wide ${item.statusStyle}`}
+                          className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-lg uppercase tracking-wide ${item.statusStyle}`}
                         >
                           {item.status}
                         </span>
@@ -817,16 +783,15 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
             Close
           </button>
           {onEdit && !user?.isSuperAdmin && (
-            <button
+            <Button
               onClick={() => {
                 onClose();
                 onEdit(user);
               }}
-              className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primaryHover shadow-lg shadow-primary/20 transition-all"
             >
               <Edit2 className="w-4 h-4" />
               Edit User
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -858,11 +823,7 @@ const TaskRow: React.FC<{
       </p>
     </div>
     <div className="flex items-center gap-2 shrink-0">
-      <span
-        className={`text-[10px] font-black px-2.5 py-1 rounded-xl uppercase tracking-wide ${taskStatusStyle(task.status)}`}
-      >
-        {task.status}
-      </span>
+      <JobStatusLabel status={task.status} />
       {task.applicantsCount != null && (
         <span className="flex items-center gap-1 text-[10px] font-bold text-zinc-400">
           <Users className="w-3 h-3" />
@@ -897,10 +858,6 @@ const ApplicationRow: React.FC<{ app: any }> = ({ app }) => (
         }) : "—"}
       </p>
     </div>
-    <span
-      className={`shrink-0 text-[10px] font-black px-2.5 py-1 rounded-xl uppercase tracking-wide ${appStatusStyle(app.status)}`}
-    >
-      {app.status}
-    </span>
+    <ApplicationStatusLabel status={app.status} className="shrink-0" />
   </div>
 );

@@ -13,7 +13,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
   return (
     <button
       onClick={onToggle}
-      className="fixed top-6 right-6 z-50 p-3 rounded-xl glass-card hover:scale-110 transition-all"
+      className="fixed top-6 right-6 z-50 p-3 rounded-xl surface-panel border border-border shadow-sm bg-surface hover:scale-110 transition-all"
       title={isDarkMode ? "Light mode" : "Dark mode"}
     >
       {isDarkMode ? (

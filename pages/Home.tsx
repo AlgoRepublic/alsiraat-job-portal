@@ -16,6 +16,7 @@ import { resolveTaskCategoryLabel } from "../utils/taskCategoryDisplay";
 import { resolveCatalogOrganisationId } from "../services/platformOrganisations";
 import { Job, JobStatus, User } from "../types";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
+import { Card } from "@/components/ui";
 import {
   formatOptionalTaskDuration,
   formatOptionalTaskLocation,
@@ -61,9 +62,9 @@ export const Home: React.FC = () => {
   }, []);
 
   return (
-    <div className="space-y-16 animate-fade-in pb-20">
+    <div className="space-y-section animate-fade-in pb-20">
       {/* Hero */}
-      <div className="relative overflow-hidden rounded-[3rem] bg-zinc-900 text-white shadow-2xl p-12 md:p-20 text-center lg:text-left border border-white/5">
+      <div className="relative overflow-hidden rounded-surface bg-zinc-900 text-white shadow-sm p-card md:p-section text-center lg:text-left border border-border">
         <div className="absolute top-0 right-0 w-full h-full opacity-20 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]"></div>
         <div className="absolute top-[-20%] left-[-10%] w-[80%] h-[80%] bg-primary rounded-full mix-blend-screen filter blur-[150px] opacity-20"></div>
 
@@ -71,11 +72,11 @@ export const Home: React.FC = () => {
           <div className="space-y-8">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full backdrop-blur-md">
               <Award className="w-4 h-4 text-primary" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-white/80">
+              <span className="text-xs font-semibold uppercase tracking-wide text-white/80">
                 Tasker v1.0
               </span>
             </div>
-            <h1 className="text-5xl md:text-7xl font-black tracking-tighter leading-[0.9]">
+            <h1 className="text-3xl md:text-4xl font-semibold tracking-tight leading-[0.95]">
               Task Management <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-primaryHover to-primary">
                 Simplified.
@@ -88,13 +89,13 @@ export const Home: React.FC = () => {
             <div className="flex flex-wrap gap-5 justify-center lg:justify-start">
               <Link
                 to="/jobs"
-                className="px-10 py-5 bg-primary text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-2xl shadow-primary/30 hover:bg-primaryHover transition-all transform hover:-translate-y-1 flex items-center"
+                className="px-10 py-5 bg-primary text-white rounded-xl font-semibold text-sm uppercase tracking-wide shadow-2xl shadow-primary/30 hover:bg-primaryHover transition-all transform hover:-translate-y-1 flex items-center"
               >
                 See Tasks <ArrowRight className="w-5 h-5 ml-3" />
               </Link>
               <Link
                 to="/dashboard"
-                className="px-10 py-5 bg-white/5 border border-white/10 text-white rounded-2xl font-black text-sm uppercase tracking-widest backdrop-blur-xl hover:bg-white/10 transition-all"
+                className="px-10 py-5 bg-white/5 border border-white/10 text-white rounded-xl font-semibold text-sm uppercase tracking-wide backdrop-blur-xl hover:bg-white/10 transition-all"
               >
                 Go to Dashboard
               </Link>
@@ -126,14 +127,14 @@ export const Home: React.FC = () => {
               ].map((item, i) => (
                 <div
                   key={i}
-                  className={`p-8 rounded-[2rem] glass-card border-white/10 group hover:-translate-y-2 transition-all duration-500 overflow-hidden relative ${i % 2 === 0 ? "mt-8" : ""}`}
+                  className={`p-8 rounded-surface surface-panel border border-border border-white/10 group hover:-translate-y-2 transition-all duration-500 overflow-hidden relative ${i % 2 === 0 ? "mt-8" : ""}`}
                 >
                   <img
                     src={item.img}
                     alt={item.label}
                     className="w-16 h-16 mb-4 object-contain group-hover:scale-110 transition-transform"
                   />
-                  <h3 className="font-black text-xl text-white tracking-tighter">
+                  <h3 className="font-semibold text-xl text-white tracking-tighter">
                     {item.label}
                   </h3>
                   <p className="text-sm text-zinc-500 font-bold mt-2">
@@ -156,7 +157,7 @@ export const Home: React.FC = () => {
         <div className="space-y-8">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 px-4">
             <div>
-              <h2 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
+              <h2 className="text-3xl font-semibold text-zinc-900 dark:text-white tracking-tighter">
                 Browse by Category
               </h2>
               <p className="text-zinc-500 font-medium mt-2">
@@ -197,7 +198,7 @@ export const Home: React.FC = () => {
               {/* Add Task Button */}
               <Link
                 to="/create-task"
-                className="px-6 py-3 bg-primary text-white rounded-xl font-black text-sm uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primaryHover transition-all whitespace-nowrap flex items-center justify-center gap-2"
+                className="px-6 py-3 bg-primary text-white rounded-xl font-semibold text-sm uppercase tracking-wide shadow-lg shadow-primary/20 hover:bg-primaryHover transition-all whitespace-nowrap flex items-center justify-center gap-2"
               >
                 <svg
                   className="w-5 h-5"
@@ -224,7 +225,7 @@ export const Home: React.FC = () => {
                 onClick={() =>
                   navigate(`/jobs?category=${encodeURIComponent(cat.name)}`)
                 }
-                className="group relative bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-6 hover:shadow-xl transition-all cursor-pointer hover:-translate-y-1 overflow-hidden"
+                className="group relative bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl p-6 hover:shadow-xl transition-all cursor-pointer hover:-translate-y-1 overflow-hidden"
                 style={{
                   borderColor: cat.color + "20",
                 }}
@@ -235,7 +236,7 @@ export const Home: React.FC = () => {
                 />
                 <div className="relative z-10 text-center">
                   <div
-                    className="mb-3 mx-auto w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
+                    className="mb-3 mx-auto w-16 h-16 rounded-xl flex items-center justify-center text-3xl"
                     style={{
                       backgroundColor: cat.color + "20",
                     }}
@@ -243,7 +244,7 @@ export const Home: React.FC = () => {
                     {cat.icon || "📋"}
                   </div>
                   <h3
-                    className="font-black text-sm tracking-tight"
+                    className="font-semibold text-sm tracking-tight"
                     style={{ color: cat.color }}
                   >
                     {cat.name}
@@ -259,7 +260,7 @@ export const Home: React.FC = () => {
       <div className="space-y-8">
         <div className="flex items-center justify-between px-4">
           <div>
-            <h2 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
+            <h2 className="text-3xl font-semibold text-zinc-900 dark:text-white tracking-tighter">
               New Tasks
             </h2>
             <p className="text-zinc-500 font-medium mt-2">
@@ -268,7 +269,7 @@ export const Home: React.FC = () => {
           </div>
           <Link
             to="/jobs"
-            className="text-primary font-black uppercase tracking-widest text-xs hover:underline flex items-center"
+            className="text-primary font-semibold uppercase tracking-wide text-xs hover:underline flex items-center"
           >
             See All <ArrowRight className="w-4 h-4 ml-1" />
           </Link>
@@ -279,22 +280,39 @@ export const Home: React.FC = () => {
             <div
               key={job.id}
               onClick={() => navigate(`/jobs/${job.id}`)}
-              className="group relative bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-3xl p-6 hover:shadow-xl hover:shadow-zinc-200/50 dark:hover:shadow-black/50 transition-all cursor-pointer hover:-translate-y-1"
+              className="group relative bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-surface p-6 hover:shadow-xl hover:shadow-zinc-200/50 dark:hover:shadow-black/50 transition-all cursor-pointer hover:-translate-y-1"
             >
-              <div className="absolute top-6 right-6">
-                <span className="px-3 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-[10px] font-black uppercase tracking-widest rounded-lg">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <span className="px-3 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-[10px] font-semibold uppercase tracking-wide rounded-lg">
                   {resolveTaskCategoryLabel(job)}
                 </span>
+                <div onClick={(e) => e.stopPropagation()}>
+                  <TaskLifecycleActions
+                    job={job}
+                    currentUser={currentUser}
+                    layout="compact"
+                    onAfterMutation={() =>
+                      void db.getJobs().then((jobs) => {
+                        const visible = jobs.filter(
+                          (j) =>
+                            j.status === JobStatus.PUBLISHED ||
+                            j.status === JobStatus.APPROVED,
+                        );
+                        setPublicJobs(visible);
+                      })
+                    }
+                  />
+                </div>
               </div>
 
               <div className="mb-6">
-                <div className="w-12 h-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mb-4">
+                <div className="w-12 h-12 bg-primary/10 text-primary rounded-xl flex items-center justify-center mb-4">
                   <Briefcase className="w-6 h-6" />
                 </div>
-                <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2 pr-12 leading-tight">
+                <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2 leading-tight">
                   {job.title}
                 </h3>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400 line-clamp-2">
+                <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
                   {job.description}
                 </p>
               </div>
@@ -309,26 +327,6 @@ export const Home: React.FC = () => {
                   {formatOptionalTaskDuration(job.hoursRequired, "h")}
                 </div>
               </div>
-              <div
-                className="mt-3 flex justify-end"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <TaskLifecycleActions
-                  job={job}
-                  currentUser={currentUser}
-                  layout="compact"
-                  onAfterMutation={() =>
-                    void db.getJobs().then((jobs) => {
-                      const visible = jobs.filter(
-                        (j) =>
-                          j.status === JobStatus.PUBLISHED ||
-                          j.status === JobStatus.APPROVED,
-                      );
-                      setPublicJobs(visible);
-                    })
-                  }
-                />
-              </div>
             </div>
           ))}
         </div>
@@ -336,39 +334,39 @@ export const Home: React.FC = () => {
 
       {/* Value Props */}
       <div className="grid md:grid-cols-3 gap-8">
-        <div className="glass-card p-10 rounded-[2.5rem] text-center group hover:shadow-2xl transition-all">
-          <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center mx-auto mb-8 text-blue-600 group-hover:scale-110 transition-transform shadow-xl">
+        <Card padding="section" className="text-center">
+          <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 rounded-control flex items-center justify-center mx-auto mb-8 text-blue-600">
             <GraduationCap className="w-8 h-8" />
           </div>
-          <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter mb-4">
+          <h3 className="text-base font-semibold text-foreground mb-4">
             For Students
           </h3>
           <p className="text-zinc-500 dark:text-zinc-400 font-medium leading-relaxed">
             Find tasks, earn credits, and build your profile.
           </p>
-        </div>
-        <div className="glass-card p-10 rounded-[2.5rem] text-center group hover:shadow-2xl transition-all">
-          <div className="w-16 h-16 bg-amber-50 dark:bg-amber-900/20 rounded-2xl flex items-center justify-center mx-auto mb-8 text-amber-600 group-hover:scale-110 transition-transform shadow-xl">
+        </Card>
+        <Card padding="section" className="text-center">
+          <div className="w-16 h-16 bg-amber-50 dark:bg-amber-900/20 rounded-control flex items-center justify-center mx-auto mb-8 text-amber-600">
             <UserRound className="w-8 h-8" />
           </div>
-          <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter mb-4">
+          <h3 className="text-base font-semibold text-foreground mb-4">
             For Staff
           </h3>
           <p className="text-zinc-500 dark:text-zinc-400 font-medium leading-relaxed">
             Create tasks and find students to help you.
           </p>
-        </div>
-        <div className="glass-card p-10 rounded-[2.5rem] text-center group hover:shadow-2xl transition-all">
-          <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl flex items-center justify-center mx-auto mb-8 text-emerald-600 group-hover:scale-110 transition-transform shadow-xl">
+        </Card>
+        <Card padding="section" className="text-center">
+          <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-900/20 rounded-control flex items-center justify-center mx-auto mb-8 text-emerald-600">
             <ShieldHalf className="w-8 h-8" />
           </div>
-          <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter mb-4">
+          <h3 className="text-base font-semibold text-foreground mb-4">
             For Admin
           </h3>
           <p className="text-zinc-500 dark:text-zinc-400 font-medium leading-relaxed">
             Manage everything in one place.
           </p>
-        </div>
+        </Card>
       </div>
     </div>
   );

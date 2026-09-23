@@ -48,7 +48,7 @@ export const Loading: React.FC<LoadingProps> = ({
               />
             </div>
           </div>
-          <div className="text-zinc-400 font-black uppercase tracking-[0.4em] text-[10px] animate-pulse">
+          <div className="text-zinc-400 font-semibold uppercase tracking-[0.4em] text-[10px] animate-pulse">
             {message}
           </div>
         </div>
@@ -77,7 +77,7 @@ export const Loading: React.FC<LoadingProps> = ({
         {/* Circular spinner around the box */}
         <div className="absolute -inset-2 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
       </div>
-      <p className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest animate-pulse">
+      <p className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest animate-pulse">
         {message}
       </p>
     </div>
@@ -113,7 +113,7 @@ export const LoadingOverlay: React.FC<{ message?: string }> = ({
         </div>
         <div className="absolute -inset-3 border-2 border-primary/10 border-t-primary rounded-full animate-spin"></div>
       </div>
-      <p className="font-bold text-zinc-900 dark:text-white text-sm tracking-wide">
+      <p className="font-semibold text-zinc-900 dark:text-white text-sm tracking-wide">
         {message}
       </p>
     </div>

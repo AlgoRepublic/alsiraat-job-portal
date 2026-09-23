@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   Mail,
   Shield,
@@ -11,6 +11,7 @@ import {
 import { db } from "../services/database";
 
 import { LoadingOverlay } from "../components/Loading";
+import { Button, Card, Input, Label } from "@/components/ui";
 
 export const ForgotPassword: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -33,29 +34,29 @@ export const ForgotPassword: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 transition-colors relative overflow-hidden bg-zinc-50 dark:bg-black">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 transition-colors relative overflow-hidden bg-background">
       {isLoading && <LoadingOverlay message="Dispatching Request..." />}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[100px]"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-500/10 rounded-full blur-[100px]"></div>
       </div>
 
-      <div className="w-full max-w-md glass-card rounded-3xl shadow-2xl shadow-zinc-200 dark:shadow-black/50 p-8 md:p-10 border border-white/20 dark:border-zinc-700 animate-slide-up relative">
+      <Card radius="surface" padding="section" className="w-full max-w-md animate-slide-up relative">
         <Link
           to="/login"
-          className="absolute top-6 left-6 text-zinc-400 hover:text-primary transition-colors flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
+          className="absolute top-4 left-4 text-muted-foreground hover:text-primary transition-colors flex items-center gap-2 text-xs font-semibold"
         >
           <ArrowLeft className="w-4 h-4" /> Back
         </Link>
 
-        <div className="text-center mb-10 mt-4">
-          <div className="w-16 h-16 bg-gradient-to-tr from-zinc-900 to-zinc-700 dark:from-zinc-800 dark:to-zinc-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl relative">
-            <Shield className="text-white w-9 h-9" strokeWidth={2} />
+        <div className="text-center mb-8 mt-4">
+          <div className="w-14 h-14 bg-primary rounded-control flex items-center justify-center mx-auto mb-4">
+            <Shield className="text-white w-7 h-7" strokeWidth={2} />
           </div>
-          <h1 className="text-3xl font-black text-zinc-900 dark:text-white mb-2 tracking-tighter">
+          <h1 className="text-title-page-lg font-semibold text-foreground mb-2">
             Reset Key
           </h1>
-          <p className="text-zinc-500 dark:text-zinc-400 text-sm font-bold uppercase tracking-widest text-[10px]">
+          <p className="text-sm text-muted-foreground font-medium">
             Recover System Access
           </p>
         </div>
@@ -76,7 +77,7 @@ export const ForgotPassword: React.FC = () => {
             </div>
             <Link
               to="/login"
-              className="inline-flex items-center gap-2 text-zinc-600 dark:text-zinc-400 font-black uppercase tracking-widest text-[10px] hover:text-primary transition-colors"
+              className="inline-flex items-center gap-2 text-muted-foreground font-semibold text-sm hover:text-primary transition-colors"
             >
               Return to Entry Point
             </Link>
@@ -93,28 +94,29 @@ export const ForgotPassword: React.FC = () => {
             )}
 
             <form onSubmit={handleForgot} className="space-y-6">
-              <div className="relative group">
-                <Mail className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
-                <input
-                  type="email"
-                  required
-                  placeholder="Registered Work Email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
-                />
+              <div className="space-y-1.5">
+                <Label htmlFor="forgot-email">Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="forgot-email"
+                    type="email"
+                    required
+                    placeholder="Registered Work Email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
 
-              <button
-                disabled={isLoading}
-                className="w-full py-4 bg-zinc-900 dark:bg-zinc-800 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-black dark:hover:bg-zinc-700 shadow-xl transition-all hover:-translate-y-1 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
+              <Button type="submit" disabled={isLoading} className="w-full">
                 <Send className="w-4 h-4" /> Send Request
-              </button>
+              </Button>
             </form>
           </>
         )}
-      </div>
+      </Card>
     </div>
   );
 };

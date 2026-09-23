@@ -40,16 +40,6 @@ import {
 import { TaskLifecycleActions } from "./TaskLifecycleActions";
 import { FloatingMenuPortal } from "./FloatingMenuPortal";
 
-/** First URL segment → page title (e.g. `post-job` → `Post Job`). */
-function formatPathnamePageTitle(pathname: string): string {
-  const segment = pathname.substring(1).split("/")[0] || "";
-  return segment
-    .split("-")
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
 /** Full display name for tooltip / labels when active org may omit `name` on the object. */
 function getActiveOrganisationDisplayName(user: User): string {
   const ao = user.activeOrganisation as OrgContext | string | null | undefined;
@@ -116,11 +106,11 @@ const OrganisationIdentityBadge: React.FC<{
 
   return (
     <div
-      className="lg:hidden shrink-0 flex items-center gap-2 rounded-2xl border border-white/30 dark:border-white/5 bg-white/30 dark:bg-zinc-800/30 px-2.5 py-1.5 shadow-sm"
+      className="lg:hidden shrink-0 flex items-center gap-2 surface-panel px-2.5 py-1.5"
       title={organisationName}
       aria-label={`Organisation: ${organisationName}`}
     >
-      <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl bg-white/80 dark:bg-zinc-900/80 border border-white/50 dark:border-white/10">
+      <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-control bg-surface-muted border border-border">
         <img
           src={resolvedLogoSrc}
           alt=""
@@ -135,7 +125,7 @@ const OrganisationIdentityBadge: React.FC<{
           }}
         />
       </div>
-      <span className="hidden sm:inline min-w-0 max-w-[10rem] truncate text-sm font-bold text-zinc-900 dark:text-white leading-tight">
+      <span className="hidden sm:inline min-w-0 max-w-[10rem] truncate text-sm font-semibold text-foreground leading-tight">
         {organisationName}
       </span>
     </div>
@@ -258,11 +248,11 @@ const HeaderIconButton = React.forwardRef<
     ref={ref}
     type="button"
     onClick={onClick}
-    className={`relative p-3 rounded-2xl bg-white/30 dark:bg-zinc-800/30 hover:bg-white/60 dark:hover:bg-zinc-800/60 transition-all border border-white/30 dark:border-white/5 shadow-sm ${className}`}
+    className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-control border border-border bg-surface text-muted-foreground hover:bg-surface-muted hover:text-foreground transition-colors ${className}`}
     aria-label={label}
     title={label}
   >
-    <Icon className={`w-5 h-5 text-zinc-500 dark:text-zinc-400 ${iconClassName}`} />
+    <Icon className={`w-[18px] h-[18px] ${iconClassName}`} />
     {badge && badgeCount > 0 && (
       <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-bold text-white">
         {badgeCount > 9 ? "9+" : badgeCount}
@@ -724,16 +714,16 @@ export const Layout: React.FC<LayoutProps> = ({
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 glass shadow-2xl lg:shadow-none transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+        className={`fixed inset-y-0 left-0 z-50 w-72 bg-surface border-r border-border shadow-lg lg:shadow-none transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="flex flex-col h-full">
           {/* Sidebar branding: vertical stack, fixed logo, text truncates with native tooltip */}
-          <div className="shrink-0 border-b border-white/20 dark:border-white/5 px-6 pt-3 pb-2 min-w-0 flex flex-col items-center text-center">
+          <div className="shrink-0 border-b border-border px-5 pt-3 pb-2 min-w-0 flex flex-col items-center text-center">
             <Link
               to="/"
-              className="flex flex-col items-center gap-1.5 min-w-0 w-full outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded-xl -mx-1 px-1"
+              className="flex flex-col items-center gap-1.5 min-w-0 w-full outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded-control -mx-1 px-1"
             >
-              <div className="w-12 h-12 max-w-12 max-h-12 shrink-0 flex items-center justify-center relative overflow-hidden rounded-xl">
+              <div className="w-12 h-12 max-w-12 max-h-12 shrink-0 flex items-center justify-center relative overflow-hidden rounded-control">
                 <img
                   src={
                     browseShellOrg?.logo
@@ -749,14 +739,14 @@ export const Layout: React.FC<LayoutProps> = ({
                   onError={(e) => {
                     e.currentTarget.style.display = "none";
                     e.currentTarget.parentElement!.innerHTML =
-                      '<div class="w-12 h-12 max-w-12 max-h-12 bg-gradient-to-tr from-primary to-primaryHover rounded-2xl flex items-center justify-center shadow-lg shadow-primary/30"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-white w-7 h-7"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg></div>';
+                      '<div class="w-12 h-12 max-w-12 max-h-12 bg-gradient-to-tr from-primary to-primaryHover rounded-control flex items-center justify-center shadow-md shadow-primary/20"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-white w-7 h-7"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg></div>';
                   }}
                 />
               </div>
               {!currentUser && (
                 <div className="min-w-0 w-full text-center">
                   <span
-                    className="block text-2xl font-black text-zinc-900 dark:text-white tracking-tighter leading-none truncate"
+                    className="block text-xl font-semibold text-foreground tracking-tight leading-none truncate"
                     title={browseShellOrg?.name ?? "Tasker"}
                   >
                     {browseShellOrg?.name ?? "Tasker"}
@@ -778,14 +768,14 @@ export const Layout: React.FC<LayoutProps> = ({
                           setShowOrgSwitcher((v) => !v);
                         }
                       }}
-                      className={`w-full min-w-0 flex flex-col items-center gap-px px-3 py-1.5 rounded-xl border border-white/20 dark:border-white/5 transition-all ${
+                      className={`w-full min-w-0 flex flex-col items-center gap-px px-3 py-1.5 rounded-control border border-border transition-colors ${
                         (currentUser.organisations?.length ?? 0) > 1
-                          ? "bg-white/20 dark:bg-zinc-800/40 hover:bg-white/40 dark:hover:bg-zinc-700/50"
-                          : "bg-white/10 dark:bg-zinc-800/20 cursor-not-allowed opacity-70"
+                          ? "bg-surface-muted hover:bg-surface"
+                          : "bg-surface-muted/50 cursor-not-allowed opacity-70"
                       }`}
                     >
                       <p
-                        className="w-full min-w-0 text-sm font-bold text-zinc-800 dark:text-white truncate text-center leading-tight"
+                        className="w-full min-w-0 text-sm font-semibold text-foreground truncate text-center leading-tight"
                       >
                         {getActiveOrganisationDisplayName(currentUser)}
                       </p>
@@ -803,7 +793,7 @@ export const Layout: React.FC<LayoutProps> = ({
                       menuRef={orgSwitcherMenuRef}
                       maxMenuHeight={320}
                       recalculateDeps={[currentUser.organisations?.length]}
-                      className="glass-card rounded-xl shadow-xl border border-white/20 dark:border-white/5 overflow-hidden animate-slide-up"
+                      className="glass-overlay rounded-surface shadow-lg overflow-hidden animate-slide-up"
                     >
                         {currentUser.organisations.map((org) => {
                           const activeId =
@@ -864,7 +854,7 @@ export const Layout: React.FC<LayoutProps> = ({
                   </div>
                 ) : (
                   <p
-                    className="text-sm font-bold text-zinc-800 dark:text-white truncate min-w-0 w-full text-center leading-tight"
+                    className="text-sm font-semibold text-foreground truncate min-w-0 w-full text-center leading-tight"
                     title={getActiveOrganisationDisplayName(currentUser)}
                   >
                     {getActiveOrganisationDisplayName(currentUser)}
@@ -878,11 +868,11 @@ export const Layout: React.FC<LayoutProps> = ({
             {currentUser?.permissions?.includes(Permission.TASK_CREATE) && (
               <Link
                 to="/post-job"
-                className="flex items-center justify-center w-full px-4 py-3 mb-3 text-white bg-primary hover:bg-primaryHover rounded-2xl shadow-xl shadow-primary/20 transition-all transform hover:-translate-y-1 active:scale-95"
+                className="flex items-center justify-center w-full h-10 px-3 mb-3 text-sm font-medium text-white bg-primary hover:bg-primaryHover rounded-control transition-colors"
                 onClick={() => setSidebarOpen(false)}
               >
-                <PlusCircle className="w-5 h-5 mr-3" />
-                <span className="font-bold text-sm">Create Task</span>
+                <PlusCircle className="w-4 h-4 mr-2" />
+                <span>Create Task</span>
               </Link>
             )}
 
@@ -897,24 +887,21 @@ export const Layout: React.FC<LayoutProps> = ({
                     key={item.label}
                     to={item.path}
                     onClick={() => setSidebarOpen(false)}
-                    className={`flex items-center px-5 py-4 rounded-2xl transition-all duration-300 relative group ${isActive ? "bg-white/60 dark:bg-white/10 text-primary font-bold shadow-sm" : "text-zinc-500 dark:text-zinc-400 hover:bg-white/30 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white"}`}
+                    className={`flex items-center py-2.5 px-3 rounded-control text-sm font-medium transition-colors relative group ${isActive ? "bg-surface-muted text-primary" : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"}`}
                   >
                     <item.icon
-                      className={`w-5 h-5 mr-4 transition-transform group-hover:scale-110 ${isActive ? "text-primary" : "text-zinc-400"}`}
+                      className={`w-[18px] h-[18px] mr-3 shrink-0 ${isActive ? "text-primary" : "text-muted-foreground"}`}
                     />
-                    <span className="text-sm tracking-tight">{item.label}</span>
-                    {isActive && (
-                      <div className="absolute right-4 w-1.5 h-1.5 rounded-full bg-primary" />
-                    )}
+                    <span className="truncate">{item.label}</span>
                   </Link>
                 );
               })}
             </div>
           </nav>
 
-          <div className="p-6 border-t border-white/20 dark:border-white/5">
-            <div className="mb-3 flex items-center justify-center gap-1.5 rounded-lg border border-zinc-200/70 dark:border-zinc-700/60 bg-white/60 dark:bg-zinc-900/30 px-3 py-1.5">
-              <span className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-400 dark:text-zinc-500">
+          <div className="p-4 border-t border-border">
+            <div className="mb-3 flex items-center justify-center gap-1.5 rounded-control border border-border bg-surface-muted px-3 py-1.5">
+              <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                 Version
               </span>
               <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-300 font-mono">
@@ -923,7 +910,7 @@ export const Layout: React.FC<LayoutProps> = ({
             </div>
             {currentUser ? (
               <div
-                className="flex items-center p-3 rounded-2xl hover:bg-white/40 dark:hover:bg-white/5 transition-all group cursor-pointer border border-transparent hover:border-white/30 dark:hover:border-white/10"
+                className="flex items-center p-2.5 rounded-control hover:bg-surface-muted transition-colors group cursor-pointer"
                 onClick={() => navigate("/profile")}
               >
                 <UserAvatar
@@ -932,7 +919,7 @@ export const Layout: React.FC<LayoutProps> = ({
                   className="mr-3"
                 />
                 <div className="flex-1 min-w-0 ml-3">
-                  <p className="text-sm font-bold text-zinc-900 dark:text-white truncate group-hover:text-primary transition-colors">
+                  <p className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
                     {currentUser.name}
                   </p>
                   {currentMemberRoles.length > 0 ? (
@@ -942,7 +929,7 @@ export const Layout: React.FC<LayoutProps> = ({
                         .map((role) => (
                           <span
                             key={role.id}
-                            className={`text-[9px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-tighter border border-zinc-200 dark:border-zinc-700 px-1 rounded bg-zinc-50/50 dark:bg-white/5 ${
+                            className={`text-xs font-medium rounded-control px-2 py-0.5 border border-border text-muted-foreground bg-surface ${
                               role.isActive === false ? "opacity-60 line-through" : ""
                             }`}
                             title={
@@ -956,7 +943,7 @@ export const Layout: React.FC<LayoutProps> = ({
                         ))}
                       {currentMemberRoles.length > MAX_VISIBLE_SIDEBAR_ROLES && (
                         <span
-                          className="text-[9px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-tighter border border-zinc-200 dark:border-zinc-700 px-1 rounded bg-zinc-50/50 dark:bg-white/5"
+                          className="text-xs font-medium rounded-control px-2 py-0.5 border border-border text-muted-foreground bg-surface"
                           title={currentMemberRoles
                             .slice(MAX_VISIBLE_SIDEBAR_ROLES)
                             .map((r) =>
@@ -983,7 +970,7 @@ export const Layout: React.FC<LayoutProps> = ({
             ) : (
               <button
                 onClick={() => navigate("/login")}
-                className="w-full py-4 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-black dark:hover:bg-zinc-100 transition-all"
+                className="w-full h-10 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-control text-sm font-medium hover:bg-black dark:hover:bg-zinc-100 transition-colors"
               >
                 Sign In
               </button>
@@ -993,13 +980,13 @@ export const Layout: React.FC<LayoutProps> = ({
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        <header className="glass sticky top-0 z-30 flex h-20 sm:h-24 items-center justify-between gap-3 px-4 sm:px-8">
-          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border bg-surface px-3 sm:px-5">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             <HeaderIconButton
               icon={Menu}
               label="Open menu"
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2.5 sm:p-3"
+              className="lg:hidden"
               iconClassName="w-5 h-5"
             />
 
@@ -1010,46 +997,21 @@ export const Layout: React.FC<LayoutProps> = ({
                 isDarkMode={isDarkMode}
               />
             )}
-
-            <div className="min-w-0 flex-1">
-              <h1 className="truncate text-lg sm:text-2xl font-black text-zinc-900 dark:text-white tracking-tighter leading-tight">
-                {location.pathname === "/"
-                  ? "Home"
-                  : location.pathname === "/dashboard"
-                    ? "Overview"
-                    : location.pathname.startsWith("/jobs")
-                      ? "Search Tasks"
-                      : location.pathname.startsWith("/admin")
-                        ? "Administration"
-                        : location.pathname.startsWith("/reports")
-                          ? "Reports"
-                          : location.pathname === "/my-ads"
-                            ? "My Ads"
-                            : location.pathname === "/my-tasks"
-                              ? "My Tasks"
-                              : location.pathname === "/pending-approvals"
-                                ? "Pending Approvals"
-                              : location.pathname === "/my-applications"
-                                ? "My Applications"
-                                : formatPathnamePageTitle(location.pathname)}
-              </h1>
-            </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2 sm:space-x-2">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <HeaderIconButton
               icon={isDarkMode ? Sun : Moon}
               label="Theme"
               onClick={onToggleTheme}
-              className="p-2.5 sm:p-3"
-              iconClassName="w-4 h-4 sm:w-5 sm:h-5"
+              iconClassName="w-[18px] h-[18px]"
             />
 
               {/* Search Bar with Dropdown */}
             <div className="hidden md:block relative" ref={searchRef}>
                 <div
                   ref={searchAnchorRef}
-                  className="flex items-center px-5 py-3 glass-card rounded-2xl border-white/30 w-72 focus-within:ring-2 focus-within:ring-primary/30 transition-all"
+                  className="flex h-9 items-center px-3 border border-border bg-surface rounded-control w-64 focus-within:ring-2 focus-within:ring-primary/30 transition-colors"
                 >
                   <Search className="w-4 h-4 text-zinc-400" />
                   <input
@@ -1073,16 +1035,16 @@ export const Layout: React.FC<LayoutProps> = ({
                   menuRef={searchMenuRef}
                   maxMenuHeight={384}
                   recalculateDeps={[searchResults.length]}
-                  className="glass-card rounded-2xl shadow-2xl overflow-y-auto animate-slide-up flex flex-col min-h-0"
+                  className="glass-overlay rounded-surface shadow-lg overflow-y-auto animate-slide-up flex flex-col min-h-0"
                 >
                     <div className="p-2">
-                      <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest px-3 py-2">
+                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide px-3 py-2">
                         Tasks ({searchResults.length})
                       </p>
                       {searchResults.map((task) => (
                         <div
                           key={task.id}
-                          className="w-full flex items-center gap-1 px-2 py-1 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
+                          className="w-full flex items-center gap-1 px-2 py-1 rounded-control hover:bg-surface-muted transition-colors"
                         >
                           <button
                             type="button"
@@ -1139,7 +1101,7 @@ export const Layout: React.FC<LayoutProps> = ({
                   anchorRef={searchAnchorRef}
                   menuRef={searchMenuRef}
                   maxMenuHeight={200}
-                  className="glass-card rounded-2xl shadow-2xl p-6 text-center animate-slide-up"
+                  className="glass-overlay rounded-surface shadow-lg p-6 text-center animate-slide-up"
                 >
                       <Search className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
                       <p className="text-sm text-zinc-500">No tasks found</p>
@@ -1160,8 +1122,7 @@ export const Layout: React.FC<LayoutProps> = ({
                     loadNotifications();
                   }
                 }}
-                className="p-2.5 sm:p-3"
-                iconClassName="w-4 h-4 sm:w-5 sm:h-5"
+                iconClassName="w-[18px] h-[18px]"
               />
 
               <FloatingMenuPortal
@@ -1172,7 +1133,7 @@ export const Layout: React.FC<LayoutProps> = ({
                 align="end"
                 maxMenuHeight={512}
                 recalculateDeps={[notifications.length, unreadCount]}
-                className="glass-card rounded-2xl shadow-2xl overflow-hidden animate-slide-up flex flex-col"
+                className="glass-overlay rounded-surface shadow-lg overflow-hidden animate-slide-up flex flex-col"
               >
                   <div className="p-4 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between shrink-0">
                     <h3 className="font-bold text-zinc-900 dark:text-white">
@@ -1262,7 +1223,7 @@ export const Layout: React.FC<LayoutProps> = ({
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 md:p-8">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-5">
           <div className="max-w-7xl mx-auto min-w-0 animate-slide-up">{children}</div>
         </main>
       </div>

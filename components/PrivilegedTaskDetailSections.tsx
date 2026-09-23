@@ -19,6 +19,9 @@ import {
   TaskProvenanceHeader,
   AudienceTargetingPresentation,
 } from "../utils/taskDetailPresentation";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 
 interface PrivilegedTaskDetailSectionsProps {
   job: Job;
@@ -37,15 +40,13 @@ function DetailSection({
   children: React.ReactNode;
 }) {
   return (
-    <section
-      className="glass-card rounded-2xl p-6 shadow-sm border border-zinc-100 dark:border-zinc-800"
-    >
-      <h3 className="text-sm font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-4 flex items-center gap-2">
+    <Card radius="surface" padding="section" shadow="sm" className="surface-panel-lg">
+      <h3 className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {icon}
         {title}
       </h3>
       {children}
-    </section>
+    </Card>
   );
 }
 
@@ -58,9 +59,7 @@ function DetailField({
 }) {
   return (
     <div>
-      <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase font-bold mb-1">
-        {label}
-      </p>
+      <Label className="mb-1 block normal-case tracking-normal">{label}</Label>
       <p className="text-sm font-semibold text-zinc-900 dark:text-white">
         {value}
       </p>
@@ -123,7 +122,7 @@ export const PrivilegedTaskDetailSections: React.FC<
         title="Compensation"
         icon={<Award className="w-4 h-4 text-primary" />}
       >
-        <p className="text-lg font-bold text-zinc-900 dark:text-white">
+        <p className="text-lg font-semibold text-zinc-900 dark:text-white">
           <TaskRewardText
             task={{
               rewardType: job.rewardType,
@@ -143,26 +142,23 @@ export const PrivilegedTaskDetailSections: React.FC<
           <DetailField label="Visibility" value={audience.visibilityLabel} />
           {audience.privateAudienceLabels && (
             <div>
-              <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase font-bold mb-2">
+              <Label className="mb-2 block normal-case tracking-normal">
                 Private Audience
-              </p>
+              </Label>
               <div className="flex flex-wrap gap-2">
                 {audience.privateAudienceLabels.map((label) => (
-                  <span
-                    key={label}
-                    className="px-3 py-1 text-[10px] font-black uppercase tracking-widest bg-primary/10 text-primary rounded-xl"
-                  >
+                  <Badge key={label} variant="chipPrimary">
                     {label}
-                  </span>
+                  </Badge>
                 ))}
               </div>
             </div>
           )}
           {audience.showTargetGroups && audience.targetGroupSections && (
             <div>
-              <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase font-bold mb-2">
+              <Label className="mb-2 block normal-case tracking-normal">
                 Target Groups
-              </p>
+              </Label>
               {audience.targetGroupsLoadFailed && (
                 <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">
                   Some group names could not be loaded.
@@ -171,17 +167,14 @@ export const PrivilegedTaskDetailSections: React.FC<
               <div className="space-y-3">
                 {audience.targetGroupSections.map((section) => (
                   <div key={section.kindLabel}>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-1.5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
                       {section.kindLabel}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {section.labels.map((label) => (
-                        <span
-                          key={`${section.kindLabel}-${label}`}
-                          className="px-3 py-1 text-[10px] font-black uppercase tracking-widest bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 rounded-xl"
-                        >
+                        <Badge key={`${section.kindLabel}-${label}`} variant="chip">
                           {label}
-                        </span>
+                        </Badge>
                       ))}
                     </div>
                   </div>
@@ -193,9 +186,9 @@ export const PrivilegedTaskDetailSections: React.FC<
             !audience.targetGroupSections &&
             audience.targetGroupLabels && (
             <div>
-              <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase font-bold mb-2">
+              <Label className="mb-2 block normal-case tracking-normal">
                 Target Groups
-              </p>
+              </Label>
               {audience.targetGroupsLoadFailed && (
                 <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">
                   Some group names could not be loaded.
@@ -203,12 +196,9 @@ export const PrivilegedTaskDetailSections: React.FC<
               )}
               <div className="flex flex-wrap gap-2">
                 {audience.targetGroupLabels.map((label) => (
-                  <span
-                    key={label}
-                    className="px-3 py-1 text-[10px] font-black uppercase tracking-widest bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 rounded-xl"
-                  >
+                  <Badge key={label} variant="chip">
                     {label}
-                  </span>
+                  </Badge>
                 ))}
               </div>
             </div>
@@ -222,9 +212,9 @@ export const PrivilegedTaskDetailSections: React.FC<
       >
         <div className="space-y-6">
           <div>
-            <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase font-bold mb-2">
+            <Label className="mb-2 block normal-case tracking-normal">
               Task Description
-            </p>
+            </Label>
             <div className="prose prose-zinc dark:prose-invert max-w-none text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap leading-relaxed">
               {job.description}
             </div>
@@ -232,10 +222,10 @@ export const PrivilegedTaskDetailSections: React.FC<
 
           {job.selectionCriteria?.trim() && (
             <div>
-              <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase font-bold mb-2">
+              <Label className="mb-2 block normal-case tracking-normal">
                 What we look for
-              </p>
-              <div className="text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800">
+              </Label>
+              <div className="text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-control border border-border">
                 {job.selectionCriteria}
               </div>
             </div>
@@ -243,17 +233,14 @@ export const PrivilegedTaskDetailSections: React.FC<
 
           {(job.requiredSkills || []).length > 0 && (
             <div>
-              <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase font-bold mb-2">
+              <Label className="mb-2 block normal-case tracking-normal">
                 Required Skills
-              </p>
+              </Label>
               <div className="flex flex-wrap gap-2">
                 {(job.requiredSkills || []).map((skill) => (
-                  <span
-                    key={skill}
-                    className="px-3 py-1 text-[10px] font-black uppercase tracking-widest bg-primary/10 text-primary rounded-xl"
-                  >
+                  <Badge key={skill} variant="chipPrimary">
                     {skill}
-                  </span>
+                  </Badge>
                 ))}
               </div>
             </div>
@@ -261,9 +248,9 @@ export const PrivilegedTaskDetailSections: React.FC<
 
           {(job.attachments || []).length > 0 && (
             <div>
-              <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase font-bold mb-2">
+              <Label className="mb-2 block normal-case tracking-normal">
                 Attachments
-              </p>
+              </Label>
               <div className="space-y-2">
                 {(job.attachments || []).map((file) => (
                   <a
@@ -271,12 +258,12 @@ export const PrivilegedTaskDetailSections: React.FC<
                     href={file.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-800 hover:bg-zinc-100/70 dark:hover:bg-zinc-800 transition-colors"
+                    className="flex items-center justify-between p-3 rounded-control bg-zinc-50 dark:bg-zinc-800/50 border border-border hover:bg-zinc-100/70 dark:hover:bg-zinc-800 transition-colors"
                   >
                     <div className="flex items-center gap-3">
                       <FileText className="w-4 h-4 text-primary" />
                       <div>
-                        <p className="text-sm font-bold text-zinc-900 dark:text-white">
+                        <p className="text-sm font-semibold text-zinc-900 dark:text-white">
                           {file.name}
                         </p>
                         <p className="text-xs text-zinc-400">

@@ -24,6 +24,8 @@ import { db } from "../services/database";
 import { resolveTaskCategoryLabel } from "../utils/taskCategoryDisplay";
 import { User } from "../types";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
+import { Button, Card, PageHeader } from "@/components/ui";
+import { JobStatusLabel } from "@/utils/statusDisplay";
 
 interface ReportStats {
   totalTasks: number;
@@ -211,82 +213,76 @@ export const Reports: React.FC = () => {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 animate-fade-in pb-20">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative">
-        {exporting && <LoadingOverlay message="Exporting Report..." />}
-        <div>
-          <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tighter">
-            Reports & Analytics
-          </h1>
-          <p className="text-zinc-500 dark:text-zinc-400 mt-1">
-            Overview of tasks, applications, and platform activity
-          </p>
-        </div>
+    <div className="max-w-7xl mx-auto space-y-section animate-fade-in pb-20">
+      {exporting && <LoadingOverlay message="Exporting Report..." />}
+      <PageHeader
+        title="Reports & Analytics"
+        description="Overview of tasks, applications, and platform activity"
+        actions={
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <select
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value as any)}
+                className="appearance-none h-10 px-3 pr-10 rounded-control bg-surface border border-border text-sm font-medium text-foreground cursor-pointer"
+              >
+                <option value="week">Last 7 Days</option>
+                <option value="month">Last 30 Days</option>
+                <option value="quarter">Last 90 Days</option>
+                <option value="year">Last Year</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            </div>
 
-        <div className="flex items-center gap-3">
-          {/* Date Range Selector */}
-          <div className="relative">
-            <select
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value as any)}
-              className="appearance-none px-4 py-2.5 pr-10 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-sm font-bold text-zinc-700 dark:text-zinc-300 cursor-pointer"
+            <Button
+              type="button"
+              variant="secondary"
+              size="iconCompact"
+              onClick={loadReportData}
+              aria-label="Refresh report data"
             >
-              <option value="week">Last 7 Days</option>
-              <option value="month">Last 30 Days</option>
-              <option value="quarter">Last 90 Days</option>
-              <option value="year">Last Year</option>
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+              <RefreshCw className="w-4 h-4" />
+            </Button>
+
+            <Button
+              type="button"
+              size="compact"
+              onClick={handleExportCSV}
+              disabled={exporting}
+            >
+              <Download className="w-4 h-4" />
+              Export CSV
+            </Button>
           </div>
-
-          <button
-            onClick={loadReportData}
-            className="p-2.5 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-all"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-
-          <button
-            onClick={handleExportCSV}
-            disabled={exporting}
-            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primaryHover transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
-          >
-            <Download className="w-4 h-4" />
-            Export CSV
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statCards.map((stat, index) => (
-          <div
-            key={index}
-            className="glass-card p-6 rounded-2xl hover:-translate-y-1 transition-all"
-          >
+          <Card key={index} className="hover:-translate-y-0.5 transition-transform">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">
+                <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                   {stat.label}
                 </p>
-                <p className="text-3xl font-black text-zinc-900 dark:text-white mt-2">
+                <p className="text-3xl font-semibold text-foreground mt-2">
                   {stat.value}
                 </p>
-                <p className="text-xs text-zinc-400 mt-1">{stat.change}</p>
+                <p className="text-xs text-muted-foreground mt-1">{stat.change}</p>
               </div>
-              <div className={`p-3 ${stat.color} rounded-xl`}>
+              <div className={`p-3 ${stat.color} rounded-control`}>
                 <stat.icon className="w-5 h-5 text-white" />
               </div>
             </div>
-          </div>
+          </Card>
         ))}
       </div>
 
       {/* Application Status Breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="glass-card p-6 rounded-2xl">
-          <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-6">
+        <Card>
+          <h3 className="text-base font-semibold text-foreground mb-6">
             Application Status
           </h3>
           <div className="space-y-4">
@@ -362,10 +358,10 @@ export const Reports: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </Card>
 
-        <div className="glass-card p-6 rounded-2xl">
-          <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-6">
+        <Card>
+          <h3 className="text-base font-semibold text-foreground mb-6">
             Task Status
           </h3>
           <div className="flex items-center justify-center h-48">
@@ -405,10 +401,10 @@ export const Reports: React.FC = () => {
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
-                  <span className="text-3xl font-black text-zinc-900 dark:text-white">
+                  <span className="text-3xl font-semibold text-foreground">
                     {stats?.totalTasks || 0}
                   </span>
-                  <p className="text-xs text-zinc-500">Total</p>
+                  <p className="text-xs text-muted-foreground">Total</p>
                 </div>
               </div>
             </div>
@@ -427,46 +423,46 @@ export const Reports: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* Recent Tasks Table */}
-      <div className="glass-card rounded-2xl overflow-hidden">
-        <div className="p-6 border-b border-zinc-200 dark:border-zinc-700">
-          <h3 className="text-xl font-bold text-zinc-900 dark:text-white">
+      <Card padding="none" className="overflow-hidden">
+        <div className="p-card border-b border-border">
+          <h3 className="text-base font-semibold text-foreground">
             Recent Tasks
           </h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-white/50 dark:bg-zinc-800/50">
+            <thead className="bg-surface-muted border-b border-border">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-zinc-500 uppercase tracking-widest">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Task
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-zinc-500 uppercase tracking-widest">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Category
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-zinc-500 uppercase tracking-widest">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Status
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-zinc-500 uppercase tracking-widest">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Applications
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-zinc-500 uppercase tracking-widest">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Created
                 </th>
-                <th className="px-6 py-4 text-right text-xs font-bold text-zinc-500 uppercase tracking-widest">
+                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            <tbody className="divide-y divide-border">
               {recentTasks.length === 0 ? (
                 <tr>
                   <td
                     colSpan={6}
-                    className="px-6 py-12 text-center text-zinc-500"
+                    className="px-4 py-12 text-center text-muted-foreground"
                   >
                     No tasks found
                   </td>
@@ -475,42 +471,32 @@ export const Reports: React.FC = () => {
                 recentTasks.map((task) => (
                   <tr
                     key={task._id}
-                    className="hover:bg-white/50 dark:hover:bg-zinc-800/50"
+                    className="hover:bg-surface-muted/50 transition-colors"
                   >
-                    <td className="px-6 py-4">
-                      <span className="font-bold text-zinc-900 dark:text-white">
+                    <td className="px-4 py-3">
+                      <span className="text-sm font-semibold text-foreground">
                         {task.title}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                    <td className="px-4 py-3">
+                      <span className="text-sm text-muted-foreground">
                         {resolveTaskCategoryLabel(task)}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-2 py-1 text-xs font-bold rounded-full ${
-                          task.status === "Published"
-                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                            : task.status === "Closed"
-                              ? "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400"
-                              : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                        }`}
-                      >
-                        {task.status}
-                      </span>
+                    <td className="px-4 py-3">
+                      <JobStatusLabel status={task.status} />
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm font-bold text-zinc-900 dark:text-white">
+                    <td className="px-4 py-3">
+                      <span className="text-sm font-semibold text-foreground">
                         {task.applicationsCount || 0}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-zinc-500">
+                    <td className="px-4 py-3">
+                      <span className="text-sm text-muted-foreground">
                         {task.createdAt && !isNaN(new Date(task.createdAt).getTime()) ? new Date(task.createdAt).toLocaleDateString() : "—"}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-4 py-3 text-right">
                       <TaskLifecycleActions
                         job={{ ...task, id: task._id }}
                         currentUser={reportUser}
@@ -524,7 +510,7 @@ export const Reports: React.FC = () => {
             </tbody>
           </table>
         </div>
-      </div>
+      </Card>
     </div>
   );
 };

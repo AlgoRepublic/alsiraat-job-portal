@@ -21,6 +21,17 @@ import {
 } from "lucide-react";
 
 import { Loading, LoadingOverlay } from "../components/Loading";
+import {
+  Button,
+  buttonVariants,
+  fieldErrorClass,
+  Input,
+  Label,
+  PageHeader,
+  Textarea,
+} from "@/components/ui";
+import { cn } from "@/utils/cn";
+import { Badge } from "@/components/ui/badge";
 import { CustomDropdown, CustomDatePicker } from "../components/CustomUI";
 import { useToast } from "../components/Toast";
 
@@ -201,18 +212,14 @@ const AccordionSection: React.FC<AccordionProps> = ({
   badge,
 }) => (
   <div
-    className={`glass-card rounded-[2rem] transition-all duration-300 ${
-      isOpen
-        ? "ring-2 ring-primary/30 shadow-md shadow-primary/5 overflow-visible"
-        : hasError
-          ? "ring-2 ring-red-400/50 overflow-hidden"
-          : "overflow-hidden"
-    }`}
+    className={`bg-surface rounded-control shadow-sm transition-all duration-300 ${
+      isOpen ? "overflow-visible" : "overflow-hidden"
+    }${hasError && !isOpen ? " border-l-[3px] border-l-red-400/60 dark:border-l-red-500/60" : ""}`}
   >
     <button
       type="button"
       onClick={onToggle}
-      className="w-full flex items-center justify-between px-6 py-4 text-left group"
+      className="flex w-full items-center justify-between px-4 py-3 text-left group rounded-control focus:outline-none focus-visible:ring-0"
     >
       <div className="flex items-center gap-3">
         <div
@@ -228,18 +235,16 @@ const AccordionSection: React.FC<AccordionProps> = ({
         </div>
         <div>
           <div className="flex items-center gap-2">
-            <p className="font-black text-zinc-900 dark:text-white text-sm tracking-tight">
+            <p className="text-sm font-semibold text-foreground tracking-tight">
               {title}
             </p>
             {badge && (
-              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase tracking-widest">
-                {badge}
-              </span>
+              <Badge variant="chipPrimary">{badge}</Badge>
             )}
             {hasError && !isOpen && (
-              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 uppercase tracking-widest">
+              <Badge variant="chip" className="border-red-200 text-red-600 dark:border-red-800 dark:text-red-400">
                 Required
-              </span>
+              </Badge>
             )}
           </div>
           {subtitle && (
@@ -259,7 +264,7 @@ const AccordionSection: React.FC<AccordionProps> = ({
     <div
       className={`transition-all duration-300 ${isOpen ? "max-h-[9999px] opacity-100" : "max-h-0 opacity-0 pointer-events-none"}`}
     >
-      <div className="border-t border-zinc-100 dark:border-zinc-800 px-6 py-6 space-y-5">
+      <div className="space-y-4 border-t border-border px-4 py-4">
         {children}
       </div>
     </div>
@@ -918,25 +923,22 @@ export const JobWizard: React.FC = () => {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8 pb-24">
+    <div className="mx-auto max-w-3xl space-y-6 pb-20">
       {isSubmitting && <LoadingOverlay message={submitOverlayMessage} />}
       {isGenerating && (
         <LoadingOverlay message="AI is drafting description..." />
       )}
 
-      {/* Header */}
-      <div>
-        <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tighter">
-          {id ? "Edit Task" : "New Task"}
-        </h1>
-        <p className="text-zinc-500 font-medium mt-2">
-          {id
+      <PageHeader
+        title={id ? "Edit task" : "New task"}
+        description={
+          id
             ? showReviewerActions
               ? "Review and update task details before publishing."
               : "Update task details and resubmit for approval."
-            : "Create a new task for students, faculty, or staff within your organisation."}
-        </p>
-      </div>
+            : "Create a new task for students, faculty, or staff within your organisation."
+        }
+      />
 
       {/* Step indicator: click to jump freely between steps */}
       <div className="flex items-center gap-0">
@@ -952,7 +954,7 @@ export const JobWizard: React.FC = () => {
               className="flex items-center gap-3 group"
             >
               <div
-                className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm transition-all duration-300 shadow-primary/10 group-hover:scale-110 ${
+                className={`flex h-9 w-9 items-center justify-center rounded-control text-sm font-semibold transition-all duration-300 ${
                   step === s.num
                     ? "bg-primary text-white scale-105 shadow-lg shadow-primary/30"
                     : step > s.num
@@ -963,7 +965,7 @@ export const JobWizard: React.FC = () => {
                 {step > s.num ? <CheckCircle className="w-5 h-5" /> : s.num}
               </div>
               <span
-                className={`text-xs font-black uppercase tracking-widest hidden sm:inline transition-colors group-hover:text-primary ${
+                className={`hidden text-xs font-medium sm:inline transition-colors group-hover:text-primary ${
                   step >= s.num ? "text-primary" : "text-zinc-400"
                 }`}
               >
@@ -998,12 +1000,10 @@ export const JobWizard: React.FC = () => {
           >
             <div className="grid md:grid-cols-2 gap-5">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                  Task Title *
-                </label>
-                <input
+                <Label required>Task Title</Label>
+                <Input
                   type="text"
-                  className={`w-full p-3.5 glass rounded-xl focus:ring-4 focus:ring-primary/20 outline-none font-bold dark:text-white transition-all ${errors.title ? "border-2 border-red-500" : ""}`}
+                  className={fieldErrorClass(!!errors.title)}
                   value={formData.title}
                   placeholder="e.g. Lab Assistant – Chemistry"
                   onChange={(e) => {
@@ -1137,21 +1137,20 @@ export const JobWizard: React.FC = () => {
             {/* Description inside Basic, with AI button */}
             <div className="space-y-1.5">
               <div className="flex justify-between items-center">
-                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                  Task Description *
-                </label>
-                <button
+                <Label required>Task Description</Label>
+                <Button
                   type="button"
+                  size="compact"
                   onClick={handleAIHelp}
                   disabled={isGenerating}
-                  className="text-[10px] font-black uppercase tracking-widest flex items-center px-3 py-1.5 bg-primary text-white rounded-lg hover:bg-primaryHover transition-all shadow-md shadow-primary/20 disabled:opacity-50"
                 >
-                  <Sparkles className="w-3 h-3 mr-1.5" />
+                  <Sparkles className="w-3 h-3" />
                   AI Draft
-                </button>
+                </Button>
               </div>
-              <textarea
-                className={`w-full p-4 glass rounded-xl h-44 focus:ring-4 focus:ring-primary/20 outline-none font-medium leading-relaxed dark:text-white resize-vertical ${errors.description ? "border-2 border-red-500" : ""}`}
+              <Textarea
+                size="lg"
+                className={fieldErrorClass(!!errors.description)}
                 placeholder="Describe the task, objectives, and what the volunteer will gain…"
                 value={formData.description}
                 onChange={(e) => {
@@ -1180,12 +1179,10 @@ export const JobWizard: React.FC = () => {
           >
             <div className="grid md:grid-cols-2 gap-5">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                  Location / Room
-                </label>
-                <input
+                <Label>Location / Room</Label>
+                <Input
                   type="text"
-                  className={`w-full p-3.5 glass rounded-xl font-bold dark:text-white ${errors.location ? "border-2 border-red-500" : ""}`}
+                  className={fieldErrorClass(!!errors.location)}
                   placeholder="Optional"
                   value={formData.location}
                   onChange={(e) => {
@@ -1202,12 +1199,10 @@ export const JobWizard: React.FC = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                  Estimated Duration (Hrs)
-                </label>
-                <input
+                <Label>Estimated Duration (Hrs)</Label>
+                <Input
                   type="number"
-                  className={`w-full p-3.5 glass rounded-xl font-bold dark:text-white ${errors.hoursRequired ? "border-2 border-red-500" : ""}`}
+                  className={fieldErrorClass(!!errors.hoursRequired)}
                   value={formData.hoursRequired ?? ""}
                   min={1}
                   placeholder="Optional"
@@ -1250,14 +1245,10 @@ export const JobWizard: React.FC = () => {
 
           {/* ── Next Button ── */}
           <div className="flex justify-end pt-2">
-            <button
-              type="button"
-              onClick={handleNextStep1}
-              className="px-10 py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primaryHover shadow-2xl shadow-primary/30 flex items-center transition-all hover:-translate-y-1"
-            >
+            <Button type="button" onClick={handleNextStep1}>
               Next: Requirements
-              <ArrowRight className="w-4 h-4 ml-3" />
-            </button>
+              <ArrowRight className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       )}
@@ -1278,14 +1269,12 @@ export const JobWizard: React.FC = () => {
           >
             <div className="space-y-5">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                  Required Skills / Prerequisites
-                </label>
-                <div className="p-3 glass rounded-xl flex flex-wrap gap-2 focus-within:ring-4 focus-within:ring-primary/20 transition-all">
+                <Label>Required Skills / Prerequisites</Label>
+                <div className="border border-border rounded-control bg-surface p-2 flex flex-wrap gap-2">
                   {formData.requiredSkills?.map((skill) => (
                     <span
                       key={skill}
-                      className="px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-black uppercase tracking-widest flex items-center"
+                      className="px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-semibold uppercase tracking-wide flex items-center"
                     >
                       {skill}
                       <X
@@ -1299,9 +1288,9 @@ export const JobWizard: React.FC = () => {
                       />
                     </span>
                   ))}
-                  <input
+                  <Input
                     type="text"
-                    className="flex-1 bg-transparent border-none outline-none p-1 font-bold text-sm dark:text-white min-w-[140px]"
+                    className="min-w-[140px] flex-1 border-0 bg-transparent shadow-none h-9 focus-visible:ring-0"
                     placeholder="Type a skill and press Enter…"
                     value={skillInput}
                     onChange={(e) => setSkillInput(e.target.value)}
@@ -1311,11 +1300,8 @@ export const JobWizard: React.FC = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                  Success Criteria
-                </label>
-                <textarea
-                  className="w-full p-4 glass rounded-xl h-28 font-medium dark:text-white resize-vertical"
+                <Label>Success Criteria</Label>
+                <Textarea
                   placeholder="How will completion of this task be measured?"
                   value={formData.selectionCriteria}
                   onChange={(e) =>
@@ -1360,16 +1346,12 @@ export const JobWizard: React.FC = () => {
 
                 {rewardFormFields?.showValueField && (
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                      {rewardFormFields.inputLabel}
-                    </label>
+                    <Label>{rewardFormFields.inputLabel}</Label>
                     {rewardFormFields.inputType === "text" ? (
                       <>
-                        <input
+                        <Input
                           type="text"
-                          className={`w-full p-3.5 glass rounded-xl font-bold dark:text-white ${
-                            errors.rewardText ? "border-2 border-red-500" : ""
-                          }`}
+                          className={fieldErrorClass(!!errors.rewardText)}
                           placeholder="e.g. coupon code or short description"
                           value={formData.rewardText ?? ""}
                           onChange={(e) => {
@@ -1392,11 +1374,12 @@ export const JobWizard: React.FC = () => {
                               {rewardFormFields.prefix}
                             </span>
                           )}
-                          <input
+                          <Input
                             type="number"
-                            className={`w-full p-3.5 glass rounded-xl font-bold dark:text-white ${
-                              rewardFormFields.prefix ? "pl-8" : ""
-                            } ${errors.rewardValue ? "border-2 border-red-500" : ""}`}
+                            className={fieldErrorClass(
+                              !!errors.rewardValue,
+                              rewardFormFields.prefix ? "pl-8" : undefined,
+                            )}
                             value={formData.rewardValue ?? ""}
                             onChange={(e) => {
                               const raw = e.target.value;
@@ -1470,14 +1453,12 @@ export const JobWizard: React.FC = () => {
 
               {/* Visibility Chips */}
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                  Task Visibility *
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-stretch">
+                <Label required>Task Visibility</Label>
+                <div className="grid min-w-0 grid-cols-1 sm:grid-cols-2 gap-3 items-stretch">
                   {visibilityOptions.map((opt) => {
                     const isSelected = formData.visibility === opt.value;
                     return (
-                      <button
+                      <Button
                         key={opt.value}
                         type="button"
                         disabled={opt.disabled}
@@ -1507,20 +1488,23 @@ export const JobWizard: React.FC = () => {
                           if (errors.visibility)
                             setErrors((p) => ({ ...p, visibility: "" }));
                         }}
-                        className={`px-3.5 pt-4 pb-3.5 rounded-xl border-2 text-left transition-all duration-200 relative h-full flex flex-col ${
+                        variant="secondary"
+                        className={cn(
+                          "relative h-full min-h-[7.5rem] w-full min-w-0 overflow-hidden whitespace-normal flex-col items-stretch justify-start px-3.5 pt-4 pb-3.5 text-left transition-all duration-200",
                           opt.disabled
-                            ? "opacity-40 cursor-not-allowed bg-zinc-100 dark:bg-zinc-800/20 border-zinc-200 dark:border-zinc-700"
+                            ? "cursor-not-allowed border-zinc-200 bg-zinc-100 opacity-40 dark:border-zinc-700 dark:bg-zinc-800/20"
                             : isSelected
-                              ? "border-primary bg-primary/5 dark:bg-primary/10"
-                              : `bg-white dark:bg-zinc-800/40 hover:border-primary/40 ${
+                              ? "border-2 border-primary bg-primary/5 dark:bg-primary/10"
+                              : cn(
+                                  "border bg-white hover:border-primary/40 dark:bg-zinc-800/40",
                                   errors.visibility
                                     ? "border-red-400/60"
-                                    : "border-zinc-200 dark:border-zinc-700"
-                                }`
-                        }`}
+                                    : "border-zinc-200 dark:border-zinc-700",
+                                ),
+                        )}
                       >
                         {opt.disabled && (
-                          <span className="absolute top-1.5 right-1.5 text-[8px] font-black uppercase tracking-widest bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400 px-1.5 py-0.5 rounded-full">
+                          <span className="absolute top-1.5 right-1.5 text-[8px] font-semibold uppercase tracking-wide bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400 px-1.5 py-0.5 rounded-full">
                             Soon
                           </span>
                         )}
@@ -1539,7 +1523,7 @@ export const JobWizard: React.FC = () => {
                           </div>
                         </div>
                         <p
-                          className={`font-black text-xs tracking-tight leading-tight shrink-0 ${
+                          className={`min-w-0 w-full font-semibold text-xs tracking-tight leading-tight ${
                             isSelected
                               ? "text-primary"
                               : "text-zinc-800 dark:text-zinc-200"
@@ -1547,14 +1531,14 @@ export const JobWizard: React.FC = () => {
                         >
                           {opt.label}
                         </p>
-                        <p className="text-[10px] text-zinc-400 mt-1 leading-snug shrink-0">
+                        <p className="mt-1 w-full text-left text-[10px] text-wrap break-words leading-snug text-zinc-400">
                           {opt.description}
                         </p>
                         <div
                           className="flex-1 min-h-0 basis-0 shrink-0"
                           aria-hidden="true"
                         />
-                      </button>
+                      </Button>
                     );
                   })}
 
@@ -1572,22 +1556,23 @@ export const JobWizard: React.FC = () => {
               </div>
 
               {formData.visibility === Visibility.PRIVATE && (
-                <div className="space-y-4 animate-fade-in bg-zinc-50 dark:bg-zinc-800/30 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+                <div className="space-y-4 animate-fade-in bg-zinc-50 dark:bg-zinc-800/30 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800">
                   <div>
-                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                      Private Audience
-                    </label>
+                    <Label>Private Audience</Label>
                     <p className="text-xs text-zinc-500 mt-0.5">
                       Choose one or both audiences. Narrow each side with groups below.
                     </p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid grid-cols-2 gap-2 max-w-md">
                     {[Visibility.INTERNAL, Visibility.EXTERNAL].map((audience) => {
                       const isSelected = (formData.privateAudiences || []).includes(audience);
                       return (
-                        <button
+                        <Button
                           key={audience}
                           type="button"
+                          size="toggle"
+                          variant={isSelected ? "toggleOn" : "toggleOff"}
+                          className="w-full uppercase tracking-wide"
                           onClick={() => {
                             setFormData((prev) => {
                               const current = prev.privateAudiences || [];
@@ -1620,17 +1605,12 @@ export const JobWizard: React.FC = () => {
                               setErrors((p) => ({ ...p, visibility: "" }));
                             }
                           }}
-                          className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all border-2 flex items-center gap-2 ${
-                            isSelected
-                              ? "border-primary bg-primary text-white shadow-md"
-                              : "bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-primary/50"
-                          }`}
                         >
                           <span className="text-sm leading-none">
                             {audience === Visibility.INTERNAL ? "🏛️" : "🌐"}
                           </span>
                           {audience}
-                        </button>
+                        </Button>
                       );
                     })}
                   </div>
@@ -1649,12 +1629,10 @@ export const JobWizard: React.FC = () => {
                   return (
                     <div
                       key={audienceKind}
-                      className="space-y-3 animate-fade-in bg-zinc-50 dark:bg-zinc-800/30 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800"
+                      className="space-y-3 animate-fade-in bg-zinc-50 dark:bg-zinc-800/30 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800"
                     >
                       <div>
-                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                          {audienceKind} Groups
-                        </label>
+                        <Label>{audienceKind} Groups</Label>
                         <p className="text-xs text-zinc-500 mt-0.5">
                           Leave all groups unselected to include every{" "}
                           {audienceKind.toLowerCase()} member in{" "}
@@ -1671,9 +1649,24 @@ export const JobWizard: React.FC = () => {
                             formData.allowedGroups || []
                           ).includes(group._id);
                           return (
-                            <button
+                            <Button
                               key={group._id}
                               type="button"
+                              size="chip"
+                              variant={isSelected ? "toggleOn" : "toggleOff"}
+                              className={cn(
+                                "gap-1.5 font-bold",
+                                isSelected &&
+                                  "border-transparent text-white shadow-md",
+                              )}
+                              style={
+                                isSelected
+                                  ? {
+                                      backgroundColor: group.color,
+                                      boxShadow: `0 4px 12px ${group.color}40`,
+                                    }
+                                  : undefined
+                              }
                               onClick={() => {
                                 const current = formData.allowedGroups || [];
                                 updateField(
@@ -1683,23 +1676,9 @@ export const JobWizard: React.FC = () => {
                                     : [...current, group._id],
                                 );
                               }}
-                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border-2 flex items-center gap-1.5 ${
-                                isSelected
-                                  ? "border-transparent text-white shadow-md"
-                                  : "bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-primary/50"
-                              }`}
-                              style={
-                                isSelected
-                                  ? {
-                                      backgroundColor: group.color,
-                                      borderColor: group.color,
-                                      boxShadow: `0 4px 12px ${group.color}40`,
-                                    }
-                                  : {}
-                              }
                             >
                               <span
-                                className="w-2 h-2 rounded-full flex-shrink-0"
+                                className="h-2 w-2 flex-shrink-0 rounded-full"
                                 style={{
                                   backgroundColor: isSelected
                                     ? "rgba(255,255,255,0.7)"
@@ -1707,7 +1686,7 @@ export const JobWizard: React.FC = () => {
                                 }}
                               />
                               {group.name}
-                            </button>
+                            </Button>
                           );
                         })}
                       </div>
@@ -1733,8 +1712,8 @@ export const JobWizard: React.FC = () => {
             }
           >
             <div className="space-y-4">
-              <label className="flex flex-col items-center justify-center border-2 border-dashed border-zinc-300 dark:border-zinc-600 rounded-2xl p-10 text-center cursor-pointer hover:border-primary hover:bg-primary/3 transition-all group">
-                <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <label className="flex flex-col items-center justify-center border-2 border-dashed border-zinc-300 dark:border-zinc-600 rounded-xl p-10 text-center cursor-pointer hover:border-primary hover:bg-primary/3 transition-all group">
+                <div className="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Upload className="w-6 h-6 text-primary" />
                 </div>
                 <p className="font-bold text-zinc-700 dark:text-zinc-300 text-sm">
@@ -1754,13 +1733,13 @@ export const JobWizard: React.FC = () => {
 
               {uploadedFiles.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                  <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">
                     Selected Files ({uploadedFiles.length}/5)
                   </p>
                   {uploadedFiles.map((file, index) => (
                     <div
                       key={index}
-                      className="glass-card p-3.5 rounded-xl flex items-center justify-between"
+                      className="surface-panel shadow-sm p-3.5 rounded-xl flex items-center justify-between"
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -1790,27 +1769,24 @@ export const JobWizard: React.FC = () => {
           </AccordionSection>
 
           {/* ── Nav Buttons ── */}
-          <div className="flex justify-between items-center pt-2">
-            <button
+          <div className="flex items-center justify-between pt-2">
+            <Button
               type="button"
+              variant="secondary"
+              size="compact"
               onClick={() => {
                 setStep(1);
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
-              className="px-6 py-3.5 rounded-2xl text-zinc-500 dark:text-zinc-400 font-black uppercase tracking-widest text-xs hover:bg-white/60 dark:hover:bg-zinc-800/60 transition-all flex items-center border border-zinc-200 dark:border-zinc-700"
             >
-              <ArrowLeft className="w-4 h-4 mr-2" />
+              <ArrowLeft className="h-4 w-4" />
               Back
-            </button>
+            </Button>
 
-            <button
-              type="button"
-              onClick={handleNextStep2}
-              className="px-10 py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primaryHover shadow-2xl shadow-primary/30 flex items-center transition-all hover:-translate-y-1"
-            >
-              Next: Review & Submit
-              <ArrowRight className="w-4 h-4 ml-3" />
-            </button>
+            <Button type="button" onClick={handleNextStep2}>
+              Next: Review & submit
+              <ArrowRight className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       )}
@@ -1821,10 +1797,10 @@ export const JobWizard: React.FC = () => {
       {step === 3 && (
         <div className="space-y-6 animate-fade-in">
           {/* Ready banner */}
-          <div className="flex items-center gap-4 p-5 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl">
+          <div className="flex items-center gap-4 p-5 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl">
             <CheckCircle className="w-10 h-10 text-emerald-600 flex-shrink-0" />
             <div>
-              <p className="font-black text-emerald-900 dark:text-emerald-400 tracking-tight">
+              <p className="font-semibold text-emerald-900 dark:text-emerald-400 tracking-tight">
                 {showReviewerActions ? "Ready to review" : "Ready to Publish"}
               </p>
               <p className="text-xs text-emerald-700 dark:text-emerald-500 mt-0.5">
@@ -1836,13 +1812,13 @@ export const JobWizard: React.FC = () => {
           </div>
 
           {/* Summary grid */}
-          <div className="rounded-[2rem] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden shadow-xl shadow-black/5">
+          <div className="surface-panel overflow-hidden rounded-control shadow-sm">
             <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center">
                 <Eye className="w-4 h-4" />
               </div>
               <div>
-                <p className="font-black text-zinc-900 dark:text-white text-sm tracking-tight">Task Overview</p>
+                <p className="font-semibold text-zinc-900 dark:text-white text-sm tracking-tight">Task Overview</p>
                 <p className="text-xs text-zinc-400 mt-0.5">Core details from Step 1</p>
               </div>
             </div>
@@ -1899,7 +1875,7 @@ export const JobWizard: React.FC = () => {
                   },
                 ].map((item) => (
                   <div key={item.label} className="bg-zinc-50 dark:bg-zinc-800/40 rounded-xl p-3">
-                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">
+                    <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide mb-1">
                       {item.label}
                     </p>
                     <p className="font-bold text-sm text-zinc-900 dark:text-white truncate">
@@ -1912,13 +1888,13 @@ export const JobWizard: React.FC = () => {
               {reviewAudiencePresentation?.showTargetGroups &&
                 reviewAudiencePresentation.targetGroupSections && (
                   <div className="bg-zinc-50 dark:bg-zinc-800/40 rounded-xl p-4 space-y-3">
-                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                    <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">
                       Target Groups
                     </p>
                     {reviewAudiencePresentation.targetGroupSections.map(
                       (section) => (
                         <div key={section.kindLabel}>
-                          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-1.5">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400 mb-1.5">
                             {section.kindLabel}
                           </p>
                           <p className="font-bold text-sm text-zinc-900 dark:text-white">
@@ -1932,7 +1908,7 @@ export const JobWizard: React.FC = () => {
 
               {formData.description && (
                 <div className="bg-zinc-50 dark:bg-zinc-800/40 rounded-xl p-4">
-                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">Description</p>
+                  <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide mb-2">Description</p>
                   <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed line-clamp-4 whitespace-pre-wrap">
                     {formData.description}
                   </p>
@@ -1942,23 +1918,23 @@ export const JobWizard: React.FC = () => {
           </div>
 
           {/* Requirements summary */}
-          <div className="rounded-[2rem] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden shadow-xl shadow-black/5">
+          <div className="surface-panel overflow-hidden rounded-control shadow-sm">
             <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center">
                 <Layers className="w-4 h-4" />
               </div>
               <div>
-                <p className="font-black text-zinc-900 dark:text-white text-sm tracking-tight">Requirements & Files</p>
+                <p className="font-semibold text-zinc-900 dark:text-white text-sm tracking-tight">Requirements & Files</p>
                 <p className="text-xs text-zinc-400 mt-0.5">Details from Step 2</p>
               </div>
             </div>
             <div className="p-6 space-y-4">
               {(formData.requiredSkills || []).length > 0 ? (
                 <div>
-                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">Required Skills</p>
+                  <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide mb-2">Required Skills</p>
                   <div className="flex flex-wrap gap-2">
                     {(formData.requiredSkills || []).map((skill) => (
-                      <span key={skill} className="px-3 py-1 text-[10px] font-black uppercase tracking-widest bg-primary/10 text-primary rounded-lg">
+                      <span key={skill} className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide bg-primary/10 text-primary rounded-lg">
                         {skill}
                       </span>
                     ))}
@@ -1970,7 +1946,7 @@ export const JobWizard: React.FC = () => {
 
               {uploadedFiles.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">Attachments ({uploadedFiles.length})</p>
+                  <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide mb-2">Attachments ({uploadedFiles.length})</p>
                   <div className="flex flex-wrap gap-2">
                     {uploadedFiles.map((f, i) => (
                       <span key={i} className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-lg text-xs font-bold text-zinc-600 dark:text-zinc-300">
@@ -1984,7 +1960,7 @@ export const JobWizard: React.FC = () => {
 
               {formData.selectionCriteria && (
                 <div className="bg-zinc-50 dark:bg-zinc-800/40 rounded-xl p-4">
-                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">Success Criteria</p>
+                  <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide mb-2">Success Criteria</p>
                   <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{formData.selectionCriteria}</p>
                 </div>
               )}
@@ -1992,46 +1968,38 @@ export const JobWizard: React.FC = () => {
           </div>
 
           {/* Nav Buttons */}
-          <div className="flex justify-between items-center pt-2">
-            <button
-              type="button"
-              onClick={() => goToStep(2)}
-              className="px-6 py-3.5 rounded-2xl text-zinc-500 dark:text-zinc-400 font-black uppercase tracking-widest text-xs hover:bg-white/60 dark:hover:bg-zinc-800/60 transition-all flex items-center border border-zinc-200 dark:border-zinc-700"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
+          <div className="flex items-center justify-between pt-2">
+            <Button type="button" variant="secondary" size="compact" onClick={() => goToStep(2)}>
+              <ArrowLeft className="h-4 w-4" />
               Back
-            </button>
+            </Button>
 
             {showReviewerActions ? (
-              <div className="flex items-center gap-3">
-                <button
+              <div className="flex items-center gap-2">
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="compact"
                   onClick={() => submitTask("save")}
                   disabled={isSubmitting}
-                  className="px-8 py-4 rounded-2xl text-zinc-600 dark:text-zinc-300 font-black uppercase tracking-widest text-xs hover:bg-white/60 dark:hover:bg-zinc-800/60 transition-all flex items-center border border-zinc-200 dark:border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Save changes
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  size="compact"
                   onClick={() => submitTask("publish")}
                   disabled={isSubmitting}
-                  className="px-10 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-emerald-700 shadow-2xl shadow-emerald-600/20 flex items-center transition-all hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                 >
-                  <ClipboardCopy className="w-4 h-4 mr-3" />
+                  <ClipboardCopy className="h-4 w-4" />
                   Publish
-                </button>
+                </Button>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-                className="px-10 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-emerald-700 shadow-2xl shadow-emerald-600/20 flex items-center transition-all hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
-              >
-                <ClipboardCopy className="w-4 h-4 mr-3" />
-                {id ? "Update & Resubmit" : "Submit for Approval"}
-              </button>
+              <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
+                <ClipboardCopy className="h-4 w-4" />
+                {id ? "Update & resubmit" : "Submit for approval"}
+              </Button>
             )}
           </div>
         </div>

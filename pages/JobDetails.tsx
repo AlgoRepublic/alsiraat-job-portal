@@ -68,6 +68,18 @@ import {
   mapTaskContactPickerRowsToDropdownOptions,
 } from "../utils/taskContactPickerOptions";
 import { validateRepostDates } from "../utils/taskFormValidation";
+import { Input, Textarea, Label } from "@/components/ui";
+import { PageHeader } from "@/components/ui/page-header";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { JobStatusLabel } from "@/utils/statusDisplay";
+import {
+  Modal,
+  ModalFooter,
+  ModalHeader,
+  ModalTitle,
+} from "@/components/ui/modal";
 
 function localTodayIsoDate(): string {
   const today = new Date();
@@ -658,18 +670,44 @@ export const JobDetails: React.FC = () => {
     : null;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pb-20">
-      {/* Header */}
-      <div>
-        <div className="flex justify-between items-center mb-6">
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center text-sm text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" /> Back
-          </button>
+    <div className="mx-auto max-w-5xl space-y-6 animate-fade-in pb-16">
+      <Button
+        variant="ghost"
+        size="compact"
+        className="-mb-2 px-0"
+        onClick={() => navigate(-1)}
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back
+      </Button>
 
-          <div className="flex flex-wrap items-center gap-2 justify-end">
+      {isSoftDeleted && (
+        <Card className="border-red-200 bg-red-50/80 text-sm font-medium text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200">
+          This task is soft-deleted and hidden from default listings.
+        </Card>
+      )}
+      {isArchived && !isSoftDeleted && (
+        <Card className="text-sm font-medium text-muted-foreground">
+          This task is archived and hidden from default listings.
+        </Card>
+      )}
+
+      <PageHeader
+        title={job.title}
+        description={
+          <span className="text-lg font-semibold text-foreground">
+            <TaskRewardText
+              task={{
+                rewardType: job.rewardType,
+                rewardValue: job.rewardValue,
+                rewardText: job.rewardText,
+              }}
+              organisationId={rewardOrgId}
+            />
+          </span>
+        }
+        actions={
+          <>
             <TaskLifecycleActions
               job={job}
               currentUser={currentUser}
@@ -677,87 +715,37 @@ export const JobDetails: React.FC = () => {
               layout="detail"
             />
             {showEditTask && (
-              <button
+              <Button
+                variant="secondary"
+                size="compact"
                 onClick={() => navigate(`/edit-job/${job.id}`)}
-                className="flex items-center px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white text-sm font-bold rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
               >
-                <Edit className="w-4 h-4 mr-2" /> Edit Task
-              </button>
+                <Edit className="h-4 w-4" />
+                Edit task
+              </Button>
             )}
-          </div>
-        </div>
+          </>
+        }
+      />
 
-        {isSoftDeleted && (
-          <div className="mb-4 rounded-2xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm font-semibold text-red-800 dark:text-red-200">
-            This task is soft-deleted and hidden from default listings.
-          </div>
-        )}
-        {isArchived && !isSoftDeleted && (
-          <div className="mb-4 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 px-4 py-3 text-sm font-semibold text-zinc-700 dark:text-zinc-200">
-            This task is archived and hidden from default listings.
-          </div>
-        )}
-
-        <div className="flex flex-col md:flex-row justify-between items-start gap-4">
-          <div>
-            <div className="flex items-center gap-3 mb-3">
-              <span className="px-2.5 py-1 bg-primary text-white text-xs font-bold rounded-md uppercase tracking-wide">
-                {resolveTaskCategoryLabel(job)}
-              </span>
-              <span
-                className={`px-2.5 py-1 text-xs font-bold rounded-md uppercase tracking-wide border ${
-                  job.status === JobStatus.PUBLISHED
-                    ? "bg-emerald-100 text-emerald-800 border-emerald-200"
-                    : job.status === JobStatus.PENDING
-                      ? "bg-amber-100 text-amber-800 border-amber-200"
-                      : job.status === JobStatus.CHANGES_REQUESTED
-                        ? "bg-red-100 text-red-800 border-red-200"
-                        : "bg-zinc-100 text-zinc-600 border-zinc-200"
-                }`}
-              >
-                {job.status}
-              </span>
-              {isArchived && !isSoftDeleted && (
-                <span className="px-2.5 py-1 text-xs font-bold rounded-md uppercase tracking-wide border bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:border-zinc-600">
-                  Archived
-                </span>
-              )}
-              {isSoftDeleted && (
-                <span className="px-2.5 py-1 text-xs font-bold rounded-md uppercase tracking-wide border bg-red-100 text-red-800 border-red-200 dark:bg-red-900/40 dark:text-red-200 dark:border-red-800">
-                  Deleted
-                </span>
-              )}
-            </div>
-            <h1 className="text-3xl md:text-4xl font-bold text-zinc-900 dark:text-white">
-              {job.title}
-            </h1>
-
-            {job.status === JobStatus.CHANGES_REQUESTED &&
-              job.rejectionReason && (
-                <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl animate-fade-in">
-                  <h4 className="text-sm font-bold text-red-800 dark:text-red-300 flex items-center mb-1">
-                    <XCircle className="w-4 h-4 mr-2" /> Revise and Resubmit
-                  </h4>
-                  <p className="text-sm text-red-700 dark:text-red-400">
-                    {job.rejectionReason}
-                  </p>
-                </div>
-              )}
-          </div>
-          <div className="flex flex-col items-end">
-            <span className="text-2xl font-bold text-zinc-900 dark:text-white">
-              <TaskRewardText
-                task={{
-                  rewardType: job.rewardType,
-                  rewardValue: job.rewardValue,
-                  rewardText: job.rewardText,
-                }}
-                organisationId={rewardOrgId}
-              />
-            </span>
-          </div>
-        </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="chipPrimary">{resolveTaskCategoryLabel(job)}</Badge>
+        <JobStatusLabel status={job.status} />
+        {isArchived && !isSoftDeleted && <Badge variant="chipMuted">Archived</Badge>}
+        {isSoftDeleted && <Badge variant="chip">Deleted</Badge>}
       </div>
+
+      {job.status === JobStatus.CHANGES_REQUESTED && job.rejectionReason && (
+        <Card className="border-red-200 bg-red-50/80 dark:border-red-800 dark:bg-red-950/30">
+          <h4 className="mb-1 flex items-center text-sm font-semibold text-red-800 dark:text-red-300">
+            <XCircle className="mr-2 h-4 w-4" />
+            Revise and resubmit
+          </h4>
+          <p className="text-sm text-red-700 dark:text-red-400">
+            {job.rejectionReason}
+          </p>
+        </Card>
+      )}
 
       {/* Manager Approval Section */}
       {showManagerActions && (
@@ -836,7 +824,7 @@ export const JobDetails: React.FC = () => {
         <>
         <div className="lg:col-span-2 space-y-8">
           {/* Metadata Card */}
-          <div className="glass-card rounded-2xl p-6 shadow-sm border border-zinc-100 dark:border-zinc-800 flex flex-wrap gap-6">
+          <div className="surface-panel shadow-sm rounded-control p-6 shadow-sm border border-zinc-100 dark:border-zinc-800 flex flex-wrap gap-6">
             <div className="flex items-center">
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mr-3 text-primary">
                 <MapPin className="w-5 h-5" />
@@ -928,7 +916,7 @@ export const JobDetails: React.FC = () => {
           </div>
 
           {/* Description */}
-          <div className="glass-card rounded-2xl p-8 shadow-sm border border-zinc-100 dark:border-zinc-800">
+          <div className="surface-panel shadow-sm rounded-control p-8 shadow-sm border border-zinc-100 dark:border-zinc-800">
             <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-4">
               Task Description
             </h3>
@@ -958,7 +946,7 @@ export const JobDetails: React.FC = () => {
                   {(job.requiredSkills || []).map((skill) => (
                     <span
                       key={skill}
-                      className="px-3 py-1 text-[10px] font-black uppercase tracking-widest bg-primary/10 text-primary rounded-xl"
+                      className="px-3 py-1 text-[10px] font-semibold uppercase tracking-widest bg-primary/10 text-primary rounded-xl"
                     >
                       {skill}
                     </span>
@@ -1008,14 +996,14 @@ export const JobDetails: React.FC = () => {
           <div className="sticky top-24 space-y-6">
             {/* ── Applicants Panel (for users with APPLICATION_READ or job owner) ── */}
             {canSeeApplicants && (
-              <div className="glass-card rounded-2xl shadow-sm border border-zinc-100 dark:border-zinc-800 overflow-hidden">
+              <div className="surface-panel shadow-sm rounded-control shadow-sm border border-zinc-100 dark:border-zinc-800 overflow-hidden">
                 <div className="p-6 bg-primary text-white">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Users className="w-5 h-5" />
                       <h3 className="text-lg font-bold">Applicants</h3>
                     </div>
-                    <span className="px-2.5 py-1 bg-white/20 rounded-lg text-xs font-black">
+                    <span className="px-2.5 py-1 bg-white/20 rounded-lg text-xs font-semibold">
                       {applicants.length}
                     </span>
                   </div>
@@ -1051,7 +1039,7 @@ export const JobDetails: React.FC = () => {
                               </p>
                               <div className="mt-2">
                                 <span
-                                  className={`px-2 py-1 text-[9px] font-black rounded-lg uppercase tracking-wider ${
+                                  className={`px-2 py-1 text-[9px] font-semibold rounded-lg uppercase tracking-wider ${
                                     app.status === "Approved" ||
                                     app.status === "Accepted"
                                       ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
@@ -1080,7 +1068,7 @@ export const JobDetails: React.FC = () => {
                   <div className="p-4 border-t border-zinc-100 dark:border-zinc-800">
                     <button
                       onClick={() => navigate(`/jobs/${id}/applicants`)}
-                      className="w-full py-2.5 text-xs font-black uppercase tracking-widest text-primary hover:bg-zinc-50 dark:hover:bg-zinc-800/50 rounded-lg transition-colors"
+                      className="w-full py-2.5 text-xs font-semibold uppercase tracking-widest text-primary hover:bg-zinc-50 dark:hover:bg-zinc-800/50 rounded-lg transition-colors"
                     >
                       View All Applications
                     </button>
@@ -1092,7 +1080,7 @@ export const JobDetails: React.FC = () => {
             {/* ── Apply Panel ── */}
             {/* Show if: guest (login prompt), canApply (eligible), or locked/applied state — hide for reviewers on pending tasks */}
             {!isJobOwner && !showManagerActions && (
-              <div className="glass-card rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:shadow-none border border-zinc-100 dark:border-zinc-800 overflow-hidden">
+              <div className="surface-panel shadow-sm rounded-control shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:shadow-none border border-zinc-100 dark:border-zinc-800 overflow-hidden">
                 <div className="p-6 bg-primary text-white">
                   <h3 className="text-lg font-bold">Apply</h3>
                   <p className="text-primary-100 text-sm mt-1 opacity-80">
@@ -1220,26 +1208,27 @@ export const JobDetails: React.FC = () => {
                       <LoadingOverlay message="Sending..." />
                     )}
 
-                    <div>
-                      <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase mb-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="apply-cover-letter">
                         Why do you want this task?
-                      </label>
-                      <textarea
+                      </Label>
+                      <Textarea
+                        id="apply-cover-letter"
                         required
-                        className="w-full p-3 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:outline-none min-h-[120px] dark:text-white"
+                        className="min-h-[120px]"
                         placeholder="Tell us why..."
                         value={coverLetter}
                         onChange={(e) => setCoverLetter(e.target.value)}
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase mb-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="apply-availability">
                         When can you start?
-                      </label>
-                      <input
+                      </Label>
+                      <Input
+                        id="apply-availability"
                         type="text"
-                        className="w-full p-3 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:outline-none dark:text-white"
                         placeholder="e.g. Monday morning"
                         value={availability}
                         onChange={(e) => setAvailability(e.target.value)}
@@ -1277,71 +1266,60 @@ export const JobDetails: React.FC = () => {
       </div>
 
       {/* Decline (archive) confirmation */}
-      {showArchiveDeclineModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="decline-archive-title"
-          onClick={() =>
-            !archiveDeclineSubmitting && setShowArchiveDeclineModal(false)
-          }
-        >
-          <div
-            className="bg-white dark:bg-zinc-900 w-full max-w-md rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 animate-scale-in"
-            onClick={(e) => e.stopPropagation()}
+      <Modal
+        open={showArchiveDeclineModal}
+        onClose={() =>
+          !archiveDeclineSubmitting && setShowArchiveDeclineModal(false)
+        }
+        closeOnBackdrop={!archiveDeclineSubmitting}
+      >
+        <ModalHeader className="flex flex-row items-start justify-between gap-3">
+          <ModalTitle id="decline-archive-title">Archive this task?</ModalTitle>
+          <Button
+            type="button"
+            variant="ghost"
+            size="iconCompact"
+            onClick={() =>
+              !archiveDeclineSubmitting && setShowArchiveDeclineModal(false)
+            }
+            aria-label="Close"
           >
-            <div className="flex items-start justify-between gap-3 p-6 border-b border-zinc-100 dark:border-zinc-800">
-              <h3
-                id="decline-archive-title"
-                className="text-lg font-black text-zinc-900 dark:text-white tracking-tight flex-1"
-              >
-                Archive this task?
-              </h3>
-              <button
-                type="button"
-                onClick={() =>
-                  !archiveDeclineSubmitting && setShowArchiveDeclineModal(false)
-                }
-                className="p-2 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shrink-0"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <p className="px-6 py-4 text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-              It will no longer be visible to applicants. You can manage it later
-              from task lifecycle actions if you have permission.
-            </p>
-            <div className="flex justify-end gap-3 px-6 pb-6">
-              <button
-                type="button"
-                onClick={() => setShowArchiveDeclineModal(false)}
-                disabled={archiveDeclineSubmitting}
-                className="px-4 py-2.5 text-zinc-600 dark:text-zinc-400 font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => void executeDeclineArchive()}
-                disabled={archiveDeclineSubmitting}
-                className="px-4 py-2.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 disabled:opacity-50 transition-colors"
-              >
-                {archiveDeclineSubmitting ? "Please wait…" : "Archive task"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            <X className="h-4 w-4" />
+          </Button>
+        </ModalHeader>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          It will no longer be visible to applicants. You can manage it later from
+          task lifecycle actions if you have permission.
+        </p>
+        <ModalFooter>
+          <Button
+            type="button"
+            variant="secondary"
+            size="compact"
+            onClick={() => setShowArchiveDeclineModal(false)}
+            disabled={archiveDeclineSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            size="compact"
+            onClick={() => void executeDeclineArchive()}
+            disabled={archiveDeclineSubmitting}
+          >
+            {archiveDeclineSubmitting ? "Please wait…" : "Archive task"}
+          </Button>
+        </ModalFooter>
+      </Modal>
 
       {/* Publish / approve modal */}
-      {showApproveModal && job && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-zinc-900 w-full max-w-md p-6 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 animate-scale-in">
-            <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-4">
-              Publish task
-            </h3>
+      <Modal open={showApproveModal && !!job} onClose={() => setShowApproveModal(false)}>
+        {job && (
+          <>
+            <ModalHeader>
+              <ModalTitle>Publish task</ModalTitle>
+            </ModalHeader>
             {resolveJobContactPersonId(job) ? (
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
                 This task will be published and visible to applicants.
@@ -1362,76 +1340,68 @@ export const JobDetails: React.FC = () => {
                 />
               </>
             )}
-            <div className="flex justify-end gap-3 mt-6">
-              <button
+            <ModalFooter>
+              <Button
                 type="button"
+                variant="secondary"
+                size="compact"
                 onClick={() => setShowApproveModal(false)}
-                className="px-4 py-2 text-zinc-600 dark:text-zinc-400 font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                size="compact"
                 onClick={() => void confirmApprove()}
                 disabled={
                   approveSubmitting ||
                   (!resolveJobContactPersonId(job) &&
                     !approveContactPersonId.trim())
                 }
-                className="px-4 py-2 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {approveSubmitting ? "Please wait…" : "Publish"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              </Button>
+            </ModalFooter>
+          </>
+        )}
+      </Modal>
 
       {/* Revise and Resubmit Modal */}
-      {showRejectModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-zinc-900 w-full max-w-md p-6 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 animate-scale-in">
-            <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-4">
-              Revise and Resubmit
-            </h3>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-              Please provide guidance for revisions before resubmission. This
-              will be sent to the advertiser.
-            </p>
-            <textarea
-              className="w-full p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl mb-4 focus:ring-2 focus:ring-red-500 focus:outline-none dark:text-white"
-              rows={4}
-              placeholder="Revision guidance..."
-              value={rejectionReason}
-              onChange={(e) => setRejectionReason(e.target.value)}
-            />
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowRejectModal(false)}
-                className="px-4 py-2 text-zinc-600 dark:text-zinc-400 font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmReject}
-                disabled={!rejectionReason.trim()}
-                className="px-4 py-2 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Revise and Resubmit
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal open={showRejectModal} onClose={() => setShowRejectModal(false)}>
+        <ModalHeader>
+          <ModalTitle>Revise and resubmit</ModalTitle>
+        </ModalHeader>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Please provide guidance for revisions before resubmission. This will be
+          sent to the advertiser.
+        </p>
+        <Textarea
+          className="mb-4"
+          rows={4}
+          placeholder="Revision guidance..."
+          value={rejectionReason}
+          onChange={(e) => setRejectionReason(e.target.value)}
+        />
+        <ModalFooter>
+          <Button variant="secondary" size="compact" onClick={() => setShowRejectModal(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            size="compact"
+            onClick={confirmReject}
+            disabled={!rejectionReason.trim()}
+          >
+            Revise and resubmit
+          </Button>
+        </ModalFooter>
+      </Modal>
 
-      {/* Repost Modal */}
-      {showRepostModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-zinc-900 w-full max-w-md p-6 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 animate-scale-in">
-            <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">
-              Repost Task
-            </h3>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-5">
+      <Modal open={showRepostModal} onClose={() => setShowRepostModal(false)}>
+            <ModalHeader>
+              <ModalTitle>Repost task</ModalTitle>
+            </ModalHeader>
+            <p className="mb-5 text-sm text-muted-foreground">
               Set the application window and task start date for the reposted
               task.
             </p>
@@ -1512,24 +1482,19 @@ export const JobDetails: React.FC = () => {
                 )}
               </div>
             </div>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowRepostModal(false)}
-                className="px-4 py-2 text-zinc-600 dark:text-zinc-400 font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
-              >
+            <ModalFooter>
+              <Button variant="secondary" size="compact" onClick={() => setShowRepostModal(false)}>
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
+                size="compact"
                 onClick={submitRepost}
                 disabled={!repostFormValid || reposting}
-                className="px-4 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {reposting ? "Reposting..." : "Repost Task"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                {reposting ? "Reposting..." : "Repost task"}
+              </Button>
+            </ModalFooter>
+      </Modal>
     </div>
   );
 };

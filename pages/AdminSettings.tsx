@@ -19,6 +19,16 @@ import {
   Gift,
 } from "lucide-react";
 import { Loading } from "../components/Loading";
+import {
+  Button,
+  Card,
+  Input,
+  Label,
+  PageHeader,
+  Textarea,
+  inputVariants,
+} from "@/components/ui";
+import { cn } from "@/utils/cn";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../components/Toast";
 import { API_BASE_URL } from "../services/api";
@@ -203,7 +213,7 @@ const CategoryContactGroupsEditor: React.FC<{
     <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 p-4 space-y-3 bg-white/60 dark:bg-zinc-900/40">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-xs font-black uppercase tracking-widest text-zinc-500 flex items-center gap-1.5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 flex items-center gap-1.5">
             <Layers className="w-3.5 h-3.5 text-amber-600" />
             Category contact groups
           </p>
@@ -221,7 +231,7 @@ const CategoryContactGroupsEditor: React.FC<{
           <button
             type="button"
             onClick={() => setPickerOpen((v) => !v)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-800 dark:text-amber-200 hover:bg-amber-500/20 transition-all shrink-0"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-semibold uppercase tracking-wide bg-amber-500/10 text-amber-800 dark:text-amber-200 hover:bg-amber-500/20 transition-all shrink-0"
           >
             <Plus className="w-3.5 h-3.5" />
             Add
@@ -243,7 +253,7 @@ const CategoryContactGroupsEditor: React.FC<{
                 className="flex items-center gap-3 p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800"
               >
                 <div
-                  className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black text-white shrink-0"
+                  className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-semibold text-white shrink-0"
                   style={{ backgroundColor: group.color || "#6366F1" }}
                 >
                   {group.name.charAt(0).toUpperCase()}
@@ -278,7 +288,7 @@ const CategoryContactGroupsEditor: React.FC<{
 
       {pickerOpen && !disabled && (
         <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 space-y-3">
-          <input
+          <Input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -405,21 +415,14 @@ const AiSettingsPanel: React.FC<{ reloadKey?: number }> = ({
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h2 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
-          AI Settings
-        </h2>
-        <p className="text-zinc-500 font-medium mt-1">
-          Configure the AI provider and API keys for the active organisation.
-          Switch organisation in the sidebar to manage another community.
-        </p>
-      </div>
+      <PageHeader
+        title="AI Settings"
+        description="Configure the AI provider and API keys for the active organisation. Switch organisation in the sidebar to manage another community."
+      />
 
-      <div className="glass-card rounded-2xl p-6 sm:p-8 space-y-8">
+      <Card padding="section" className="space-y-8">
         <div className="space-y-4">
-          <label className="text-sm font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">
-            AI Provider
-          </label>
+          <Label>AI Provider</Label>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               { id: "gemini", label: "Google Gemini" },
@@ -453,32 +456,26 @@ const AiSettingsPanel: React.FC<{ reloadKey?: number }> = ({
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">
-            API Key
-          </label>
-          <p className="text-xs text-zinc-500 mb-2">
-            Leave blank to keep the existing key. {hasKey && <span className="text-emerald-500 font-bold ml-1">An API key is currently saved.</span>}
+          <Label>API Key</Label>
+          <p className="mb-2 text-xs text-muted-foreground">
+            Leave blank to keep the existing key. {hasKey && <span className="ml-1 font-semibold text-emerald-600">An API key is currently saved.</span>}
           </p>
-          <input
+          <Input
             type="password"
             placeholder="sk-..."
             value={settings.apiKey}
             onChange={(e) => setSettings({ ...settings, apiKey: e.target.value })}
-            className="w-full p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-2 border-zinc-200 dark:border-zinc-700 focus:border-primary outline-none text-zinc-900 dark:text-white font-mono"
+            className="font-mono"
           />
         </div>
 
         <div className="flex justify-end pt-4">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-6 py-3 bg-primary text-white font-black text-sm rounded-xl hover:bg-primaryHover transition-colors flex items-center gap-2"
-          >
-            {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <Save className="h-4 w-4" />}
             Save Settings
-          </button>
+          </Button>
         </div>
-      </div>
+      </Card>
     </div>
   );
 };
@@ -952,7 +949,7 @@ export const AdminSettings: React.FC = () => {
       <div className="space-y-6 animate-fade-in">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
-            <h2 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
+            <h2 className="text-3xl font-semibold text-zinc-900 dark:text-white tracking-tighter">
               Role Management
             </h2>
             <p className="text-zinc-500 font-medium mt-1">
@@ -972,7 +969,7 @@ export const AdminSettings: React.FC = () => {
           <div className="flex gap-3">
             <button
               onClick={handleSeedDefaults}
-              className="flex items-center px-4 py-2 text-sm font-bold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white bg-white/50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-700 transition-all"
+              className="font-bold"
             >
               <RefreshCw className="w-4 h-4 mr-2" />
               Reset Defaults
@@ -991,21 +988,20 @@ export const AdminSettings: React.FC = () => {
 
         {/* New Role Form */}
         {showNewRoleForm && (
-          <div className="glass-card p-6 rounded-2xl space-y-4">
+          <Card className="space-y-4">
             <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
               Create New Role
             </h3>
             <div className="grid grid-cols-2 gap-4">
-              <input
+              <Input
                 type="text"
                 placeholder="Role Name"
                 value={newRole.name}
                 onChange={(e) =>
                   setNewRole({ ...newRole, name: e.target.value })
                 }
-                className="p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white"
               />
-              <input
+              <Input
                 type="text"
                 placeholder="Role Code (e.g., custom_role)"
                 value={newRole.code}
@@ -1015,16 +1011,14 @@ export const AdminSettings: React.FC = () => {
                     code: e.target.value.toLowerCase().replace(/\s/g, "_"),
                   })
                 }
-                className="p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white"
               />
             </div>
-            <textarea
+            <Textarea
               placeholder="Description"
               value={newRole.description}
               onChange={(e) =>
                 setNewRole({ ...newRole, description: e.target.value })
               }
-              className="w-full p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white"
               rows={2}
             />
             <div className="flex items-center gap-3">
@@ -1053,13 +1047,11 @@ export const AdminSettings: React.FC = () => {
                 Cancel
               </button>
             </div>
-          </div>
+          </Card>
         )}
-
-        {/* Roles List */}
         <div className="space-y-4">
           {roles.map((role) => (
-            <div key={role._id} className="glass-card p-6 rounded-2xl">
+            <Card key={role._id}>
               {editingRole?._id === role._id ? (
                 // Edit Mode
                 <div className="space-y-4">
@@ -1069,7 +1061,7 @@ export const AdminSettings: React.FC = () => {
                         className="w-4 h-4 rounded-full"
                         style={{ backgroundColor: editingRole.color }}
                       />
-                      <input
+                      <Input
                         type="text"
                         value={editingRole.name}
                         onChange={(e) =>
@@ -1108,7 +1100,7 @@ export const AdminSettings: React.FC = () => {
                     </div>
                   </div>
 
-                  <textarea
+                  <Textarea
                     value={editingRole.description}
                     onChange={(e) =>
                       setEditingRole({
@@ -1116,14 +1108,13 @@ export const AdminSettings: React.FC = () => {
                         description: e.target.value,
                       })
                     }
-                    className="w-full p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-900 dark:text-white"
                     rows={2}
                   />
 
                   {/* OIDC / ADFS Role Mapping */}
                   <div className="pt-4 border-t border-zinc-200 dark:border-zinc-700 space-y-3">
                     <div>
-                      <h4 className="text-sm font-bold text-zinc-500 uppercase tracking-widest">
+                      <h4 className="text-sm font-bold text-zinc-500 uppercase tracking-wide">
                         OIDC / ADFS Role Mapping
                       </h4>
                       <p className="text-xs text-zinc-400 mt-0.5">
@@ -1157,7 +1148,7 @@ export const AdminSettings: React.FC = () => {
                       </div>
                     )}
                     <div className="flex gap-2">
-                      <input
+                      <Input
                         type="text"
                         placeholder="Claim value (e.g. OrgAdmin)"
                         value={oidcMappingInput}
@@ -1183,7 +1174,7 @@ export const AdminSettings: React.FC = () => {
                             setOidcMappingInput("");
                           }
                         }}
-                        className="flex-1 p-2.5 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400"
+                        className="flex-1"
                       />
                       <button
                         onClick={() => {
@@ -1217,7 +1208,7 @@ export const AdminSettings: React.FC = () => {
 
                   {/* Permission Checkboxes */}
                   <div className="space-y-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">
-                    <h4 className="text-sm font-bold text-zinc-500 uppercase tracking-widest">
+                    <h4 className="text-sm font-bold text-zinc-500 uppercase tracking-wide">
                       Permissions
                     </h4>
                     {(
@@ -1328,7 +1319,7 @@ export const AdminSettings: React.FC = () => {
                   </div>
                 </div>
               )}
-            </div>
+            </Card>
           ))}
         </div>
       </div>
@@ -1342,7 +1333,7 @@ export const AdminSettings: React.FC = () => {
       <div className="space-y-6 animate-fade-in">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
-            <h2 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
+            <h2 className="text-3xl font-semibold text-zinc-900 dark:text-white tracking-tighter">
               Permissions
             </h2>
             <p className="text-zinc-500 font-medium mt-1">
@@ -1373,12 +1364,12 @@ export const AdminSettings: React.FC = () => {
 
         {/* New Permission Form */}
         {showNewPermissionForm && (
-          <div className="glass-card p-6 rounded-2xl space-y-4">
+          <Card className="space-y-4">
             <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
               Create New Permission
             </h3>
             <div className="grid grid-cols-2 gap-4">
-              <input
+              <Input
                 type="text"
                 placeholder="Permission Code (e.g., reports:export)"
                 value={newPermission.code}
@@ -1388,20 +1379,18 @@ export const AdminSettings: React.FC = () => {
                     code: e.target.value.toLowerCase().replace(/\s/g, "_"),
                   })
                 }
-                className="p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white"
               />
-              <input
+              <Input
                 type="text"
                 placeholder="Display Name"
                 value={newPermission.name}
                 onChange={(e) =>
                   setNewPermission({ ...newPermission, name: e.target.value })
                 }
-                className="p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <input
+              <Input
                 type="text"
                 placeholder="Category"
                 value={newPermission.category}
@@ -1411,9 +1400,8 @@ export const AdminSettings: React.FC = () => {
                     category: e.target.value,
                   })
                 }
-                className="p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white"
               />
-              <input
+              <Input
                 type="text"
                 placeholder="Description"
                 value={newPermission.description}
@@ -1423,7 +1411,6 @@ export const AdminSettings: React.FC = () => {
                     description: e.target.value,
                   })
                 }
-                className="p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white"
               />
             </div>
             <div className="flex gap-3">
@@ -1441,17 +1428,14 @@ export const AdminSettings: React.FC = () => {
                 Cancel
               </button>
             </div>
-          </div>
+          </Card>
         )}
 
         {/* Permissions by Category */}
         {(
           Object.entries(permissionsByCategory) as [string, Permission[]][]
         ).map(([category, perms]) => (
-          <div
-            key={category}
-            className="glass-card rounded-2xl overflow-hidden"
-          >
+          <Card key={category} padding="none" className="overflow-hidden">
             <button
               onClick={() => toggleCategory(category)}
               className="w-full flex items-center justify-between p-5 text-left hover:bg-white/30 dark:hover:bg-zinc-800/30 transition-all"
@@ -1480,7 +1464,7 @@ export const AdminSettings: React.FC = () => {
                   >
                     {editingPermission?._id === perm._id ? (
                       <div className="flex-1 flex items-center gap-4">
-                        <input
+                        <Input
                           type="text"
                           value={editingPermission.name}
                           onChange={(e) =>
@@ -1489,9 +1473,9 @@ export const AdminSettings: React.FC = () => {
                               name: e.target.value,
                             })
                           }
-                          className="flex-1 p-2 rounded-lg bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-900 dark:text-white"
+                          className="flex-1"
                         />
-                        <input
+                        <Input
                           type="text"
                           value={editingPermission.description}
                           onChange={(e) =>
@@ -1500,7 +1484,7 @@ export const AdminSettings: React.FC = () => {
                               description: e.target.value,
                             })
                           }
-                          className="flex-1 p-2 rounded-lg bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-900 dark:text-white"
+                          className="flex-1"
                           placeholder="Description"
                         />
                         <div className="flex gap-2">
@@ -1564,7 +1548,7 @@ export const AdminSettings: React.FC = () => {
                 ))}
               </div>
             )}
-          </div>
+          </Card>
         ))}
       </div>
     );
@@ -1846,7 +1830,7 @@ export const AdminSettings: React.FC = () => {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h2 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
+          <h2 className="text-3xl font-semibold text-zinc-900 dark:text-white tracking-tighter">
             Reward Types
           </h2>
           <p className="text-zinc-500 font-medium mt-1 max-w-2xl">
@@ -1871,7 +1855,7 @@ export const AdminSettings: React.FC = () => {
           <button
             type="button"
             onClick={handleSeedRewardTypes}
-            className="flex items-center px-4 py-2 text-sm font-bold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white bg-white/50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-700 transition-all"
+            className="font-bold"
           >
             <RefreshCw className="w-4 h-4 mr-2" />
             Seed Defaults
@@ -1890,7 +1874,7 @@ export const AdminSettings: React.FC = () => {
       </div>
 
       {showNewRtForm && (
-        <div className="glass-card p-6 rounded-2xl space-y-4">
+        <Card className="space-y-4">
           <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
             Create reward type
           </h3>
@@ -1899,18 +1883,17 @@ export const AdminSettings: React.FC = () => {
               <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">
                 Name *
               </label>
-              <input
+              <Input
                 type="text"
                 value={newRt.name}
                 onChange={(e) => setNewRt({ ...newRt, name: e.target.value })}
-                className="w-full p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white"
               />
             </div>
             <div>
               <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">
                 Code (optional)
               </label>
-              <input
+              <Input
                 type="text"
                 value={newRt.code}
                 onChange={(e) =>
@@ -1919,7 +1902,7 @@ export const AdminSettings: React.FC = () => {
                     code: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""),
                   })
                 }
-                className="w-full p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 font-mono text-sm text-zinc-900 dark:text-white"
+                className="font-mono"
               />
             </div>
           </div>
@@ -1927,13 +1910,12 @@ export const AdminSettings: React.FC = () => {
             <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">
               Description
             </label>
-            <input
+            <Input
               type="text"
               value={newRt.description}
               onChange={(e) =>
                 setNewRt({ ...newRt, description: e.target.value })
               }
-              className="w-full p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white"
             />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1956,7 +1938,7 @@ export const AdminSettings: React.FC = () => {
                           : "fixed",
                   }));
                 }}
-                className="w-full p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white font-bold text-sm"
+                className={cn(inputVariants(), "font-bold text-sm")}
               >
                 <option value="none">None</option>
                 <option value="currency">Currency</option>
@@ -1980,7 +1962,7 @@ export const AdminSettings: React.FC = () => {
                 disabled={
                   newRt.valueKind === "none" || newRt.valueKind === "text"
                 }
-                className="w-full p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white font-bold text-sm disabled:opacity-50"
+                className={cn(inputVariants(), "font-bold text-sm")}
               >
                 {newRt.valueKind === "none" ||
                 newRt.valueKind === "text" ? (
@@ -2019,42 +2001,39 @@ export const AdminSettings: React.FC = () => {
               <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">
                 Unit label (display)
               </label>
-              <input
+              <Input
                 type="text"
                 placeholder="e.g. Points, Extra Marks, Coins"
                 value={newRt.unitLabel}
                 onChange={(e) =>
                   setNewRt({ ...newRt, unitLabel: e.target.value })
                 }
-                className="w-full p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white text-sm"
               />
             </div>
             <div>
               <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">
                 Value prefix
               </label>
-              <input
+              <Input
                 type="text"
                 placeholder="e.g. $"
                 value={newRt.valuePrefix}
                 onChange={(e) =>
                   setNewRt({ ...newRt, valuePrefix: e.target.value })
                 }
-                className="w-full p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white text-sm"
               />
             </div>
             <div>
               <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">
                 Value suffix
               </label>
-              <input
+              <Input
                 type="text"
                 placeholder="e.g. %, /hr"
                 value={newRt.valueSuffix}
                 onChange={(e) =>
                   setNewRt({ ...newRt, valueSuffix: e.target.value })
                 }
-                className="w-full p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white text-sm"
               />
             </div>
           </div>
@@ -2074,29 +2053,29 @@ export const AdminSettings: React.FC = () => {
               Cancel
             </button>
           </div>
-        </div>
+        </Card>
       )}
 
       {rtLoading ? (
         <Loading message="Loading reward types..." />
       ) : (
-        <div className="glass-card rounded-2xl overflow-hidden">
+        <Card padding="none" className="overflow-hidden">
           <table className="w-full">
             <thead className="bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-100 dark:border-zinc-800">
               <tr>
-                <th className="px-6 py-4 text-left text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                <th className="px-6 py-4 text-left text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">
                   Reward
                 </th>
-                <th className="px-6 py-4 text-left text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                <th className="px-6 py-4 text-left text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">
                   Code
                 </th>
-                <th className="px-6 py-4 text-left text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                <th className="px-6 py-4 text-left text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">
                   Kind / Calc
                 </th>
-                <th className="px-6 py-4 text-left text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                <th className="px-6 py-4 text-left text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">
                   Status
                 </th>
-                <th className="px-6 py-4 text-right text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                <th className="px-6 py-4 text-right text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">
                   Actions
                 </th>
               </tr>
@@ -2119,7 +2098,7 @@ export const AdminSettings: React.FC = () => {
                     <td className="px-6 py-4" colSpan={5}>
                       <div className="space-y-3">
                         <div className="grid grid-cols-2 gap-3">
-                          <input
+                          <Input
                             type="text"
                             value={editingRt.name}
                             onChange={(e) =>
@@ -2128,9 +2107,8 @@ export const AdminSettings: React.FC = () => {
                                 name: e.target.value,
                               })
                             }
-                            className="p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-900 dark:text-white"
                           />
-                          <input
+                          <Input
                             type="text"
                             value={editingRt.description ?? ""}
                             onChange={(e) =>
@@ -2139,7 +2117,6 @@ export const AdminSettings: React.FC = () => {
                                 description: e.target.value,
                               })
                             }
-                            className="p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-900 dark:text-white"
                           />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
@@ -2158,7 +2135,7 @@ export const AdminSettings: React.FC = () => {
                                       : "fixed",
                               }));
                             }}
-                            className="p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-900 dark:text-white font-bold"
+                            className={cn(inputVariants(), "font-bold text-sm")}
                           >
                             <option value="none">None</option>
                             <option value="currency">Currency</option>
@@ -2184,7 +2161,7 @@ export const AdminSettings: React.FC = () => {
                               editingRt.valueKind === "none" ||
                               editingRt.valueKind === "text"
                             }
-                            className="p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-900 dark:text-white font-bold disabled:opacity-50"
+                            className={cn(inputVariants(), "font-bold text-sm")}
                           >
                             {editingRt.valueKind === "none" ||
                             editingRt.valueKind === "text" ? (
@@ -2207,7 +2184,7 @@ export const AdminSettings: React.FC = () => {
                           </select>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <input
+                          <Input
                             type="text"
                             placeholder="Unit label"
                             value={editingRt.unitLabel ?? ""}
@@ -2217,9 +2194,8 @@ export const AdminSettings: React.FC = () => {
                                 unitLabel: e.target.value,
                               })
                             }
-                            className="p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-900 dark:text-white"
                           />
-                          <input
+                          <Input
                             type="text"
                             placeholder="Prefix ($)"
                             value={editingRt.valuePrefix ?? ""}
@@ -2229,9 +2205,8 @@ export const AdminSettings: React.FC = () => {
                                 valuePrefix: e.target.value,
                               })
                             }
-                            className="p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-900 dark:text-white"
                           />
-                          <input
+                          <Input
                             type="text"
                             placeholder="Suffix (%, /hr)"
                             value={editingRt.valueSuffix ?? ""}
@@ -2241,7 +2216,6 @@ export const AdminSettings: React.FC = () => {
                                 valueSuffix: e.target.value,
                               })
                             }
-                            className="p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-900 dark:text-white"
                           />
                         </div>
                         <div className="flex items-center gap-3">
@@ -2305,7 +2279,7 @@ export const AdminSettings: React.FC = () => {
                         </p>
                       )}
                       {rt.isSystem && (
-                        <span className="mt-1 inline-block px-2 py-0.5 text-[9px] font-black uppercase bg-amber-100 text-amber-700 rounded-lg">
+                        <span className="mt-1 inline-block px-2 py-0.5 text-[9px] font-semibold uppercase bg-amber-100 text-amber-700 rounded-lg">
                           System
                         </span>
                       )}
@@ -2322,7 +2296,7 @@ export const AdminSettings: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <span
-                        className={`px-3 py-1 text-[9px] font-black rounded-full uppercase tracking-widest ${
+                        className={`px-3 py-1 text-[9px] font-semibold rounded-full uppercase tracking-wide ${
                           rt.isActive
                             ? "bg-emerald-100 text-emerald-800"
                             : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
@@ -2361,7 +2335,7 @@ export const AdminSettings: React.FC = () => {
               )}
             </tbody>
           </table>
-        </div>
+        </Card>
       )}
     </div>
   );
@@ -2371,7 +2345,7 @@ export const AdminSettings: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h2 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
+          <h2 className="text-3xl font-semibold text-zinc-900 dark:text-white tracking-tighter">
             Category Management
           </h2>
           <p className="text-zinc-500 font-medium mt-1">
@@ -2393,7 +2367,7 @@ export const AdminSettings: React.FC = () => {
         <div className="flex gap-3">
           <button
             onClick={handleSeedCategories}
-            className="flex items-center px-4 py-2 text-sm font-bold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white bg-white/50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-700 transition-all"
+            className="font-bold"
           >
             <RefreshCw className="w-4 h-4 mr-2" />
             Seed Defaults
@@ -2412,7 +2386,7 @@ export const AdminSettings: React.FC = () => {
 
       {/* Create Form */}
       {showNewCatForm && (
-        <div className="glass-card p-6 rounded-2xl space-y-4">
+        <Card className="space-y-4">
           <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
             Create Category
           </h3>
@@ -2421,19 +2395,18 @@ export const AdminSettings: React.FC = () => {
               <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">
                 Name *
               </label>
-              <input
+              <Input
                 type="text"
                 placeholder="e.g. Catering"
                 value={newCat.name}
                 onChange={(e) => setNewCat({ ...newCat, name: e.target.value })}
-                className="w-full p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white"
               />
             </div>
             <div>
               <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">
                 Code (auto-generated)
               </label>
-              <input
+              <Input
                 type="text"
                 placeholder="catering (leave blank to auto)"
                 value={newCat.code}
@@ -2445,7 +2418,7 @@ export const AdminSettings: React.FC = () => {
                       .replace(/[^a-z0-9_]/g, ""),
                   })
                 }
-                className="w-full p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white font-mono text-sm"
+                className="font-mono"
               />
             </div>
           </div>
@@ -2453,14 +2426,13 @@ export const AdminSettings: React.FC = () => {
             <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">
               Description
             </label>
-            <input
+            <Input
               type="text"
               placeholder="Short description"
               value={newCat.description}
               onChange={(e) =>
                 setNewCat({ ...newCat, description: e.target.value })
               }
-              className="w-full p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white"
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -2468,12 +2440,12 @@ export const AdminSettings: React.FC = () => {
               <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">
                 Emoji Icon
               </label>
-              <input
+              <Input
                 type="text"
                 placeholder="📋"
                 value={newCat.icon}
                 onChange={(e) => setNewCat({ ...newCat, icon: e.target.value })}
-                className="w-full p-3 rounded-xl bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white text-2xl"
+                className="text-2xl"
               />
             </div>
             <div>
@@ -2509,27 +2481,27 @@ export const AdminSettings: React.FC = () => {
               Cancel
             </button>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Category List */}
       {catLoading ? (
         <Loading message="Loading categories..." />
       ) : (
-        <div className="glass-card rounded-2xl overflow-hidden">
+        <Card padding="none" className="overflow-hidden">
           <table className="w-full">
             <thead className="bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-100 dark:border-zinc-800">
               <tr>
-                <th className="px-6 py-4 text-left text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                <th className="px-6 py-4 text-left text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">
                   Category
                 </th>
-                <th className="px-6 py-4 text-left text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                <th className="px-6 py-4 text-left text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">
                   Code
                 </th>
-                <th className="px-6 py-4 text-left text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                <th className="px-6 py-4 text-left text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">
                   Status
                 </th>
-                <th className="px-6 py-4 text-right text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                <th className="px-6 py-4 text-right text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">
                   Actions
                 </th>
               </tr>
@@ -2553,7 +2525,7 @@ export const AdminSettings: React.FC = () => {
                     <td className="px-6 py-4" colSpan={4}>
                       <div className="space-y-3">
                         <div className="grid grid-cols-2 gap-3">
-                          <input
+                          <Input
                             type="text"
                             value={editingCat.name}
                             onChange={(e) =>
@@ -2563,9 +2535,8 @@ export const AdminSettings: React.FC = () => {
                               })
                             }
                             placeholder="Name"
-                            className="p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-900 dark:text-white"
                           />
-                          <input
+                          <Input
                             type="text"
                             value={editingCat.description ?? ""}
                             onChange={(e) =>
@@ -2575,7 +2546,6 @@ export const AdminSettings: React.FC = () => {
                               })
                             }
                             placeholder="Description"
-                            className="p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-900 dark:text-white"
                           />
                         </div>
                         <div className="flex items-center gap-4">
@@ -2583,7 +2553,7 @@ export const AdminSettings: React.FC = () => {
                             <label className="text-xs font-bold text-zinc-500">
                               Emoji:
                             </label>
-                            <input
+                            <Input
                               type="text"
                               value={editingCat.icon ?? ""}
                               onChange={(e) =>
@@ -2695,7 +2665,7 @@ export const AdminSettings: React.FC = () => {
                           )}
                         </div>
                         {cat.isSystem && (
-                          <span className="px-2 py-0.5 text-[9px] font-black uppercase bg-amber-100 text-amber-700 rounded-lg">
+                          <span className="px-2 py-0.5 text-[9px] font-semibold uppercase bg-amber-100 text-amber-700 rounded-lg">
                             System
                           </span>
                         )}
@@ -2709,7 +2679,7 @@ export const AdminSettings: React.FC = () => {
                     <td className="px-6 py-4">
                       <button
                         onClick={() => handleToggleCategoryActive(cat)}
-                        className={`px-3 py-1 text-[9px] font-black rounded-full uppercase tracking-widest transition-all ${
+                        className={`px-3 py-1 text-[9px] font-semibold rounded-full uppercase tracking-wide transition-all ${
                           cat.isActive
                             ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
                             : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400"
@@ -2741,89 +2711,87 @@ export const AdminSettings: React.FC = () => {
               )}
             </tbody>
           </table>
-        </div>
+        </Card>
       )}
     </div>
   );
 
+  const adminTabLabels: Record<typeof activeTab, string> = {
+    organisations: "Organisations",
+    users: "Manage Users",
+    roles: "Roles",
+    permissions: "Permissions",
+    categories: "Categories",
+    rewards: "Reward types",
+    groups: "Groups",
+    email: "Email Settings",
+    ai: "AI Settings",
+  };
+
   return (
-    <div className="max-w-6xl mx-auto space-y-10 animate-fade-in pb-20">
-      <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tighter">
-        Admin Settings
-      </h1>
+    <div className="mx-auto max-w-6xl animate-fade-in space-y-6 pb-20">
+      <PageHeader
+        title="Admin Settings"
+        description={adminTabLabels[activeTab]}
+        actions={
+          <Button variant="ghost" size="compact" onClick={() => navigate("/dashboard")}>
+            <ArrowLeft className="h-4 w-4" />
+            Dashboard
+          </Button>
+        }
+      />
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
-        {/* Sidebar Nav */}
-        <div className="space-y-6">
-          <button
-            onClick={() => navigate("/dashboard")}
-            className="flex items-center text-sm font-bold text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors group mb-4"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2 transition-transform group-hover:-translate-x-1" />
-            Back to Dashboard
-          </button>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-[12rem_minmax(0,1fr)]">
+        <Card padding="none" className="h-fit overflow-hidden">
+          <div className="border-b border-border bg-surface-muted px-3 py-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Administration
+            </span>
+          </div>
 
-          <div className="glass-card rounded-2xl border border-zinc-100 dark:border-zinc-800 overflow-hidden shadow-sm bg-white dark:bg-zinc-900/50">
-            {/* Section label */}
-            <div className="px-5 py-3 bg-zinc-50/50 dark:bg-zinc-800/30 border-b border-zinc-100 dark:border-zinc-800">
-              <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                Administration
-              </span>
-            </div>
-
-            {/* Tab items */}
-            {(
-              [
-                ...(isSuperAdmin
-                  ? [{ key: "organisations" as const, icon: ExternalLink, label: "Organisations" }]
-                  : []),
-                { key: "users" as const, icon: Users, label: "Manage Users" },
-                { key: "roles" as const, icon: Shield, label: "Roles" },
-                { key: "permissions" as const, icon: Lock, label: "Permissions" },
-                { key: "categories" as const, icon: Layers, label: "Categories" },
-                { key: "rewards" as const, icon: Gift, label: "Reward types" },
-                { key: "groups" as const, icon: Users, label: "Groups" },
-                { key: "email" as const, icon: Mail, label: "Email Settings" },
-                { key: "ai" as const, icon: Sparkles, label: "AI Settings" },
-              ] as const
-            ).map(({ key, icon: Icon, label }) => (
-              <button
-                key={key}
-                onClick={() => setActiveTab(key)}
-                className={`w-full flex items-center justify-between px-5 py-4 text-xs font-black uppercase tracking-widest transition-all border-b border-zinc-100 dark:border-zinc-800 last:border-none relative group ${
+          {(
+            [
+              ...(isSuperAdmin
+                ? [{ key: "organisations" as const, icon: ExternalLink, label: "Organisations" }]
+                : []),
+              { key: "users" as const, icon: Users, label: "Manage Users" },
+              { key: "roles" as const, icon: Shield, label: "Roles" },
+              { key: "permissions" as const, icon: Lock, label: "Permissions" },
+              { key: "categories" as const, icon: Layers, label: "Categories" },
+              { key: "rewards" as const, icon: Gift, label: "Reward types" },
+              { key: "groups" as const, icon: Users, label: "Groups" },
+              { key: "email" as const, icon: Mail, label: "Email Settings" },
+              { key: "ai" as const, icon: Sparkles, label: "AI Settings" },
+            ] as const
+          ).map(({ key, icon: Icon, label }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setActiveTab(key)}
+              className={`relative flex w-full items-center gap-2 border-b border-border px-3 py-2.5 text-left text-sm font-medium transition-colors last:border-none ${
+                activeTab === key
+                  ? "bg-primary/5 text-primary"
+                  : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"
+              }`}
+            >
+              {activeTab === key ? (
+                <span className="absolute bottom-0 left-0 top-0 w-0.5 bg-primary" />
+              ) : null}
+              <span
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-control ${
                   activeTab === key
-                    ? "text-primary bg-primary/5"
-                    : "text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
+                    ? "bg-primary text-white"
+                    : "bg-surface-muted text-muted-foreground"
                 }`}
               >
-                <div className="flex items-center relative z-10">
-                  <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center mr-3 transition-colors ${
-                      activeTab === key
-                        ? "bg-primary text-white"
-                        : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 group-hover:text-zinc-600"
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                  </div>
-                  {label}
-                </div>
-                {activeTab === key && (
-                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-full" />
-                )}
-                <ChevronRight
-                  className={`w-3.5 h-3.5 shrink-0 transition-transform ${
-                    activeTab === key
-                      ? "opacity-100 translate-x-0"
-                      : "opacity-0 -translate-x-2 group-hover:opacity-30 group-hover:translate-x-0"
-                  }`}
-                />
-              </button>
-            ))}
-          </div>
-        </div>
+                <Icon className="h-3.5 w-3.5" />
+              </span>
+              <span className="truncate">{label}</span>
+            </button>
+          ))}
+        </Card>
 
-        <div className="md:col-span-3">
+        <div className="min-w-0">
           {activeTab === "organisations" && (
             <OrganisationManagement scopeRevision={adminOrgSync} />
           )}

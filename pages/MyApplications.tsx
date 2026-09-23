@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Briefcase, ChevronUp, ChevronDown } from "lucide-react";
+import { Briefcase, ChevronUp, ChevronDown, Eye } from "lucide-react";
 import { api } from "../services/api";
 import { db } from "../services/database";
 import { Application, Job, User } from "../types";
@@ -13,6 +13,8 @@ import { Loading } from "../components/Loading";
 import { useToast } from "../components/Toast";
 import { Pagination } from "../components/Pagination";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
+import { Button, Card, PageHeader } from "@/components/ui";
+import { ApplicationStatusLabel } from "@/utils/statusDisplay";
 
 const PAGE_SIZE = 10;
 
@@ -62,25 +64,8 @@ export default function MyApplications() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const getApplicationStatusStyle = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "approved":
-      case "offer accepted":
-      case "accepted":
-      case "completed":
-        return "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800";
-      case "rejected":
-      case "offer declined":
-      case "completion rejected":
-        return "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800";
-      case "completion requested":
-        return "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800";
-      // case "shortlisted":
-      //   return "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800";
-      default:
-        return "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800";
-    }
-  };
+  const displayApplicationStatus = (status: string) =>
+    status === "Shortlisted" ? "Pending" : status;
 
   const handleRequestCompletion = async (appId: string) => {
     try {
@@ -103,30 +88,26 @@ export default function MyApplications() {
   });
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 animate-fade-in">
-      <div className="glass-card p-6 sm:p-10 rounded-[2rem] sm:rounded-[2.5rem]">
-        <h1 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
-          My Applications
-        </h1>
-        <p className="text-zinc-500 dark:text-zinc-400 font-medium mt-2">
-          Track the status of tasks you've applied for.
-        </p>
-      </div>
+    <div className="max-w-5xl mx-auto space-y-section animate-fade-in">
+      <PageHeader
+        title="My Applications"
+        description="Track the status of tasks you've applied for."
+      />
 
       {error && (
-        <div className="glass-card p-6 rounded-[2.5rem] bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+        <Card className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20">
           <p className="text-red-700 dark:text-red-300 font-semibold">
             {error}
           </p>
-        </div>
+        </Card>
       )}
 
-      <div className="glass-card rounded-[2.5rem] overflow-hidden shadow-2xl">
-        <div className="md:hidden border-b border-white/20 dark:border-white/5 px-4 py-3">
+      <Card padding="none" className="overflow-hidden">
+        <div className="md:hidden border-b border-border px-4 py-3">
           <button
             type="button"
             onClick={toggleSort}
-            className="inline-flex items-center gap-1 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] hover:text-primary transition-colors"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide hover:text-primary transition-colors"
           >
             Applied Date
             {sortDir === "desc" ? (
@@ -136,31 +117,31 @@ export default function MyApplications() {
             )}
           </button>
         </div>
-        <div className="md:hidden divide-y divide-white/20 dark:divide-white/5">
+        <div className="md:hidden divide-y divide-border">
           {sorted.map((app) => (
             <div
               key={app.id}
-              className="p-5 space-y-4 hover:bg-white/40 dark:hover:bg-white/5 transition-all"
+              className="p-card space-y-4 hover:bg-surface-muted/50 transition-colors"
             >
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                <div className="w-12 h-12 rounded-control bg-primary/10 flex items-center justify-center text-primary shrink-0">
                   <Briefcase className="w-6 h-6" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-lg font-black text-zinc-900 dark:text-white">
+                  <p className="text-base font-semibold text-foreground">
                     {app.jobTitle || app.task?.title || "Task Deleted"}
                   </p>
-                  <p className="text-xs text-zinc-500 font-medium uppercase tracking-widest mt-1">
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mt-1">
                     Ref: #{app.id?.slice(-6).toUpperCase()}
                   </p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     Applied Date
                   </p>
-                  <p className="font-semibold text-zinc-500 dark:text-zinc-400 mt-1">
+                  <p className="font-medium text-muted-foreground mt-1">
                     {app.appliedAt && !isNaN(new Date(app.appliedAt).getTime())
                       ? new Date(app.appliedAt).toLocaleDateString("en-GB", {
                           day: "numeric",
@@ -171,36 +152,39 @@ export default function MyApplications() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     Status
                   </p>
-                  <span
-                    className={`inline-block mt-1 px-4 py-2 text-[10px] font-black rounded-xl uppercase tracking-widest border ${getApplicationStatusStyle(app.status)}`}
-                  >
-                    {app.status === "Shortlisted" ? "Pending" : app.status}
-                  </span>
+                  <div className="mt-1">
+                    <ApplicationStatusLabel
+                      status={displayApplicationStatus(app.status)}
+                    />
+                  </div>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {app.status === "Accepted" && (
-                  <button
+                  <Button
+                    size="compact"
+                    className="bg-blue-600 hover:bg-blue-700"
                     onClick={() => handleRequestCompletion(app.id)}
-                    className="px-4 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/10"
                   >
                     Request Completion
-                  </button>
+                  </Button>
                 )}
                 {(app.jobId || app.task) && (
-                  <button
+                  <Button
+                    size="action"
+                    variant="primary"
                     onClick={() =>
                       navigate(
                         `/jobs/${app.jobId || (app.task as any)?.id || (app.task as any)?._id}`,
                       )
                     }
-                    className="px-4 py-3 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primaryHover transition-all shadow-lg shadow-primary/10"
                   >
-                    View Task
-                  </button>
+                    <Eye className="w-3.5 h-3.5" />
+                    View
+                  </Button>
                 )}
                 {app.task && (
                   <TaskLifecycleActions
@@ -214,20 +198,20 @@ export default function MyApplications() {
             </div>
           ))}
           {applications.length === 0 && (
-            <div className="px-5 py-16 text-center text-zinc-500 italic">
+            <div className="p-card py-16 text-center text-muted-foreground italic">
               You haven't applied for any tasks yet.{" "}
               <button
                 onClick={() => navigate("/jobs")}
-                className="text-primary font-black hover:underline ml-2"
+                className="text-primary font-semibold hover:underline ml-2"
               >
                 Search Tasks
               </button>
               <br />
-              <span className="text-xs text-zinc-400 block mt-1">
+              <span className="text-xs text-muted-foreground block mt-1">
                 Tasks you've been offered or assigned appear under{" "}
                 <button
                   onClick={() => navigate("/my-tasks")}
-                  className="text-primary font-black hover:underline"
+                  className="text-primary font-semibold hover:underline"
                 >
                   My Tasks
                 </button>
@@ -238,13 +222,13 @@ export default function MyApplications() {
         </div>
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left">
-            <thead className="bg-white/50 dark:bg-zinc-800/50 border-b border-white/20 dark:border-white/5">
+            <thead className="bg-surface-muted border-b border-border">
               <tr>
-                <th className="px-10 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
+                <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Task Information
                 </th>
                 <th
-                  className="px-8 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] cursor-pointer select-none hover:text-primary transition-colors"
+                  className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide cursor-pointer select-none hover:text-primary transition-colors"
                   onClick={toggleSort}
                 >
                   <span className="inline-flex items-center gap-1">
@@ -252,66 +236,67 @@ export default function MyApplications() {
                     {sortDir === "desc" ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
                   </span>
                 </th>
-                <th className="px-8 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
+                <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Status
                 </th>
-                <th className="px-10 py-8 text-right text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
+                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Action
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/20 dark:divide-white/5">
+            <tbody className="divide-y divide-border">
               {sorted.map((app) => (
                 <tr
                     key={app.id}
-                    className="hover:bg-white/40 dark:hover:bg-white/5 transition-all group"
+                    className="hover:bg-surface-muted/50 transition-colors group"
                   >
-                    <td className="px-10 py-8">
+                    <td className="px-4 py-4">
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                        <div className="w-12 h-12 rounded-control bg-primary/10 flex items-center justify-center text-primary">
                           <Briefcase className="w-6 h-6" />
                         </div>
                         <div>
-                          <p className="text-lg font-black text-zinc-900 dark:text-white group-hover:text-primary transition-colors">
+                          <p className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">
                             {app.jobTitle || app.task?.title || "Task Deleted"}
                           </p>
-                          <p className="text-xs text-zinc-500 font-medium uppercase tracking-widest mt-1">
+                          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mt-1">
                             Ref: #{app.id?.slice(-6).toUpperCase()}
                           </p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-8 py-8 whitespace-nowrap text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+                  <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-muted-foreground">
                     {app.appliedAt && !isNaN(new Date(app.appliedAt).getTime()) ? new Date(app.appliedAt).toLocaleDateString("en-GB", {
                       day: "numeric",
                       month: "short",
                       year: "numeric",
                     }) : "—"}
                   </td>
-                  <td className="px-8 py-8 whitespace-nowrap">
-                    <span
-                      className={`px-4 py-2 text-[10px] font-black rounded-xl uppercase tracking-widest border ${getApplicationStatusStyle(app.status)}`}
-                    >
-                      {app.status === "Shortlisted" ? "Pending" : app.status}
-                    </span>
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    <ApplicationStatusLabel
+                      status={displayApplicationStatus(app.status)}
+                    />
                   </td>
-                  <td className="px-10 py-8 whitespace-nowrap text-right">
+                  <td className="px-4 py-4 whitespace-nowrap text-right">
                     <div className="flex items-center justify-end gap-2">
                       {app.status === "Accepted" && (
-                        <button
+                        <Button
+                          size="compact"
+                          className="bg-blue-600 hover:bg-blue-700"
                           onClick={() => handleRequestCompletion(app.id)}
-                          className="px-6 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/10 group-hover:scale-105"
                         >
                           Request Completion
-                        </button>
+                        </Button>
                       )}
                       {(app.jobId || app.task) && (
-                        <button
+                        <Button
+                          size="action"
+                          variant="primary"
                           onClick={() => navigate(`/jobs/${app.jobId || (app.task as any)?.id || (app.task as any)?._id}`)}
-                          className="px-6 py-3 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primaryHover transition-all shadow-lg shadow-primary/10 group-hover:scale-105"
                         >
-                          View Task
-                        </button>
+                          <Eye className="w-3.5 h-3.5" />
+                          View
+                        </Button>
                       )}
                       {app.task && (
                         <TaskLifecycleActions
@@ -329,19 +314,19 @@ export default function MyApplications() {
                 <tr>
                   <td
                     colSpan={4}
-                    className="px-10 py-24 text-center text-zinc-500 italic"
+                    className="px-4 py-16 text-center text-muted-foreground italic"
                   >
                     You haven't applied for any tasks yet.{" "}
                     <button
                       onClick={() => navigate("/jobs")}
-                      className="text-primary font-black hover:underline ml-2"
+                      className="text-primary font-semibold hover:underline ml-2"
                     >
                       Search Tasks
                     </button>
                     <br />
-                    <span className="text-xs text-zinc-400 block mt-1">
+                    <span className="text-xs text-muted-foreground block mt-1">
                       Tasks you've been offered or assigned appear under{" "}
-                      <button onClick={() => navigate("/my-tasks")} className="text-primary font-black hover:underline">My Tasks</button>.
+                      <button onClick={() => navigate("/my-tasks")} className="text-primary font-semibold hover:underline">My Tasks</button>.
                     </span>
                   </td>
                 </tr>
@@ -349,7 +334,7 @@ export default function MyApplications() {
             </tbody>
           </table>
         </div>
-      </div>
+      </Card>
       <Pagination
         currentPage={currentPage}
         totalPages={totalPages}

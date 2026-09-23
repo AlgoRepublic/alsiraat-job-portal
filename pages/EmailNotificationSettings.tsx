@@ -29,6 +29,7 @@ import {
 import { DefaultEditor } from "react-simple-wysiwyg";
 import { API_BASE_URL } from "../services/api";
 import { useToast } from "../components/Toast";
+import { Button, Card, Input, Label, PageHeader, Textarea } from "@/components/ui";
 
 /* ─── Image Upload Button ─────────────────────────────────────────────────────
  * Converts a selected image/icon file to a base64 data-URL and inserts an
@@ -118,13 +119,14 @@ const ImageUploadBtn: React.FC<ImageUploadBtnProps> = ({ onInsert }) => {
 
       {showUrlInput && (
         <div className="flex items-center gap-1">
-          <input
+          <Input
             type="url"
             value={urlValue}
             onChange={(e) => setUrlValue(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleUrlInsert()}
             placeholder="https://example.com/image.png"
-            className="w-56 px-2.5 py-1 text-xs border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-900 outline-none focus:ring-1 focus:ring-primary"
+            className="w-56"
+            size="compact"
           />
           <button
             type="button"
@@ -439,12 +441,12 @@ export const EmailNotificationSettings: React.FC<{
           </label>
           <div className="relative">
             <Type className="absolute left-3 top-3 w-4 h-4 text-zinc-400" />
-            <input
+            <Input
               type="text"
               value={brand.brandName}
               onChange={(e) => setBrand((p) => ({ ...p, brandName: e.target.value }))}
               placeholder="Al-Siraat College (default)"
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-primary/30 outline-none"
+              className="pl-10"
             />
           </div>
           <p className="text-xs text-zinc-400">Shown in the email header and footer links.</p>
@@ -455,12 +457,11 @@ export const EmailNotificationSettings: React.FC<{
           <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
             Tagline
           </label>
-          <input
+          <Input
             type="text"
             value={brand.brandTagline}
             onChange={(e) => setBrand((p) => ({ ...p, brandTagline: e.target.value }))}
             placeholder="Connecting students with opportunities (default)"
-            className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-primary/30 outline-none"
           />
           <p className="text-xs text-zinc-400">Short subtitle shown below the logo in the header.</p>
         </div>
@@ -485,12 +486,12 @@ export const EmailNotificationSettings: React.FC<{
               onChange={(e) => setBrand((p) => ({ ...p, brandColor: e.target.value }))}
               className="sr-only"
             />
-            <input
+            <Input
               type="text"
               value={brand.brandColor}
               onChange={(e) => setBrand((p) => ({ ...p, brandColor: e.target.value }))}
               placeholder="#812349"
-              className="flex-1 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-mono focus:ring-2 focus:ring-primary/30 outline-none"
+              className="font-mono flex-1"
             />
           </div>
           <p className="text-xs text-zinc-400">Used for the header background and CTA button colour.</p>
@@ -543,10 +544,10 @@ export const EmailNotificationSettings: React.FC<{
           <p className="text-xs text-zinc-400">PNG/SVG under 500 KB. Displayed above the org name in emails.</p>
           {/* URL input */}
           <div className="flex gap-2 mt-2">
-            <input
+            <Input
               type="url"
               placeholder="Or paste a logo URL…"
-              className="flex-1 px-3 py-2 text-xs rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 outline-none focus:ring-1 focus:ring-primary"
+              className="flex-1"
               onBlur={(e) => {
                 if (e.target.value.trim()) {
                   setBrand((p) => ({ ...p, brandLogo: e.target.value.trim() }));
@@ -571,7 +572,7 @@ export const EmailNotificationSettings: React.FC<{
       <div className="space-y-2">
         <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Live Email Header Preview</p>
         <div
-          className="rounded-2xl overflow-hidden shadow-md max-w-sm"
+          className="rounded-xl overflow-hidden shadow-md max-w-sm"
           style={{ background: brand.brandColor || "#812349" }}
         >
           <div className="px-8 py-7 text-center">
@@ -608,7 +609,7 @@ export const EmailNotificationSettings: React.FC<{
 
   const renderProviderAndEnable = () => (
     <div className="space-y-6">
-      <div className="flex items-center justify-between p-5 bg-zinc-50 dark:bg-zinc-800/60 rounded-2xl border border-zinc-200 dark:border-zinc-700">
+      <div>
         <div>
           <p className="font-bold text-zinc-900 dark:text-white text-sm">
             Enable Email Notifications
@@ -677,14 +678,13 @@ export const EmailNotificationSettings: React.FC<{
             <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
               SMTP Host
             </label>
-            <input
+            <Input
               type="text"
               value={smtp.smtpHost}
               onChange={(e) =>
                 setSmtp((p) => ({ ...p, smtpHost: e.target.value }))
               }
               placeholder="smtp.gmail.com"
-              className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-primary/30 outline-none"
             />
           </div>
           <div>
@@ -692,7 +692,7 @@ export const EmailNotificationSettings: React.FC<{
               Port
             </label>
             <div className="flex gap-3">
-              <input
+              <Input
                 type="number"
                 value={smtp.smtpPort}
                 onChange={(e) =>
@@ -701,7 +701,6 @@ export const EmailNotificationSettings: React.FC<{
                     smtpPort: parseInt(e.target.value) || 465,
                   }))
                 }
-                className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-primary/30 outline-none"
               />
               <button
                 onClick={() =>
@@ -728,14 +727,13 @@ export const EmailNotificationSettings: React.FC<{
             <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
               SMTP Username
             </label>
-            <input
+            <Input
               type="email"
               value={smtp.smtpUser}
               onChange={(e) =>
                 setSmtp((p) => ({ ...p, smtpUser: e.target.value }))
               }
               placeholder="your@gmail.com"
-              className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-primary/30 outline-none"
             />
           </div>
           <div>
@@ -743,14 +741,13 @@ export const EmailNotificationSettings: React.FC<{
               App Password / SMTP Password
             </label>
             <div className="relative">
-              <input
+              <Input
                 type={showPass ? "text" : "password"}
                 value={smtp.smtpPass}
                 onChange={(e) =>
                   setSmtp((p) => ({ ...p, smtpPass: e.target.value }))
                 }
                 placeholder="Gmail App Password (16 chars)"
-                className="w-full px-4 py-2.5 pr-10 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-primary/30 outline-none"
               />
               <button
                 type="button"
@@ -773,58 +770,55 @@ export const EmailNotificationSettings: React.FC<{
             <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
               From Name
             </label>
-            <input
+            <Input
               type="text"
               value={smtp.fromName}
               onChange={(e) =>
                 setSmtp((p) => ({ ...p, fromName: e.target.value }))
               }
               placeholder="Al-Siraat Tasker"
-              className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-primary/30 outline-none"
             />
           </div>
           <div>
             <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
               From Email
             </label>
-            <input
+            <Input
               type="email"
               value={smtp.fromEmail}
               onChange={(e) =>
                 setSmtp((p) => ({ ...p, fromEmail: e.target.value }))
               }
               placeholder="noreply@alsiraat.vic.edu.au"
-              className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-primary/30 outline-none"
             />
           </div>
           <div>
             <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
               Reply-To Email
             </label>
-            <input
+            <Input
               type="email"
               value={smtp.replyToEmail}
               onChange={(e) =>
                 setSmtp((p) => ({ ...p, replyToEmail: e.target.value }))
               }
               placeholder="support@alsiraat.vic.edu.au"
-              className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-primary/30 outline-none"
             />
           </div>
         </div>
 
         {/* Test connection */}
-        <div className="border border-dashed border-zinc-200 dark:border-zinc-700 rounded-2xl p-5 space-y-3">
+        <div className="border border-dashed border-zinc-200 dark:border-zinc-700 rounded-xl p-5 space-y-3">
           <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
             Test Connection
           </p>
           <div className="flex gap-3">
-            <input
+            <Input
               type="email"
               value={testEmail}
               onChange={(e) => setTestEmail(e.target.value)}
               placeholder="Send test email to..."
-              className="flex-1 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-primary/30 outline-none"
+              className="flex-1"
             />
             <button
               onClick={handleTest}
@@ -891,7 +885,7 @@ export const EmailNotificationSettings: React.FC<{
             <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
               Connection String
             </label>
-            <input
+            <Input
               type="password"
               autoComplete="off"
               value={azure.azureConnectionString}
@@ -906,7 +900,7 @@ export const EmailNotificationSettings: React.FC<{
                   ? "Stored in database — enter new value to replace"
                   : "endpoint=https://...;accesskey=..."
               }
-              className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-primary/30 outline-none font-mono"
+              className="font-mono"
             />
             <p className="text-xs text-zinc-500 mt-1">
               {azure.azureConnectionString === "••••••••"
@@ -918,14 +912,13 @@ export const EmailNotificationSettings: React.FC<{
             <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
               From Email (Sender Address)
             </label>
-            <input
+            <Input
               type="email"
               value={azure.azureFromEmail}
               onChange={(e) =>
                 setAzure((p) => ({ ...p, azureFromEmail: e.target.value }))
               }
               placeholder="no-reply@taskerapp.au"
-              className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-primary/30 outline-none"
             />
             <p className="text-xs text-zinc-500 mt-1">
               Must be an allowable sender address in your Azure Email
@@ -935,17 +928,17 @@ export const EmailNotificationSettings: React.FC<{
         </div>
 
         {/* Test connection */}
-        <div className="border border-dashed border-zinc-200 dark:border-zinc-700 rounded-2xl p-5 space-y-3">
+        <div className="border border-dashed border-zinc-200 dark:border-zinc-700 rounded-xl p-5 space-y-3">
           <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
             Test Connection
           </p>
           <div className="flex gap-3">
-            <input
+            <Input
               type="email"
               value={testEmail}
               onChange={(e) => setTestEmail(e.target.value)}
               placeholder="Send test email to..."
-              className="flex-1 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-primary/30 outline-none"
+              className="flex-1"
             />
             <button
               onClick={handleTest}
@@ -994,7 +987,7 @@ export const EmailNotificationSettings: React.FC<{
         return (
           <div
             key={meta.eventKey}
-            className={`rounded-2xl border transition-all ${
+            className={`rounded-xl border transition-all ${
               isExpanded
                 ? "border-primary/40 shadow-md shadow-primary/5"
                 : "border-zinc-200 dark:border-zinc-700"
@@ -1084,14 +1077,13 @@ export const EmailNotificationSettings: React.FC<{
                   <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
                     Subject Line
                   </label>
-                  <input
+                  <Input
                     type="text"
                     value={tpl.subject}
                     onChange={(e) =>
                       updateTemplate(meta.eventKey, { subject: e.target.value })
                     }
                     placeholder={meta.defaultSubject}
-                    className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-primary/30 outline-none"
                   />
                 </div>
 
@@ -1157,7 +1149,7 @@ export const EmailNotificationSettings: React.FC<{
                     <div className="rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700 wysiwyg-wrapper">
                       {/* Custom toolbar row above the WYSIWYG editor */}
                       <div className="flex items-center gap-2 flex-wrap px-3 py-2 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-800/50">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Insert:</span>
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Insert:</span>
                         <ImageUploadBtn
                           onInsert={(html) =>
                             updateTemplate(meta.eventKey, {
@@ -1254,7 +1246,7 @@ export const EmailNotificationSettings: React.FC<{
                       />
                     </div>
                   ) : (
-                    <textarea
+                    <Textarea
                       value={tab === "html" ? tpl.bodyHtml : tpl.bodyText}
                       onChange={(e) =>
                         updateTemplate(meta.eventKey, {
@@ -1268,7 +1260,7 @@ export const EmailNotificationSettings: React.FC<{
                           ? "<p>Hi <strong>{{name}}</strong>,</p>\n<p>Your message here...</p>"
                           : meta.defaultBodyText
                       }
-                      className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-mono focus:ring-2 focus:ring-primary/30 outline-none resize-y"
+                      className="font-mono"
                     />
                   )}
 
@@ -1305,40 +1297,29 @@ export const EmailNotificationSettings: React.FC<{
   }
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      {/* Page header */}
-      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
-            Email Settings
-          </h2>
-          <p className="text-zinc-500 font-medium mt-1">
-            Configure SMTP settings and customise email templates for each
-            notification event
-          </p>
-        </div>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/90 transition-colors disabled:opacity-60 shrink-0"
-        >
-          {saving ? (
-            <RefreshCw className="w-4 h-4 animate-spin" />
-          ) : (
-            <Save className="w-4 h-4" />
-          )}
-          {saving ? "Saving…" : "Save All Settings"}
-        </button>
-      </div>
+    <div className="animate-fade-in space-y-6">
+      <PageHeader
+        title="Email Settings"
+        description="Configure SMTP settings and customise email templates for each notification event"
+        actions={
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            {saving ? "Saving…" : "Save All Settings"}
+          </Button>
+        }
+      />
 
-      {/* ── Brand Settings Section ── */}
-      <div className="bg-white dark:bg-zinc-900/50 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm overflow-hidden">
+      <Card padding="none" className="overflow-hidden">
         <div className="flex items-center gap-3 px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/40">
           <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
             <Palette className="w-4 h-4 text-primary" />
           </div>
           <div>
-            <h3 className="font-black text-zinc-900 dark:text-white text-sm">
+            <h3 className="font-semibold text-zinc-900 dark:text-white text-sm">
               Email Branding
             </h3>
             <p className="text-xs text-zinc-500">
@@ -1352,10 +1333,9 @@ export const EmailNotificationSettings: React.FC<{
           )}
         </div>
         <div className="p-6 space-y-6">{renderBrandPanel()}</div>
-      </div>
+      </Card>
 
-      {/* ── Email Provider Section ── */}
-      <div className="bg-white dark:bg-zinc-900/50 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm overflow-hidden">
+      <Card padding="none" className="overflow-hidden">
         <div className="flex items-center gap-3 px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/40">
           <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
             {emailProvider === "azure" ? (
@@ -1365,7 +1345,7 @@ export const EmailNotificationSettings: React.FC<{
             )}
           </div>
           <div>
-            <h3 className="font-black text-zinc-900 dark:text-white text-sm">
+            <h3 className="font-semibold text-zinc-900 dark:text-white text-sm">
               {emailProvider === "azure"
                 ? "Azure Communication Services"
                 : "SMTP Configuration"}
@@ -1392,16 +1372,15 @@ export const EmailNotificationSettings: React.FC<{
           {renderProviderAndEnable()}
           {emailProvider === "smtp" ? renderSmtpPanel() : renderAzurePanel()}
         </div>
-      </div>
+      </Card>
 
-      {/* ── Email Templates Section ── */}
-      <div className="bg-white dark:bg-zinc-900/50 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm overflow-hidden">
+      <Card padding="none" className="overflow-hidden">
         <div className="flex items-center gap-3 px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/40">
           <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
             <Mail className="w-4 h-4 text-primary" />
           </div>
           <div>
-            <h3 className="font-black text-zinc-900 dark:text-white text-sm">
+            <h3 className="font-semibold text-zinc-900 dark:text-white text-sm">
               Email Templates
             </h3>
             <p className="text-xs text-zinc-500">
@@ -1423,7 +1402,7 @@ export const EmailNotificationSettings: React.FC<{
           </div>
         </div>
         <div className="p-6">{renderTemplateEditor()}</div>
-      </div>
+      </Card>
     </div>
   );
 };

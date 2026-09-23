@@ -31,6 +31,17 @@ import { getUserRoleCodesForActiveOrg } from "../utils/orgScopedRoles";
 import { organisationIdToString } from "../utils/organisationId";
 import { TaskRewardText } from "../components/TaskRewardText";
 import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
+import { PageHeader } from "@/components/ui/page-header";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ApplicationStatusLabel } from "@/utils/statusDisplay";
+import {
+  Modal,
+  ModalFooter,
+  ModalHeader,
+  ModalTitle,
+} from "@/components/ui/modal";
 
 // Build absolute URL for resume downloads
 const buildFileUrl = (relativePath: string): string => {
@@ -238,30 +249,6 @@ export const ApplicationReview: React.FC = () => {
       </div>
     );
 
-  const getStatusStyle = (status: string) => {
-    switch (status) {
-      case "Approved":
-      case "Offer Accepted":
-        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
-      case "Rejected":
-      case "Declined":
-      case "Offer Declined":
-        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
-      case "Offered":
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400";
-      case "Accepted":
-      case "Completed":
-        return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400";
-      case "Shortlisted":
-      case "Completion Requested":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
-      case "Completion Rejected":
-        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
-      default:
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400";
-    }
-  };
-
   const getStatusLabel = (status: string) => {
     if (status === "Accepted") return "Offer Accepted";
     if (status === "Declined") return "Offer Declined";
@@ -358,96 +345,76 @@ export const ApplicationReview: React.FC = () => {
     <div className="max-w-5xl mx-auto space-y-6 animate-fade-in pb-24 relative">
       {isUpdating && <LoadingOverlay message="Updating Status..." />}
 
-      {/* Back nav */}
-      <button
+      <Button
+        variant="ghost"
+        size="compact"
+        className="-mb-2 px-0"
         onClick={() => navigate(-1)}
-        className="flex items-center gap-2 text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors group"
       >
-        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+        <ArrowLeft className="h-4 w-4" />
         Back
-      </button>
+      </Button>
 
-      {/* ── Hero Header ─────────────────────────────────────────── */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
-        {/* Gradient stripe */}
-        <div className="h-1.5 bg-gradient-to-r from-primary via-blue-500 to-purple-500" />
-
-        <div className="p-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
-          <div className="flex items-center gap-5">
-            {/* Avatar / Initials */}
-            {app.applicantAvatar ? (
-              <img
-                src={app.applicantAvatar}
-                alt={app.applicantName}
-                className="w-20 h-20 rounded-2xl object-cover border-4 border-white dark:border-zinc-800 shadow-lg"
-              />
-            ) : (
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center text-white text-2xl font-black shadow-lg border-4 border-white dark:border-zinc-800">
-                {initials}
-              </div>
-            )}
-
-            <div>
-              <h1 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tight">
-                {app.applicantName}
-              </h1>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
-                {app.applicantEmail}
-              </p>
-              {/* Quick meta pills */}
-              <div className="flex flex-wrap items-center gap-2 mt-2">
-                {app.applicantGender && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded-lg text-xs font-semibold">
-                    <User className="w-3 h-3" />
-                    {app.applicantGender}
-                  </span>
-                )}
-                {app.applicantYearLevel && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded-lg text-xs font-semibold">
-                    <GraduationCap className="w-3 h-3" />
-                    Year {app.applicantYearLevel}
-                  </span>
-                )}
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded-lg text-xs font-semibold">
-                  Applied for:{" "}
-                  <span className="text-primary font-black">{job.title}</span>
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Status + applied date */}
-          <div className="flex flex-col items-start sm:items-end gap-2">
-            <span
-              className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest ${getStatusStyle(app.status)}`}
-            >
-              {getStatusLabel(app.status)}
-            </span>
-            <div className="flex items-center gap-1.5 text-xs text-zinc-400">
-              <Clock className="w-3.5 h-3.5" />
+      <PageHeader
+        title={app.applicantName}
+        description={app.applicantEmail}
+        actions={
+          <div className="flex flex-col items-end gap-2">
+            <ApplicationStatusLabel status={getStatusLabel(app.status)} />
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Clock className="h-3.5 w-3.5" />
               Applied{" "}
-              {app.appliedAt && !isNaN(new Date(app.appliedAt).getTime()) ? new Date(app.appliedAt).toLocaleDateString("en-GB", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              }) : "—"}
+              {app.appliedAt && !isNaN(new Date(app.appliedAt).getTime())
+                ? new Date(app.appliedAt).toLocaleDateString("en-GB", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })
+                : "—"}
             </div>
           </div>
-        </div>
-        <div className="px-8 pb-6 pt-2 flex flex-wrap justify-end gap-2 border-t border-zinc-100 dark:border-zinc-800">
-          <TaskLifecycleActions
-            job={job}
-            currentUser={currentUser}
-            layout="detail"
-            onAfterMutation={async () => {
-              if (app.jobId) {
-                const j = await db.getJob(app.jobId);
-                if (j) setJob(j);
-              }
-            }}
+        }
+      />
+
+      <Card className="flex flex-wrap items-center gap-4">
+        {app.applicantAvatar ? (
+          <img
+            src={app.applicantAvatar}
+            alt={app.applicantName}
+            className="h-14 w-14 rounded-control object-cover border border-border"
           />
+        ) : (
+          <div className="flex h-14 w-14 items-center justify-center rounded-control bg-primary text-lg font-semibold text-white">
+            {initials}
+          </div>
+        )}
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          {app.applicantGender && (
+            <Badge variant="chip" className="gap-1">
+              <User className="h-3 w-3" />
+              {app.applicantGender}
+            </Badge>
+          )}
+          {app.applicantYearLevel && (
+            <Badge variant="chip" className="gap-1">
+              <GraduationCap className="h-3 w-3" />
+              Year {app.applicantYearLevel}
+            </Badge>
+          )}
+          <Badge variant="chipPrimary">Applied for: {job.title}</Badge>
         </div>
-      </div>
+        <TaskLifecycleActions
+          job={job}
+          currentUser={currentUser}
+          layout="detail"
+          onAfterMutation={async () => {
+            if (app.jobId) {
+              const j = await db.getJob(app.jobId);
+              if (j) setJob(j);
+            }
+          }}
+        />
+      </Card>
 
       {/* ── Main 2-col grid ──────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -455,20 +422,20 @@ export const ApplicationReview: React.FC = () => {
         <div className="lg:col-span-2 space-y-6">
           {/* About / Bio */}
           {app.applicantAbout && (
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6">
-              <h3 className="flex items-center gap-2 text-xs font-black text-zinc-400 uppercase tracking-widest mb-4">
+            <Card>
+              <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <User className="w-4 h-4" />
                 About
               </h3>
               <p className="text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">
                 {app.applicantAbout}
               </p>
-            </div>
+            </Card>
           )}
 
           {/* Cover Letter */}
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6">
-            <h3 className="flex items-center gap-2 text-xs font-black text-zinc-400 uppercase tracking-widest mb-4">
+          <Card>
+            <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <FileText className="w-4 h-4" />
               Cover Letter
             </h3>
@@ -481,11 +448,11 @@ export const ApplicationReview: React.FC = () => {
                 No cover letter provided.
               </p>
             )}
-          </div>
+          </Card>
 
           {/* Availability */}
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6">
-            <h3 className="flex items-center gap-2 text-xs font-black text-zinc-400 uppercase tracking-widest mb-4">
+          <Card>
+            <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <Calendar className="w-4 h-4" />
               Expected Availability
             </h3>
@@ -499,12 +466,12 @@ export const ApplicationReview: React.FC = () => {
             ) : (
               <p className="text-zinc-400 italic text-sm">Not specified.</p>
             )}
-          </div>
+          </Card>
 
           {/* Skills */}
           {skills.length > 0 && (
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6">
-              <h3 className="flex items-center gap-2 text-xs font-black text-zinc-400 uppercase tracking-widest mb-4">
+            <Card>
+              <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <Sparkles className="w-4 h-4" />
                 Skills &amp; Expertise
               </h3>
@@ -524,13 +491,13 @@ export const ApplicationReview: React.FC = () => {
                   </span>
                 ))}
               </div>
-            </div>
+            </Card>
           )}
 
           {/* Experience */}
           {experience.length > 0 && (
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6">
-              <h3 className="flex items-center gap-2 text-xs font-black text-zinc-400 uppercase tracking-widest mb-4">
+            <Card>
+              <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <Briefcase className="w-4 h-4" />
                 Completed Tasks / Experience
               </h3>
@@ -576,15 +543,15 @@ export const ApplicationReview: React.FC = () => {
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
           )}
         </div>
 
         {/* Right column (sidebar) */}
         <div className="space-y-6">
           {/* Contact Details */}
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6">
-            <h3 className="flex items-center gap-2 text-xs font-black text-zinc-400 uppercase tracking-widest mb-4">
+          <Card>
+            <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <Users className="w-4 h-4" />
               Contact Details
             </h3>
@@ -621,11 +588,11 @@ export const ApplicationReview: React.FC = () => {
                 </span>
               </div>
             </div>
-          </div>
+          </Card>
 
           {/* CV / Resume */}
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6">
-            <h3 className="flex items-center gap-2 text-xs font-black text-zinc-400 uppercase tracking-widest mb-4">
+          <Card>
+            <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <BookOpen className="w-4 h-4" />
               CV / Resume
             </h3>
@@ -655,12 +622,12 @@ export const ApplicationReview: React.FC = () => {
                 <p className="text-xs font-semibold">No CV uploaded</p>
               </div>
             )}
-          </div>
+          </Card>
 
           {/* Skills quick summary (sidebar pills) */}
           {skills.length > 0 && (
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6">
-              <h3 className="flex items-center gap-2 text-xs font-black text-zinc-400 uppercase tracking-widest mb-4">
+            <Card>
+              <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <Sparkles className="w-4 h-4" />
                 Top Skills
               </h3>
@@ -679,7 +646,7 @@ export const ApplicationReview: React.FC = () => {
                   </span>
                 )}
               </div>
-            </div>
+            </Card>
           )}
 
           {/* ── Action Panel ────────────────────────── */}
@@ -689,8 +656,8 @@ export const ApplicationReview: React.FC = () => {
             // Manager actions
             if (canShowDecisionActions || canShowCompletionActions || canShowReviewActions) {
               return (
-                <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
-                  <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-4">
+                <Card>
+                  <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Manager Actions
                   </h3>
                   <div className="space-y-3">
@@ -767,7 +734,7 @@ export const ApplicationReview: React.FC = () => {
                       <div className="border-t border-zinc-100 dark:border-zinc-800 pt-4 mt-2">
                         {app.rating ? (
                           <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/50 rounded-xl p-4">
-                            <h4 className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                            <h4 className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
                               <CheckCircle className="w-3 h-3" />
                               Review Submitted
                             </h4>
@@ -802,7 +769,7 @@ export const ApplicationReview: React.FC = () => {
                       </div>
                     )}
                   </div>
-                </div>
+                </Card>
               );
             }
 
@@ -818,8 +785,8 @@ export const ApplicationReview: React.FC = () => {
 
             if (canConfirmOffer || canDeclineOffer) {
               return (
-                <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6">
-                  <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-4">
+                <Card>
+                  <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Task Offer
                   </h3>
                   <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
@@ -851,7 +818,7 @@ export const ApplicationReview: React.FC = () => {
                       </button>
                     )}
                   </div>
-                </div>
+                </Card>
               );
             }
 
@@ -864,7 +831,7 @@ export const ApplicationReview: React.FC = () => {
               <div className="flex items-start gap-3">
                 <AlertTriangle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
                 <div>
-                  <p className="text-xs font-black text-red-600 dark:text-red-400 uppercase tracking-widest mb-1">
+                  <p className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-widest mb-1">
                     Rejection Reason
                   </p>
                   <p className="text-sm text-red-700 dark:text-red-300">
@@ -878,58 +845,46 @@ export const ApplicationReview: React.FC = () => {
       </div>
 
       {/* ── Reject Completion Modal ──────────────────────────── */}
-      {showRejectModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-zinc-900 w-full max-w-md p-6 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 animate-scale-in">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                <XCircle className="w-5 h-5 text-red-600" />
-              </div>
-              <h3 className="text-xl font-black text-zinc-900 dark:text-white">
-                Reject Completion
-              </h3>
-            </div>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-              Please provide a reason. The applicant will be notified.
-            </p>
-            <textarea
-              className="w-full p-4 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl mb-4 focus:ring-2 focus:ring-red-500 focus:outline-none dark:text-white text-sm resize-none"
-              rows={4}
-              placeholder="Reason for rejecting completion..."
-              value={rejectionReason}
-              onChange={(e) => setRejectionReason(e.target.value)}
-            />
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowRejectModal(false)}
-                className="px-5 py-2.5 text-zinc-600 dark:text-zinc-400 font-bold text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmRejectCompletion}
-                disabled={!rejectionReason.trim()}
-                className="px-5 py-2.5 bg-red-600 text-white font-bold text-sm rounded-xl hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Reject Completion
-              </button>
-            </div>
+      <Modal open={showRejectModal} onClose={() => setShowRejectModal(false)}>
+        <ModalHeader className="flex flex-row items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-control bg-red-100 dark:bg-red-900/30">
+            <XCircle className="h-5 w-5 text-red-600" />
           </div>
-        </div>
-      )}
+          <ModalTitle>Reject completion</ModalTitle>
+        </ModalHeader>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Please provide a reason. The applicant will be notified.
+        </p>
+        <textarea
+          className="mb-4 w-full resize-none rounded-control border border-border bg-surface p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30"
+          rows={4}
+          placeholder="Reason for rejecting completion..."
+          value={rejectionReason}
+          onChange={(e) => setRejectionReason(e.target.value)}
+        />
+        <ModalFooter>
+          <Button variant="secondary" size="compact" onClick={() => setShowRejectModal(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            size="compact"
+            onClick={confirmRejectCompletion}
+            disabled={!rejectionReason.trim()}
+          >
+            Reject completion
+          </Button>
+        </ModalFooter>
+      </Modal>
 
       {/* ── Review Submission Modal ──────────────────────────── */}
-      {showReviewForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-zinc-900 w-full max-w-sm p-6 rounded-3xl shadow-2xl border border-zinc-200 dark:border-zinc-800 animate-scale-in">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center">
-                <Star className="w-5 h-5 text-primary" />
+      <Modal open={showReviewForm} onClose={() => setShowReviewForm(false)} panelClassName="max-w-sm">
+            <ModalHeader className="flex flex-row items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-control bg-primary/10">
+                <Star className="h-5 w-5 text-primary" />
               </div>
-              <h3 className="text-lg font-black text-zinc-900 dark:text-white">
-                Rate Performance
-              </h3>
-            </div>
+              <ModalTitle>Rate performance</ModalTitle>
+            </ModalHeader>
 
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-6 leading-relaxed">
               How would you rate {app.applicantName.split(" ")[0]}'s
@@ -960,22 +915,14 @@ export const ApplicationReview: React.FC = () => {
             />
 
             <div className="flex flex-col gap-2">
-              <button
-                onClick={handleSubmitReview}
-                className="w-full py-3 bg-primary text-white font-bold text-sm rounded-2xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/30"
-              >
-                Submit Feedback
-              </button>
-              <button
-                onClick={() => setShowReviewForm(false)}
-                className="w-full py-3 text-zinc-500 font-bold text-xs hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
-              >
-                Maybe Later
-              </button>
+              <Button className="w-full" onClick={handleSubmitReview}>
+                Submit feedback
+              </Button>
+              <Button variant="ghost" className="w-full" onClick={() => setShowReviewForm(false)}>
+                Maybe later
+              </Button>
             </div>
-          </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 };

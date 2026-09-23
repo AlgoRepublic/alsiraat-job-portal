@@ -17,6 +17,16 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Loading } from "../components/Loading";
+import { MemberRoleBadges } from "../components/MemberRoleBadges";
+import {
+  Badge,
+  Button,
+  Card,
+  Input,
+  Label,
+  PageHeader,
+  Textarea,
+} from "@/components/ui";
 import {
   getActiveOrgIdFromStorage,
   getMemberKindForActiveOrg,
@@ -29,7 +39,6 @@ import {
   Permission,
 } from "../services/permissions";
 import type { OrgMemberKind } from "../types";
-import type { MemberRoleView } from "@/shared/memberRoleView";
 
 type OrgRoleCatalogueEntry = {
   _id: string;
@@ -77,33 +86,6 @@ const resolveMemberUser = (member: unknown, allUsers: { _id: string }[]) => {
   return typeof member === "string" ? null : member;
 };
 
-const renderMemberRoleBadges = (
-  user: Parameters<typeof getMemberRolesForActiveOrg>[0],
-  activeOrgId?: string | null,
-  roleCatalogue?: OrgRoleCatalogueEntry[],
-) => {
-  const displayRoles = getMemberRolesForActiveOrg(
-    user,
-    activeOrgId,
-    roleCatalogue,
-  );
-  if (displayRoles.length === 0) {
-    return null;
-  }
-  return displayRoles.map((r: MemberRoleView) => (
-    <span
-      key={r.id}
-      className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg ${
-        r.isActive === false
-          ? "text-amber-700 bg-amber-50 dark:bg-amber-900/30 dark:text-amber-200"
-          : "text-zinc-400 bg-zinc-100 dark:bg-zinc-800"
-      }`}
-    >
-      {r.name}
-      {r.isActive === false ? " (inactive)" : ""}
-    </span>
-  ));
-};
 
 const GROUP_COLORS = [
   "#812349", // AlSiraat
@@ -163,13 +145,13 @@ const GroupMemberTable: React.FC<{
       <table className="w-full text-left">
         <thead>
           <tr className="border-b border-zinc-50 dark:border-zinc-800">
-            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">
+            <th className="px-6 py-4 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
               Member
             </th>
-            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">
+            <th className="px-6 py-4 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
               Role
             </th>
-            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-400 text-right">
+            <th className="px-6 py-4 text-[10px] font-semibold uppercase tracking-wide text-zinc-400 text-right">
               Remove
             </th>
           </tr>
@@ -203,13 +185,18 @@ const GroupMemberTable: React.FC<{
               </td>
               <td className="px-6 py-4">
                 <div className="flex flex-wrap gap-1">
-                  {renderMemberRoleBadges(
-                    member,
-                    activeOrgId,
-                    roleCatalogue,
-                  ) ?? (
-                    <span className="text-xs text-zinc-400">—</span>
-                  )}
+                  {(() => {
+                    const roles = getMemberRolesForActiveOrg(
+                      member,
+                      activeOrgId,
+                      roleCatalogue,
+                    );
+                    return roles.length > 0 ? (
+                      <MemberRoleBadges roles={roles} />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    );
+                  })()}
                 </div>
               </td>
               <td className="px-6 py-4 text-right">
@@ -273,9 +260,9 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-white dark:bg-zinc-900 rounded-[2rem] p-8 w-full max-w-md shadow-2xl border border-zinc-100 dark:border-zinc-800">
+      <div className="bg-white dark:bg-zinc-900 rounded-surface p-8 w-full max-w-md shadow-2xl border border-zinc-100 dark:border-zinc-800">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter">
+          <h2 className="text-2xl font-semibold text-zinc-900 dark:text-white tracking-tighter">
             {initial ? "Edit Group" : "Create Group"}
           </h2>
           <button
@@ -289,11 +276,9 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
         <div className="space-y-5">
           {!initial && (
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                Group kind *
-              </label>
+              <Label className="text-zinc-400">Group kind *</Label>
               <select
-                className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 font-bold text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+                className="font-bold h-auto py-3"
                 value={kind}
                 onChange={(e) =>
                   setKind(e.target.value as OrgMemberKind)
@@ -307,10 +292,10 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
 
           {initial?.kind && (
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+              <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">
                 Kind
               </span>
-              <span className="px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+              <span className="px-2 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wide bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
                 {initial.kind}
                 {isDefaultGroup ? " · Default" : ""}
               </span>
@@ -318,12 +303,10 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
           )}
 
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-              Group Name *
-            </label>
-            <input
+            <Label className="text-zinc-400">Group Name *</Label>
+            <Input
               type="text"
-              className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 font-bold text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-primary/30 transition-all disabled:opacity-60"
+              className="font-bold h-auto py-3"
               placeholder="e.g. Parents, Teachers, Year 7..."
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -333,11 +316,9 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
           </div>
 
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-              Description
-            </label>
-            <textarea
-              className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 font-medium text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-primary/30 transition-all resize-none h-20"
+            <Label className="text-zinc-400">Description</Label>
+            <Textarea
+              className="font-medium h-20 resize-none h-auto py-3"
               placeholder="Brief description of this group..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -346,9 +327,7 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
 
           {!isExternalKind && (
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-              SSO / ADFS group mapping
-            </label>
+            <Label className="text-zinc-400">SSO / ADFS group mapping</Label>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
               ADFS claim values that auto-add users to this group on SSO login (e.g. &quot;Tasker - Group - Students&quot;).
             </p>
@@ -374,9 +353,9 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
               </div>
             )}
             <div className="flex gap-2">
-              <input
+              <Input
                 type="text"
-                className="flex-1 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 text-sm text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-primary/30"
+                className="flex-1"
                 placeholder="e.g. Tasker - Group - Students"
                 value={oidcMappingInput}
                 onChange={(e) => setOidcMappingInput(e.target.value)}
@@ -411,9 +390,7 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
           )}
 
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-              Colour
-            </label>
+            <Label className="text-zinc-400">Colour</Label>
             <div className="flex gap-3 flex-wrap">
               {GROUP_COLORS.map((c) => (
                 <button
@@ -432,14 +409,14 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
         <div className="flex gap-3 mt-8">
           <button
             onClick={onClose}
-            className="flex-1 py-4 rounded-2xl border border-zinc-200 dark:border-zinc-700 font-black text-xs uppercase tracking-widest text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all"
+            className="flex-1 py-4 rounded-xl border border-zinc-200 dark:border-zinc-700 font-semibold text-xs uppercase tracking-wide text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={!name.trim() || saving}
-            className="flex-1 py-4 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:bg-primaryHover transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
+            className="flex-1 py-4 rounded-xl bg-primary text-white font-semibold text-xs uppercase tracking-wide hover:bg-primaryHover transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
           >
             {saving ? "Saving..." : initial ? "Update" : "Create"}
           </button>
@@ -538,10 +515,10 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-white dark:bg-zinc-900 rounded-[2rem] p-8 w-full max-w-lg shadow-2xl border border-zinc-100 dark:border-zinc-800 flex flex-col max-h-[80vh]">
+      <div className="bg-white dark:bg-zinc-900 rounded-surface p-8 w-full max-w-lg shadow-2xl border border-zinc-100 dark:border-zinc-800 flex flex-col max-h-[80vh]">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter">
+            <h2 className="text-2xl font-semibold text-zinc-900 dark:text-white tracking-tighter">
               {isApprovalMode ? "Add Approval Members" : "Add Members"}
             </h2>
             <p className="text-sm text-zinc-400 font-medium mt-1">
@@ -564,10 +541,10 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
 
         <div className="relative mb-4">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-          <input
+          <Input
             type="text"
             placeholder="Search users..."
-            className="w-full pl-11 pr-4 py-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 font-medium text-sm outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+            className="font-medium"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             autoFocus
@@ -577,7 +554,7 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
         <div className="flex-1 overflow-y-auto min-h-0">
           {existingMembers.length > 0 && (
             <div className="mb-4">
-              <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2 px-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 mb-2 px-1">
                 {isApprovalMode ? "Approval members" : "Existing members"} (
                 {existingMembers.length})
               </p>
@@ -585,7 +562,7 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
                 {existingMembers.map((user: any) => (
                   <div
                     key={user._id}
-                    className="w-full flex items-center gap-3 p-3 rounded-2xl border border-zinc-100 dark:border-zinc-800"
+                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-zinc-100 dark:border-zinc-800"
                   >
                     <div className="w-9 h-9 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden flex-shrink-0">
                       {user.avatar ? (
@@ -604,11 +581,13 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
                       </p>
                       <p className="text-xs text-zinc-400 truncate">{user.email}</p>
                       <div className="flex flex-wrap gap-1 mt-1 max-h-11 overflow-hidden">
-                        {renderMemberRoleBadges(
-                          user,
-                          activeOrgId,
-                          roleCatalogue,
-                        )}
+                        <MemberRoleBadges
+                          roles={getMemberRolesForActiveOrg(
+                            user,
+                            activeOrgId,
+                            roleCatalogue,
+                          )}
+                        />
                       </div>
                     </div>
                     {canRemoveOrDeleteUser(user) &&
@@ -616,7 +595,7 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
                       <button
                         onClick={() => handleRemove(user._id)}
                         disabled={removingId === user._id || saving}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 disabled:opacity-50 transition-all"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-semibold uppercase tracking-wide text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 disabled:opacity-50 transition-all"
                         title={
                           isApprovalMode
                             ? "Remove approval member"
@@ -649,7 +628,7 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
                 <button
                   key={user._id}
                   onClick={() => toggle(user._id)}
-                  className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all text-left ${
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left ${
                     isSelected
                       ? "bg-primary/10 border-2 border-primary/30"
                       : "hover:bg-zinc-50 dark:hover:bg-zinc-800 border-2 border-transparent"
@@ -674,11 +653,13 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
                       {user.email}
                     </p>
                     <div className="flex flex-wrap gap-1 mt-1 max-h-11 overflow-hidden">
-                      {renderMemberRoleBadges(
-                        user,
-                        activeOrgId,
-                        roleCatalogue,
-                      )}
+                      <MemberRoleBadges
+                        roles={getMemberRolesForActiveOrg(
+                          user,
+                          activeOrgId,
+                          roleCatalogue,
+                        )}
+                      />
                     </div>
                   </div>
                   {isSelected && (
@@ -694,14 +675,14 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
         <div className="flex gap-3 mt-6 pt-4 border-t border-zinc-100 dark:border-zinc-800">
           <button
             onClick={onClose}
-            className="flex-1 py-4 rounded-2xl border border-zinc-200 dark:border-zinc-700 font-black text-xs uppercase tracking-widest text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all"
+            className="flex-1 py-4 rounded-xl border border-zinc-200 dark:border-zinc-700 font-semibold text-xs uppercase tracking-wide text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all"
           >
             Cancel
           </button>
           <button
             onClick={handleAdd}
             disabled={selected.length === 0 || saving}
-            className="flex-1 py-4 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:bg-primaryHover transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
+            className="flex-1 py-4 rounded-xl bg-primary text-white font-semibold text-xs uppercase tracking-wide hover:bg-primaryHover transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
           >
             {saving
               ? "Adding..."
@@ -885,36 +866,27 @@ export const GroupManagement: React.FC<{
   const canRemoveOrDeleteUser = (user: any) => !user?.isSuperAdmin;
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tighter">
-            Group Management
-          </h1>
-          <p className="text-zinc-500 font-medium mt-2">
-            Organise users into groups to control task visibility
-          </p>
-        </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-primaryHover transition-all shadow-lg shadow-primary/20 hover:-translate-y-0.5"
-        >
-          <Plus className="w-4 h-4" />
-          New Group
-        </button>
-      </div>
+    <div className="animate-fade-in space-y-6">
+      <PageHeader
+        title="Group Management"
+        description="Organise users into groups to control task visibility"
+        actions={
+          <Button onClick={() => setShowCreateModal(true)}>
+            <Plus className="h-4 w-4" />
+            New Group
+          </Button>
+        }
+      />
 
-      <div className="grid md:grid-cols-4 gap-6">
-        <div className="md:col-span-3 space-y-6">
-          {/* Search */}
-          <div className="flex flex-col gap-4 bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+      <div className="grid gap-6 md:grid-cols-4">
+        <div className="space-y-6 md:col-span-3">
+          <Card className="flex flex-col gap-4">
             <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
-              <input
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
                 type="text"
                 placeholder="Search groups..."
-                className="w-full pl-10 pr-4 py-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-primary outline-none font-medium text-sm transition-all"
+                className="pl-9"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -925,7 +897,7 @@ export const GroupManagement: React.FC<{
                   key={tab}
                   type="button"
                   onClick={() => setKindFilter(tab)}
-                  className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                  className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all ${
                     kindFilter === tab
                       ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-700"
                       : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
@@ -933,7 +905,7 @@ export const GroupManagement: React.FC<{
                 >
                   {tab}
                   <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                       kindFilter === tab
                         ? "bg-primary/10 text-primary"
                         : "bg-zinc-200 dark:bg-zinc-700 text-zinc-500"
@@ -944,42 +916,36 @@ export const GroupManagement: React.FC<{
                 </button>
               ))}
             </div>
-          </div>
+          </Card>
 
           {/* Groups List */}
           {loading ? (
             <Loading message="Loading groups..." />
           ) : filteredGroups.length === 0 ? (
-            <div className="bg-white dark:bg-zinc-900 rounded-[2rem] border border-zinc-100 dark:border-zinc-800 p-20 text-center">
-              <Layers className="w-16 h-16 text-zinc-200 dark:text-zinc-800 mx-auto mb-4" />
-              <p className="text-zinc-500 font-bold">
+            <Card className="p-20 text-center">
+              <Layers className="mx-auto mb-4 h-16 w-16 text-muted-foreground/30" />
+              <p className="font-semibold text-muted-foreground">
                 {searchTerm || kindFilter !== "All"
                   ? "No groups match your filters"
                   : "No groups yet"}
               </p>
               {!searchTerm && kindFilter === "All" && (
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="mt-4 px-6 py-3 bg-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-primaryHover transition-all"
-                >
+                <Button className="mt-4" onClick={() => setShowCreateModal(true)}>
                   Create First Group
-                </button>
+                </Button>
               )}
-            </div>
+            </Card>
           ) : (
             <div className="space-y-4">
               {filteredGroups.map((group) => {
                 const isExpanded = expandedGroup === group._id;
                 return (
-                  <div
-                    key={group._id}
-                    className="bg-white dark:bg-zinc-900 rounded-[2rem] border border-zinc-100 dark:border-zinc-800 overflow-hidden shadow-sm transition-all"
-                  >
+                  <Card key={group._id} padding="none" className="overflow-hidden">
                     {/* Group Header */}
                     <div className="flex items-center gap-4 p-6">
                       {/* Color dot */}
                       <div
-                        className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg"
+                        className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg"
                         style={{
                           backgroundColor: group.color + "22",
                           border: `2px solid ${group.color}40`,
@@ -993,17 +959,17 @@ export const GroupManagement: React.FC<{
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3">
-                          <h3 className="font-black text-zinc-900 dark:text-white text-lg leading-tight">
+                          <h3 className="font-semibold text-zinc-900 dark:text-white text-lg leading-tight">
                             {group.name}
                           </h3>
                           {group.kind && (
-                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
+                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold uppercase tracking-wide bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
                               {group.kind}
                               {group.isDefault ? " · Default" : ""}
                             </span>
                           )}
                           <span
-                            className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white"
+                            className="px-2 py-0.5 rounded-lg text-[10px] font-semibold uppercase tracking-wide text-white"
                             style={{ backgroundColor: group.color }}
                           >
                             {group.members.length} member
@@ -1085,14 +1051,14 @@ export const GroupManagement: React.FC<{
                       <div className="border-t border-zinc-50 dark:border-zinc-800 animate-fade-in divide-y divide-zinc-50 dark:divide-zinc-800">
                         <div>
                           <div className="flex items-center justify-between px-6 py-4">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
                               Audience members ({group.members.length})
                             </p>
                             <button
                               onClick={() =>
                                 openAddMembersModal(group, "audience")
                               }
-                              className="px-3 py-1.5 bg-primary/10 text-primary rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-primary/20 transition-all"
+                              className="px-3 py-1.5 bg-primary/10 text-primary rounded-xl font-semibold text-[10px] uppercase tracking-wide hover:bg-primary/20 transition-all"
                             >
                               Add members
                             </button>
@@ -1113,7 +1079,7 @@ export const GroupManagement: React.FC<{
                         </div>
                         <div>
                           <div className="flex items-center justify-between px-6 py-4">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
                               Approval members (
                               {(group.approvalMembers ?? []).length})
                             </p>
@@ -1121,7 +1087,7 @@ export const GroupManagement: React.FC<{
                               onClick={() =>
                                 openAddMembersModal(group, "approval")
                               }
-                              className="px-3 py-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-500/20 transition-all"
+                              className="px-3 py-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 rounded-xl font-semibold text-[10px] uppercase tracking-wide hover:bg-amber-500/20 transition-all"
                             >
                               Add approval members
                             </button>
@@ -1140,7 +1106,7 @@ export const GroupManagement: React.FC<{
                         </div>
                       </div>
                     )}
-                  </div>
+                  </Card>
                 );
               })}
             </div>
@@ -1149,11 +1115,11 @@ export const GroupManagement: React.FC<{
 
         {/* Sidebar */}
         <div className="space-y-6">
-          <div className="p-8 rounded-[2rem] bg-zinc-900 text-white relative overflow-hidden">
+          <div className="p-8 rounded-surface bg-zinc-900 text-white relative overflow-hidden">
             <div className="absolute top-0 right-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]"></div>
             <div className="relative z-10">
               <Layers className="w-10 h-10 text-primary mb-6" />
-              <h3 className="text-xl font-black tracking-tighter mb-2">
+              <h3 className="text-xl font-semibold tracking-tighter mb-2">
                 Group Visibility
               </h3>
               <p className="text-sm text-zinc-400 font-medium leading-relaxed">
@@ -1162,18 +1128,18 @@ export const GroupManagement: React.FC<{
               </p>
               <div className="mt-8 pt-6 border-t border-white/10 grid grid-cols-2 gap-4">
                 <div>
-                  <div className="text-3xl font-black text-white">
+                  <div className="text-3xl font-semibold text-white">
                     {groups.length}
                   </div>
-                  <div className="text-xs font-black uppercase tracking-widest text-primary mt-1">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-primary mt-1">
                     Total Groups
                   </div>
                 </div>
                 <div>
-                  <div className="text-3xl font-black text-white">
+                  <div className="text-3xl font-semibold text-white">
                     {allUsers.length}
                   </div>
-                  <div className="text-xs font-black uppercase tracking-widest text-primary mt-1">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-primary mt-1">
                     Total Users
                   </div>
                 </div>
@@ -1183,8 +1149,8 @@ export const GroupManagement: React.FC<{
 
           {/* Quick group overview */}
           {groups.length > 0 && (
-            <div className="bg-white dark:bg-zinc-900 rounded-[2rem] border border-zinc-100 dark:border-zinc-800 p-6">
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-4">
+            <div className="bg-white dark:bg-zinc-900 rounded-surface border border-zinc-100 dark:border-zinc-800 p-6">
+              <h4 className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 mb-4">
                 All Groups
               </h4>
               <div className="space-y-3">

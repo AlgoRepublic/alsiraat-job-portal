@@ -20,64 +20,12 @@ import { TaskLifecycleActions } from "../components/TaskLifecycleActions";
 import { Application, Job, User } from "../types";
 import { formatOptionalTaskDuration } from "../utils/formatOptionalTaskField";
 import { resolveTaskCategoryLabel } from "../utils/taskCategoryDisplay";
+import { Button, Card, PageHeader } from "@/components/ui";
+import { ApplicationStatusLabel } from "@/utils/statusDisplay";
 
 const PAGE_SIZE = 10;
 
 // Server enforces assignment/workflow statuses when list=my-tasks (GET /api/applications).
-
-const getStatusConfig = (status: string) => {
-  switch (status.toLowerCase()) {
-    case "offered":
-      return {
-        label: "Offered",
-        style:
-          "bg-violet-100 dark:bg-violet-900/30 text-violet-800 dark:text-violet-300 border-violet-200 dark:border-violet-800",
-        icon: <Star className="w-3.5 h-3.5" />,
-      };
-    case "accepted":
-      return {
-        label: "Accepted",
-        style:
-          "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
-        icon: <CheckCircle2 className="w-3.5 h-3.5" />,
-      };
-    case "approved":
-      return {
-        label: "Approved",
-        style:
-          "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
-        icon: <CheckCircle2 className="w-3.5 h-3.5" />,
-      };
-    case "completion requested":
-      return {
-        label: "Completion Requested",
-        style:
-          "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800",
-        icon: <ClipboardCheck className="w-3.5 h-3.5" />,
-      };
-    case "completion rejected":
-      return {
-        label: "Completion Rejected",
-        style:
-          "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800",
-        icon: <Clock className="w-3.5 h-3.5" />,
-      };
-    case "completed":
-      return {
-        label: "Completed",
-        style:
-          "bg-zinc-100 dark:bg-zinc-900/30 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800",
-        icon: <Trophy className="w-3.5 h-3.5" />,
-      };
-    default:
-      return {
-        label: status,
-        style:
-          "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800",
-        icon: <Clock className="w-3.5 h-3.5" />,
-      };
-  }
-};
 
 export const MyAssignedTasks: React.FC = () => {
   const navigate = useNavigate();
@@ -179,38 +127,42 @@ export const MyAssignedTasks: React.FC = () => {
       <div className="flex flex-wrap items-center gap-2 justify-start md:justify-end">
         {app.status === "Offered" && (
           <>
-            <button
+            <Button
+              size="action"
+              variant="success"
               onClick={() => handleConfirmOffer(appId)}
-              className="px-4 py-2.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-all"
             >
-              <CheckCircle2 className="w-3.5 h-3.5 inline mr-1.5" />
+              <CheckCircle2 className="w-3.5 h-3.5" />
               Accept
-            </button>
-            <button
+            </Button>
+            <Button
+              size="action"
+              variant="dangerSoft"
               onClick={() => handleDeclineOffer(appId)}
-              className="px-4 py-2.5 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-200 dark:hover:bg-red-900/50 transition-all"
             >
               Decline
-            </button>
+            </Button>
           </>
         )}
         {app.status === "Accepted" && (
-          <button
+          <Button
+            size="action"
+            variant="infoSoft"
             onClick={() => handleRequestCompletion(appId)}
-            className="px-4 py-2.5 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-all"
           >
-            <ClipboardCheck className="w-3.5 h-3.5 inline mr-1.5" />
+            <ClipboardCheck className="w-3.5 h-3.5" />
             Mark Done
-          </button>
+          </Button>
         )}
         {taskId && (
-          <button
+          <Button
+            size="action"
+            variant="primary"
             onClick={() => navigate(`/jobs/${taskId}`)}
-            className="px-4 py-2.5 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primaryHover transition-all shadow-lg shadow-primary/10 group-hover:scale-105"
           >
-            <ArrowRight className="w-3.5 h-3.5 inline mr-1.5" />
+            <ArrowRight className="w-3.5 h-3.5" />
             View
-          </button>
+          </Button>
         )}
         {task && typeof task === "object" && (
           <TaskLifecycleActions
@@ -225,24 +177,23 @@ export const MyAssignedTasks: React.FC = () => {
   };
 
   const renderMobileCard = (app: Application) => {
-    const { style, icon, label } = getStatusConfig(app.status);
     const task = (app as any).task;
     const appId = app.id;
 
     return (
       <div
         key={appId}
-        className="p-5 space-y-4 hover:bg-white/40 dark:hover:bg-white/5 transition-all"
+        className="p-card space-y-4 hover:bg-surface-muted/50 transition-colors"
       >
         <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+          <div className="w-12 h-12 rounded-control bg-primary/10 flex items-center justify-center text-primary shrink-0">
             <Briefcase className="w-6 h-6" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-lg font-black text-zinc-900 dark:text-white">
+            <p className="text-base font-semibold text-foreground">
               {task?.title || "Task Deleted"}
             </p>
-            <p className="text-xs text-zinc-500 font-medium uppercase tracking-widest mt-1">
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mt-1">
               {resolveTaskCategoryLabel(task)}
               {` • ${formatOptionalTaskDuration(task?.hoursRequired, "h")}`}
             </p>
@@ -250,10 +201,10 @@ export const MyAssignedTasks: React.FC = () => {
         </div>
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               Date
             </p>
-            <p className="font-semibold text-zinc-500 dark:text-zinc-400 mt-1">
+            <p className="font-medium text-muted-foreground mt-1">
               {app.appliedAt && !isNaN(new Date(app.appliedAt).getTime())
                 ? new Date(app.appliedAt).toLocaleDateString("en-GB", {
                     day: "numeric",
@@ -264,15 +215,12 @@ export const MyAssignedTasks: React.FC = () => {
             </p>
           </div>
           <div>
-            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               Status
             </p>
-            <span
-              className={`inline-flex items-center gap-1.5 mt-1 px-4 py-2 text-[10px] font-black rounded-xl uppercase tracking-widest border ${style}`}
-            >
-              {icon}
-              {label}
-            </span>
+            <div className="mt-1">
+              <ApplicationStatusLabel status={app.status} />
+            </div>
           </div>
         </div>
         {renderActions(app)}
@@ -281,26 +229,25 @@ export const MyAssignedTasks: React.FC = () => {
   };
 
   const renderRow = (app: Application) => {
-    const { style, icon, label } = getStatusConfig(app.status);
     const task = (app as any).task;
     const appId = app.id;
 
     return (
       <tr
         key={appId}
-        className="hover:bg-white/40 dark:hover:bg-white/5 transition-all group"
+        className="hover:bg-surface-muted/50 transition-colors group"
       >
         {/* Task info */}
-        <td className="px-10 py-8">
+        <td className="px-4 py-4">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+            <div className="w-12 h-12 rounded-control bg-primary/10 flex items-center justify-center text-primary shrink-0">
               <Briefcase className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-lg font-black text-zinc-900 dark:text-white group-hover:text-primary transition-colors">
+              <p className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">
                 {task?.title || "Task Deleted"}
               </p>
-              <p className="text-xs text-zinc-500 font-medium uppercase tracking-widest mt-1">
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mt-1">
                 {resolveTaskCategoryLabel(task)}
                 {` • ${formatOptionalTaskDuration(task?.hoursRequired, "h")}`}
               </p>
@@ -309,7 +256,7 @@ export const MyAssignedTasks: React.FC = () => {
         </td>
 
         {/* Assigned / Applied date */}
-        <td className="px-8 py-8 whitespace-nowrap text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+        <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-muted-foreground">
           {app.appliedAt && !isNaN(new Date(app.appliedAt).getTime())
             ? new Date(app.appliedAt).toLocaleDateString("en-GB", {
                 day: "numeric",
@@ -320,29 +267,12 @@ export const MyAssignedTasks: React.FC = () => {
         </td>
 
         {/* Status */}
-        <td className="px-8 py-8 whitespace-nowrap">
-          <span
-            className={`inline-flex items-center gap-1.5 px-4 py-2 text-[10px] font-black rounded-xl uppercase tracking-widest border ${style}`}
-          >
-            {icon}
-            {label}
-          </span>
+        <td className="px-4 py-4 whitespace-nowrap">
+          <ApplicationStatusLabel status={app.status} />
         </td>
 
-        {/* Reward */}
-        {/* <td className="px-8 py-8 whitespace-nowrap text-sm font-bold text-zinc-700 dark:text-zinc-300">
-          {task?.rewardType ? (
-            <span>
-              {task.rewardType}
-              {task.rewardValue ? ` — ${task.rewardValue}` : ""}
-            </span>
-          ) : (
-            <span className="text-zinc-400">—</span>
-          )}
-        </td> */}
-
         {/* Actions */}
-        <td className="px-10 py-8 whitespace-nowrap text-right">
+        <td className="px-4 py-4 whitespace-nowrap text-right">
           {renderActions(app)}
         </td>
       </tr>
@@ -350,36 +280,30 @@ export const MyAssignedTasks: React.FC = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 animate-fade-in">
-      {/* Header */}
-      <div className="glass-card p-6 sm:p-10 rounded-[2rem] sm:rounded-[2.5rem]">
-        <h1 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tighter">
-          My Tasks
-        </h1>
-        <p className="text-zinc-500 dark:text-zinc-400 font-medium mt-2">
-          Tasks directly assigned to you or where your application has been
-          approved.
-        </p>
-      </div>
+    <div className="max-w-5xl mx-auto space-y-section animate-fade-in">
+      <PageHeader
+        title="My Tasks"
+        description="Tasks directly assigned to you or where your application has been approved."
+      />
 
       {error && (
-        <div className="glass-card p-6 rounded-[2.5rem] bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+        <Card className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20">
           <p className="text-red-700 dark:text-red-300 font-semibold">{error}</p>
-        </div>
+        </Card>
       )}
 
       {/* Tabs */}
-      <div className="flex flex-wrap items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-2xl w-full sm:w-fit">
+      <div className="flex flex-wrap items-center gap-1 p-1 bg-surface-muted rounded-control w-full sm:w-fit border border-border">
         {(["active", "completed"] as const).map((tab) => {
           const count = tab === "active" ? activeTasks.length : completedTasks.length;
           return (
             <button
               key={tab}
               onClick={() => { setActiveTab(tab); setCurrentPage(1); }}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-control text-sm font-semibold transition-colors ${
                 activeTab === tab
-                  ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm"
-                  : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                  ? "bg-surface text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {tab === "active" ? (
@@ -388,10 +312,10 @@ export const MyAssignedTasks: React.FC = () => {
                 <Trophy className="w-3.5 h-3.5" />
               )}
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              <span className={`ml-1 px-2 py-0.5 rounded-full text-[10px] font-black ${
+              <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
                 activeTab === tab
                   ? "bg-primary/10 text-primary"
-                  : "bg-zinc-200 dark:bg-zinc-700 text-zinc-500"
+                  : "bg-surface-muted text-muted-foreground"
               }`}>
                 {count}
               </span>
@@ -402,12 +326,12 @@ export const MyAssignedTasks: React.FC = () => {
 
       {/* Task table */}
       {displayedTasks.length > 0 ? (
-        <div className="glass-card rounded-[2.5rem] overflow-hidden shadow-2xl">
-          <div className="md:hidden border-b border-white/20 dark:border-white/5 px-4 py-3">
+        <Card padding="none" className="overflow-hidden">
+          <div className="md:hidden border-b border-border px-4 py-3">
             <button
               type="button"
               onClick={toggleSort}
-              className="inline-flex items-center gap-1 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] hover:text-primary transition-colors"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide hover:text-primary transition-colors"
             >
               Date
               {sortDir === "desc" ? (
@@ -417,16 +341,16 @@ export const MyAssignedTasks: React.FC = () => {
               )}
             </button>
           </div>
-          <div className="md:hidden divide-y divide-white/20 dark:divide-white/5">
+          <div className="md:hidden divide-y divide-border">
             {displayedTasks.map(renderMobileCard)}
           </div>
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left">
-              <thead className="bg-white/50 dark:bg-zinc-800/50 border-b border-white/20 dark:border-white/5">
+              <thead className="bg-surface-muted border-b border-border">
                 <tr>
-                  <th className="px-10 py-6 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Task</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Task</th>
                   <th
-                    className="px-8 py-6 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] cursor-pointer select-none hover:text-primary transition-colors"
+                    className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide cursor-pointer select-none hover:text-primary transition-colors"
                     onClick={toggleSort}
                   >
                     <span className="inline-flex items-center gap-1">
@@ -438,43 +362,43 @@ export const MyAssignedTasks: React.FC = () => {
                       )}
                     </span>
                   </th>
-                  <th className="px-8 py-6 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Status</th>
-                  <th className="px-10 py-6 text-right text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Actions</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/20 dark:divide-white/5">
+              <tbody className="divide-y divide-border">
                 {displayedTasks.map(renderRow)}
               </tbody>
             </table>
           </div>
-        </div>
+        </Card>
       ) : (
         applications.length > 0 ? (
-          <div className="text-center py-16 glass-card rounded-[3rem] border-dashed border-2 border-zinc-200 dark:border-zinc-800">
-            <Trophy className="w-12 h-12 text-zinc-300 dark:text-zinc-700 mx-auto mb-4" />
-            <h3 className="text-xl font-black text-zinc-900 dark:text-white tracking-tighter">
+          <Card className="text-center py-16 border-dashed">
+            <Trophy className="w-12 h-12 text-muted-foreground/40 mx-auto mb-4" />
+            <h3 className="text-base font-semibold text-foreground">
               No {activeTab} tasks
             </h3>
-            <p className="text-zinc-500 dark:text-zinc-400 mt-1 font-medium text-sm">
+            <p className="text-muted-foreground mt-1 font-medium text-sm">
               {activeTab === "active" ? "All your tasks are completed!" : "No completed tasks yet."}
             </p>
-          </div>
+          </Card>
         ) : (
-          <div className="text-center py-24 glass-card rounded-[3rem] border-dashed border-2 border-zinc-200 dark:border-zinc-800">
-            <Briefcase className="w-16 h-16 text-zinc-300 dark:text-zinc-700 mx-auto mb-6" />
-            <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter">
+          <Card className="text-center py-16 border-dashed">
+            <Briefcase className="w-12 h-12 text-muted-foreground/40 mx-auto mb-4" />
+            <h3 className="text-base font-semibold text-foreground">
               No assigned tasks yet
             </h3>
-            <p className="text-zinc-500 dark:text-zinc-400 mt-2 font-medium">
+            <p className="text-muted-foreground mt-2 font-medium">
               Tasks assigned to you directly or via approved applications will appear here.
             </p>
-            <button
+            <Button
+              className="mt-6"
               onClick={() => navigate("/jobs")}
-              className="mt-10 px-8 py-3.5 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primaryHover transition-all"
             >
               Search Tasks
-            </button>
-          </div>
+            </Button>
+          </Card>
         )
       )}
       <Pagination

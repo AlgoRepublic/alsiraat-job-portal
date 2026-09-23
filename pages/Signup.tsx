@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { db } from "../services/database";
 import { LoadingOverlay } from "../components/Loading";
+import { Button, Card, Input, Label } from "@/components/ui";
 
 /** Formats input as an Australian phone number (mobile or landline) */
 const formatAustralianPhone = (raw: string): string => {
@@ -158,7 +159,7 @@ export const Signup: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 transition-colors relative overflow-hidden bg-zinc-50 dark:bg-black">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 transition-colors relative overflow-hidden bg-background">
       {isLoading && (
         <LoadingOverlay
           message={
@@ -171,15 +172,15 @@ export const Signup: React.FC = () => {
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[100px]"></div>
       </div>
 
-      <div className="w-full max-w-lg glass-card rounded-3xl shadow-2xl shadow-zinc-200 dark:shadow-black/50 p-8 md:p-10 border border-white/20 dark:border-zinc-700 animate-slide-up relative">
+      <Card radius="surface" padding="section" className="w-full max-w-lg animate-slide-up relative">
         <Link
           to="/login"
-          className="absolute top-6 left-6 text-zinc-400 hover:text-primary transition-colors flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
+          className="absolute top-4 left-4 text-muted-foreground hover:text-primary transition-colors flex items-center gap-2 text-xs font-semibold"
         >
           <ArrowLeft className="w-4 h-4" /> Back
         </Link>
 
-        <div className="text-center mb-8 mt-4">
+        <div className="text-center mb-6 mt-4">
           <div className="w-16 h-16 flex items-center justify-center mx-auto mb-6 relative">
             <img
               src="/logo-light.png"
@@ -204,7 +205,7 @@ export const Signup: React.FC = () => {
               }}
             />
           </div>
-          <h1 className="text-3xl font-black text-zinc-900 dark:text-white mb-2 tracking-tighter">
+          <h1 className="text-title-page-lg font-semibold text-foreground mb-2">
             {step === "FORM"
               ? invitationToken
                 ? "Complete Your Onboarding"
@@ -214,7 +215,7 @@ export const Signup: React.FC = () => {
           {invitationOrg ? (
             <div className="flex items-center justify-center gap-2 mb-2 p-2 bg-primary/10 rounded-xl border border-primary/20 animate-pulse">
               <Building2 className="w-4 h-4 text-primary" />
-              <span className="text-[10px] font-black uppercase tracking-wider text-primary">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-primary">
                 Joining {invitationOrg}
               </span>
             </div>
@@ -244,43 +245,53 @@ export const Signup: React.FC = () => {
             {step === "FORM" ? (
               <>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="relative group">
-                    <UserIcon className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
-                    <input
-                      type="text"
-                      required
-                      placeholder="First Name"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
-                    />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="signup-first-name">First name</Label>
+                    <div className="relative">
+                      <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="signup-first-name"
+                        type="text"
+                        required
+                        placeholder="First Name"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
                   </div>
-                  <div className="relative group">
-                    <UserIcon className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
-                    <input
-                      type="text"
-                      required
-                      placeholder="Last Name"
-                      value={surname}
-                      onChange={(e) => setSurname(e.target.value)}
-                      className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
-                    />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="signup-last-name">Last name</Label>
+                    <div className="relative">
+                      <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="signup-last-name"
+                        type="text"
+                        required
+                        placeholder="Last Name"
+                        value={surname}
+                        onChange={(e) => setSurname(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div className="relative group">
-                  <Mail className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
-                  <input
-                    type="email"
-                    required
-                    placeholder="Email Address"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    disabled={!!invitationToken}
-                    className={`w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-[#812349]/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md ${
-                      invitationToken ? "opacity-70 cursor-not-allowed" : ""
-                    }`}
-                  />
+                <div className="space-y-1.5">
+                  <Label htmlFor="signup-email">Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="signup-email"
+                      type="email"
+                      required
+                      placeholder="Email Address"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      disabled={!!invitationToken}
+                      className="pl-10"
+                    />
+                  </div>
                 </div>
               </>
             ) : (
@@ -317,57 +328,63 @@ export const Signup: React.FC = () => {
                   </p>
                 </div>
 
-                <div className="relative group">
-                  <Phone className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
-                  <input
-                    type="tel"
-                    placeholder="04XX XXX XXX (optional)"
-                    value={contactNumber}
-                    onChange={(e) =>
-                      setContactNumber(formatAustralianPhone(e.target.value))
-                    }
-                    maxLength={13}
-                    className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-primary/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
-                  />
+                <div className="space-y-1.5">
+                  <Label htmlFor="signup-phone">Phone (optional)</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="signup-phone"
+                      type="tel"
+                      placeholder="04XX XXX XXX (optional)"
+                      value={contactNumber}
+                      onChange={(e) =>
+                        setContactNumber(formatAustralianPhone(e.target.value))
+                      }
+                      maxLength={13}
+                      className="pl-10"
+                    />
+                  </div>
                 </div>
 
-                <div className="relative group">
-                  <Lock className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
-                  <input
-                    type="password"
-                    required
-                    placeholder="Create Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-[#812349]/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
-                  />
+                <div className="space-y-1.5">
+                  <Label htmlFor="signup-password">Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="signup-password"
+                      type="password"
+                      required
+                      placeholder="Create Password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
                 </div>
               </>
             )}
           </div>
 
-          <button
-            disabled={isLoading}
-            className="w-full py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primaryHover shadow-xl shadow-primary/30 transition-all hover:-translate-y-1 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
-          >
+          <Button disabled={isLoading} className="w-full" type="submit">
             {step === "FORM" ? (
               <>
                 Send Verification Code
-                <Mail className="w-4 h-4 ml-2" />
+                <Mail className="w-4 h-4" />
               </>
             ) : (
               "Complete Registration"
             )}
-          </button>
+          </Button>
 
           {step === "OTP" && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              className="w-full"
               onClick={() => setStep("FORM")}
-              className="w-full py-2 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-primary transition-colors"
             >
               Change Email Address
-            </button>
+            </Button>
           )}
         </form>
 
@@ -389,7 +406,7 @@ export const Signup: React.FC = () => {
             </Link>
           </p>
         </div>
-      </div>
+      </Card>
     </div>
   );
 };

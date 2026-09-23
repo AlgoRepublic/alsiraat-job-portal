@@ -126,11 +126,11 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({
             role={toast.type === "error" ? "alert" : "status"}
             aria-live={toast.type === "error" ? "assertive" : "polite"}
             aria-atomic="true"
-            className={`${getToastStyles(toast.type)} border px-4 py-3 rounded-xl shadow-lg flex items-start gap-3 animate-slide-up`}
+            className={`${getToastStyles(toast.type)} border px-4 py-3 rounded-surface shadow-lg flex items-start gap-3 animate-slide-up`}
           >
             {getToastIcon(toast.type)}
             <div className="flex-1 min-w-0">
-              <p className="font-bold text-sm">{toast.title}</p>
+              <p className="font-semibold text-sm">{toast.title}</p>
               <p className="text-sm break-words">{toast.message}</p>
             </div>
             <button

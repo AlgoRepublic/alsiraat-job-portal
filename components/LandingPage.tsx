@@ -100,7 +100,7 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
               <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-600/20">
                 <Layers className="w-6 h-6 text-white" />
               </div>
-              <span className="text-gray-900 font-black text-2xl tracking-tighter">
+              <span className="text-gray-900 font-semibold text-2xl tracking-tighter">
                 Tasker
               </span>
             </div>
@@ -159,7 +159,7 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
                   The Future of Work is Modular
                 </span>
               </div>
-              <h1 className="text-6xl md:text-8xl font-black text-white mb-8 tracking-tighter leading-[0.9]">
+              <h1 className="text-4xl md:text-5xl font-semibold text-white mb-6 tracking-tight leading-tight">
                 Assign. <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-blue-500 to-purple-500">
                   Complete.
@@ -167,7 +167,7 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
                 <br />
                 Done.
               </h1>
-              <p className="text-xl text-gray-400 mb-10 max-w-xl leading-relaxed">
+              <p className="text-base text-gray-400 mb-8 max-w-xl leading-relaxed">
                 Tasker connects organisations and individuals. Create tasks,
                 find help, and collaborate across schools, businesses, and
                 communities.
@@ -175,21 +175,21 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
               <div className="flex flex-col sm:flex-row gap-5">
                 <button
                   onClick={onGetStarted}
-                  className="bg-red-600 text-white px-10 py-5 rounded-2xl hover:bg-red-500 hover:scale-105 transition-all text-lg font-black shadow-2xl shadow-red-600/20 flex items-center justify-center gap-3"
+                  className="bg-red-600 text-white h-10 px-6 rounded-control hover:bg-red-500 transition-all text-sm font-semibold shadow-lg shadow-red-600/20 flex items-center justify-center gap-2"
                 >
                   Create Task <ArrowRight className="w-5 h-5" />
                 </button>
                 <button
                   onClick={handleBrowseTasks}
-                  className="bg-white/5 border border-white/10 text-white px-10 py-5 rounded-2xl hover:bg-white/10 hover:scale-105 transition-all text-lg font-black backdrop-blur-xl"
+                  className="bg-white/5 border border-white/10 text-white h-10 px-6 rounded-control hover:bg-white/10 transition-all text-sm font-semibold backdrop-blur-xl"
                 >
                   Search Tasks
                 </button>
               </div>
 
-              <div className="mt-16 pt-12 border-t border-white/5 flex gap-12">
+              <div className="mt-12 pt-8 border-t border-white/5 flex gap-10">
                 <div>
-                  <div className="text-white text-3xl font-black mb-1">
+                  <div className="text-white text-2xl font-semibold mb-1">
                     2.4k+
                   </div>
                   <div className="text-gray-500 text-xs font-bold uppercase tracking-widest">
@@ -197,7 +197,7 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
                   </div>
                 </div>
                 <div>
-                  <div className="text-white text-3xl font-black mb-1">
+                  <div className="text-white text-2xl font-semibold mb-1">
                     12k+
                   </div>
                   <div className="text-gray-500 text-xs font-bold uppercase tracking-widest">
@@ -205,7 +205,7 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
                   </div>
                 </div>
                 <div>
-                  <div className="text-white text-3xl font-black mb-1">
+                  <div className="text-white text-2xl font-semibold mb-1">
                     4.9/5
                   </div>
                   <div className="text-gray-500 text-xs font-bold uppercase tracking-widest">
@@ -216,13 +216,13 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
             </div>
 
             <div className="relative hidden lg:block">
-              <div className="glass-card p-8 rounded-3xl border-white/10 relative z-20 animate-float">
+              <div className="glass-overlay p-card rounded-surface border-white/10 relative z-20 animate-float">
                 <div className="flex items-center gap-4 mb-8">
-                  <div className="w-14 h-14 bg-red-600 rounded-2xl flex items-center justify-center shadow-lg shadow-red-600/30">
+                  <div className="w-12 h-12 bg-red-600 rounded-control flex items-center justify-center shadow-lg shadow-red-600/30">
                     <Layers className="w-8 h-8 text-white" />
                   </div>
                   <div>
-                    <div className="text-white text-lg font-black">
+                    <div className="text-white text-base font-semibold">
                       Project Task
                     </div>
                     <div className="text-red-500 text-xs font-bold">
@@ -249,12 +249,12 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
                       </div>
                     ))}
                   </div>
-                  <div className="text-white font-black text-xl">$1,450.00</div>
+                  <div className="text-white font-semibold text-lg">$1,450.00</div>
                 </div>
               </div>
 
               {/* Decorative side cards */}
-              <div className="absolute top-[-40px] right-[-20px] glass-card p-6 rounded-2xl border-white/10 z-10 opacity-60 scale-90 blur-[1px]">
+              <div className="absolute top-[-40px] right-[-20px] glass-overlay p-section rounded-surface border-white/10 z-10 opacity-60 scale-90 blur-[1px]">
                 <Zap className="text-blue-500 mb-2" />
                 <div className="text-white text-sm font-bold">Quick Match</div>
                 <div className="mt-3 space-y-2">
@@ -262,7 +262,7 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
                   <div className="h-1.5 bg-white/10 rounded-full w-3/4 animate-pulse delay-75"></div>
                 </div>
               </div>
-              <div className="absolute bottom-[-30px] left-[-20px] glass-card p-6 rounded-2xl border-white/10 z-10 opacity-60 scale-90 blur-[1px]">
+              <div className="absolute bottom-[-30px] left-[-20px] glass-overlay p-section rounded-surface border-white/10 z-10 opacity-60 scale-90 blur-[1px]">
                 <Shield className="text-green-500 mb-2" />
                 <div className="text-white text-sm font-bold">Verified Sec</div>
                 <div className="mt-3 space-y-2">
@@ -276,10 +276,10 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
       </section>
 
       {/* Categories */}
-      <section className="py-32 bg-white">
+      <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex justify-between items-end mb-16">
-            <h2 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tighter">
+            <h2 className="text-3xl md:text-4xl font-semibold text-gray-900 tracking-tight">
               Task Categories
             </h2>
             <button
@@ -301,7 +301,7 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
                           `/jobs?category=${encodeURIComponent(cat.name)}`,
                         )
                       }
-                      className="group p-8 rounded-3xl border border-gray-100 hover:border-red-600 hover:shadow-2xl transition-all text-center"
+                      className="group p-6 rounded-surface border border-gray-100 hover:border-red-600 hover:shadow-lg transition-all text-center"
                     >
                       <div
                         className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform shadow-sm"
@@ -313,7 +313,7 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
                         />
                       </div>
                       <div
-                        className="font-black tracking-tight"
+                        className="font-semibold tracking-tight"
                         style={{ color: cat.color }}
                       >
                         {cat.name}
@@ -344,7 +344,7 @@ export function LandingPage({ onGetStarted, onBrowseTasks }: LandingPageProps) {
                 <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center">
                   <Layers className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-gray-900 font-black text-xl">Tasker</span>
+                <span className="text-gray-900 font-semibold text-xl">Tasker</span>
               </div>
               <p className="text-gray-500 text-sm leading-relaxed">
                 The task platform for schools, organisations, and communities.

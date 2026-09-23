@@ -11,6 +11,7 @@ import {
 import { db } from "../services/database";
 
 import { LoadingOverlay } from "../components/Loading";
+import { Button, Card, Input, Label } from "@/components/ui";
 
 export const ResetPassword: React.FC = () => {
   const { token } = useParams<{ token: string }>();
@@ -48,22 +49,22 @@ export const ResetPassword: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 transition-colors relative overflow-hidden bg-zinc-50 dark:bg-black">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 transition-colors relative overflow-hidden bg-background">
       {isLoading && <LoadingOverlay message="Updating Passkey..." />}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-[100px]"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[100px]"></div>
       </div>
 
-      <div className="w-full max-w-md glass-card rounded-3xl shadow-2xl shadow-zinc-200 dark:shadow-black/50 p-8 md:p-10 border border-white/20 dark:border-zinc-700 animate-slide-up relative">
-        <div className="text-center mb-10">
-          <div className="w-16 h-16 bg-gradient-to-tr from-primary to-primaryHover rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-primary/20 relative">
-            <Key className="text-white w-9 h-9" strokeWidth={2.5} />
+      <Card radius="surface" padding="section" className="w-full max-w-md animate-slide-up relative">
+        <div className="text-center mb-8">
+          <div className="w-14 h-14 bg-primary rounded-control flex items-center justify-center mx-auto mb-4">
+            <Key className="text-white w-7 h-7" strokeWidth={2.5} />
           </div>
-          <h1 className="text-3xl font-black text-zinc-900 dark:text-white mb-2 tracking-tighter">
+          <h1 className="text-title-page-lg font-semibold text-foreground mb-2">
             New Passkey
           </h1>
-          <p className="text-zinc-500 dark:text-zinc-400 text-sm font-bold uppercase tracking-widest text-[10px]">
+          <p className="text-sm text-muted-foreground font-medium">
             Re-authorise Account
           </p>
         </div>
@@ -95,40 +96,45 @@ export const ResetPassword: React.FC = () => {
 
             <form onSubmit={handleReset} className="space-y-5">
               <div className="space-y-4">
-                <div className="relative group">
-                  <Lock className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
-                  <input
-                    type="password"
-                    required
-                    placeholder="New Security Key"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-red-500/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
-                  />
+                <div className="space-y-1.5">
+                  <Label htmlFor="new-password">New password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="new-password"
+                      type="password"
+                      required
+                      placeholder="New Security Key"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
                 </div>
-                <div className="relative group">
-                  <Shield className="absolute left-4 top-4 w-5 h-5 text-zinc-400 group-focus-within:text-red-600 transition-colors" />
-                  <input
-                    type="password"
-                    required
-                    placeholder="Confirm Key"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full pl-12 pr-4 py-4 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-4 focus:ring-red-500/20 outline-none text-sm font-bold dark:text-white transition-all backdrop-blur-md"
-                  />
+                <div className="space-y-1.5">
+                  <Label htmlFor="confirm-password">Confirm password</Label>
+                  <div className="relative">
+                    <Shield className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="confirm-password"
+                      type="password"
+                      required
+                      placeholder="Confirm Key"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <button
-                disabled={isLoading}
-                className="w-full py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primaryHover shadow-xl shadow-primary/30 transition-all hover:-translate-y-1 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
-              >
+              <Button type="submit" disabled={isLoading} className="w-full">
                 Update Authorisation
-              </button>
+              </Button>
             </form>
           </>
         )}
-      </div>
+      </Card>
     </div>
   );
 };
