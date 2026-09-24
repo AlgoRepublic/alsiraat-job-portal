@@ -22,12 +22,20 @@ import {
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { UserAvatar } from "./UserAvatar";
+
+export interface PrivilegedTaskDetailContactPersonPresentation {
+  displayLabel: string;
+  avatar?: string;
+  outsidePickerPool?: boolean;
+}
 
 interface PrivilegedTaskDetailSectionsProps {
   job: Job;
   provenance: TaskProvenanceHeader;
   audience: AudienceTargetingPresentation;
   rewardOrganisationId?: string | null;
+  contactPerson: PrivilegedTaskDetailContactPersonPresentation;
 }
 
 function DetailSection({
@@ -69,7 +77,13 @@ function DetailField({
 
 export const PrivilegedTaskDetailSections: React.FC<
   PrivilegedTaskDetailSectionsProps
-> = ({ job, provenance, audience, rewardOrganisationId }) => {
+> = ({
+  job,
+  provenance,
+  audience,
+  rewardOrganisationId,
+  contactPerson,
+}) => {
   const hoursLabel = formatOptionalTaskDuration(job.hoursRequired, "hours");
 
   return (
@@ -115,6 +129,27 @@ export const PrivilegedTaskDetailSections: React.FC<
             label="Task Start Date"
             value={formatTaskDateOrNA(job.startDate) || "Not set"}
           />
+          <div className="sm:col-span-2 flex items-start gap-3">
+            <UserAvatar
+              src={contactPerson.avatar}
+              name={contactPerson.displayLabel}
+              className="w-10 h-10 flex-shrink-0"
+            />
+            <div className="min-w-0">
+              <Label className="mb-1 block normal-case tracking-normal">
+                Contact person
+              </Label>
+              <p className="text-sm font-semibold text-zinc-900 dark:text-white">
+                {contactPerson.displayLabel}
+              </p>
+              {contactPerson.outsidePickerPool && (
+                <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 max-w-md">
+                  This saved contact is outside the current picker list. Edit
+                  the task to choose someone from the list.
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       </DetailSection>
 

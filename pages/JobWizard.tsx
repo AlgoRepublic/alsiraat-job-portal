@@ -61,6 +61,14 @@ import {
 } from "../utils/formatOptionalTaskField";
 import { formatTaskDateOrNA } from "../utils/formatTaskDate";
 import {
+  buildAudienceTargetingPresentation,
+  canEditTask,
+  canShowReviewerEditActions,
+  formatTaskContactPersonSummaryLabel,
+  resolveViewerOrgIdForTaskReview,
+  type GroupCatalogueEntry,
+} from "../utils/taskDetailPresentation";
+import {
   normalizePrivateAudiences,
   normalizeVisibilityMode,
 } from "../utils/taskVisibility";
@@ -84,13 +92,6 @@ import {
   type ContactPickerDropdownOption,
   mapTaskContactPickerRowsToDropdownOptions,
 } from "../utils/taskContactPickerOptions";
-import {
-  buildAudienceTargetingPresentation,
-  canEditTask,
-  canShowReviewerEditActions,
-  resolveViewerOrgIdForTaskReview,
-  type GroupCatalogueEntry,
-} from "../utils/taskDetailPresentation";
 import { organisationIdToString } from "../utils/organisationId";
 import {
   normalizeAllowedGroupsForSubmit,
@@ -603,6 +604,24 @@ export const JobWizard: React.FC = () => {
   const contactPersonFieldEnabled = isTaskWizardCategorySelected(
     formData.categoryId,
   );
+
+  const reviewContactPersonValue = useMemo(() => {
+    if (!showContactPersonField) return null;
+    const storedId = formData.contactPersonId?.trim();
+    const pickerName = storedId
+      ? contactPersonDropdownOptions.find((o) => o.id === storedId)?.name
+      : undefined;
+    return formatTaskContactPersonSummaryLabel(
+      formData.contactPerson,
+      formData.contactPersonId,
+      pickerName,
+    );
+  }, [
+    showContactPersonField,
+    formData.contactPerson,
+    formData.contactPersonId,
+    contactPersonDropdownOptions,
+  ]);
 
   const visibilityOptions = React.useMemo(() => {
     const privateDesc =
@@ -1873,6 +1892,14 @@ export const JobWizard: React.FC = () => {
                         ? `Private · ${(formData.privateAudiences || []).join(", ") || "Internal"}`
                         : formData.visibility || "-",
                   },
+                  ...(reviewContactPersonValue != null
+                    ? [
+                        {
+                          label: "Contact person",
+                          value: reviewContactPersonValue,
+                        },
+                      ]
+                    : []),
                 ].map((item) => (
                   <div key={item.label} className="rounded-control border border-border bg-surface-muted p-3">
                     <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide mb-1">

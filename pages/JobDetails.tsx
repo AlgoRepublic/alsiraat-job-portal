@@ -53,6 +53,7 @@ import {
   canEditTask,
   buildTaskProvenanceHeader,
   buildAudienceTargetingPresentation,
+  formatTaskContactPersonSummaryLabel,
   isStoredContactOutsidePickerPool,
   resolveTaskContactPersonDisplayName,
   type GroupCatalogueEntry,
@@ -649,6 +650,10 @@ export const JobDetails: React.FC = () => {
     job.contactPerson,
     job.contactPersonId,
   );
+  const privilegedContactPersonLabel = formatTaskContactPersonSummaryLabel(
+    job.contactPerson,
+    job.contactPersonId,
+  );
   const showContactPerson = !!contactPersonLabel;
   const contactOutsidePickerPool =
     showEditTask &&
@@ -827,6 +832,11 @@ export const JobDetails: React.FC = () => {
             provenance={provenanceHeader}
             audience={audiencePresentation}
             rewardOrganisationId={rewardOrgId}
+            contactPerson={{
+              displayLabel: privilegedContactPersonLabel,
+              avatar: job.contactPerson?.avatar,
+              outsidePickerPool: contactOutsidePickerPool,
+            }}
           />
         ) : (
         <>

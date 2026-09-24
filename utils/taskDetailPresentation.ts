@@ -1,4 +1,5 @@
 import { formatTaskDateOrNA } from "./formatTaskDate.ts";
+import { OPTIONAL_TASK_FIELD_PLACEHOLDER } from "./formatOptionalTaskField.ts";
 import { organisationIdToString } from "./organisationId.ts";
 import {
   TASK_VISIBILITY,
@@ -429,6 +430,24 @@ export function resolveTaskContactPersonDisplayName(
   const email = contact?.email?.trim();
   if (email) return email;
   return null;
+}
+
+const TASK_CONTACT_PERSON_UNSET_PLACEHOLDER = OPTIONAL_TASK_FIELD_PLACEHOLDER;
+
+/** Summary label for wizard review and privileged detail when contact may be unset. */
+export function formatTaskContactPersonSummaryLabel(
+  contact?: TaskContactPersonDisplayInput | null,
+  contactPersonId?: string | null,
+  pickerOptionName?: string | null,
+): string {
+  const resolved = resolveTaskContactPersonDisplayName(
+    contact,
+    contactPersonId,
+  );
+  if (resolved) return resolved;
+  const fromPicker = pickerOptionName?.trim();
+  if (fromPicker) return fromPicker;
+  return TASK_CONTACT_PERSON_UNSET_PLACEHOLDER;
 }
 
 /** True when a stored contact id is not in the current editor picker pool. */
