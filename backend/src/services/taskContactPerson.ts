@@ -86,6 +86,34 @@ export type ContactPickerUserRow = {
   roles: string[];
 };
 
+export function contactPickerUserDisplayName(row: ContactPickerUserRow): string {
+  const name =
+    typeof row.name === "string" && row.name.trim() ? row.name.trim() : "";
+  const email =
+    typeof row.email === "string" && row.email.trim() ? row.email.trim() : "";
+  const id = row._id != null ? String(row._id) : "";
+  return name || email || id;
+}
+
+export function compareContactPickerUsersByDisplayName(
+  a: ContactPickerUserRow,
+  b: ContactPickerUserRow,
+): number {
+  const byDisplay = contactPickerUserDisplayName(a)
+    .toLocaleLowerCase()
+    .localeCompare(contactPickerUserDisplayName(b).toLocaleLowerCase());
+  if (byDisplay !== 0) return byDisplay;
+  const emailA = (a.email ?? "").trim().toLocaleLowerCase();
+  const emailB = (b.email ?? "").trim().toLocaleLowerCase();
+  return emailA.localeCompare(emailB);
+}
+
+export function sortContactPickerUserRows(
+  rows: readonly ContactPickerUserRow[],
+): ContactPickerUserRow[] {
+  return [...rows].sort(compareContactPickerUsersByDisplayName);
+}
+
 /** Dedupe pool member ids while preserving order (defensive; pool builder also dedupes). */
 export function uniquePoolMemberIdsInOrder(
   poolIds: readonly string[],
@@ -152,7 +180,7 @@ export async function loadContactPickerUsers(
     .select("name email avatar organisationRoles")
     .lean();
   const byId = new Map(users.map((u) => [String(u._id), u]));
-  const ordered: ContactPickerUserRow[] = [];
+  const rows: ContactPickerUserRow[] = [];
   for (const id of uniquePoolMemberIdsInOrder(poolIds)) {
     const user = byId.get(id);
     if (!user) continue;
@@ -166,9 +194,9 @@ export async function loadContactPickerUsers(
     if (user.avatar !== undefined) {
       row.avatar = user.avatar;
     }
-    ordered.push(row);
+    rows.push(row);
   }
-  return ordered;
+  return sortContactPickerUserRows(rows);
 }
 
 async function assertUserIsOrgMember(

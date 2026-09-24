@@ -219,13 +219,14 @@ const CategoryContactGroupsEditor: React.FC<{
             Category contact groups
           </p>
           <p className="text-[11px] text-zinc-400 mt-0.5 max-w-xl">
-            Task contact person choices for this category come from the{" "}
+            When the groups listed here have members, task contact person choices
+            for this category are limited to the{" "}
             <span className="font-semibold text-zinc-500 dark:text-zinc-300">
               category contact pool
             </span>
-            —the members of the groups listed here. With no groups or no members
-            in those groups, the contact picker stays empty; there is no fallback
-            to all task approvers.
+            —those members only. With no groups or no members in configured
+            groups, any organisation member may be chosen; the pool is not
+            limited to all task approvers.
           </p>
         </div>
         {!disabled && (

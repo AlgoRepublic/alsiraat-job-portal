@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import TaskCategory from "../models/TaskCategory.js";
 import Group from "../models/Group.js";
+import User from "../models/User.js";
 import { readStoredObjectIdRef } from "./taskCategoryReference.js";
 
 export type CategoryContactPoolGroupRow = {
@@ -34,6 +35,15 @@ export function buildCategoryContactPoolMemberIds(
   return pool;
 }
 
+async function loadOrganisationMemberUserIds(
+  organisationId: string,
+): Promise<string[]> {
+  const users = await User.find({ organisations: organisationId })
+    .select("_id")
+    .lean();
+  return users.map((user) => String(user._id));
+}
+
 export async function resolveCategoryContactPoolMemberIds(
   organisationId: string,
   categoryId: string | null,
@@ -43,11 +53,17 @@ export async function resolveCategoryContactPoolMemberIds(
   const category = await TaskCategory.findById(categoryId)
     .select("contactGroups organisation")
     .lean();
-  if (!category?.contactGroups?.length) return [];
+  if (!category) return [];
   if (category.organisation == null) return [];
   if (String(category.organisation) !== String(organisationId)) return [];
 
-  const orderedGroupIds = category.contactGroups.map((id) => String(id));
+  const orderedGroupIds = (category.contactGroups ?? []).map((id) =>
+    String(id),
+  );
+  if (orderedGroupIds.length === 0) {
+    return loadOrganisationMemberUserIds(organisationId);
+  }
+
   const groups = await Group.find({ _id: { $in: orderedGroupIds } })
     .select("members isActive")
     .lean();
@@ -56,5 +72,9 @@ export async function resolveCategoryContactPoolMemberIds(
     groups.map((g) => [String(g._id), g]),
   );
 
-  return buildCategoryContactPoolMemberIds(orderedGroupIds, groupById);
+  const pool = buildCategoryContactPoolMemberIds(orderedGroupIds, groupById);
+  if (pool.length === 0) {
+    return loadOrganisationMemberUserIds(organisationId);
+  }
+  return pool;
 }
