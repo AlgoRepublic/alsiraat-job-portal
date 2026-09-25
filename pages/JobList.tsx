@@ -42,8 +42,8 @@ import {
   formatOptionalTaskLocation,
 } from "../utils/formatOptionalTaskField";
 import {
-  formatTaskApplicationWindow,
   formatTaskDate,
+  formatTaskDateOrNA,
 } from "../utils/formatTaskDate";
 
 const PAGE_SIZE = 12;
@@ -601,14 +601,13 @@ export const JobList: React.FC = () => {
                   <Clock className="h-3.5 w-3.5 text-primary" />
                   {formatOptionalTaskDuration(job.hoursRequired, "totalHrs")}
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-control border border-border bg-surface-muted px-2.5 py-1">
-                  <Calendar className="h-3.5 w-3.5" />
-                  Applications:{" "}
-                  {formatTaskApplicationWindow(
-                    job.applicationOpenDate,
-                    job.applicationCloseDate,
-                  )}
-                </span>
+                {job.applicationCloseDate ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-control border border-border bg-surface-muted px-2.5 py-1">
+                    <Calendar className="h-3.5 w-3.5" />
+                    Applications close:{" "}
+                    {formatTaskDateOrNA(job.applicationCloseDate)}
+                  </span>
+                ) : null}
                 {job.startDate && (
                   <span className="inline-flex items-center gap-1.5 rounded-control border border-border bg-surface-muted px-2.5 py-1">
                     <Calendar className="h-3.5 w-3.5 text-primary" />

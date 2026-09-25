@@ -15,13 +15,3 @@ export function formatTaskDate(value?: string | null): string | null {
 export function formatTaskDateOrNA(value?: string | null): string {
   return formatTaskDate(value) ?? OPTIONAL_TASK_FIELD_PLACEHOLDER;
 }
-
-export function formatTaskApplicationWindow(
-  open?: string | null,
-  close?: string | null,
-): string {
-  const openLabel = formatTaskDate(open) ?? OPTIONAL_TASK_FIELD_PLACEHOLDER;
-  const closeLabel = formatTaskDate(close) ?? OPTIONAL_TASK_FIELD_PLACEHOLDER;
-  if (!open && !close) return OPTIONAL_TASK_FIELD_PLACEHOLDER;
-  return `${openLabel} - ${closeLabel}`;
-}
